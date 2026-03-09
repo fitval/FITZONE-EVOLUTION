@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Fitzone Evolution — Questionnaire</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #f0ede8;
+  --bg2: #e8e4de;
+  --white: #ffffff;
+  --dark: #1a1916;
+  --dark2: #2c2a26;
+  --gold: #c49a2a;
+  --gold-light: #e8b84a;
+  --gold-pale: rgba(196,154,42,0.10);
+  --gold-border: rgba(196,154,42,0.25);
+  --text: #1a1916;
+  --text2: #6b6456;
+  --text3: #9e9488;
+  --border: rgba(0,0,0,0.08);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+  --radius: 20px;
+  --radius-sm: 12px;
+  --radius-xs: 8px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
+  min-height: 100vh;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== HEADER ===== */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(240,237,232,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 16px 20px 12px;
+  padding-top: max(16px, env(safe-area-inset-top));
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.logo {
+  font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--dark);
+  letter-spacing: -0.3px;
+}
+.logo span { color: var(--gold); }
+
+.step-pill {
+  background: var(--dark);
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.2px;
+}
+
+/* PROGRESS */
+.progress-track {
+  height: 4px;
+  background: rgba(0,0,0,0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--gold-light));
+  border-radius: 2px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.prog-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: color 0.3s;
+}
+.prog-label.active { color: var(--gold); }
+
+/* ===== MAIN ===== */
+.main {
+  padding: 24px 20px 120px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ===== STEPS ===== */
+.step { display: none; }
+.step.active { display: block; animation: stepIn 0.35s cubic-bezier(0.4,0,0.2,1); }
+
+@keyframes stepIn {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== STEP HEADER ===== */
+.step-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+
+.step-title {
+  font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--dark);
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+}
+
+.step-desc {
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.5;
+  margin-bottom: 28px;
+}
+
+/* ===== FORM ===== */
+.form-group { margin-bottom: 18px; }
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 8px;
+}
+
+.form-optional {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text3);
+  margin-left: 4px;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text3);
+  margin-top: -4px;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 13px 16px;
+  font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
+  font-size: 15px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-pale);
+}
+
+.form-input::placeholder, .form-textarea::placeholder { color: var(--text3); }
+.form-input[readonly] { background: var(--bg2); color: var(--text2); }
+.form-select option { background: white; color: var(--text); }
+
+.form-textarea {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.6;
+}
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+/* ===== CHOICE CARDS ===== */
+.choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.choice-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+.choice-card {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: var(--shadow-sm);
+  user-select: none;
+}
+
+.choice-card:active { transform: scale(0.97); }
+.choice-card:hover { border-color: var(--gold-border); }
+.choice-card.selected {
+  background: var(--dark);
+  border-color: var(--dark);
+  box-shadow: var(--shadow-md);
+}
+
+.choice-card input { display: none; }
+.choice-icon { font-size: 20px; flex-shrink: 0; }
+.choice-label { font-size: 13px; font-weight: 600; color: var(--text); transition: color 0.2s; }
+.choice-sub { font-size: 11px; color: var(--text3); margin-top: 2px; transition: color 0.2s; }
+.choice-card.selected .choice-label { color: var(--white); }
+.choice-card.selected .choice-sub { color: rgba(255,255,255,0.5); }
+.choice-card.selected .choice-icon { filter: none; }
+
+/* ===== SCALE ===== */
+.scale-container {
+  background: var(--white);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  border: 1.5px solid var(--border);
+}
+
+.scale-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.scale-label-text { font-size: 11px; color: var(--text3); font-weight: 500; }
+
+.scale-wrap {
+  display: flex;
+  gap: 4px;
+}
+
+.scale-btn {
+  flex: 1;
+  height: 36px;
+  background: var(--bg);
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.scale-btn:active { transform: scale(0.93); }
+.scale-btn.selected {
+  background: var(--dark);
+  color: var(--white);
+  border-color: var(--dark);
+}
+
+/* ===== DAYS ===== */
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.day-btn {
+  aspect-ratio: 1;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.2px;
+  box-shadow: var(--shadow-sm);
+  user-select: none;
+}
+
+.day-btn:active { transform: scale(0.93); }
+.day-btn.selected {
+  background: var(--dark);
+  border-color: var(--dark);
+  color: var(--white);
+  box-shadow: var(--shadow-md);
+}
+
+/* ===== EXCLUSIONS ===== */
+.excl-section { margin-bottom: 20px; }
+
+.excl-section-header {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 8px;
+}
+
+.excl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.excl-chip {
+  padding: 9px 12px;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: var(--shadow-sm);
+  user-select: none;
+}
+
+.excl-chip:active { transform: scale(0.96); }
+.excl-chip.selected {
+  background: #fff0f0;
+  border-color: #e05252;
+  color: #c03030;
+}
+
+.excl-chip[data-auto="true"] { opacity: 0.7; }
+
+/* ===== SECTION DIVIDER ===== */
+.section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 24px 0;
+}
+
+.section-heading {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--dark);
+  margin-bottom: 16px;
+}
+
+/* ===== NAV BOTTOM ===== */
+.nav-bottom {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  padding: 12px 20px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  background: rgba(240,237,232,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  z-index: 100;
+}
+
+.btn-back {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px;
+  font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+}
+
+.btn-back:active { transform: scale(0.97); }
+
+.btn-next {
+  flex: 1;
+  background: var(--dark);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 14px 20px;
+  font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--white);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-md);
+  letter-spacing: 0.1px;
+}
+
+.btn-next:active { transform: scale(0.98); }
+.btn-next:disabled { opacity: 0.4; pointer-events: none; }
+
+/* Gold CTA on last step */
+.btn-next.gold {
+  background: linear-gradient(135deg, #b8882a, var(--gold-light));
+  box-shadow: 0 4px 20px rgba(196,154,42,0.35);
+}
+
+/* ===== BLOCKED / DONE ===== */
+.fullscreen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  background: var(--bg);
+}
+
+.fullscreen-icon { font-size: 72px; margin-bottom: 24px; }
+
+.fullscreen-title {
+  font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--dark);
+  letter-spacing: -0.5px;
+  margin-bottom: 12px;
+}
+
+.fullscreen-desc {
+  font-size: 16px;
+  color: var(--text2);
+  line-height: 1.6;
+  max-width: 280px;
+}
+
+.fullscreen-badge {
+  background: var(--dark);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 20px;
+  margin-top: 24px;
+}
+
+/* ===== RECAP ===== */
+.recap-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1.5px solid var(--border);
+}
+
+.recap-card-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 14px;
+}
+
+.recap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.recap-item {}
+.recap-item-label { font-size: 10px; color: var(--text3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.recap-item-val { font-size: 14px; font-weight: 600; color: var(--dark); }
+.recap-item.full { grid-column: 1/-1; }
+
+/* ===== DARK CARD ===== */
+.dark-card {
+  background: var(--dark);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-lg);
+}
+
+.dark-card-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 6px;
+}
+
+.dark-card-title {
+  font-family: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--white);
+  margin-bottom: 2px;
+}
+
+.dark-card-sub { font-size: 13px; color: rgba(255,255,255,0.5); }
+
+/* ===== INLINE CARD ===== */
+.inline-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  border: 1.5px solid var(--border);
+  margin-bottom: 18px;
+}
+</style>
+</head>
+<body>
+
+<!-- BLOCKED -->
+<div id="blockedState" style="display:none">
+  <div class="fullscreen">
+    <div class="fullscreen-icon">🔒</div>
+    <div class="fullscreen-title">Lien invalide</div>
+    <div class="fullscreen-desc">Ce lien n'est pas valide ou a expiré. Contacte ton coach pour en obtenir un nouveau.</div>
+  </div>
+</div>
+
+<!-- DONE -->
+<div id="doneState" style="display:none">
+  <div class="fullscreen">
+    <div class="fullscreen-icon">✅</div>
+    <div class="fullscreen-title">Questionnaire envoyé !</div>
+    <div class="fullscreen-desc">Ton coach va analyser tes réponses et te contacter très prochainement pour démarrer ton accompagnement.</div>
+    <div class="fullscreen-badge">À très vite 🤝</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appState" style="display:none">
+
+  <div class="header">
+    <div class="header-inner">
+      <div class="logo">Fitzone <span>Evolution</span></div>
+      <div class="step-pill" id="stepPill">1 / 6</div>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:16.6%"></div>
+    </div>
+    <div class="progress-labels" id="progressLabels">
+      <span class="prog-label active">Profil</span>
+      <span class="prog-label">Objectifs</span>
+      <span class="prog-label">Santé</span>
+      <span class="prog-label">Training</span>
+      <span class="prog-label">Nutrition</span>
+      <span class="prog-label">Envoi</span>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- ÉTAPE 1 -->
+    <div class="step active" id="step-1">
+      <div class="step-eyebrow">Étape 1 sur 6</div>
+      <div class="step-title">Qui es-tu ?</div>
+      <div class="step-desc">Quelques informations de base pour personnaliser ton accompagnement.</div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Prénom</label>
+          <input type="text" class="form-input" id="firstName" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nom</label>
+          <input type="text" class="form-input" id="lastName" readonly>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-input" id="email" readonly>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Téléphone</label>
+        <input type="tel" class="form-input" id="phone" placeholder="06 XX XX XX XX">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date de naissance</label>
+          <input type="text" class="form-input" id="birthDate" placeholder="JJ/MM/AAAA">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sexe</label>
+          <select class="form-select" id="sex">
+            <option value="">—</option>
+            <option value="male">Homme</option>
+            <option value="female">Femme</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row-3">
+        <div class="form-group">
+          <label class="form-label">Taille (cm)</label>
+          <input type="number" class="form-input" id="height" placeholder="175">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Poids (kg)</label>
+          <input type="number" class="form-input" id="weight" placeholder="75">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Poids cible<span class="form-optional">optionnel</span></label>
+          <input type="number" class="form-input" id="weightGoal" placeholder="70">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Profession & rythme de vie</label>
+        <div class="form-hint">Sédentaire, actif, travail de nuit, horaires variables…</div>
+        <input type="text" class="form-input" id="profession" placeholder="Ex : Infirmière en 3×8, bureau sédentaire…">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Enfants ou responsabilités impactant ton emploi du temps ?<span class="form-optional">optionnel</span></label>
+        <input type="text" class="form-input" id="children" placeholder="Ex : 2 enfants en bas âge…">
+      </div>
+    </div>
+
+    <!-- ÉTAPE 2 -->
+    <div class="step" id="step-2">
+      <div class="step-eyebrow">Étape 2 sur 6</div>
+      <div class="step-title">Tes objectifs</div>
+      <div class="step-desc">Comprendre où tu veux aller pour construire le bon programme.</div>
+
+      <div class="form-group">
+        <label class="form-label">Objectif principal</label>
+        <div class="choice-grid">
+          <label class="choice-card" onclick="selectChoice(this,'mainGoal','loss')"><input type="radio" name="mainGoal" value="loss"><span class="choice-icon">⬇️</span><div><div class="choice-label">Perte de poids</div><div class="choice-sub">Déficit calorique</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'mainGoal','mass')"><input type="radio" name="mainGoal" value="mass"><span class="choice-icon">💪</span><div><div class="choice-label">Prise de masse</div><div class="choice-sub">Surplus calorique</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'mainGoal','recomp')"><input type="radio" name="mainGoal" value="recomp"><span class="choice-icon">🔄</span><div><div class="choice-label">Recomposition</div><div class="choice-sub">Muscle + sèche</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'mainGoal','maintain')"><input type="radio" name="mainGoal" value="maintain"><span class="choice-icon">⚖️</span><div><div class="choice-label">Maintien</div><div class="choice-sub">Rééquilibrage</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'mainGoal','performance')"><input type="radio" name="mainGoal" value="performance"><span class="choice-icon">🏆</span><div><div class="choice-label">Performance</div><div class="choice-sub">Sport & endurance</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'mainGoal','wellbeing')"><input type="radio" name="mainGoal" value="wellbeing"><span class="choice-icon">🌿</span><div><div class="choice-label">Bien-être</div><div class="choice-sub">Santé globale</div></div></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Échéance ou événement cible<span class="form-optional">optionnel</span></label>
+        <input type="text" class="form-input" id="goalDeadline" placeholder="Ex : Mariage en juin, vacances été…">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Ta motivation sur 10</label>
+        <div class="scale-container">
+          <div class="scale-labels">
+            <span class="scale-label-text">😴 Peu motivé</span>
+            <span class="scale-label-text">🔥 Très motivé</span>
+          </div>
+          <div class="scale-wrap" id="motivationScale">
+            <button type="button" class="scale-btn" onclick="selectScale('motivation',1,this)">1</button>
+            <button type="button" class="scale-btn" onclick="selectScale('motivation',2,this)">2</button>
+            <button type="button" class="scale-btn" onclick="selectScale('motivation',3,this)">3</button>
+            <button type="button" class="scale-btn" onclick="selectScale('motivation',4,this)">4</button>
+            <button type="button" class="scale-btn" onclick="selectScale('motivation',5,this)">5</button>
+            <button type="button" class="scale-btn" onclick="selectScale('motivation',6,this)">6</button>
+            <button type="button" class="scale-btn" onclick="selectScale('motivation',7,this)">7</button>
+            <button type="button" class="scale-btn" onclick="selectScale('motivation',8,this)">8</button>
+            <button type="button" class="scale-btn" onclick="selectScale('motivation',9,this)">9</button>
+            <button type="button" class="scale-btn" onclick="selectScale('motivation',10,this)">10</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Pourquoi ce chiffre ?<span class="form-optional">optionnel</span></label>
+        <textarea class="form-textarea" id="motivationDetail" placeholder="Qu'est-ce qui te bloque ou te motive en ce moment ?"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Pourquoi rejoindre FITZONE ?</label>
+        <div class="form-hint">Ta vraie motivation, pas la version polie. Je veux comprendre.</div>
+        <textarea class="form-textarea" id="whyFitzone" placeholder="Qu'est-ce qui t'a amené à faire cette démarche aujourd'hui ?"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Qu'est-ce qui t'a donné envie de me faire confiance ?<span class="form-optional">optionnel</span></label>
+        <textarea class="form-textarea" id="whyCoach" placeholder="Ma méthode, mes réseaux, une recommandation…"></textarea>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 3 -->
+    <div class="step" id="step-3">
+      <div class="step-eyebrow">Étape 3 sur 6</div>
+      <div class="step-title">Santé & historique</div>
+      <div class="step-desc">Informations confidentielles, indispensables pour un suivi en toute sécurité.</div>
+
+      <div class="form-group">
+        <label class="form-label">Pathologies, douleurs, blessures ou restrictions médicales</label>
+        <div class="form-hint">Type, localisation, depuis quand, diagnostic ou non.</div>
+        <textarea class="form-textarea" id="injuries" placeholder="Ex : Hernie L4-L5 depuis 2022, tendinite épaule droite, aucune…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Traitement médical régulier<span class="form-optional">optionnel</span></label>
+        <input type="text" class="form-input" id="medications" placeholder="Ex : Lévothyrox, contraceptif, aucun…">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">As-tu déjà suivi un programme d'entraînement ?</label>
+        <textarea class="form-textarea" id="previousProgram" placeholder="Lequel, combien de temps, ton ressenti et tes résultats…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">As-tu déjà suivi un régime ou plan nutritionnel ?</label>
+        <textarea class="form-textarea" id="previousDiet" placeholder="Lequel, résultats, ce qui a fonctionné ou non…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Compléments alimentaires actuels<span class="form-optional">optionnel</span></label>
+        <input type="text" class="form-input" id="supplementsCurrent" placeholder="Ex : Whey, créatine, vitamine D, aucun…">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Ouvert(e) à prendre des compléments si recommandé ?</label>
+        <div class="form-hint">Je ne propose que ce qui est utile et adapté à ta situation.</div>
+        <div class="choice-grid">
+          <label class="choice-card" onclick="selectChoice(this,'supplementsOpen','yes')"><input type="radio" name="supplementsOpen" value="yes"><span class="choice-icon">✅</span><div class="choice-label">Oui</div></label>
+          <label class="choice-card" onclick="selectChoice(this,'supplementsOpen','no')"><input type="radio" name="supplementsOpen" value="no"><span class="choice-icon">❌</span><div class="choice-label">Non</div></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 4 -->
+    <div class="step" id="step-4">
+      <div class="step-eyebrow">Étape 4 sur 6</div>
+      <div class="step-title">Entraînement</div>
+      <div class="step-desc">Pour créer un programme adapté à ton environnement et ton niveau.</div>
+
+      <div class="form-group">
+        <label class="form-label">Niveau d'expérience</label>
+        <div class="choice-grid-3">
+          <label class="choice-card" onclick="selectChoice(this,'experienceLevel','beginner')"><input type="radio" name="experienceLevel" value="beginner"><div><div class="choice-label">Débutant</div><div class="choice-sub">< 1 an</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'experienceLevel','intermediate')"><input type="radio" name="experienceLevel" value="intermediate"><div><div class="choice-label">Intermédiaire</div><div class="choice-sub">1–3 ans</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'experienceLevel','advanced')"><input type="radio" name="experienceLevel" value="advanced"><div><div class="choice-label">Avancé</div><div class="choice-sub">> 3 ans</div></div></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Niveau d'activité physique quotidien</label>
+        <div class="choice-grid">
+          <label class="choice-card" onclick="selectChoice(this,'activityLevel','1.2')"><input type="radio" name="activityLevel" value="1.2"><div><div class="choice-label">Sédentaire</div><div class="choice-sub">Bureau, peu de marche</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'activityLevel','1.375')"><input type="radio" name="activityLevel" value="1.375"><div><div class="choice-label">Légèrement actif</div><div class="choice-sub">Marche régulière</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'activityLevel','1.55')"><input type="radio" name="activityLevel" value="1.55"><div><div class="choice-label">Modérément actif</div><div class="choice-sub">Sport 3–4×/sem.</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'activityLevel','1.725')"><input type="radio" name="activityLevel" value="1.725"><div><div class="choice-label">Très actif</div><div class="choice-sub">Sport intensif quotidien</div></div></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Salle de sport<span class="form-optional">optionnel</span></label>
+        <input type="text" class="form-input" id="gymName" placeholder="Ex : Basic-Fit Lyon, salle perso, non…">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Matériel à domicile<span class="form-optional">optionnel</span></label>
+        <input type="text" class="form-input" id="homeEquipment" placeholder="Ex : Haltères 5–20 kg, barre de traction, aucun…">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Jours disponibles pour t'entraîner</label>
+        <div class="form-hint">Sois réaliste — 3 jours sûrs valent mieux que 5 hypothétiques.</div>
+        <div class="days-grid">
+          <div class="day-btn" onclick="toggleDay(this,'Lundi')">Lun</div>
+          <div class="day-btn" onclick="toggleDay(this,'Mardi')">Mar</div>
+          <div class="day-btn" onclick="toggleDay(this,'Mercredi')">Mer</div>
+          <div class="day-btn" onclick="toggleDay(this,'Jeudi')">Jeu</div>
+          <div class="day-btn" onclick="toggleDay(this,'Vendredi')">Ven</div>
+          <div class="day-btn" onclick="toggleDay(this,'Samedi')">Sam</div>
+          <div class="day-btn" onclick="toggleDay(this,'Dimanche')">Dim</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Durée disponible par séance</label>
+        <input type="text" class="form-input" id="sessionDuration" placeholder="Ex : 1h, lundi 1h30 / jeudi 45 min…">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Exercices ou mouvements à éviter<span class="form-optional">optionnel</span></label>
+        <textarea class="form-textarea" id="dislikedExercises" placeholder="Ex : Burpees, squat barre, course à pied, aucun…"></textarea>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 5 -->
+    <div class="step" id="step-5">
+      <div class="step-eyebrow">Étape 5 sur 6</div>
+      <div class="step-title">Nutrition</div>
+      <div class="step-desc">Tes habitudes pour construire un plan que tu vas vraiment suivre.</div>
+
+      <div class="form-group">
+        <label class="form-label">Régime alimentaire</label>
+        <div class="choice-grid">
+          <label class="choice-card" onclick="selectChoice(this,'dietType','omni');applyDietExclusions('omni')"><input type="radio" name="dietType" value="omni"><span class="choice-icon">🍖</span><div><div class="choice-label">Omnivore</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'dietType','vgt');applyDietExclusions('vgt')"><input type="radio" name="dietType" value="vgt"><span class="choice-icon">🥕</span><div><div class="choice-label">Végétarien</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'dietType','vgn');applyDietExclusions('vgn')"><input type="radio" name="dietType" value="vgn"><span class="choice-icon">🌱</span><div><div class="choice-label">Végétalien</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'dietType','pes');applyDietExclusions('pes')"><input type="radio" name="dietType" value="pes"><span class="choice-icon">🐟</span><div><div class="choice-label">Pescétarien</div></div></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Repas par jour</label>
+        <div class="choice-grid-3">
+          <label class="choice-card" onclick="selectChoice(this,'mealsPerDay','2')"><input type="radio" name="mealsPerDay" value="2"><div class="choice-label" style="text-align:center">2</div></label>
+          <label class="choice-card" onclick="selectChoice(this,'mealsPerDay','3')"><input type="radio" name="mealsPerDay" value="3"><div class="choice-label" style="text-align:center">3</div></label>
+          <label class="choice-card" onclick="selectChoice(this,'mealsPerDay','4')"><input type="radio" name="mealsPerDay" value="4"><div class="choice-label" style="text-align:center">4</div></label>
+          <label class="choice-card" onclick="selectChoice(this,'mealsPerDay','5')"><input type="radio" name="mealsPerDay" value="5"><div class="choice-label" style="text-align:center">5</div></label>
+          <label class="choice-card" onclick="selectChoice(this,'mealsPerDay','6')"><input type="radio" name="mealsPerDay" value="6"><div class="choice-label" style="text-align:center">6</div></label>
+          <label class="choice-card" onclick="selectChoice(this,'mealsPerDay','3+snacks')"><input type="radio" name="mealsPerDay" value="3+snacks"><div class="choice-label" style="text-align:center;font-size:11px">3 + collations</div></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Temps de préparation max</label>
+        <div class="choice-grid">
+          <label class="choice-card" onclick="selectChoice(this,'prepTime','15')"><input type="radio" name="prepTime" value="15"><span class="choice-icon">⚡</span><div><div class="choice-label">Rapide</div><div class="choice-sub">< 15 min</div></div></label>
+          <label class="choice-card" onclick="selectChoice(this,'prepTime','60')"><input type="radio" name="prepTime" value="60"><span class="choice-icon">👨‍🍳</span><div><div class="choice-label">Toutes recettes</div><div class="choice-sub">J'aime cuisiner</div></div></label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Habitudes alimentaires actuelles</label>
+        <div class="form-hint">Heures de repas, grignotage, petit-déjeuner, types de repas.</div>
+        <textarea class="form-textarea" id="mealHabits" placeholder="Ex : Pas de petit-déj, déjeuner cantine, dîner tardif 21h, grignotage sucré le soir…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Aliments préférés & aliments détestés</label>
+        <textarea class="form-textarea" id="favoriteFoods" placeholder="Ex : J'adore le poulet, les pâtes, le chocolat. Je ne supporte pas le poisson…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Ton rapport à la nourriture<span class="form-optional">optionnel</span></label>
+        <div class="form-hint">Compulsions, culpabilité, stress, alimentation émotionnelle…</div>
+        <textarea class="form-textarea" id="foodRelationship" placeholder="Sois honnête, c'est confidentiel…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Variations alimentaires dans la semaine<span class="form-optional">optionnel</span></label>
+        <textarea class="form-textarea" id="dietVariations" placeholder="Ex : Déjeuner resto le vendredi, déplacements pro 2×/mois…"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Pas quotidiens moy.<span class="form-optional">opt.</span></label>
+          <input type="number" class="form-input" id="dailySteps" placeholder="7 500">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Heures de sommeil</label>
+          <input type="number" class="form-input" id="sleepHours" placeholder="7.5" step="0.5">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Sommeil réparateur ?</label>
+        <div class="choice-grid">
+          <label class="choice-card" onclick="selectChoice(this,'sleepQuality','yes')"><input type="radio" name="sleepQuality" value="yes"><span class="choice-icon">😴</span><div class="choice-label">Oui, bon sommeil</div></label>
+          <label class="choice-card" onclick="selectChoice(this,'sleepQuality','no')"><input type="radio" name="sleepQuality" value="no"><span class="choice-icon">😵</span><div class="choice-label">Non, fatigué(e)</div></label>
+        </div>
+      </div>
+
+      <div class="section-divider"></div>
+      <div class="section-heading">Exclusions alimentaires</div>
+
+      <div class="excl-section">
+        <div class="excl-section-header">🥩 Viandes & Volailles</div>
+        <div class="excl-grid">
+          <div class="excl-chip" data-excl="Bœuf" onclick="toggleExcl(this)">🐄 Bœuf</div>
+          <div class="excl-chip" data-excl="Porc" onclick="toggleExcl(this)">🐷 Porc</div>
+          <div class="excl-chip" data-excl="Agneau" onclick="toggleExcl(this)">🐑 Agneau</div>
+          <div class="excl-chip" data-excl="Veau" onclick="toggleExcl(this)">🐮 Veau</div>
+          <div class="excl-chip" data-excl="Poulet" onclick="toggleExcl(this)">🍗 Poulet</div>
+          <div class="excl-chip" data-excl="Dinde" onclick="toggleExcl(this)">🦃 Dinde</div>
+          <div class="excl-chip" data-excl="Canard" onclick="toggleExcl(this)">🦆 Canard</div>
+          <div class="excl-chip" data-excl="Charcuterie" onclick="toggleExcl(this)">🥓 Charcuterie</div>
+        </div>
+      </div>
+
+      <div class="excl-section">
+        <div class="excl-section-header">🐟 Poissons & Crustacés</div>
+        <div class="excl-grid">
+          <div class="excl-chip" data-excl="Saumon" onclick="toggleExcl(this)">🐟 Saumon</div>
+          <div class="excl-chip" data-excl="Thon" onclick="toggleExcl(this)">🐠 Thon</div>
+          <div class="excl-chip" data-excl="Cabillaud" onclick="toggleExcl(this)">🐡 Cabillaud</div>
+          <div class="excl-chip" data-excl="Sardines" onclick="toggleExcl(this)">🐟 Sardines</div>
+          <div class="excl-chip" data-excl="Crevettes" onclick="toggleExcl(this)">🦐 Crevettes</div>
+          <div class="excl-chip" data-excl="Fruits de mer" onclick="toggleExcl(this)">🦪 Fruits de mer</div>
+        </div>
+      </div>
+
+      <div class="excl-section">
+        <div class="excl-section-header">🥛 Laitiers & Œufs</div>
+        <div class="excl-grid">
+          <div class="excl-chip" data-excl="Lait de vache" onclick="toggleExcl(this)">🥛 Lait</div>
+          <div class="excl-chip" data-excl="Fromage" onclick="toggleExcl(this)">🧀 Fromage</div>
+          <div class="excl-chip" data-excl="Yaourt" onclick="toggleExcl(this)">🥣 Yaourt</div>
+          <div class="excl-chip" data-excl="Fromage blanc" onclick="toggleExcl(this)">🍦 Fromage blanc</div>
+          <div class="excl-chip" data-excl="Œufs" onclick="toggleExcl(this)">🥚 Œufs</div>
+          <div class="excl-chip" data-excl="Beurre" onclick="toggleExcl(this)">🧈 Beurre</div>
+        </div>
+      </div>
+
+      <div class="excl-section">
+        <div class="excl-section-header">🥦 Fruits & Légumes</div>
+        <div class="excl-grid">
+          <div class="excl-chip" data-excl="Champignons" onclick="toggleExcl(this)">🍄 Champignons</div>
+          <div class="excl-chip" data-excl="Épinards" onclick="toggleExcl(this)">🌿 Épinards</div>
+          <div class="excl-chip" data-excl="Brocoli" onclick="toggleExcl(this)">🥦 Brocoli</div>
+          <div class="excl-chip" data-excl="Courgette" onclick="toggleExcl(this)">🥒 Courgette</div>
+          <div class="excl-chip" data-excl="Aubergine" onclick="toggleExcl(this)">🍆 Aubergine</div>
+          <div class="excl-chip" data-excl="Poivron" onclick="toggleExcl(this)">🫑 Poivron</div>
+          <div class="excl-chip" data-excl="Avocat" onclick="toggleExcl(this)">🥑 Avocat</div>
+          <div class="excl-chip" data-excl="Banane" onclick="toggleExcl(this)">🍌 Banane</div>
+        </div>
+      </div>
+
+      <div class="excl-section">
+        <div class="excl-section-header">🌾 Autres</div>
+        <div class="excl-grid">
+          <div class="excl-chip" data-excl="Gluten" onclick="toggleExcl(this)">🌾 Gluten</div>
+          <div class="excl-chip" data-excl="Légumineuses" onclick="toggleExcl(this)">🫘 Légumineuses</div>
+          <div class="excl-chip" data-excl="Noix & oléagineux" onclick="toggleExcl(this)">🥜 Oléagineux</div>
+          <div class="excl-chip" data-excl="Soja" onclick="toggleExcl(this)">🌿 Soja</div>
+          <div class="excl-chip" data-excl="Sucre raffiné" onclick="toggleExcl(this)">🍬 Sucre raffiné</div>
+          <div class="excl-chip" data-excl="Alcool" onclick="toggleExcl(this)">🍺 Alcool</div>
+        </div>
+      </div>
+
+      <div class="excl-section">
+        <div class="excl-section-header">🍳 Ustensiles</div>
+        <div class="excl-grid">
+          <div class="excl-chip" data-excl="Four" onclick="toggleExcl(this)">🔥 Four</div>
+          <div class="excl-chip" data-excl="Vapeur" onclick="toggleExcl(this)">♨️ Vapeur</div>
+          <div class="excl-chip" data-excl="Mixeur/blender" onclick="toggleExcl(this)">🫙 Mixeur</div>
+          <div class="excl-chip" data-excl="Gaufrier" onclick="toggleExcl(this)">🧇 Gaufrier</div>
+          <div class="excl-chip" data-excl="Moule à muffins" onclick="toggleExcl(this)">🧁 Moule muffins</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 6 -->
+    <div class="step" id="step-6">
+      <div class="step-eyebrow">Étape 6 sur 6</div>
+      <div class="step-title">Dernière ligne droite</div>
+      <div class="step-desc">Une dernière question, puis on vérifie tout ensemble avant d'envoyer.</div>
+
+      <div class="form-group">
+        <label class="form-label">Autre chose à partager ?<span class="form-optional">optionnel</span></label>
+        <div class="form-hint">Contexte perso, stress, événements à venir, tout ce qui peut m'aider à adapter ton accompagnement.</div>
+        <textarea class="form-textarea" id="extraInfo" placeholder="Tout ce que tu n'as pas pu dire dans les étapes précédentes…"></textarea>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <div class="section-heading">Récapitulatif</div>
+
+      <div class="recap-card">
+        <div class="recap-card-title">Profil</div>
+        <div class="recap-grid" id="recapProfil"></div>
+      </div>
+
+      <div class="recap-card">
+        <div class="recap-card-title">Objectif</div>
+        <div class="recap-grid" id="recapObjectif"></div>
+      </div>
+
+      <div class="recap-card">
+        <div class="recap-card-title">Entraînement</div>
+        <div class="recap-grid" id="recapTraining"></div>
+      </div>
+
+      <div class="recap-card">
+        <div class="recap-card-title">Nutrition</div>
+        <div class="recap-grid" id="recapNutrition"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- NAV -->
+  <div class="nav-bottom">
+    <button class="btn-back" id="btnBack" onclick="prevStep()" style="display:none">←</button>
+    <button class="btn-next" id="btnNext" onclick="nextStep()">Continuer →</button>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://wsrykmutyhjxdnhnyexl.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const TOTAL_STEPS = 6;
+let currentStep = 1;
+let clientData = null;
+let selectedValues = {};
+let selectedDays = [];
+let selectedExclusions = [];
+
+window.addEventListener('DOMContentLoaded', async () => {
+  const token = new URLSearchParams(window.location.search).get('token');
+  if (!token) { showState('blocked'); return; }
+
+  const { data: clients } = await db.from('clients').select('*').eq('token', token).limit(1);
+  if (!clients || !clients.length) { showState('blocked'); return; }
+
+  clientData = clients[0];
+  if (clientData.status === 'questionnaire_done' || clientData.status === 'active') { showState('done'); return; }
+
+  document.getElementById('firstName').value = clientData.first_name || '';
+  document.getElementById('lastName').value = clientData.last_name || '';
+  document.getElementById('email').value = clientData.email || '';
+
+  showState('app');
+  updateProgress();
+});
+
+function showState(s) {
+  document.getElementById('blockedState').style.display = s === 'blocked' ? 'flex' : 'none';
+  document.getElementById('doneState').style.display = s === 'done' ? 'flex' : 'none';
+  document.getElementById('appState').style.display = s === 'app' ? 'block' : 'none';
+}
+
+function updateProgress() {
+  const pct = (currentStep / TOTAL_STEPS) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('stepPill').textContent = currentStep + ' / ' + TOTAL_STEPS;
+
+  const labels = document.querySelectorAll('.prog-label');
+  labels.forEach((l, i) => l.classList.toggle('active', i === currentStep - 1));
+
+  document.getElementById('btnBack').style.display = currentStep > 1 ? 'block' : 'none';
+  const btnNext = document.getElementById('btnNext');
+  if (currentStep === TOTAL_STEPS) {
+    btnNext.textContent = '✅ Envoyer mon questionnaire';
+    btnNext.classList.add('gold');
+  } else {
+    btnNext.textContent = 'Continuer →';
+    btnNext.classList.remove('gold');
+  }
+}
+
+async function nextStep() {
+  if (!validateStep()) return;
+  if (currentStep === TOTAL_STEPS) { await submitForm(); return; }
+
+  document.getElementById('step-' + currentStep).classList.remove('active');
+  currentStep++;
+  document.getElementById('step-' + currentStep).classList.add('active');
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (currentStep === TOTAL_STEPS) buildRecap();
+}
+
+function prevStep() {
+  document.getElementById('step-' + currentStep).classList.remove('active');
+  currentStep--;
+  document.getElementById('step-' + currentStep).classList.add('active');
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function validateStep() {
+  if (currentStep === 1) {
+    if (!document.getElementById('birthDate').value || !document.getElementById('sex').value ||
+        !document.getElementById('height').value || !document.getElementById('weight').value) {
+      alert('Merci de remplir : date de naissance, sexe, taille et poids.'); return false;
+    }
+  }
+  if (currentStep === 2) {
+    if (!selectedValues['mainGoal']) { alert('Sélectionne ton objectif principal.'); return false; }
+    if (!selectedValues['motivation']) { alert('Indique ta motivation sur 10.'); return false; }
+    if (!document.getElementById('whyFitzone').value.trim()) { alert('Explique pourquoi tu rejoins Fitzone.'); return false; }
+  }
+  if (currentStep === 4) {
+    if (!selectedValues['experienceLevel']) { alert('Sélectionne ton niveau.'); return false; }
+    if (!selectedValues['activityLevel']) { alert('Sélectionne ton niveau d\'activité.'); return false; }
+    if (!selectedDays.length) { alert('Sélectionne au moins un jour d\'entraînement.'); return false; }
+    if (!document.getElementById('sessionDuration').value.trim()) { alert('Indique ta durée de séance.'); return false; }
+  }
+  if (currentStep === 5) {
+    if (!selectedValues['dietType']) { alert('Sélectionne ton régime alimentaire.'); return false; }
+    if (!selectedValues['mealsPerDay']) { alert('Sélectionne ton nombre de repas.'); return false; }
+    if (!selectedValues['prepTime']) { alert('Sélectionne ton temps de préparation.'); return false; }
+    if (!document.getElementById('mealHabits').value.trim()) { alert('Décris tes habitudes alimentaires.'); return false; }
+    if (!document.getElementById('favoriteFoods').value.trim()) { alert('Indique tes aliments préférés et détestés.'); return false; }
+  }
+  return true;
+}
+
+async function submitForm() {
+  const btn = document.getElementById('btnNext');
+  btn.disabled = true;
+  btn.textContent = '⏳ Envoi en cours…';
+
+  const bd = document.getElementById('birthDate').value;
+  let age = null;
+  if (bd && bd.includes('/')) {
+    const [d, m, y] = bd.split('/').map(Number);
+    const today = new Date();
+    age = today.getFullYear() - y;
+    if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
+  }
+
+  const payload = {
+    client_id: clientData.id,
+    sex: document.getElementById('sex').value,
+    age,
+    height_cm: parseFloat(document.getElementById('height').value),
+    weight_kg: parseFloat(document.getElementById('weight').value),
+    weight_goal: parseFloat(document.getElementById('weightGoal').value) || null,
+    phone: document.getElementById('phone').value || null,
+    profession: document.getElementById('profession').value || null,
+    has_children: !!document.getElementById('children').value,
+    goal: selectedValues['mainGoal'],
+    main_goal_detail: selectedValues['mainGoal'],
+    goal_deadline: document.getElementById('goalDeadline').value || null,
+    motivation_score: selectedValues['motivation'] ? parseInt(selectedValues['motivation']) : null,
+    why_fitzone: document.getElementById('whyFitzone').value || null,
+    why_coach: document.getElementById('whyCoach').value || null,
+    injuries: document.getElementById('injuries').value || null,
+    medications: document.getElementById('medications').value || null,
+    previous_program: document.getElementById('previousProgram').value || null,
+    previous_diet: document.getElementById('previousDiet').value || null,
+    supplements_current: document.getElementById('supplementsCurrent').value || null,
+    supplements_open: selectedValues['supplementsOpen'] === 'yes',
+    experience_level: selectedValues['experienceLevel'],
+    activity_level: selectedValues['activityLevel'],
+    gym_name: document.getElementById('gymName').value || null,
+    home_equipment: document.getElementById('homeEquipment').value || null,
+    training_days: selectedDays,
+    session_duration: document.getElementById('sessionDuration').value || null,
+    disliked_exercises: document.getElementById('dislikedExercises').value || null,
+    diet_type: selectedValues['dietType'],
+    meals_per_day: selectedValues['mealsPerDay'],
+    prep_time_max: parseInt(selectedValues['prepTime']),
+    meal_habits: document.getElementById('mealHabits').value || null,
+    favorite_foods: document.getElementById('favoriteFoods').value || null,
+    food_relationship: document.getElementById('foodRelationship').value || null,
+    diet_variations: document.getElementById('dietVariations').value || null,
+    daily_steps: parseInt(document.getElementById('dailySteps').value) || null,
+    sleep_hours: parseFloat(document.getElementById('sleepHours').value) || null,
+    sleep_quality: selectedValues['sleepQuality'] === 'yes',
+    allergies: selectedExclusions,
+    extra_info: document.getElementById('extraInfo').value || null,
+    submitted_at: new Date().toISOString(),
+  };
+
+  const { error } = await db.from('questionnaires').insert([payload]);
+  if (error) { btn.disabled = false; btn.textContent = '✅ Envoyer mon questionnaire'; alert('Erreur : ' + error.message); return; }
+  await db.from('clients').update({ status: 'questionnaire_done' }).eq('id', clientData.id);
+  showState('done');
+}
+
+function selectChoice(el, name, value) {
+  document.querySelectorAll(`[onclick*="'${name}'"]`).forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedValues[name] = value;
+}
+
+function selectScale(name, value, btn) {
+  document.querySelectorAll('#motivationScale .scale-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedValues[name] = value;
+}
+
+function toggleDay(el, day) {
+  el.classList.toggle('selected');
+  if (el.classList.contains('selected')) { if (!selectedDays.includes(day)) selectedDays.push(day); }
+  else selectedDays = selectedDays.filter(d => d !== day);
+}
+
+function toggleExcl(el) {
+  el.dataset.auto = 'false';
+  el.classList.toggle('selected');
+  const val = el.dataset.excl;
+  if (el.classList.contains('selected')) { if (!selectedExclusions.includes(val)) selectedExclusions.push(val); }
+  else selectedExclusions = selectedExclusions.filter(e => e !== val);
+}
+
+const dietExclusions = {
+  vgt: ['Bœuf','Porc','Agneau','Veau','Poulet','Dinde','Canard','Charcuterie','Saumon','Thon','Cabillaud','Sardines','Crevettes','Fruits de mer'],
+  vgn: ['Bœuf','Porc','Agneau','Veau','Poulet','Dinde','Canard','Charcuterie','Saumon','Thon','Cabillaud','Sardines','Crevettes','Fruits de mer','Lait de vache','Fromage','Yaourt','Fromage blanc','Œufs','Beurre'],
+  pes: ['Bœuf','Porc','Agneau','Veau','Poulet','Dinde','Canard','Charcuterie'],
+  omni: []
+};
+
+function applyDietExclusions(diet) {
+  document.querySelectorAll('.excl-chip[data-auto="true"]').forEach(el => {
+    el.dataset.auto = 'false';
+    el.classList.remove('selected');
+    selectedExclusions = selectedExclusions.filter(e => e !== el.dataset.excl);
+  });
+  (dietExclusions[diet] || []).forEach(excl => {
+    const el = document.querySelector(`.excl-chip[data-excl="${excl}"]`);
+    if (el && !el.classList.contains('selected')) {
+      el.dataset.auto = 'true';
+      el.classList.add('selected');
+      if (!selectedExclusions.includes(excl)) selectedExclusions.push(excl);
+    }
+  });
+}
+
+function ri(label, val) {
+  return `<div class="recap-item"><div class="recap-item-label">${label}</div><div class="recap-item-val">${val || '—'}</div></div>`;
+}
+function riFull(label, val) {
+  return `<div class="recap-item full"><div class="recap-item-label">${label}</div><div class="recap-item-val">${val || '—'}</div></div>`;
+}
+
+function buildRecap() {
+  const goalMap = { loss:'Perte de poids', mass:'Prise de masse', recomp:'Recomposition', maintain:'Maintien', performance:'Performance', wellbeing:'Bien-être' };
+  const actMap = { '1.2':'Sédentaire', '1.375':'Légèrement actif', '1.55':'Modérément actif', '1.725':'Très actif' };
+  const dietMap = { omni:'Omnivore', vgt:'Végétarien', vgn:'Végétalien', pes:'Pescétarien' };
+
+  document.getElementById('recapProfil').innerHTML =
+    ri('Taille / Poids', document.getElementById('height').value + ' cm · ' + document.getElementById('weight').value + ' kg') +
+    ri('Sexe', document.getElementById('sex').value === 'male' ? 'Homme' : 'Femme') +
+    riFull('Profession', document.getElementById('profession').value);
+
+  document.getElementById('recapObjectif').innerHTML =
+    ri('Objectif', goalMap[selectedValues['mainGoal']]) +
+    ri('Motivation', (selectedValues['motivation'] || '—') + ' / 10');
+
+  document.getElementById('recapTraining').innerHTML =
+    ri('Niveau', selectedValues['experienceLevel']) +
+    ri('Activité', actMap[selectedValues['activityLevel']]) +
+    riFull('Jours', selectedDays.join(', '));
+
+  document.getElementById('recapNutrition').innerHTML =
+    ri('Régime', dietMap[selectedValues['dietType']]) +
+    ri('Repas/jour', selectedValues['mealsPerDay']) +
+    riFull('Exclusions (' + selectedExclusions.length + ')', selectedExclusions.join(', ') || 'Aucune');
+}
+</script>
+</body>
+</html>
