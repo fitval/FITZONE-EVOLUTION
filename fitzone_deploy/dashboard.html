@@ -386,8 +386,9 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   </nav>
   <div class="sb-bot">
     <div class="ctile" onclick="showPage('settings',document.getElementById('nav-st'))">
-      <div class="cav" id="sbAv">V</div>
-      <div><div class="cnm" id="sbNm">Valentin B.</div><div class="crl">Administrateur</div></div>
+      <div class="cav" id="sbAv">?</div>
+      <div style="flex:1"><div class="cnm" id="sbNm">Coach</div><div class="crl">Administrateur</div></div>
+      <div onclick="event.stopPropagation();doLogout()" style="cursor:pointer;padding:4px 8px;font-size:11px;color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.1);border-radius:6px;transition:all .15s" onmouseover="this.style.color='#c03030';this.style.borderColor='#c03030'" onmouseout="this.style.color='rgba(255,255,255,.3)';this.style.borderColor='rgba(255,255,255,.1)'">Sortir</div>
     </div>
   </div>
 </aside>
@@ -858,6 +859,10 @@ const QBASE=window.location.origin+'/questionnaire.html';
 const{createClient}=supabase;
 const db=createClient(SUPA,KEY);
 
+/* AUTH STATE */
+let currentUser=null;
+let currentCoach=null;
+
 /* STATE */
 let allClients=[],clFilter='all',curClient=null,curQ=null,newClientTags=[];
 let exos=lsGet('fz_exos',[]);
@@ -881,8 +886,37 @@ function lsGet(k,def){try{return JSON.parse(localStorage.getItem(k))||def;}catch
 function lsSave(k,v){localStorage.setItem(k,JSON.stringify(v));}
 const txt=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
 
+/* ===== AUTH CHECK ===== */
+async function checkAuth(){
+  const{data:{session}}=await db.auth.getSession();
+  if(!session){window.location.href='login.html';return false;}
+  currentUser=session.user;
+  // Load or create coach profile
+  const{data:coaches}=await db.from('coaches').select('*').eq('user_id',currentUser.id).limit(1);
+  if(coaches&&coaches.length>0){
+    currentCoach=coaches[0];
+  }else{
+    const meta=currentUser.user_metadata||{};
+    const{data:newCoach}=await db.from('coaches').insert([{user_id:currentUser.id,first_name:meta.first_name||'',last_name:meta.last_name||'',email:currentUser.email}]).select();
+    currentCoach=newCoach?.[0]||null;
+  }
+  // Update sidebar with coach info
+  const nm=(currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'');
+  const ini=((currentCoach?.first_name||'?')[0]+(currentCoach?.last_name||'?')[0]).toUpperCase();
+  const sbNm=document.getElementById('sbNm');if(sbNm)sbNm.textContent=nm.trim()||'Coach';
+  const sbAv=document.getElementById('sbAv');if(sbAv)sbAv.textContent=ini;
+  return true;
+}
+
+async function doLogout(){
+  await db.auth.signOut();
+  window.location.href='login.html';
+}
+
 /* ===== INIT ===== */
 window.addEventListener('DOMContentLoaded',async()=>{
+  const ok=await checkAuth();
+  if(!ok)return;
   document.getElementById('sQUrl').textContent=QBASE;
   await loadClients();
   renderExoPage();renderProgList();renderSeanceList();renderAlims();renderRepasList();renderMods();renderTeam();
@@ -927,7 +961,9 @@ function goBack(){
 
 /* ===== CLIENTS SUPABASE ===== */
 async function loadClients(){
-  const{data}=await db.from('clients').select('*').order('created_at',{ascending:false});
+  let q=db.from('clients').select('*').order('created_at',{ascending:false});
+  if(currentCoach)q=q.eq('coach_id',currentCoach.id);
+  const{data}=await q;
   allClients=data||[];renderStats();renderClients(allClients);
 }
 function renderStats(){
@@ -969,7 +1005,7 @@ async function doCreateClient(){
   const colors=['#c49a2a','#2a8c5c','#2a5c8c','#8c2a5c','#5c2a8c'];
   const col=colors[Math.floor(Math.random()*colors.length)];
   const tok=crypto.randomUUID();
-  const{data,error}=await db.from('clients').insert([{first_name:f,last_name:l,email:e,phone:document.getElementById('nfPhone').value.trim(),token:tok,status:'questionnaire_pending',tags:newClientTags,avatar_color:col}]).select();
+  const{data,error}=await db.from('clients').insert([{first_name:f,last_name:l,email:e,phone:document.getElementById('nfPhone').value.trim(),token:tok,status:'questionnaire_pending',tags:newClientTags,avatar_color:col,coach_id:currentCoach?.id||null}]).select();
   btn.disabled=false;btn.textContent='Créer →';
   if(error){toast('Erreur: '+error.message);return;}
   const link=QBASE+'?token='+tok;
