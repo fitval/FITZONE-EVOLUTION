@@ -251,6 +251,18 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .exo-block-hdr{padding:9px 12px;display:flex;align-items:center;gap:9px;background:var(--bg);border-bottom:1px solid var(--border)}
 .exo-letter{width:22px;height:22px;border-radius:6px;background:var(--dark);color:white;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .exo-block-fields{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:10px 12px}
+.sets-rows{padding:0 12px 10px}
+.set-row{display:grid;grid-template-columns:32px repeat(4,1fr);gap:6px;align-items:center;margin-bottom:5px}
+.set-row:first-child{margin-top:2px}
+.set-num{width:24px;height:24px;border-radius:6px;background:var(--dark);color:white;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sets-hdr{display:grid;grid-template-columns:32px repeat(4,1fr);gap:6px;padding:0 12px;margin-bottom:4px}
+.sets-hdr span{font-size:8px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);text-align:center}
+.nb-sets-wrap{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--border)}
+.nb-sets-wrap label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)}
+.nb-sets-in{width:50px;background:var(--bg);border:1.5px solid var(--border2);border-radius:7px;padding:4px 6px;font-family:var(--font);font-size:13px;font-weight:700;text-align:center;outline:none}
+.nb-sets-in:focus{border-color:var(--gold);background:var(--white)}
+.set-row-btn{background:none;border:1px dashed var(--border2);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--font)}
+.set-row-btn:hover{border-color:var(--gold);color:var(--gold)}
 .ef-wrap{display:flex;flex-direction:column;gap:3px}
 .ef-lbl{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3)}
 .ef-in{background:var(--bg);border:1.5px solid var(--border2);border-radius:7px;padding:5px 7px;font-family:var(--font);font-size:13px;font-weight:600;outline:none;width:100%;text-align:center}
@@ -509,21 +521,52 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
           </div>
           <!-- Tab Aliments -->
           <div id="pfSideAlim">
-            <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Sélectionne un repas, puis cherche un aliment.</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="font-size:11px;color:var(--text3)">Sélectionne un repas, puis cherche un aliment.</div>
+              <button class="btn btn-ghost btn-xs" onclick="pfCreateAlimInline()" style="white-space:nowrap;flex-shrink:0">+ Créer</button>
+            </div>
             <div class="ss-wrap" style="margin-bottom:9px">
               <span class="ss-ico">🔍</span>
               <input class="ss-input" id="pfAlimIn" placeholder="2-3 lettres…" oninput="pfSearchAlim(this.value)" autocomplete="off">
               <div class="ss-drop" id="pfAlimDrop"></div>
+            </div>
+            <div id="pfInlineAlimForm" style="display:none;background:var(--white);border:1.5px solid var(--gold-border);border-radius:10px;padding:10px;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px">Nouvel aliment rapide</div>
+              <input class="fi" id="pfAlNom" placeholder="Nom *" style="font-size:12px;padding:6px 8px;margin-bottom:5px">
+              <select class="fs" id="pfAlCat" style="font-size:11px;padding:5px 7px;margin-bottom:5px"><option>Viandes</option><option>Poissons</option><option>Œufs &amp; laitiers</option><option>Légumineuses</option><option>Céréales</option><option>Légumes</option><option>Fruits</option><option>Oléagineux</option><option>Autres</option></select>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:5px">
+                <input class="fi" type="number" id="pfAlKcal" placeholder="Kcal/100g" style="font-size:11px;padding:5px 7px">
+                <input class="fi" type="number" id="pfAlProt" placeholder="Prot (g)" style="font-size:11px;padding:5px 7px">
+                <input class="fi" type="number" id="pfAlCarb" placeholder="Gluc (g)" style="font-size:11px;padding:5px 7px">
+                <input class="fi" type="number" id="pfAlFat" placeholder="Lip (g)" style="font-size:11px;padding:5px 7px">
+              </div>
+              <div style="display:flex;gap:5px">
+                <button class="btn btn-dark btn-xs" onclick="pfSaveInlineAlim()">Enregistrer</button>
+                <button class="btn btn-ghost btn-xs" onclick="document.getElementById('pfInlineAlimForm').style.display='none'">Annuler</button>
+              </div>
             </div>
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px">Récemment utilisés</div>
             <div id="pfRecentAlims"></div>
           </div>
           <!-- Tab Repas complets -->
           <div id="pfSideRepas" style="display:none">
-            <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Ajoute un repas complet comme nouveau repas du jour.</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="font-size:11px;color:var(--text3)">Ajoute un repas complet comme nouveau repas du jour.</div>
+              <button class="btn btn-ghost btn-xs" onclick="pfCreateRepasInline()" style="white-space:nowrap;flex-shrink:0">+ Créer</button>
+            </div>
             <div class="ss-wrap" style="margin-bottom:9px">
               <span class="ss-ico">🔍</span>
               <input class="ss-input" id="pfRepasIn" placeholder="Chercher un repas…" oninput="pfSearchRepas(this.value)" autocomplete="off">
+            </div>
+            <div id="pfInlineRepasForm" style="display:none;background:var(--white);border:1.5px solid var(--gold-border);border-radius:10px;padding:10px;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px">Nouveau repas rapide</div>
+              <input class="fi" id="pfRpNom" placeholder="Nom du repas *" style="font-size:12px;padding:6px 8px;margin-bottom:5px">
+              <select class="fs" id="pfRpType" style="font-size:11px;padding:5px 7px;margin-bottom:5px"><option>Petit-déjeuner</option><option>Déjeuner</option><option>Dîner</option><option>Collation</option><option>Pré-training</option><option>Post-training</option></select>
+              <textarea class="fta" id="pfRpInstr" placeholder="Instructions (optionnel)" style="font-size:11px;min-height:40px;margin-bottom:5px"></textarea>
+              <div style="display:flex;gap:5px">
+                <button class="btn btn-dark btn-xs" onclick="pfSaveInlineRepas()">Créer &amp; ajouter au jour</button>
+                <button class="btn btn-ghost btn-xs" onclick="document.getElementById('pfInlineRepasForm').style.display='none'">Annuler</button>
+              </div>
             </div>
             <div id="pfRepasList"></div>
           </div>
@@ -1326,7 +1369,7 @@ function pfAddMeal(){
 function pfSearchAlim(q){
   const d=document.getElementById('pfAlimDrop');if(!q||q.length<2){d.classList.remove('open');return;}
   const res=alims.filter(a=>a.nom.toLowerCase().includes(q.toLowerCase())).slice(0,10);
-  d.innerHTML=res.length?res.map(a=>`<div class="ss-item" onclick='pfAddFood(${JSON.stringify(a)})'><div><div>${a.nom}</div><div class="ss-item-sub">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div></div>`).join(''):`<div class="ss-item" style="color:var(--text3)">Aucun résultat — ajoute l'aliment dans la BDD d'abord</div>`;
+  d.innerHTML=res.length?res.map(a=>`<div class="ss-item" onclick='pfAddFood(${JSON.stringify(a)})'><div><div>${a.nom}</div><div class="ss-item-sub">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div></div>`).join(''):`<div class="ss-item" style="color:var(--text3);cursor:pointer" onclick="pfCreateAlimInline();document.getElementById('pfAlNom').value='${q.replace(/'/g,"\\'")}';document.getElementById('pfAlimDrop').classList.remove('open')">Aucun résultat — <strong style="color:var(--gold)">Créer « ${q} »</strong></div>`;
   d.classList.add('open');
 }
 function pfAddFood(a){
@@ -1356,7 +1399,7 @@ function pfSearchRepas(q){
 function pfRenderRepasList(q){
   const el=document.getElementById('pfRepasList');if(!el)return;
   const list=q?repas.filter(r=>r.nom.toLowerCase().includes(q.toLowerCase())):repas;
-  if(!list.length){el.innerHTML=`<div style="font-size:12px;color:var(--text3);padding:8px 0">Aucun repas — crée-en dans Nutrition → Repas</div>`;return;}
+  if(!list.length){el.innerHTML=`<div style="font-size:12px;color:var(--text3);padding:8px 0">Aucun repas trouvé — <span style="color:var(--gold);cursor:pointer;font-weight:700" onclick="pfCreateRepasInline()">Créer un nouveau repas</span></div>`;return;}
   el.innerHTML=list.map(r=>`<div class="lib-item" onclick="pfAddRepasComplet(${r.id})">
     <div style="width:34px;height:30px;border-radius:7px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🍽️</div>
     <div style="flex:1"><div class="lib-nm">${r.nom}</div><div class="lib-meta">${r.type} · ${r.kcal||0} kcal · P:${r.prot||0}g G:${r.carb||0}g L:${r.fat||0}g · ${(r.items||[]).length} aliments</div></div>
@@ -1375,6 +1418,38 @@ function pfRenderRecent(){
   const el=document.getElementById('pfRecentAlims');if(!el)return;
   const rec=lsGet('pfRecent',[]);
   el.innerHTML=rec.length?rec.map(a=>`<div class="lib-item" onclick='pfAddFood(${JSON.stringify(a)})'><div class="lib-thumb" style="background:var(--gold-pale);font-size:14px">🥗</div><div><div class="lib-nm">${a.nom}</div><div class="lib-meta">${a.kcal} kcal · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div></div>`).join(''):`<div style="font-size:12px;color:var(--text3)">Aucun aliment récent</div>`;
+}
+function pfCreateAlimInline(){
+  document.getElementById('pfInlineAlimForm').style.display='block';
+  ['pfAlNom','pfAlKcal','pfAlProt','pfAlCarb','pfAlFat'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('pfAlNom').focus();
+}
+function pfSaveInlineAlim(){
+  const nom=document.getElementById('pfAlNom').value.trim();if(!nom){toast('Nom requis');return;}
+  const a={nom,cat:document.getElementById('pfAlCat').value,kcal:parseFloat(document.getElementById('pfAlKcal').value)||0,prot:parseFloat(document.getElementById('pfAlProt').value)||0,carb:parseFloat(document.getElementById('pfAlCarb').value)||0,fat:parseFloat(document.getElementById('pfAlFat').value)||0};
+  alims.push({...a,id:Date.now()});lsSave('fz_alims',alims);
+  document.getElementById('pfInlineAlimForm').style.display='none';
+  toast(nom+' ajouté à la BDD ✓');
+  // Auto-ajouter au repas sélectionné si un repas est sélectionné
+  if(pfMealIdx!==null&&pfMealIdx!==undefined)pfAddFood(a);
+}
+function pfCreateRepasInline(){
+  document.getElementById('pfInlineRepasForm').style.display='block';
+  ['pfRpNom','pfRpInstr'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('pfRpNom').focus();
+}
+function pfSaveInlineRepas(){
+  const nom=document.getElementById('pfRpNom').value.trim();if(!nom){toast('Nom requis');return;}
+  const r={nom,type:document.getElementById('pfRpType').value,instr:document.getElementById('pfRpInstr').value,items:[],kcal:0,prot:0,carb:0,fat:0};
+  repas.push({...r,id:Date.now()});lsSave('fz_repas',repas);
+  document.getElementById('pfInlineRepasForm').style.display='none';
+  // Auto-ajouter comme repas du jour
+  if(pfDays[pfDayIdx]){
+    pfDays[pfDayIdx].repas.push({nom:r.nom,alims:[]});
+    pfMealIdx=pfDays[pfDayIdx].repas.length-1;
+    pfRenderMeals();pfRenderTotals();
+  }
+  pfRenderRepasList();toast(nom+' créé et ajouté ✓');
 }
 function savePlanFull(){
   const nom=document.getElementById('pfNom')?.value.trim();if(!nom){toast('Nom du plan requis');return;}
@@ -1497,7 +1572,7 @@ function progRenderDays(){
   const c=document.getElementById('progDaysTabs');if(!c)return;
   c.innerHTML=progDays.map((d,i)=>{
     const tots=['warmup','workout','cooldown'].reduce((acc,sec)=>{
-      (d[sec]||[]).forEach(e=>{const exos=e.superset?(e.exercises||[]):[e];exos.forEach(ex=>acc+=parseInt(ex.sets)||0);});return acc;},0);
+      (d[sec]||[]).forEach(e=>{const exos=e.superset?(e.exercises||[]):[e];exos.forEach(ex=>acc+=(ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0)));});return acc;},0);
     return`<div class="prog-day-tab${i===progDayIdx?' active':''}" onclick="progSelDay(${i})">${d.nom}${tots?`<span style="font-size:9px;color:var(--text3);margin-left:4px">${tots}s</span>`:''}</div>`;
   }).join('')+`<div class="add-day-btn" onclick="progAddDay()" title="Ajouter un jour">+</div>`;
   progRenderDay();
@@ -1512,7 +1587,7 @@ function progRenderDay(){
   const volMap={};
   ['warmup','workout','cooldown'].forEach(sec=>(d[sec]||[]).forEach(e=>{
     const g=e.superset?e.exercises||[e]:[e];
-    g.forEach(ex=>{const m=ex.muscle||'Autre';const s=parseInt(ex.sets)||0;volMap[m]=(volMap[m]||0)+s;});
+    g.forEach(ex=>{const m=ex.muscle||'Autre';const s=ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0);volMap[m]=(volMap[m]||0)+s;});
   }));
   const volHtml=Object.keys(volMap).length?Object.entries(volMap).map(([m,s])=>
     `<span style="padding:2px 9px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:20px;font-size:10px;font-weight:700;color:#8a6010">${m}: ${s} séries</span>`
@@ -1529,28 +1604,47 @@ function progRenderDay(){
             <button onclick="progDelExo('${key}',${i})" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:13px">🗑</button>
           </div>
         </div>
-        ${(e.exercises||[]).map((ex,si)=>`
-          <div style="padding:9px 12px;border-bottom:1px solid var(--border)">
+        ${(e.exercises||[]).map((ex,si)=>{
+          if(!ex.setsData&&(ex.sets||ex.reps)){const n=parseInt(ex.sets)||1;ex.setsData=Array.from({length:n},()=>({reps:ex.reps||'',rest:ex.rest||'',rir:ex.rir||'',tempo:ex.tempo||''}));}
+          if(!ex.setsData)ex.setsData=[{reps:'8-12',rest:'60s',rir:'',tempo:''}];
+          return`<div style="padding:9px 12px;border-bottom:1px solid var(--border)">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
               <div class="exo-letter" style="background:var(--gold);color:var(--dark)">${String.fromCharCode(65+i)}${si+1}</div>
               ${ex.video?`<div style="width:32px;height:28px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="watchVid('${ex.nom.replace(/'/g,"\'")}','${ex.video}','')"><img src="https://img.youtube.com/vi/${ytId(ex.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover"></div>`:`<div style="width:32px;height:28px;border-radius:6px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">💪</div>`}
               <div style="flex:1"><div style="font-size:13px;font-weight:700">${ex.nom}</div><div style="font-size:10px;color:var(--text3)">${ex.muscle||''}</div></div>
               <button onclick="progDelSupExo('${key}',${i},${si})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px">✕</button>
             </div>
-            <div class="exo-block-fields">
-              <div class="ef-wrap"><div class="ef-lbl">Séries</div><input class="ef-in" value="${ex.sets||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].sets=this.value" placeholder="3"></div>
-              <div class="ef-wrap"><div class="ef-lbl">Reps</div><input class="ef-in" value="${ex.reps||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].reps=this.value" placeholder="10"></div>
-              <div class="ef-wrap"><div class="ef-lbl">Repos</div><input class="ef-in" value="${ex.rest||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].rest=this.value" placeholder="60s"></div>
-              <div class="ef-wrap"><div class="ef-lbl">RIR</div><input class="ef-in" value="${ex.rir||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].rir=this.value" placeholder="2"></div>
-              <div class="ef-wrap"><div class="ef-lbl">Tempo</div><input class="ef-in" value="${ex.tempo||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].tempo=this.value" placeholder="3-1-2"></div>
+            <div class="nb-sets-wrap" style="border:none;padding:4px 0">
+              <label style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)">Nb séries</label>
+              <input class="nb-sets-in" type="number" min="1" max="20" value="${ex.setsData.length}" onchange="progChangeSupNbSets('${key}',${i},${si},parseInt(this.value)||1)">
             </div>
-          </div>`).join('')}
+            <div class="sets-hdr" style="padding:0"><span></span><span>Reps</span><span>Repos</span><span>RIR</span><span>Tempo</span></div>
+            <div class="sets-rows" style="padding:0">${ex.setsData.map((s,ri)=>`<div class="set-row">
+              <div class="set-num">${ri+1}</div>
+              <input class="ef-in" value="${s.reps||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].reps=this.value" placeholder="10">
+              <input class="ef-in" value="${s.rest||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].rest=this.value" placeholder="60s">
+              <input class="ef-in" value="${s.rir||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].rir=this.value" placeholder="2">
+              <input class="ef-in" value="${s.tempo||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].tempo=this.value" placeholder="3-1-2">
+            </div>`).join('')}</div>
+          </div>`}).join('')}
         <div style="padding:7px 12px">
           <button class="add-exo-zone" style="margin:0;padding:6px 10px" onclick="progExoTarget={sec:'${key}',idx:${i},superset:true}">+ Ajouter exercice au superset</button>
         </div>
       </div>`;
     }
-    // Exercice normal
+    // Exercice normal — migration ancien format
+    if(!e.setsData&&(e.sets||e.reps)){
+      const n=parseInt(e.sets)||1;
+      e.setsData=Array.from({length:n},()=>({reps:e.reps||'',rest:e.rest||'',rir:e.rir||'',tempo:e.tempo||''}));
+    }
+    if(!e.setsData)e.setsData=[{reps:'8-12',rest:'90s',rir:'',tempo:''}];
+    const setsRows=e.setsData.map((s,si)=>`<div class="set-row">
+      <div class="set-num">${si+1}</div>
+      <input class="ef-in" value="${s.reps||''}" onchange="progUpdSet('${key}',${i},${si},'reps',this.value)" placeholder="8-12">
+      <input class="ef-in" value="${s.rest||''}" onchange="progUpdSet('${key}',${i},${si},'rest',this.value)" placeholder="90s">
+      <input class="ef-in" value="${s.rir||''}" onchange="progUpdSet('${key}',${i},${si},'rir',this.value)" placeholder="2">
+      <input class="ef-in" value="${s.tempo||''}" onchange="progUpdSet('${key}',${i},${si},'tempo',this.value)" placeholder="3-1-2">
+    </div>`).join('');
     return`<div class="exo-block" draggable="true" ondragstart="progDragStart(event,'${key}',${i})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="progDrop(event,'${key}',${i})">
       <div class="exo-block-hdr">
         <span style="color:var(--text3);font-size:12px;cursor:grab">⠿</span>
@@ -1562,13 +1656,13 @@ function progRenderDay(){
           <button onclick="progDelExo('${key}',${i})" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:14px">🗑</button>
         </div>
       </div>
-      <div class="exo-block-fields">
-        <div class="ef-wrap"><div class="ef-lbl">Séries</div><input class="ef-in" value="${e.sets||''}" onchange="progUpdExo('${key}',${i},'sets',this.value)" placeholder="3"></div>
-        <div class="ef-wrap"><div class="ef-lbl">Reps</div><input class="ef-in" value="${e.reps||''}" onchange="progUpdExo('${key}',${i},'reps',this.value)" placeholder="8-12"></div>
-        <div class="ef-wrap"><div class="ef-lbl">Repos</div><input class="ef-in" value="${e.rest||''}" onchange="progUpdExo('${key}',${i},'rest',this.value)" placeholder="90s"></div>
-        <div class="ef-wrap"><div class="ef-lbl">RIR</div><input class="ef-in" value="${e.rir||''}" onchange="progUpdExo('${key}',${i},'rir',this.value)" placeholder="2"></div>
-        <div class="ef-wrap"><div class="ef-lbl">Tempo</div><input class="ef-in" value="${e.tempo||''}" onchange="progUpdExo('${key}',${i},'tempo',this.value)" placeholder="3-1-2"></div>
+      <div class="nb-sets-wrap">
+        <label>Nb séries</label>
+        <input class="nb-sets-in" type="number" min="1" max="20" value="${e.setsData.length}" onchange="progChangeNbSets('${key}',${i},parseInt(this.value)||1)">
+        <button class="set-row-btn" onclick="progAddSet('${key}',${i})">+ Série</button>
       </div>
+      <div class="sets-hdr"><span></span><span>Reps</span><span>Repos</span><span>RIR</span><span>Tempo</span></div>
+      <div class="sets-rows">${setsRows}</div>
       <div style="padding:0 12px 9px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div class="ef-wrap"><div class="ef-lbl">RPE</div><input class="ef-in" style="text-align:left" value="${e.rpe||''}" onchange="progUpdExo('${key}',${i},'rpe',this.value)" placeholder="7-8"></div>
         <div class="ef-wrap"><div class="ef-lbl">Intensité</div><input class="ef-in" style="text-align:left" value="${e.intensity||''}" onchange="progUpdExo('${key}',${i},'intensity',this.value)" placeholder="70% 1RM"></div>
@@ -1661,13 +1755,33 @@ function progDelSupExo(sec,idx,si){
 }
 function progDelExo(sec,i){if(progDays[progDayIdx]&&progDays[progDayIdx][sec])progDays[progDayIdx][sec].splice(i,1);progRenderDay();}
 function progUpdExo(sec,i,field,val){if(progDays[progDayIdx]&&progDays[progDayIdx][sec]&&progDays[progDayIdx][sec][i])progDays[progDayIdx][sec][i][field]=val;}
+function progUpdSet(sec,i,si,field,val){const e=progDays[progDayIdx]?.[sec]?.[i];if(e&&e.setsData&&e.setsData[si])e.setsData[si][field]=val;}
+function progChangeNbSets(sec,i,n){
+  const e=progDays[progDayIdx]?.[sec]?.[i];if(!e)return;
+  if(!e.setsData)e.setsData=[{reps:'',rest:'',rir:'',tempo:''}];
+  const cur=e.setsData.length;
+  if(n>cur){const last=e.setsData[cur-1]||{reps:'8-12',rest:'90s',rir:'',tempo:''};for(let x=cur;x<n;x++)e.setsData.push({...last});}
+  else if(n<cur&&n>=1)e.setsData.length=n;
+  e.sets=String(n);progRenderDay();
+}
+function progAddSet(sec,i){const e=progDays[progDayIdx]?.[sec]?.[i];if(!e)return;if(!e.setsData)e.setsData=[];const last=e.setsData[e.setsData.length-1]||{reps:'8-12',rest:'90s',rir:'',tempo:''};e.setsData.push({...last});e.sets=String(e.setsData.length);progRenderDay();}
+function progChangeSupNbSets(sec,i,si,n){
+  const ex=progDays[progDayIdx]?.[sec]?.[i]?.exercises?.[si];if(!ex)return;
+  if(!ex.setsData)ex.setsData=[{reps:'',rest:'',rir:'',tempo:''}];
+  const cur=ex.setsData.length;
+  if(n>cur){const last=ex.setsData[cur-1]||{reps:'10',rest:'60s',rir:'',tempo:''};for(let x=cur;x<n;x++)ex.setsData.push({...last});}
+  else if(n<cur&&n>=1)ex.setsData.length=n;
+  ex.sets=String(n);progRenderDay();
+}
 function addExoToDay(exo){
   const sec=progExoTarget?.sec||'workout';
   const isSuperset=progExoTarget?.superset;
   const ssIdx=progExoTarget?.idx;
   if(!progDays[progDayIdx])progDays[progDayIdx]={nom:'Jour '+(progDayIdx+1),warmup:[],workout:[],cooldown:[]};
   if(!progDays[progDayIdx][sec])progDays[progDayIdx][sec]=[];
-  const newExo={nom:exo.nom,muscle:exo.muscle||'',equip:exo.equip||'',video:exo.video||'',sets:exo.sets||'3',reps:exo.reps||'8-12',rest:exo.rest||'90s',rir:'',tempo:'',notes:''};
+  const nbSets=parseInt(exo.sets)||3;
+  const setsData=Array.from({length:nbSets},()=>({reps:exo.reps||'8-12',rest:exo.rest||'90s',rir:'',tempo:''}));
+  const newExo={nom:exo.nom,muscle:exo.muscle||'',equip:exo.equip||'',video:exo.video||'',sets:String(nbSets),setsData,notes:''};
   if(isSuperset&&ssIdx!==null&&ssIdx!==undefined){
     const ss=progDays[progDayIdx][sec][ssIdx];
     if(ss&&ss.superset){ss.exercises.push(newExo);toast(exo.nom+' ajouté au superset ✓');}
@@ -1766,7 +1880,18 @@ function closeSeanceBuilder(){
 function seanceRenderAll(){
   ['warmup','workout','cooldown'].forEach(sec=>{
     const el=document.getElementById('seanceSec-'+sec);if(!el)return;
-    el.innerHTML=(seanceData[sec]||[]).map((e,i)=>`<div class="exo-block" draggable="true" ondragstart="seanceDragStart(event,'${sec}',${i})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="seanceDrop(event,'${sec}',${i})">
+    el.innerHTML=(seanceData[sec]||[]).map((e,i)=>{
+      // Migration ancien format
+      if(!e.setsData&&(e.sets||e.reps)){const n=parseInt(e.sets)||1;e.setsData=Array.from({length:n},()=>({reps:e.reps||'',rest:e.rest||'',rir:e.rir||'',tempo:e.tempo||''}));}
+      if(!e.setsData)e.setsData=[{reps:'8-12',rest:'90s',rir:'',tempo:''}];
+      const setsRows=e.setsData.map((s,si)=>`<div class="set-row">
+        <div class="set-num">${si+1}</div>
+        <input class="ef-in" value="${s.reps||''}" onchange="seanceUpdSet('${sec}',${i},${si},'reps',this.value)" placeholder="8-12">
+        <input class="ef-in" value="${s.rest||''}" onchange="seanceUpdSet('${sec}',${i},${si},'rest',this.value)" placeholder="90s">
+        <input class="ef-in" value="${s.rir||''}" onchange="seanceUpdSet('${sec}',${i},${si},'rir',this.value)" placeholder="2">
+        <input class="ef-in" value="${s.tempo||''}" onchange="seanceUpdSet('${sec}',${i},${si},'tempo',this.value)" placeholder="3-1-2">
+      </div>`).join('');
+      return`<div class="exo-block" draggable="true" ondragstart="seanceDragStart(event,'${sec}',${i})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="seanceDrop(event,'${sec}',${i})">
       <div class="exo-block-hdr">
         <span style="color:var(--text3);font-size:12px;cursor:grab">⠿</span>
         <div class="exo-letter">${String.fromCharCode(65+i)}</div>
@@ -1774,22 +1899,32 @@ function seanceRenderAll(){
         <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3)">${e.muscle||''}</div></div>
         <button onclick="seanceDelExo('${sec}',${i})" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:14px">🗑</button>
       </div>
-      <div class="exo-block-fields">
-        <div class="ef-wrap"><div class="ef-lbl">Séries</div><input class="ef-in" value="${e.sets||''}" onchange="seanceData['${sec}'][${i}].sets=this.value;seanceUpdVol()" placeholder="3"></div>
-        <div class="ef-wrap"><div class="ef-lbl">Reps</div><input class="ef-in" value="${e.reps||''}" onchange="seanceData['${sec}'][${i}].reps=this.value" placeholder="8-12"></div>
-        <div class="ef-wrap"><div class="ef-lbl">Repos</div><input class="ef-in" value="${e.rest||''}" onchange="seanceData['${sec}'][${i}].rest=this.value" placeholder="90s"></div>
-        <div class="ef-wrap"><div class="ef-lbl">RIR</div><input class="ef-in" value="${e.rir||''}" onchange="seanceData['${sec}'][${i}].rir=this.value" placeholder="2"></div>
-        <div class="ef-wrap"><div class="ef-lbl">Tempo</div><input class="ef-in" value="${e.tempo||''}" onchange="seanceData['${sec}'][${i}].tempo=this.value" placeholder="3-1-2"></div>
+      <div class="nb-sets-wrap">
+        <label>Nb séries</label>
+        <input class="nb-sets-in" type="number" min="1" max="20" value="${e.setsData.length}" onchange="seanceChangeNbSets('${sec}',${i},parseInt(this.value)||1)">
+        <button class="set-row-btn" onclick="seanceAddSet('${sec}',${i})">+ Série</button>
       </div>
-    </div>`).join('');
+      <div class="sets-hdr"><span></span><span>Reps</span><span>Repos</span><span>RIR</span><span>Tempo</span></div>
+      <div class="sets-rows">${setsRows}</div>
+    </div>`}).join('');
   });
   seanceUpdVol();
 }
 function seanceUpdVol(){
-  const vm={};['warmup','workout','cooldown'].forEach(sec=>(seanceData[sec]||[]).forEach(e=>{const m=e.muscle||'Autre';vm[m]=(vm[m]||0)+(parseInt(e.sets)||0);}));
+  const vm={};['warmup','workout','cooldown'].forEach(sec=>(seanceData[sec]||[]).forEach(e=>{const m=e.muscle||'Autre';vm[m]=(vm[m]||0)+(e.setsData?e.setsData.length:(parseInt(e.sets)||0));}));
   const el=document.getElementById('seanceVolume');if(el)el.innerHTML=Object.entries(vm).map(([m,s])=>`<span style="padding:2px 8px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:20px;font-size:10px;font-weight:700;color:#8a6010">${m}:${s}s</span>`).join('');
 }
 function seanceDelExo(sec,i){seanceData[sec].splice(i,1);seanceRenderAll();}
+function seanceUpdSet(sec,i,si,field,val){const e=seanceData[sec]?.[i];if(e&&e.setsData&&e.setsData[si])e.setsData[si][field]=val;}
+function seanceChangeNbSets(sec,i,n){
+  const e=seanceData[sec]?.[i];if(!e)return;
+  if(!e.setsData)e.setsData=[{reps:'',rest:'',rir:'',tempo:''}];
+  const cur=e.setsData.length;
+  if(n>cur){const last=e.setsData[cur-1]||{reps:'8-12',rest:'90s',rir:'',tempo:''};for(let x=cur;x<n;x++)e.setsData.push({...last});}
+  else if(n<cur&&n>=1)e.setsData.length=n;
+  e.sets=String(n);seanceRenderAll();
+}
+function seanceAddSet(sec,i){const e=seanceData[sec]?.[i];if(!e)return;if(!e.setsData)e.setsData=[];const last=e.setsData[e.setsData.length-1]||{reps:'8-12',rest:'90s',rir:'',tempo:''};e.setsData.push({...last});e.sets=String(e.setsData.length);seanceRenderAll();}
 let seanceDragSrc=null;
 function seanceDragStart(e,sec,idx){seanceDragSrc={sec,idx};e.dataTransfer.effectAllowed='move';}
 function seanceDrop(e,targetSec,targetIdx){
@@ -1826,7 +1961,8 @@ function seanceAddExo(idx){
   const e=window._seanceLibExos?.[idx];if(!e)return;
   const sec=seanceExoTarget?.sec||'workout';
   if(!seanceData[sec])seanceData[sec]=[];
-  seanceData[sec].push({nom:e.nom,muscle:e.muscle||'',equip:e.equip||'',video:e.video||'',sets:e.sets||'3',reps:e.reps||'8-12',rest:e.rest||'90s',rir:'',tempo:''});
+  const nbS=parseInt(e.sets)||3;const sd=Array.from({length:nbS},()=>({reps:e.reps||'8-12',rest:e.rest||'90s',rir:'',tempo:''}));
+  seanceData[sec].push({nom:e.nom,muscle:e.muscle||'',equip:e.equip||'',video:e.video||'',sets:String(nbS),setsData:sd});
   seanceRenderAll();toast(e.nom+' ajouté ✓');
 }
 function saveSeance(){
