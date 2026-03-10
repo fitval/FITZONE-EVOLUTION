@@ -374,8 +374,15 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 <!-- SIDEBAR -->
 <aside class="sb">
   <div class="sb-logo">
-    <div class="sb-mark"><div class="sb-icon">F</div><div class="sb-name">FITZONE <span>EVOLUTION</span></div></div>
-    <div class="sb-sub">Dashboard Coach</div>
+    <div class="sb-mark">
+      <svg width="38" height="38" viewBox="0 0 100 100" style="flex-shrink:0">
+        <rect x="2" y="2" width="46" height="96" rx="4" fill="#ffffff"/>
+        <rect x="52" y="2" width="46" height="96" rx="4" fill="#c49a2a"/>
+        <text x="25" y="62" text-anchor="middle" font-family="Arial,sans-serif" font-size="48" font-weight="900" fill="#1a1a2e">F</text>
+        <text x="75" y="62" text-anchor="middle" font-family="Arial,sans-serif" font-size="48" font-weight="900" fill="#1a1a2e">E</text>
+      </svg>
+      <div><div class="sb-name">FITZONE <span>ÉVOLUTION</span></div><div class="sb-sub">Dashboard Coach</div></div>
+    </div>
   </div>
   <nav class="sb-nav">
     <div class="sb-sec">Accueil</div>
@@ -388,6 +395,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div class="sb-submenu" id="sub-clients">
       <div class="sb-item sub" onclick="showPage('clients',this)" id="nav-cl"><span class="sb-ico">·</span>Tous les clients</div>
       <div class="sb-item sub" onclick="showPage('bilans',this)" id="nav-bi"><span class="sb-ico">·</span>Questionnaires</div>
+      <div class="sb-item sub" onclick="showPage('bilans-all',this)" id="nav-bi-all"><span class="sb-ico">·</span>Bilans hebdo</div>
     </div>
 
     <div class="sb-sec">Contenu</div>
@@ -431,6 +439,10 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
       <div class="tb-title" id="tbTitle">Overview</div>
     </div>
     <div class="tb-acts" id="tbActs">
+      <div style="position:relative;cursor:pointer;margin-right:8px" onclick="showPage('bilans-all',document.getElementById('nav-bi-all'))" title="Notifications">
+        <span style="font-size:20px">🔔</span>
+        <span id="notifBadge" style="display:none;position:absolute;top:-4px;right:-6px;width:16px;height:16px;background:#e53e3e;border-radius:50%;font-size:9px;font-weight:800;color:white;display:flex;align-items:center;justify-content:center">0</span>
+      </div>
       <button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>
     </div>
   </div>
@@ -505,6 +517,12 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div class="tw" id="bilansWrap"><div class="sp"></div></div>
   </div>
 
+  <!-- PAGE: BILANS HEBDO (ALL) -->
+  <div class="page" id="page-bilans-all">
+    <div class="sh"><div class="st">Bilans hebdomadaires</div></div>
+    <div id="bilansAllWrap"><div class="empty"><div class="ei">📋</div><div class="et">Aucun bilan soumis</div></div></div>
+  </div>
+
   <!-- PAGE: NUTRITION — PLANS -->
   <div class="page" id="page-nut-plans">
     <div id="plansPageList"></div>
@@ -550,7 +568,8 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
               <div class="ss-drop" id="pfAlimDrop"></div>
             </div>
             <div id="pfInlineAlimForm" style="display:none;background:var(--white);border:1.5px solid var(--gold-border);border-radius:10px;padding:10px;margin-bottom:10px">
-              <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px">Nouvel aliment rapide</div>
+              <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:4px">Nouvel aliment rapide</div>
+              <div style="font-size:9px;color:var(--text3);margin-bottom:6px">⚖️ Valeurs pour 100g <strong>cru</strong></div>
               <input class="fi" id="pfAlNom" placeholder="Nom *" style="font-size:12px;padding:6px 8px;margin-bottom:5px">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:5px">
                 <select class="fs" id="pfAlCat" style="font-size:11px;padding:5px 7px"><option>Viandes</option><option>Poissons</option><option>Œufs &amp; laitiers</option><option>Légumineuses</option><option>Céréales</option><option>Légumes</option><option>Fruits</option><option>Oléagineux</option><option>Autres</option></select>
@@ -609,7 +628,9 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 
   <!-- PAGE: NUTRITION — ALIMENTS -->
   <div class="page" id="page-nut-alim">
-    <div class="sh"><div class="st">Base de données aliments</div><button class="btn btn-dark btn-sm" onclick="openAlim()">+ Aliment</button></div>
+    <div class="sh"><div class="st">Base de données aliments</div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('importAlimFile').click()">📥 Importer</button><button class="btn btn-dark btn-sm" onclick="openAlim()">+ Aliment</button></div></div>
+    <input type="file" id="importAlimFile" accept=".csv,.json,.tsv,.txt" style="display:none" onchange="importAlimsFile(this)">
+    <div style="font-size:10px;color:var(--text3);margin-bottom:8px">⚖️ Tous les aliments sont pesés <strong>cru</strong> (valeurs nutritionnelles pour 100g cru)</div>
     <div class="tw"><table><thead><tr><th>Aliment</th><th>Catégorie</th><th>Kcal/100g</th><th>Prot.</th><th>Gluc.</th><th>Lip.</th><th>Actions</th></tr></thead>
     <tbody id="alimBody"></tbody></table></div>
   </div>
@@ -775,14 +796,22 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <!-- DETAIL CLIENT -->
   <div class="det" id="detPage">
     <div class="det-hero" id="detHero"></div>
-    <div class="tabs" id="detTabs">
+    <div class="tabs" id="detTabs" style="flex-wrap:wrap">
       <div class="tab active" onclick="swDet('questionnaire',this)">📋 Questionnaire</div>
       <div class="tab" onclick="swDet('nutrition',this)">🥗 Nutrition</div>
       <div class="tab" onclick="swDet('roadmap',this)">🗓️ Roadmap</div>
+      <div class="tab" onclick="swDet('progression',this);renderProgressionTab()">📊 Progression</div>
+      <div class="tab" onclick="swDet('training',this);renderTrainingTab()">💪 Training</div>
+      <div class="tab" onclick="swDet('bilan',this);renderBilanTab()">📝 Bilans</div>
+      <div class="tab" onclick="swDet('galerie',this);renderGalerieTab()">📸 Galerie</div>
     </div>
     <div class="tc active" id="tc-questionnaire"></div>
     <div class="tc" id="tc-nutrition"></div>
     <div class="tc" id="tc-roadmap"></div>
+    <div class="tc" id="tc-progression"></div>
+    <div class="tc" id="tc-training"></div>
+    <div class="tc" id="tc-bilan"></div>
+    <div class="tc" id="tc-galerie"></div>
   </div>
 </main>
 
@@ -807,7 +836,8 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <div class="mb">
     <div class="fg"><label class="fl">Nom *</label><input class="fi" id="alNom" placeholder="Blanc de poulet cuit"></div>
     <div class="fr2"><div class="fg"><label class="fl">Catégorie</label><select class="fs" id="alCat"><option>Viandes</option><option>Poissons</option><option>Œufs &amp; laitiers</option><option>Légumineuses</option><option>Céréales</option><option>Légumes</option><option>Fruits</option><option>Oléagineux</option><option>Autres</option></select></div><div class="fg"><label class="fl">Source macro</label><select class="fs" id="alSource"><option value="proteines">Protéines</option><option value="glucides">Glucides</option><option value="lipides">Lipides</option></select></div></div>
-    <div class="fr2"><div class="fg"><label class="fl">Kcal / 100g</label><input class="fi" type="number" id="alKcal" placeholder="165"></div><div class="fg"><label class="fl">Protéines (g)</label><input class="fi" type="number" id="alProt" placeholder="31"></div></div>
+    <div style="font-size:10px;color:var(--gold);font-weight:600;margin:-4px 0 6px;letter-spacing:.3px">⚖️ Valeurs pour 100g <strong>cru</strong></div>
+    <div class="fr2"><div class="fg"><label class="fl">Kcal / 100g cru</label><input class="fi" type="number" id="alKcal" placeholder="165"></div><div class="fg"><label class="fl">Protéines (g)</label><input class="fi" type="number" id="alProt" placeholder="31"></div></div>
     <div class="fr2"><div class="fg"><label class="fl">Glucides (g)</label><input class="fi" type="number" id="alCarb" placeholder="0"></div><div class="fg"><label class="fl">Lipides (g)</label><input class="fi" type="number" id="alFat" placeholder="3.6"></div></div>
     <input type="hidden" id="alEditId">
   </div>
@@ -886,6 +916,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div id="ytPrevWrap" style="display:none;margin-bottom:10px"><div class="yt-prev" id="ytPrevFrame"></div></div>
     <div class="fr2"><div class="fg"><label class="fl">Durée</label><input class="fi" id="vidDur" placeholder="12 min"></div><div class="fg"><label class="fl">Semaine dispo</label><input class="fi" type="number" id="vidWeek" placeholder="1" min="1"></div></div>
     <div class="fg"><label class="fl">Description</label><textarea class="fta" id="vidDesc" style="min-height:80px" placeholder="Dans cette vidéo…"></textarea></div>
+    <div class="fg"><label class="fl">PDF / Ressource <span class="fl-o">optionnel — URL directe</span></label><input class="fi" id="vidPdf" placeholder="https://drive.google.com/file/d/..."></div>
     <input type="hidden" id="vidModId"><input type="hidden" id="vidChapId"><input type="hidden" id="vidEditId">
   </div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeM('mNewVid')">Annuler</button><button class="btn btn-dark" onclick="saveVid()">Ajouter</button></div>
@@ -1048,7 +1079,7 @@ function showPage(name,el){
   const pg=document.getElementById('page-'+name);if(pg){pg.style.display='block';pg.classList.add('active');}
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres'};
+  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres'};
   document.getElementById('tbTitle').textContent=titles[name]||name;
   document.getElementById('backBtn').style.display='none';
   const actMap={overview:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`};
@@ -1059,6 +1090,7 @@ function showPage(name,el){
   if(name==='tr-seances'){renderSeanceList();}
   if(name==='nut-alim')renderAlims();
   if(name==='nut-repas')renderRepasList();
+  if(name==='bilans-all')renderBilansAll();
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
@@ -1070,7 +1102,7 @@ async function loadClients(){
   let q=db.from('clients').select('*').order('created_at',{ascending:false});
   if(currentCoach)q=q.eq('coach_id',currentCoach.id);
   const{data}=await q;
-  allClients=data||[];renderStats();renderClients(allClients);
+  allClients=data||[];renderStats();renderClients(allClients);updateNotifBadge();
 }
 function renderStats(){
   const tot=allClients.length,act=allClients.filter(c=>c.status==='active').length,q=allClients.filter(c=>c.status==='questionnaire_done').length,p=allClients.filter(c=>c.status==='questionnaire_pending').length;
@@ -1288,9 +1320,7 @@ function renderRoadTab(){
       <td><select class="rsel" onchange="sRoad(${i},'phase',this.value)">${phases.map(p=>`<option${r.phase===p?' selected':''}>${p}</option>`).join('')}</select></td>
       <td><select class="rsel" onchange="sRoad(${i},'nut',this.value)">${nuttypes.map(n=>`<option${r.nut===n?' selected':''}>${n}</option>`).join('')}</select></td>
       <td><input class="rin" type="number" style="width:54px" value="${r.poids||''}" placeholder="—" onchange="sRoad(${i},'poids',this.value)"></td>
-      <td><input class="rin" type="number" style="width:48px" value="${r.haut||''}" placeholder="—" onchange="sRoad(${i},'haut',this.value)"></td>
-      <td><input class="rin" type="number" style="width:48px" value="${r.moy||''}" placeholder="—" onchange="sRoad(${i},'moy',this.value)"></td>
-      <td><input class="rin" type="number" style="width:48px" value="${r.bas||''}" placeholder="—" onchange="sRoad(${i},'bas',this.value)"></td>
+      <td><textarea class="rin" style="min-width:140px;min-height:32px;resize:vertical;white-space:pre-wrap;font-size:10px;line-height:1.4" placeholder="Détails apports…" onchange="sRoad(${i},'apports',this.value)">${r.apports||r.haut&&r.moy?('H:'+r.haut+' M:'+r.moy+(r.bas?' B:'+r.bas:'')):r.apports||''}</textarea></td>
       <td><select class="rsel" onchange="sRoad(${i},'cardio',this.value)">${cardios.map(c=>`<option${r.cardio===c?' selected':''}>${c}</option>`).join('')}</select></td>
       <td><input class="rin" type="number" style="width:52px" value="${r.pas||''}" placeholder="—" onchange="sRoad(${i},'pas',this.value)"></td>
       <td><input class="rin" style="min-width:90px" value="${r.depense||''}" placeholder="—" onchange="sRoad(${i},'depense',this.value)"></td>
@@ -1307,13 +1337,13 @@ function renderRoadTab(){
         <th class="th-gold">PHASE</th>
         <th class="th-gold">NUTRITION</th>
         <th class="th-gold">POIDS</th>
-        <th class="th-gold2" colspan="3" style="text-align:center">APPORTS CALORIQUES</th>
+        <th class="th-gold2">APPORTS CALORIQUES</th>
         <th class="th-gold2" colspan="2" style="text-align:center">DÉPENSE</th>
         <th>PRÉC. DÉPENSE</th><th>PRÉC. TRAINING</th><th>ÉVÉNEMENTS</th><th>NOTES COACH</th>
       </tr>
       <tr>
         <th></th><th></th><th></th><th></th><th></th>
-        <th class="th-gold2">HAUT</th><th class="th-gold2">MOYEN</th><th class="th-gold2">BAS</th>
+        <th></th>
         <th class="th-gold2">CARDIO</th><th class="th-gold2">PAS</th>
         <th></th><th></th><th></th><th></th>
       </tr>
@@ -1323,6 +1353,226 @@ function renderRoadTab(){
 function sRoad(row,field,val){
   const key='road_'+curClient.id,d=lsGet(key,{});
   if(!d[row])d[row]={};d[row][field]=val;lsSave(key,d);
+}
+
+/* ===== PROGRESSION TAB (Graphiques données quotidiennes) ===== */
+function renderProgressionTab(){
+  const el=document.getElementById('tc-progression');if(!el||!curClient)return;
+  const logs=lsGet('daily_'+curClient.id,[]);
+  const metrics=['Poids','Énergie','Faim','Stress','Sommeil (h)','Pas','Alimentation suivie (%)','Note attitude (/10)'];
+  const selMetric=window._progMetric||'Poids';
+  // Filter data for selected metric
+  const mData=logs.filter(l=>l[selMetric]!==undefined&&l[selMetric]!=='').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const optHtml=metrics.map(m=>`<option${m===selMetric?' selected':''}>${m}</option>`).join('');
+  // Period filter
+  const period=window._progPeriod||'month';
+  const now=new Date();
+  let filtered=mData;
+  if(period==='week'){const w=new Date(now);w.setDate(w.getDate()-7);filtered=mData.filter(d=>new Date(d.date)>=w);}
+  else if(period==='month'){const m=new Date(now);m.setMonth(m.getMonth()-1);filtered=mData.filter(d=>new Date(d.date)>=m);}
+  else if(period==='year'){const y=new Date(now);y.setFullYear(y.getFullYear()-1);filtered=mData.filter(d=>new Date(d.date)>=y);}
+  // Stats
+  const vals=filtered.map(d=>parseFloat(d[selMetric])||0);
+  const start=vals[0]||0,end=vals[vals.length-1]||0,avg=vals.length?(vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(1):0;
+  const pctChange=start?((end-start)/start*100).toFixed(1):0;
+  // SVG chart
+  let chartSvg='<div style="font-size:12px;color:var(--text3);text-align:center;padding:40px">Aucune donnée pour cette période. Le client doit remplir son rapport quotidien.</div>';
+  if(vals.length>1){
+    const minV=Math.min(...vals),maxV=Math.max(...vals);
+    const range=maxV-minV||1;const W=600,H=200,pad=30;
+    const pts=vals.map((v,i)=>{const x=pad+i*(W-2*pad)/(vals.length-1);const y=H-pad-(v-minV)/range*(H-2*pad);return`${x},${y}`;});
+    const area=`${pad},${H-pad} ${pts.join(' ')} ${pad+(vals.length-1)*(W-2*pad)/(vals.length-1)},${H-pad}`;
+    chartSvg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:240px">
+      <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6" stop-opacity=".2"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/></linearGradient></defs>
+      <polygon points="${area}" fill="url(#pg)"/>
+      <polyline points="${pts.join(' ')}" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round"/>
+      ${vals.map((v,i)=>{const x=pad+i*(W-2*pad)/(vals.length-1);const y=H-pad-(v-minV)/range*(H-2*pad);return`<circle cx="${x}" cy="${y}" r="4" fill="#3b82f6" stroke="white" stroke-width="2"/>`;}).join('')}
+      ${[minV,minV+(maxV-minV)/2,maxV].map((v,i)=>{const y=H-pad-i*.5*(H-2*pad);return`<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="var(--border)" stroke-dasharray="4"/><text x="${pad-4}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text3)">${Math.round(v*10)/10}</text>`;}).join('')}
+      ${filtered.length<=10?filtered.map((d,i)=>{const x=pad+i*(W-2*pad)/(vals.length-1);return`<text x="${x}" y="${H-5}" text-anchor="middle" font-size="8" fill="var(--text3)">${new Date(d.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</text>`;}).join(''):''}
+    </svg>`;
+  }
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <select class="fs" style="min-width:200px" onchange="window._progMetric=this.value;renderProgressionTab()">${optHtml}</select>
+      <div style="display:flex;gap:4px">
+        ${['week','month','year','all'].map(p=>`<button class="btn btn-${p===period?'dark':'ghost'} btn-xs" onclick="window._progPeriod='${p}';renderProgressionTab()">${p==='week'?'Semaine':p==='month'?'Mois':p==='year'?'Année':'Tout'}</button>`).join('')}
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:1fr 280px">
+        <div style="padding:16px">${chartSvg}</div>
+        <div style="padding:16px;border-left:1px solid var(--border);display:flex;flex-direction:column;gap:14px">
+          <div><div style="font-size:14px;font-weight:700">Début</div><div style="font-size:10px;color:var(--text3)">${filtered[0]?new Date(filtered[0].date).toLocaleDateString('fr-FR',{weekday:'long'}):'—'}</div><div style="font-size:28px;font-weight:800;color:var(--dark)">${start}</div></div>
+          <div><div style="font-size:14px;font-weight:700">Fin</div><div style="font-size:10px;color:var(--text3)">${filtered[filtered.length-1]?new Date(filtered[filtered.length-1].date).toLocaleDateString('fr-FR',{weekday:'long'}):'—'}</div><div style="font-size:28px;font-weight:800;color:var(--dark)">${end} <span style="font-size:13px;padding:3px 8px;border-radius:20px;background:${pctChange>=0?'#dcfce7':'#fef2f2'};color:${pctChange>=0?'#22c55e':'#ef4444'}">${pctChange>=0?'↑':'↓'} ${Math.abs(pctChange)}%</span></div></div>
+          <div><div style="font-size:14px;font-weight:700">Moyenne</div><div style="font-size:10px;color:var(--text3)">${filtered.length} valeurs</div><div style="font-size:28px;font-weight:800;color:var(--dark)">${avg}</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:16px"><button class="btn btn-dark btn-sm" onclick="addDailyLog()">+ Ajouter une entrée</button></div>`;
+}
+function addDailyLog(){
+  const metrics=['Poids','Énergie','Faim','Stress','Sommeil (h)','Pas','Alimentation suivie (%)','Note attitude (/10)'];
+  let m=document.getElementById('mDailyLog');
+  if(!m){m=document.createElement('div');m.className='overlay';m.id='mDailyLog';m.innerHTML=`<div class="modal"><div class="mh"><div class="mt">Rapport quotidien</div><button class="mc" onclick="closeM('mDailyLog')">✕</button></div><div class="mb" id="dailyLogForm"></div><div class="mf"><button class="btn btn-ghost" onclick="closeM('mDailyLog')">Annuler</button><button class="btn btn-dark" onclick="saveDailyLog()">Enregistrer</button></div></div>`;document.body.appendChild(m);}
+  document.getElementById('dailyLogForm').innerHTML=`
+    <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="dlDate" value="${new Date().toISOString().slice(0,10)}"></div>
+    ${metrics.map(m=>`<div class="fg"><label class="fl">${m}</label><input class="fi" type="number" id="dl_${m.replace(/[^a-zA-Z]/g,'')}" placeholder="—" step="any"></div>`).join('')}`;
+  openM('mDailyLog');
+}
+function saveDailyLog(){
+  const metrics=['Poids','Énergie','Faim','Stress','Sommeil (h)','Pas','Alimentation suivie (%)','Note attitude (/10)'];
+  const date=document.getElementById('dlDate').value;if(!date){toast('Date requise');return;}
+  const entry={date};
+  metrics.forEach(m=>{const v=document.getElementById('dl_'+m.replace(/[^a-zA-Z]/g,'')).value;if(v)entry[m]=parseFloat(v);});
+  const key='daily_'+curClient.id;const logs=lsGet(key,[]);
+  const existing=logs.findIndex(l=>l.date===date);
+  if(existing>=0)logs[existing]={...logs[existing],...entry};else logs.push(entry);
+  lsSave(key,logs);closeM('mDailyLog');renderProgressionTab();toast('Entrée enregistrée ✓');
+}
+
+/* ===== TRAINING TAB (Cycles de progression) ===== */
+function renderTrainingTab(){
+  const el=document.getElementById('tc-training');if(!el||!curClient)return;
+  const logs=lsGet('trainlog_'+curClient.id,[]);
+  const colors={1:'#8b5cf6',2:'#ef4444',3:'#f59e0b',4:'#22c55e'};
+  const colorLabels={1:'Violet (cycle 1)',2:'Rouge (cycle 2)',3:'Jaune (cycle 3)',4:'Vert (cycle 4)'};
+  // Group by session name
+  const sessions={};logs.forEach(l=>{if(!sessions[l.session])sessions[l.session]=[];sessions[l.session].push(l);});
+  const sesNames=Object.keys(sessions);
+  const selSes=window._trainSes||sesNames[0]||'';
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <select class="fs" style="min-width:200px" onchange="window._trainSes=this.value;renderTrainingTab()">${sesNames.map(s=>`<option${s===selSes?' selected':''}>${s}</option>`).join('')}</select>
+      <button class="btn btn-dark btn-sm" onclick="addTrainLog()">+ Ajouter une séance</button>
+    </div>
+    ${selSes&&sessions[selSes]?`<div style="overflow-x:auto"><div style="display:flex;gap:12px;min-width:fit-content">
+      ${sessions[selSes].sort((a,b)=>new Date(a.date)-new Date(b.date)).map((log,li)=>{
+        const cycle=log.cycle||((li%4)+1);const col=colors[cycle]||'#8b5cf6';
+        const totalSets=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).length,0);
+        const totalVol=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).reduce((ss,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+ss,0),0);
+        return`<div style="min-width:260px;border:2px solid ${col};border-radius:12px;overflow:hidden;flex-shrink:0">
+          <div style="background:${col};color:white;padding:10px 14px;font-weight:700;font-size:13px">CYCLE ${cycle} <span style="float:right;font-weight:400;font-size:11px">${new Date(log.date).toLocaleDateString('fr-FR')}</span></div>
+          <table style="width:100%;font-size:11px;border-collapse:collapse">
+            <thead><tr style="background:${col}22"><th style="padding:4px 8px;text-align:left;font-size:10px;border-bottom:1px solid ${col}44">SET</th><th style="padding:4px 8px">REPS</th><th style="padding:4px 8px">LOAD</th><th style="padding:4px 8px">RIR</th><th style="padding:4px 8px;font-weight:800">REPS×LOAD</th><th style="padding:4px 8px">NOTES</th></tr></thead>
+            <tbody>${(log.exercises||[]).map(e=>{
+              const exVol=e.sets.reduce((s,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+s,0);
+              return`<tr style="border-bottom:2px solid ${col}33"><td colspan="4" style="padding:6px 8px;font-weight:700;color:var(--dark)">${e.nom}</td><td style="padding:6px 8px;font-weight:800;color:${col}">${Math.round(exVol)}</td><td style="padding:6px 8px;font-size:10px;color:var(--text3)">${e.notes||''}</td></tr>`+
+              (e.sets||[]).map((st,si)=>`<tr style="border-bottom:1px dotted var(--border)"><td style="padding:3px 8px;font-weight:700">${si+1}</td><td style="padding:3px 8px;text-align:center">${st.reps||''}</td><td style="padding:3px 8px;text-align:center;${parseFloat(st.load)>(e.sets[si-1]?parseFloat(e.sets[si-1].load):0)?'background:#dcfce7':''}">${st.load||''}</td><td style="padding:3px 8px;text-align:center">${st.rir||''}</td><td></td><td></td></tr>`).join('');
+            }).join('')}</tbody>
+            <tfoot><tr style="background:${col};color:white;font-weight:800"><td style="padding:6px 8px" colspan="2">TOTAL SETS</td><td style="padding:6px 8px">${totalSets}</td><td></td><td style="padding:6px 8px">TOTAL VOL</td><td style="padding:6px 8px">${Math.round(totalVol)}</td></tr></tfoot>
+          </table>
+        </div>`;
+      }).join('')}
+    </div></div>`:'<div class="empty" style="padding:30px"><div class="ei">💪</div><div class="et">Aucune séance enregistrée</div><div class="es">Ajoute la première séance de ce client</div></div>'}`;
+}
+function addTrainLog(){
+  let m=document.getElementById('mTrainLog');
+  if(!m){m=document.createElement('div');m.className='overlay';m.id='mTrainLog';m.innerHTML=`<div class="modal modal-lg"><div class="mh"><div class="mt">Ajouter une séance client</div><button class="mc" onclick="closeM('mTrainLog')">✕</button></div><div class="mb" id="trainLogForm"></div><div class="mf"><button class="btn btn-ghost" onclick="closeM('mTrainLog')">Annuler</button><button class="btn btn-dark" onclick="saveTrainLog()">Enregistrer</button></div></div>`;document.body.appendChild(m);}
+  window._tlExos=[{nom:'',notes:'',sets:[{reps:'',load:'',rir:''}]}];
+  const render=()=>{
+    document.getElementById('trainLogForm').innerHTML=`
+      <div class="fr2"><div class="fg"><label class="fl">Nom de la séance *</label><input class="fi" id="tlSesName" placeholder="Push - Poitrine & Épaules"></div><div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="tlDate" value="${new Date().toISOString().slice(0,10)}"></div></div>
+      <div class="fg"><label class="fl">Cycle (couleur)</label><select class="fs" id="tlCycle"><option value="1">1 - Violet</option><option value="2">2 - Rouge</option><option value="3">3 - Jaune</option><option value="4">4 - Vert</option></select></div>
+      ${window._tlExos.map((ex,ei)=>`<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">
+        <div class="fr2" style="margin-bottom:6px"><div class="fg"><label class="fl">Exercice ${ei+1}</label><input class="fi" value="${ex.nom}" onchange="window._tlExos[${ei}].nom=this.value" placeholder="Nom"></div><div class="fg" style="max-width:80px"><button class="btn btn-danger btn-xs" onclick="window._tlExos.splice(${ei},1);(${render.toString()})()">✕</button></div></div>
+        <div style="display:grid;grid-template-columns:40px 60px 60px 50px;gap:4px;font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px"><span>SET</span><span>REPS</span><span>LOAD</span><span>RIR</span></div>
+        ${ex.sets.map((s,si)=>`<div style="display:grid;grid-template-columns:40px 60px 60px 50px 30px;gap:4px;margin-bottom:3px"><span style="font-size:12px;font-weight:700;padding:4px 0">${si+1}</span><input class="fi" style="font-size:11px;padding:4px" value="${s.reps}" onchange="window._tlExos[${ei}].sets[${si}].reps=this.value"><input class="fi" style="font-size:11px;padding:4px" value="${s.load}" onchange="window._tlExos[${ei}].sets[${si}].load=this.value"><input class="fi" style="font-size:11px;padding:4px" value="${s.rir}" onchange="window._tlExos[${ei}].sets[${si}].rir=this.value"><button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px" onclick="window._tlExos[${ei}].sets.splice(${si},1);(${render.toString()})()">✕</button></div>`).join('')}
+        <button class="btn btn-ghost btn-xs" onclick="window._tlExos[${ei}].sets.push({reps:'',load:'',rir:''});(${render.toString()})()">+ Série</button>
+      </div>`).join('')}
+      <button class="btn btn-ghost btn-sm" onclick="window._tlExos.push({nom:'',notes:'',sets:[{reps:'',load:'',rir:''}]});(${render.toString()})()">+ Exercice</button>`;
+  };
+  render();openM('mTrainLog');
+}
+function saveTrainLog(){
+  const ses=document.getElementById('tlSesName').value.trim();if(!ses){toast('Nom requis');return;}
+  const log={session:ses,date:document.getElementById('tlDate').value,cycle:parseInt(document.getElementById('tlCycle').value)||1,exercises:window._tlExos.filter(e=>e.nom)};
+  const key='trainlog_'+curClient.id;const logs=lsGet(key,[]);logs.push(log);lsSave(key,logs);
+  closeM('mTrainLog');window._trainSes=ses;renderTrainingTab();toast('Séance ajoutée ✓');
+}
+
+/* ===== BILAN TAB ===== */
+function renderBilanTab(){
+  const el=document.getElementById('tc-bilan');if(!el||!curClient)return;
+  const bilans=lsGet('bilans_'+curClient.id,[]);
+  if(!bilans.length){el.innerHTML=`<div class="empty"><div class="ei">📝</div><div class="et">Aucun bilan</div><div class="es">Les bilans apparaîtront ici quand le client les soumettra</div></div><button class="btn btn-dark btn-sm" style="margin-top:12px" onclick="addBilan()">+ Ajouter un bilan manuellement</button>`;return;}
+  el.innerHTML=`<button class="btn btn-dark btn-sm" style="margin-bottom:12px" onclick="addBilan()">+ Ajouter un bilan</button>`+
+    bilans.slice().reverse().map((b,bi)=>`<div class="plan-card"><div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
+      <div style="width:36px;height:36px;border-radius:10px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">📝</div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:700">${b.titre||'Bilan du '+new Date(b.date).toLocaleDateString('fr-FR')}</div><div style="font-size:11px;color:var(--text3)">${new Date(b.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}${b.poids?' · '+b.poids+' kg':''}</div></div>
+      <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();let bl=lsGet('bilans_'+curClient.id,[]);bl.splice(bl.length-1-${bi},1);lsSave('bilans_'+curClient.id,bl);renderBilanTab();toast('Supprimé')">✕</button>
+    </div><div class="plan-body">
+      ${b.contenu?`<div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-line">${b.contenu}</div>`:''}
+      ${(b.photos||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${b.photos.map(p=>`<img src="${p}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;cursor:pointer" onclick="window.open('${p}','_blank')">`).join('')}</div>`:''}
+      ${b.reponses?`<div style="margin-top:8px">${Object.entries(b.reponses).map(([k,v])=>`<div style="font-size:12px;margin-bottom:4px"><strong style="color:var(--dark)">${k}:</strong> <span style="color:var(--text2)">${v}</span></div>`).join('')}</div>`:''}
+    </div></div>`).join('');
+}
+function addBilan(){
+  let m=document.getElementById('mAddBilan');
+  if(!m){m=document.createElement('div');m.className='overlay';m.id='mAddBilan';m.innerHTML=`<div class="modal"><div class="mh"><div class="mt">Nouveau bilan</div><button class="mc" onclick="closeM('mAddBilan')">✕</button></div><div class="mb"><div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="biDate" value="${new Date().toISOString().slice(0,10)}"></div><div class="fg"><label class="fl">Titre</label><input class="fi" id="biTitre" placeholder="Bilan semaine 8"></div><div class="fg"><label class="fl">Poids (kg)</label><input class="fi" type="number" id="biPoids" step="0.1"></div><div class="fg"><label class="fl">Contenu / Notes</label><textarea class="fta" id="biContenu" style="min-height:100px" placeholder="Observations, retours du client…"></textarea></div><div class="fg"><label class="fl">Photos</label><input type="file" id="biPhotos" multiple accept="image/*"></div></div><div class="mf"><button class="btn btn-ghost" onclick="closeM('mAddBilan')">Annuler</button><button class="btn btn-dark" onclick="saveBilan()">Enregistrer</button></div></div>`;document.body.appendChild(m);}
+  openM('mAddBilan');
+}
+function saveBilan(){
+  const b={date:document.getElementById('biDate').value||new Date().toISOString().slice(0,10),titre:document.getElementById('biTitre').value,poids:parseFloat(document.getElementById('biPoids').value)||null,contenu:document.getElementById('biContenu').value,photos:[]};
+  const files=document.getElementById('biPhotos').files;
+  if(files.length){
+    let loaded=0;
+    Array.from(files).forEach(f=>{const reader=new FileReader();reader.onload=e=>{b.photos.push(e.target.result);loaded++;if(loaded===files.length){const key='bilans_'+curClient.id;const bl=lsGet(key,[]);bl.push(b);lsSave(key,bl);closeM('mAddBilan');renderBilanTab();renderGalerieTab();toast('Bilan enregistré ✓');updateNotifBadge();}};reader.readAsDataURL(f);});
+  }else{
+    const key='bilans_'+curClient.id;const bl=lsGet(key,[]);bl.push(b);lsSave(key,bl);closeM('mAddBilan');renderBilanTab();toast('Bilan enregistré ✓');updateNotifBadge();
+  }
+}
+
+/* ===== GALERIE TAB ===== */
+function renderGalerieTab(){
+  const el=document.getElementById('tc-galerie');if(!el||!curClient)return;
+  const bilans=lsGet('bilans_'+curClient.id,[]);
+  const allPhotos=[];bilans.forEach(b=>(b.photos||[]).forEach(p=>allPhotos.push({url:p,date:b.date,titre:b.titre})));
+  if(!allPhotos.length){el.innerHTML=`<div class="empty"><div class="ei">📸</div><div class="et">Aucune photo</div><div class="es">Les photos apparaîtront ici quand le client les ajoutera à ses bilans</div></div>`;return;}
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">${allPhotos.map(p=>`<div style="position:relative;cursor:pointer" onclick="window.open('${p.url}','_blank')">
+    <img src="${p.url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1.5px solid var(--border)">
+    <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.7));border-radius:0 0 10px 10px;padding:6px 8px;color:white;font-size:9px;font-weight:600">${new Date(p.date).toLocaleDateString('fr-FR')}<br>${p.titre||''}</div>
+  </div>`).join('')}</div>`;
+}
+
+/* ===== BILANS-ALL PAGE & NOTIFICATIONS ===== */
+function updateNotifBadge(){
+  const badge=document.getElementById('notifBadge');if(!badge)return;
+  // Count unread bilans across all clients
+  let count=0;
+  allClients.forEach(c=>{const bl=lsGet('bilans_'+c.id,[]);bl.forEach(b=>{if(!b.read)count++;});});
+  badge.style.display=count>0?'flex':'none';
+  badge.textContent=count;
+}
+
+function renderBilansAll(){
+  const wrap=document.getElementById('bilansAllWrap');if(!wrap)return;
+  let allBilans=[];
+  allClients.forEach(c=>{
+    const bl=lsGet('bilans_'+c.id,[]);
+    bl.forEach(b=>{allBilans.push({...b,clientId:c.id,clientName:(c.first_name||'')+' '+(c.last_name||''),clientColor:c.avatar_color||'#c49a2a'});});
+  });
+  allBilans.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!allBilans.length){wrap.innerHTML=`<div class="empty"><div class="ei">📋</div><div class="et">Aucun bilan soumis</div><div class="es">Les bilans apparaîtront ici quand vos clients en soumettront.</div></div>`;return;}
+  wrap.innerHTML=allBilans.map((b,i)=>{
+    const ini=b.clientName.split(' ').map(w=>(w[0]||'')).join('').toUpperCase().slice(0,2);
+    const dt=new Date(b.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+    const unread=!b.read?'border-left:3px solid var(--gold);':'';
+    return`<div class="card cp" style="margin-bottom:10px;${unread}" onclick="markBilanRead('${b.clientId}','${b.date}',this)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div class="c-av" style="background:${b.clientColor};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--dark);flex-shrink:0">${ini}</div>
+        <div><div style="font-weight:700;font-size:13px">${b.clientName}</div><div style="font-size:11px;color:var(--text3)">${dt} — ${b.titre||'Bilan'}</div></div>
+        ${!b.read?'<span style="margin-left:auto;background:var(--gold);color:var(--dark);font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px">Nouveau</span>':''}
+      </div>
+      ${b.contenu?`<div style="font-size:12px;color:var(--text2);line-height:1.5;white-space:pre-wrap;max-height:80px;overflow:hidden">${b.contenu}</div>`:''}
+      ${b.photos&&b.photos.length?`<div style="display:flex;gap:6px;margin-top:8px;overflow-x:auto">${b.photos.slice(0,4).map(p=>`<img src="${p}" style="width:50px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">`).join('')}${b.photos.length>4?`<div style="width:50px;height:50px;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text3)">+${b.photos.length-4}</div>`:''}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function markBilanRead(clientId,date,el){
+  const key='bilans_'+clientId;const bl=lsGet(key,[]);
+  const b=bl.find(x=>x.date===date);
+  if(b&&!b.read){b.read=true;lsSave(key,bl);updateNotifBadge();if(el)el.style.borderLeft='none';}
 }
 
 /* ===== PLANS ALIMENTAIRES ===== */
@@ -1378,7 +1628,7 @@ function pfRenderTotals(){const t=pfCalcDay(pfDayIdx);document.getElementById('p
 function pfRenderMeals(){
   const w=document.getElementById('pfMeals');if(!w)return;
   const repas=pfDays[pfDayIdx]?.repas||[];
-  w.innerHTML=repas.map((r,ri)=>{const mt=pfCalcMeal(r);return`<div class="meal-block${pfMealIdx===ri?' sel':''}" data-ri="${ri}" ondragover="event.preventDefault()" ondrop="pfDropFood(event,${ri})">
+  w.innerHTML=repas.map((r,ri)=>{const mt=pfCalcMeal(r);return`<div class="meal-block${pfMealIdx===ri?' sel':''}" data-ri="${ri}" draggable="true" ondragstart="pfMealDragStart(event,${ri})" ondragover="event.preventDefault()" ondrop="pfMealDrop(event,${ri})">
     <div class="meal-hdr" onclick="pfSelMeal(${ri})">
       <div style="width:22px;height:22px;border-radius:6px;background:${pfMealIdx===ri?'var(--gold)':'var(--dark)'};color:${pfMealIdx===ri?'var(--dark)':'white'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0">${ri+1}</div>
       <div class="meal-nm" ondblclick="pfRenameMeal(${ri},this)" title="Double-clic pour renommer">${r.nom}</div>
@@ -1386,10 +1636,10 @@ function pfRenderMeals(){
       <button onclick="event.stopPropagation();pfDelMeal(${ri})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;margin-left:6px" title="Supprimer repas">✕</button>
     </div>
     <div class="meal-body">
-      ${r.alims.map((a,ai)=>`<div class="food-row" draggable="true" ondragstart="pfDragStart(event,${ri},${ai})" style="cursor:grab">
+      ${r.alims.map((a,ai)=>`<div class="food-row" draggable="true" ondragstart="pfDragStart(event,${ri},${ai})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="event.stopPropagation();pfDropFood(event,${ri},${ai})" style="cursor:grab">
         <div style="font-size:12px;font-weight:600;color:var(--dark);display:flex;align-items:center;gap:5px"><span style="color:var(--text3);font-size:10px">⠿</span>${a.nom}</div>
         <button class="eq-btn" onclick="event.stopPropagation();pfToggleEquiv(this,${ri},${ai})" title="Voir les équivalences">⇄</button>
-        <input class="food-qte" type="number" value="${a.qte}" onchange="pfUpdQte(${ri},${ai},this.value)" onclick="event.stopPropagation()">
+        <input class="food-qte" type="number" value="${a.qte}" onchange="pfUpdQte(${ri},${ai},this.value)" onclick="event.stopPropagation()" title="Grammes (cru)">
         <span class="macro-p">${Math.round(a.prot*a.qte/100)}g P</span>
         <span class="macro-g">${Math.round(a.carb*a.qte/100)}g G</span>
         <span class="macro-l">${Math.round(a.fat*a.qte/100)}g L</span>
@@ -1400,16 +1650,38 @@ function pfRenderMeals(){
   </div>`}).join('');
 }
 let pfDragData=null;
-function pfDragStart(e,ri,ai){pfDragData={ri,ai};e.dataTransfer.effectAllowed='move';}
-function pfDropFood(e,targetRi){
-  if(!pfDragData)return;
+function pfDragStart(e,ri,ai){pfDragData={ri,ai,type:'food'};e.dataTransfer.effectAllowed='move';}
+function pfDropFood(e,targetRi,targetAi){
+  e.preventDefault();
+  if(!pfDragData||pfDragData.type==='meal')return;
   const{ri,ai}=pfDragData;
-  if(ri===targetRi){pfDragData=null;return;}
+  if(ri===targetRi&&ai===targetAi){pfDragData=null;return;}
   const food=pfDays[pfDayIdx].repas[ri].alims.splice(ai,1)[0];
-  pfDays[pfDayIdx].repas[targetRi].alims.push(food);
-  pfMealIdx=targetRi;
+  if(ri===targetRi){
+    // Réordonnement dans le même repas
+    const insertAt=ai<targetAi?targetAi:targetAi;
+    pfDays[pfDayIdx].repas[targetRi].alims.splice(insertAt,0,food);
+  }else{
+    // Déplacement entre repas
+    if(targetAi!==undefined)pfDays[pfDayIdx].repas[targetRi].alims.splice(targetAi,0,food);
+    else pfDays[pfDayIdx].repas[targetRi].alims.push(food);
+  }
+  pfMealIdx=targetRi;pfDragData=null;
+  pfRenderMeals();pfRenderTotals();
+}
+// Drag & drop repas (réordonnement)
+let pfMealDrag=null;
+function pfMealDragStart(e,ri){pfDragData={ri,type:'meal'};e.dataTransfer.effectAllowed='move';}
+function pfMealDrop(e,targetRi){
+  e.preventDefault();
+  if(!pfDragData||pfDragData.type!=='meal')return pfDropFood(e,targetRi);
+  const{ri}=pfDragData;
+  if(ri===targetRi){pfDragData=null;return;}
+  const meal=pfDays[pfDayIdx].repas.splice(ri,1)[0];
+  pfDays[pfDayIdx].repas.splice(targetRi,0,meal);
+  if(pfMealIdx===ri)pfMealIdx=targetRi;
   pfDragData=null;
-  pfRenderMeals();pfRenderTotals();toast(food.nom+' déplacé ✓');
+  pfRenderMeals();pfRenderTotals();toast(meal.nom+' déplacé ✓');
 }
 function pfRenameMeal(ri,el){
   const cur=el.textContent;
@@ -1582,7 +1854,23 @@ function renderPlansListPage(){
         <button class="btn btn-danger btn-xs" onclick="delPlan(${p.id})">✕</button>
       </div>
     </div>
-    <div class="plan-body"><div style="font-size:12px;color:var(--text3)">${p.notes||p.type==='full'?`Plan complet — ${(p.jours||[]).length} jour(s)`:'Aucune note'}</div></div>
+    <div class="plan-body">${p.type==='full'&&(p.jours||[]).length?`
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">${(p.jours||[]).map((j,ji)=>{
+        const jt={k:0,p:0,g:0,l:0};(j.repas||[]).forEach(r=>(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;jt.k+=a.kcal*q;jt.p+=a.prot*q;jt.g+=a.carb*q;jt.l+=a.fat*q;}));
+        return`<div style="flex:1;min-width:200px;border:1px solid var(--border);border-radius:8px;padding:9px;background:var(--white)">
+          <div style="font-size:12px;font-weight:700;color:var(--dark);margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:5px">${j.nom} <span style="font-size:10px;color:var(--text3);font-weight:500">${Math.round(jt.k)} kcal · P:${Math.round(jt.p)}g G:${Math.round(jt.g)}g L:${Math.round(jt.l)}g</span></div>
+          ${(j.repas||[]).map(r=>{
+            const mt={k:0,p:0,g:0,l:0};(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;mt.k+=a.kcal*q;mt.p+=a.prot*q;mt.g+=a.carb*q;mt.l+=a.fat*q;});
+            return`<div style="margin-bottom:6px">
+              <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:3px">${r.nom} <span style="font-weight:500;color:var(--text3)">${Math.round(mt.k)} kcal</span></div>
+              ${(r.alims||[]).map(a=>`<div style="font-size:11px;color:var(--text2);padding:2px 0;display:flex;justify-content:space-between"><span>${a.nom}</span><span style="color:var(--text3)">${a.qte||100}g cru · P:${Math.round(a.prot*(a.qte||100)/100)}g G:${Math.round(a.carb*(a.qte||100)/100)}g L:${Math.round(a.fat*(a.qte||100)/100)}g</span></div>`).join('')}
+              ${!(r.alims||[]).length?'<div style="font-size:10px;color:var(--text3)">Aucun aliment</div>':''}
+            </div>`;
+          }).join('')}
+          ${!(j.repas||[]).length?'<div style="font-size:10px;color:var(--text3)">Aucun repas</div>':''}
+        </div>`;
+      }).join('')}</div>
+    `:`<div style="font-size:12px;color:var(--text3)">${p.notes||'Plan macros — aucun détail de repas'}</div>`}</div>
   </div>`).join('');
 }
 function editFullPlan(id){
@@ -1619,6 +1907,50 @@ function renderAlims(){
   tb.innerHTML=alims.map(a=>`<tr><td style="font-weight:600">${a.nom} ${srcBadge(a.source)}</td><td><span class="tag">${a.cat}</span></td><td>${a.kcal}</td><td>${a.prot}g</td><td>${a.carb}g</td><td>${a.fat}g</td><td style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openAlim(${a.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delAlim(${a.id})">✕</button></td></tr>`).join('');
 }
 function delAlim(id){if(!confirm('Supprimer ?'))return;alims=alims.filter(a=>a.id!==id);lsSave('fz_alims',alims);renderAlims();toast('Supprimé');}
+function importAlimsFile(input){
+  const file=input.files[0];if(!file)return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  const reader=new FileReader();
+  reader.onload=e=>{
+    let items=[];
+    try{
+      const text=e.target.result;
+      if(ext==='json'){
+        const data=JSON.parse(text);
+        items=Array.isArray(data)?data:data.aliments||data.foods||data.items||[];
+      }else{
+        // CSV/TSV parsing
+        const sep=ext==='tsv'||text.split('\t').length>text.split(';').length?'\t':text.indexOf(';')>-1?';':',';
+        const lines=text.trim().split('\n');
+        const hdr=lines[0].toLowerCase().split(sep).map(h=>h.trim().replace(/"/g,''));
+        const iNom=hdr.findIndex(h=>h.match(/^(nom|name|aliment|food)/));
+        const iKcal=hdr.findIndex(h=>h.match(/^(kcal|cal|energie|energy)/));
+        const iProt=hdr.findIndex(h=>h.match(/^(prot|protein)/));
+        const iCarb=hdr.findIndex(h=>h.match(/^(gluc|carb|glucide)/));
+        const iFat=hdr.findIndex(h=>h.match(/^(lip|fat|lipide)/));
+        const iCat=hdr.findIndex(h=>h.match(/^(cat|categ|group|type)/));
+        const iSrc=hdr.findIndex(h=>h.match(/^(source|macro)/));
+        for(let l=1;l<lines.length;l++){
+          const cols=lines[l].split(sep).map(c=>c.trim().replace(/"/g,''));
+          const nom=cols[iNom>=0?iNom:0];
+          if(!nom)continue;
+          items.push({nom,cat:iCat>=0?cols[iCat]:'Autres',source:iSrc>=0?cols[iSrc]:'',kcal:parseFloat(cols[iKcal>=0?iKcal:1])||0,prot:parseFloat(cols[iProt>=0?iProt:2])||0,carb:parseFloat(cols[iCarb>=0?iCarb:3])||0,fat:parseFloat(cols[iFat>=0?iFat:4])||0});
+        }
+      }
+      if(!items.length){toast('Aucun aliment trouvé dans le fichier');return;}
+      let added=0;
+      items.forEach(it=>{
+        if(!it.nom)return;
+        const exists=alims.find(a=>a.nom.toLowerCase()===it.nom.toLowerCase());
+        if(!exists){alims.push({...it,id:Date.now()+added,source:it.source||''});added++;}
+      });
+      lsSave('fz_alims',alims);renderAlims();
+      toast(added+' aliment(s) importé(s) ✓ ('+items.length+' lu(s), '+(items.length-added)+' doublon(s))');
+    }catch(err){toast('Erreur de lecture: '+err.message);console.error(err);}
+  };
+  reader.readAsText(file);
+  input.value='';
+}
 
 /* ===== REPAS ===== */
 function openRepas(id){
@@ -1657,7 +1989,12 @@ function saveRepas(){
 function renderRepasList(){
   const el=document.getElementById('repasList');if(!el)return;
   if(!repas.length){el.innerHTML=`<div class="empty"><div class="ei">🍽️</div><div class="et">Aucun repas</div><div class="es">Crée ton premier repas/recette</div></div>`;return;}
-  el.innerHTML=repas.map(r=>`<div class="plan-card"><div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')"><div style="width:36px;height:36px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🍽️</div><div style="flex:1"><div style="font-size:14px;font-weight:700">${r.nom}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${r.type} · ${r.kcal||0} kcal · P:${r.prot||0}g G:${r.carb||0}g L:${r.fat||0}g · ${(r.items||[]).length} aliments</div></div><div style="display:flex;gap:5px" onclick="event.stopPropagation()"><button class="btn btn-ghost btn-xs" onclick="openRepas(${r.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delRepas(${r.id})">✕</button></div></div><div class="plan-body">${r.instr?`<div style="font-size:12px;color:var(--text2);line-height:1.6">${r.instr}</div>`:''}</div></div>`).join('');
+  el.innerHTML=repas.map(r=>`<div class="plan-card"><div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')"><div style="width:36px;height:36px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🍽️</div><div style="flex:1"><div style="font-size:14px;font-weight:700">${r.nom}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${r.type} · ${r.kcal||0} kcal · P:${r.prot||0}g G:${r.carb||0}g L:${r.fat||0}g · ${(r.items||[]).length} aliments</div></div><div style="display:flex;gap:5px" onclick="event.stopPropagation()"><button class="btn btn-ghost btn-xs" onclick="openRepas(${r.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delRepas(${r.id})">✕</button></div></div>
+    <div class="plan-body">
+      ${(r.items||[]).length?`<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:5px">Ingrédients</div>${(r.items||[]).map(it=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600">${it.nom}</span><span style="color:var(--text3)">${it.qte||100}g cru · ${it.kcal||0} kcal · P:${it.prot||0}g G:${it.carb||0}g L:${it.fat||0}g</span></div>`).join('')}</div>`:''}
+      ${r.instr?`<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px">Instructions</div><div style="font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-line">${r.instr}</div></div>`:''}
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--text3);padding-top:6px;border-top:1px solid var(--border)"><span>Total : <strong>${r.kcal||0} kcal</strong></span><span class="macro-p">P: ${r.prot||0}g</span><span class="macro-g">G: ${r.carb||0}g</span><span class="macro-l">L: ${r.fat||0}g</span></div>
+    </div></div>`).join('');
 }
 function delRepas(id){if(!confirm('Supprimer ?'))return;repas=repas.filter(r=>r.id!==id);lsSave('fz_repas',repas);renderRepasList();toast('Supprimé');}
 
@@ -2300,8 +2637,8 @@ function saveChap(){
 function openVid(modId,chapId,vidId){
   document.getElementById('vidMT').textContent=vidId?'Modifier vidéo':'Ajouter une vidéo';
   document.getElementById('vidModId').value=modId;document.getElementById('vidChapId').value=chapId;
-  if(vidId){const m=modules.find(x=>x.id===modId);const ch=m?.chapitres?.find(c=>c.id===chapId);const v=ch?.videos?.find(x=>x.id===vidId);if(v){document.getElementById('vidTitle').value=v.title;document.getElementById('vidUrl').value=v.url||'';document.getElementById('vidDur').value=v.dur||'';document.getElementById('vidWeek').value=v.week||1;document.getElementById('vidDesc').value=v.desc||'';document.getElementById('vidEditId').value=vidId;prevYT(v.url||'');}}
-  else{['vidTitle','vidUrl','vidDur','vidDesc'].forEach(x=>document.getElementById(x).value='');document.getElementById('vidWeek').value=1;document.getElementById('vidEditId').value='';document.getElementById('ytPrevWrap').style.display='none';}
+  if(vidId){const m=modules.find(x=>x.id===modId);const ch=m?.chapitres?.find(c=>c.id===chapId);const v=ch?.videos?.find(x=>x.id===vidId);if(v){document.getElementById('vidTitle').value=v.title;document.getElementById('vidUrl').value=v.url||'';document.getElementById('vidDur').value=v.dur||'';document.getElementById('vidWeek').value=v.week||1;document.getElementById('vidDesc').value=v.desc||'';document.getElementById('vidPdf').value=v.pdf||'';document.getElementById('vidEditId').value=vidId;prevYT(v.url||'');}}
+  else{['vidTitle','vidUrl','vidDur','vidDesc','vidPdf'].forEach(x=>document.getElementById(x).value='');document.getElementById('vidWeek').value=1;document.getElementById('vidEditId').value='';document.getElementById('ytPrevWrap').style.display='none';}
   openM('mNewVid');
 }
 function prevYT(url){
@@ -2316,7 +2653,7 @@ function saveVid(){
   const mi=modules.findIndex(x=>x.id===modId);if(mi<0){toast('Module introuvable');return;}
   const ci=modules[mi].chapitres?.findIndex(c=>c.id===chapId);
   if(ci===undefined||ci<0){toast('Chapitre introuvable');return;}
-  const v={title,url,dur:document.getElementById('vidDur').value,week:parseInt(document.getElementById('vidWeek').value)||1,desc:document.getElementById('vidDesc').value};
+  const v={title,url,dur:document.getElementById('vidDur').value,week:parseInt(document.getElementById('vidWeek').value)||1,desc:document.getElementById('vidDesc').value,pdf:document.getElementById('vidPdf').value.trim()||''};
   const editRaw=document.getElementById('vidEditId').value;
   const editId=editRaw?parseInt(editRaw):null;
   if(!modules[mi].chapitres[ci].videos)modules[mi].chapitres[ci].videos=[];
@@ -2344,34 +2681,70 @@ function closeWatch(){
   setTimeout(()=>{if(embed)embed.innerHTML='';},50);
   closeM('mWatch');
 }
+let lrnView='list',lrnModId=null,lrnChapId=null;
 function renderMods(){
   const el=document.getElementById('modList');if(!el)return;
   if(!modules.length){el.innerHTML=`<div class="empty"><div class="ei">🎓</div><div class="et">Aucun module</div><div class="es">Crée ton premier module de formation</div></div>`;return;}
-  el.innerHTML=`<div class="g3">${modules.map(m=>`<div class="card" style="overflow:hidden;cursor:pointer">
+  if(lrnView==='video'){
+    const m=modules.find(x=>x.id===lrnModId);const ch=m?.chapitres?.find(c=>c.id===lrnChapId);
+    if(!m||!ch){lrnView='list';renderMods();return;}
+    const v=(ch.videos||[])[0];// show first video or list
+    el.innerHTML=`<div style="margin-bottom:12px"><button class="btn btn-ghost btn-sm" onclick="lrnView='chaps';renderMods()">← ${m.title}</button></div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px">Chapitre ${(m.chapitres||[]).indexOf(ch)+1}</div>
+      <h2 style="font-size:20px;font-weight:800;color:var(--dark);margin-bottom:14px">${ch.title}</h2>
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button class="btn btn-ghost btn-xs" onclick="openChap(${m.id},${ch.id})">✏️ Modifier chapitre</button>
+        <button class="btn btn-dark btn-xs" onclick="openVid(${m.id},${ch.id},null)">+ Ajouter vidéo</button>
+      </div>
+      ${(ch.videos||[]).map(v=>`<div class="card" style="margin-bottom:14px;overflow:hidden">
+        <div style="font-size:16px;font-weight:700;padding:14px 16px;border-bottom:1px solid var(--border)">${v.title}</div>
+        ${ytId(v.url)?`<div style="position:relative;padding-bottom:56.25%;background:#000;border-bottom:1px solid var(--border)"><iframe src="https://www.youtube.com/embed/${ytId(v.url)}?rel=0&modestbranding=1" allowfullscreen allow="autoplay; fullscreen" style="position:absolute;inset:0;width:100%;height:100%;border:none"></iframe></div>`:''}
+        <div style="padding:14px 16px">${v.desc?`<div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-line;margin-bottom:10px">${v.desc}</div>`:'<div style="font-size:12px;color:var(--text3)">Aucune description</div>'}
+          <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><span style="font-size:11px;color:var(--text3)">${v.dur||'—'} · Sem. ${v.week||1}</span>
+          ${v.pdf?`<a href="${v.pdf}" target="_blank" class="btn btn-ghost btn-xs" style="text-decoration:none">📄 Télécharger PDF</a>`:''}</div>
+          <div style="display:flex;gap:5px;margin-top:8px"><button class="btn btn-ghost btn-xs" onclick="openVid(${m.id},${ch.id},${v.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delVid(${m.id},${ch.id},${v.id})">✕</button></div>
+        </div>
+      </div>`).join('')}
+      ${!(ch.videos||[]).length?`<div class="empty" style="padding:30px"><div class="ei">🎬</div><div class="et">Aucune vidéo</div><div class="es">Ajoute ta première vidéo à ce chapitre</div></div>`:''}`;
+    return;
+  }
+  if(lrnView==='chaps'){
+    const m=modules.find(x=>x.id===lrnModId);
+    if(!m){lrnView='list';renderMods();return;}
+    el.innerHTML=`<div style="margin-bottom:12px"><button class="btn btn-ghost btn-sm" onclick="lrnView='list';lrnModId=null;renderMods()">← Tous les modules</button></div>
+      <div class="mod-cover" style="border-radius:12px;height:120px;margin-bottom:16px">${m.img?`<img src="${m.img}">`:''}
+        <div><div class="mod-num">${m.cat||'Module'}</div><div class="mod-title" style="font-size:22px">${m.title}</div></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:16px">
+        <button class="btn btn-ghost btn-xs" onclick="openMod(${m.id})">✏️ Modifier</button>
+        <button class="btn btn-dark btn-xs" onclick="openChap(${m.id},null)">+ Nouveau chapitre</button>
+        <button class="btn btn-danger btn-xs" onclick="delMod(${m.id})">✕ Supprimer</button>
+      </div>
+      ${(m.chapitres||[]).length?`<div class="g2">${(m.chapitres||[]).map((ch,ci)=>`<div class="card" style="cursor:pointer;overflow:hidden" onclick="lrnChapId=${ch.id};lrnView='video';renderMods()">
+        ${ch.img?`<div style="height:80px;overflow:hidden;background:var(--bg2)"><img src="${ch.img}" style="width:100%;height:100%;object-fit:cover"></div>`:`<div style="height:60px;background:linear-gradient(135deg,var(--dark),var(--dark2));display:flex;align-items:center;justify-content:center;font-size:22px;color:rgba(255,255,255,.3)">${ci+1}</div>`}
+        <div style="padding:11px 13px">
+          <div style="font-size:14px;font-weight:700">${ch.title}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">${(ch.videos||[]).length} vidéo(s)</div>
+        </div>
+        <div style="padding:0 13px 10px;display:flex;gap:5px" onclick="event.stopPropagation()">
+          <button class="btn btn-ghost btn-xs" onclick="openChap(${m.id},${ch.id})">✏️</button>
+          <button class="btn btn-dark btn-xs" onclick="openVid(${m.id},${ch.id},null)">+ Vidéo</button>
+        </div>
+      </div>`).join('')}</div>`:`<div class="empty" style="padding:30px"><div class="ei">📚</div><div class="et">Aucun chapitre</div><div class="es">Ajoute ton premier chapitre</div></div>`}`;
+    return;
+  }
+  // Vue liste : juste les modules en grille
+  el.innerHTML=`<div class="g3">${modules.map(m=>`<div class="card" style="overflow:hidden;cursor:pointer" onclick="lrnModId=${m.id};lrnView='chaps';renderMods()">
     <div class="mod-cover">${m.img?`<img src="${m.img}">`:''}
       <div><div class="mod-num">${m.cat||'Module'}</div><div class="mod-title">${m.title}</div></div>
     </div>
-    <div style="padding:11px 13px;border-bottom:1px solid var(--border);display:flex;gap:6px;background:var(--bg)">
-      <button class="btn btn-ghost btn-xs" onclick="openMod(${m.id})">✏️</button>
-      <button class="btn btn-dark btn-xs" onclick="openChap(${m.id},null)">+ Chapitre</button>
-      <button class="btn btn-danger btn-xs" onclick="delMod(${m.id})">✕</button>
-    </div>
-    ${(m.chapitres||[]).length?`<div>${(m.chapitres||[]).map(ch=>`
-      <div class="chap-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
-        <div style="width:22px;height:22px;border-radius:6px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--text2)">${(m.chapitres||[]).indexOf(ch)+1}</div>
-        <div style="flex:1"><div style="font-size:13px;font-weight:700">${ch.title}</div><div style="font-size:10px;color:var(--text3);margin-top:1px">${(ch.videos||[]).length} vidéo(s)</div></div>
-        <button class="btn btn-ghost btn-xs" style="margin-right:4px" onclick="event.stopPropagation();openChap(${m.id},${ch.id})">✏️</button>
-        <button class="btn btn-dark btn-xs" onclick="event.stopPropagation();openVid(${m.id},${ch.id},null)">+ Vidéo</button>
+    <div style="padding:11px 13px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:12px;color:var(--text3)">${(m.chapitres||[]).length} chapitre(s) · ${(m.chapitres||[]).reduce((s,c)=>s+(c.videos||[]).length,0)} vidéo(s)</div>
+      <div style="display:flex;gap:5px" onclick="event.stopPropagation()">
+        <button class="btn btn-ghost btn-xs" onclick="openMod(${m.id})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="delMod(${m.id})">✕</button>
       </div>
-      <div class="chap-body">
-        ${(ch.videos||[]).map(v=>`<div class="vid-row" onclick="watchVid('${v.title.replace(/'/g,"\\'")}','${v.url}','${(v.desc||'').replace(/'/g,"\\'")}')">
-          <div class="vid-thumb">${ytId(v.url)?`<img src="https://img.youtube.com/vi/${ytId(v.url)}/mqdefault.jpg"><div class="vid-play">▶</div>`:'<div class="vid-play">▶</div>'}</div>
-          <div style="flex:1"><div style="font-size:12px;font-weight:600">${v.title}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${v.dur||'—'} · Sem. ${v.week||1}</div></div>
-          <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openVid(${m.id},${ch.id},${v.id})">✏️</button>
-          <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();delVid(${m.id},${ch.id},${v.id})">✕</button>
-        </div>`).join('')}
-        ${!(ch.videos||[]).length?`<div style="font-size:12px;color:var(--text3);padding:6px 0">Aucune vidéo — clique sur + Vidéo</div>`:''}
-      </div>`).join('')}</div>`:`<div style="padding:12px 13px"><div style="font-size:12px;color:var(--text3)">Aucun chapitre — clique sur + Chapitre</div></div>`}
+    </div>
   </div>`).join('')}</div>`;
 }
 function delMod(id){if(!confirm('Supprimer ce module et tout son contenu ?'))return;modules=modules.filter(m=>m.id!==id);lsSave('fz_modules',modules);renderMods();updateOv();toast('Module supprimé');}

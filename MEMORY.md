@@ -26,9 +26,21 @@
 - [x] Templates repas/recettes
 - [x] Modules de formation (chapitres + vidéos)
 - [x] Gestion équipe coaching
-- [x] Roadmap 52 semaines par client
-- [x] Thème clair avec accents gold
+- [x] Roadmap 52 semaines par client (colonne unique texte libre pour apports)
+- [x] Thème clair avec accents gold + logo SVG FE
 - [x] Overview avec stats
+- [x] Mention "poids cru" sur tous les formulaires aliments
+- [x] Drag & drop réordonnement aliments dans repas + repas dans plan
+- [x] Détail plan alimentaire dépliable (jours → repas → aliments avec macros)
+- [x] Import base de données aliments (CSV/TSV/JSON avec détection auto colonnes)
+- [x] Détail complet repas/recettes (ingrédients, instructions, macros)
+- [x] Learning refactoré : grille modules → liste chapitres → page vidéo YouTube + description + PDF
+- [x] Section Progression client (graphiques SVG, métriques quotidiennes, stats)
+- [x] Section Training client (blocs cycles colorés violet/rouge/jaune/vert)
+- [x] Section Bilan client (historique, photos, contenu, réponses)
+- [x] Section Galerie client (grille photos issues des bilans)
+- [x] Notification 🔔 avec badge pour bilans non lus
+- [x] Page Bilans hebdo (listing tous bilans de tous clients)
 
 ### Ce qui reste à faire (prochaines priorités)
 - [ ] **Migration localStorage → Supabase** : exercices, programmes, aliments, repas, plans complets, modules, équipe, settings
@@ -52,6 +64,10 @@
 | 2026-03-10 | Exercices de remplacement | Coach configure des alternatives, client pourra swapper dans l'app |
 | 2026-03-10 | Vidéo séance via IndexedDB | localStorage trop limité (5MB), IndexedDB pour stocker les blobs vidéo |
 | 2026-03-10 | CLAUDE.md + MEMORY.md | Continuité entre sessions Claude |
+| 2026-03-10 | Import aliments multi-format | Permettre import rapide de bases existantes (CSV/TSV/JSON) |
+| 2026-03-10 | Learning 3 niveaux | UX modulaire : modules → chapitres → vidéo individuelle |
+| 2026-03-10 | Bilans client en base64 | Photos stockées en base64 dans localStorage (bilans_<id>) |
+| 2026-03-10 | Progression SVG charts | Graphiques légers sans dépendance externe |
 
 ## Historique des sessions
 
@@ -68,6 +84,17 @@
 - **Équivalences alimentaires** : bouton ⇄ par aliment dans le plan builder, dropdown avec alternatives de même source et quantités auto-ajustées
 - **Exercices de remplacement** : champ multi-select dans la fiche exercice, bouton swap dans programme builder et séances
 - **Capture vidéo en séance** : bouton filmer (caméra) + importer (fichier), stockage IndexedDB, lecture inline
+- **Poids cru** mentionné dans les formulaires aliments (modal, inline, titre input)
+- **Drag & drop** : réordonnement aliments intra-repas + repas intra-plan
+- **Détail plan dépliable** : clic sur un plan affiche tous jours/repas/aliments avec macros
+- **Import aliments** : CSV/TSV/JSON, détection auto des colonnes (regex patterns)
+- **Détail recettes** : ingrédients, instructions, totaux macros au clic
+- **Learning refactoré** : 3 vues (modules grille → chapitres liste → vidéo page avec embed YouTube + description + lien PDF)
+- **Roadmap** : colonne unique texte libre remplaçant les 3 colonnes haut/moy/bas (rétrocompatible)
+- **Logo SVG FE** dans la sidebar
+- **Notification 🔔** : badge rouge compteur bilans non lus, lié à la page bilans-all
+- **Sections fiche client** : Progression (graphique SVG + métriques quotidiennes), Training (blocs cycles colorés), Bilan (historique + photos base64), Galerie (grille photos)
+- **Page Bilans hebdo** : listing global tous bilans de tous clients, marquage lu/non-lu
 
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
