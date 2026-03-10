@@ -954,6 +954,98 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <div class="mf"><button class="btn btn-ghost" onclick="closeM('mNewCoach')">Annuler</button><button class="btn btn-dark" onclick="saveCoach()">Ajouter</button></div>
 </div></div>
 
+<!-- MODAL: GENERATE AI MEAL PLAN -->
+<div class="overlay" id="mGenPlan"><div class="modal" style="max-width:640px">
+  <div class="mh"><span id="genPlanMT">Générer un plan alimentaire IA</span><span class="mx" onclick="closeM('mGenPlan')">✕</span></div>
+  <div class="mb" style="max-height:70vh;overflow-y:auto">
+    <!-- Macros summary -->
+    <div style="background:var(--dark);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+      <div><div style="font-size:18px;font-weight:800;color:#fff" id="gpKcal">—</div><div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:700">KCAL</div></div>
+      <div><div style="font-size:18px;font-weight:800;color:#60a5fa" id="gpProt">—</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div>
+      <div><div style="font-size:18px;font-weight:800;color:#fbbf24" id="gpCarb">—</div><div style="font-size:9px;color:#fcd34d;font-weight:700">GLUC.</div></div>
+      <div><div style="font-size:18px;font-weight:800;color:#c49a2a" id="gpFat">—</div><div style="font-size:9px;color:#d4a94a;font-weight:700">LIP.</div></div>
+    </div>
+    <!-- Config fields -->
+    <div class="fr2">
+      <div class="fg"><label class="fl">Nombre de repas / jour</label>
+        <select class="fs" id="gpMealsCount" onchange="gpUpdateMealNames()">
+          <option value="3">3 repas</option><option value="4">4 repas</option><option value="5">5 repas</option><option value="6">6 repas</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Régime alimentaire</label>
+        <select class="fs" id="gpDiet">
+          <option value="omni">Omnivore</option><option value="vgt">Végétarien</option><option value="vgn">Végétalien</option><option value="pes">Pescétarien</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Noms des repas</label>
+      <div id="gpMealNamesWrap" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
+    <div class="fg"><label class="fl">Temps de préparation max (min)</label>
+      <input class="fi" type="number" id="gpPrepTime" value="30" min="5" max="120">
+    </div>
+    <!-- Restaurant section -->
+    <div class="fg" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--bg)">
+      <label class="fl" style="margin-bottom:6px">🍽️ Repas au restaurant</label>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Sélectionne le repas pris au restaurant et les jours concernés. Ces repas ne seront pas générés, mais les calories seront prises en compte.</div>
+      <div class="fr2">
+        <div class="fg"><label class="fl">Slot restaurant</label>
+          <select class="fs" id="gpRestoSlot" onchange="gpUpdateRestoDays()">
+            <option value="">— Aucun —</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Budget calories resto</label>
+          <input class="fi" type="number" id="gpRestoKcal" value="700" min="200" max="2000">
+        </div>
+      </div>
+      <div id="gpRestoDays" style="display:none;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
+    </div>
+    <!-- Allergies -->
+    <div class="fg"><label class="fl">Exclusions / Allergies</label>
+      <textarea class="fi" id="gpAllergies" rows="2" placeholder="Gluten, Fruits de mer, Lactose…" style="resize:vertical"></textarea>
+    </div>
+    <!-- Preferences -->
+    <div class="fg"><label class="fl">Préférences alimentaires</label>
+      <textarea class="fi" id="gpPrefs" rows="2" placeholder="Aliments favoris, habitudes…" style="resize:vertical"></textarea>
+    </div>
+    <!-- Equipment -->
+    <div class="fg"><label class="fl">Équipement cuisine</label>
+      <input class="fi" id="gpEquip" placeholder="Four, Poêle, Blender, Cuiseur vapeur…">
+    </div>
+    <!-- Loading state -->
+    <div id="gpLoading" style="display:none;text-align:center;padding:20px 0">
+      <div style="font-size:32px;animation:spin 1.5s linear infinite;display:inline-block">🤖</div>
+      <div style="font-size:13px;font-weight:600;margin-top:8px;color:var(--dark)" id="gpLoadText">Génération en cours…</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Cela peut prendre 30-60 secondes</div>
+    </div>
+  </div>
+  <div class="mf" id="gpFooter">
+    <button class="btn btn-ghost" onclick="closeM('mGenPlan')">Annuler</button>
+    <button class="btn" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700" id="gpGenBtn" onclick="generateAIPlan()">🤖 Générer 7 jours</button>
+  </div>
+</div></div>
+
+<style>
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.ai-plan-day{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.ai-plan-day-hdr{padding:10px 13px;background:var(--dark);color:#fff;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.ai-plan-day-body{display:none;padding:0}
+.ai-plan-day-body.open{display:block}
+.ai-meal{border-bottom:1px solid var(--border);padding:10px 13px}
+.ai-meal:last-child{border-bottom:none}
+.ai-meal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.ai-meal-name{font-size:13px;font-weight:700;color:var(--dark)}
+.ai-meal-macros{font-size:10px;color:var(--text3)}
+.ai-meal-meta{font-size:11px;color:var(--text2);margin-bottom:6px}
+.ai-alim-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px}
+.ai-alim-name{flex:1;font-weight:500}
+.ai-alim-qte{font-weight:700;color:var(--dark);min-width:45px;text-align:right}
+.ai-alim-macro{font-size:10px;color:var(--text3);min-width:100px}
+.ai-meal-recipe{margin-top:8px;padding:8px 10px;background:var(--bg);border-radius:8px;font-size:11px;color:var(--text2);line-height:1.6;white-space:pre-wrap}
+.ai-warn{background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:10px}
+.ai-resto-badge{background:#f3e8ff;color:#7c3aed;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+</style>
+
 <div class="toast" id="toast"><span style="color:var(--gold)">✓</span><span id="toastTxt"></span></div>
 
 <script>
@@ -1260,8 +1352,12 @@ function renderNutTab(){
     <div><div style="font-size:20px;font-weight:800;color:#f59e0b" id="rC">${cg}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700;letter-spacing:1px">GLUC.</div></div>
     <div><div style="font-size:20px;font-weight:800;color:var(--gold)" id="rF">${fg}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700;letter-spacing:1px">LIP.</div></div>
   </div>
-  <button class="btn btn-dark btn-sm" id="btnSP" onclick="savePlanClient()">⚡ Enregistrer plan Supabase</button>
-  <div id="planDisp" style="margin-top:12px"></div>`;
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button class="btn btn-dark btn-sm" id="btnSP" onclick="savePlanClient()">⚡ Enregistrer plan Supabase</button>
+    <button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700;cursor:pointer" onclick="openGenPlanModal()">🤖 Générer plan IA</button>
+  </div>
+  <div id="planDisp" style="margin-top:12px"></div>
+  <div id="aiPlanResult" style="margin-top:12px"></div>`;
   nMacroUpd();loadPlanDisp();
 }
 function nRecalc(){
@@ -2824,6 +2920,317 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.body.appendChild(mDiv);
   document.getElementById('sQUrl').textContent=QBASE;
 });
+
+/* ========== AI MEAL PLAN GENERATOR ========== */
+let gpMealNames=['Petit-déjeuner','Déjeuner','Dîner'];
+let gpRestoConfig={};
+let aiPlanData=null;
+
+const GP_DEFAULT_MEALS={
+  3:['Petit-déjeuner','Déjeuner','Dîner'],
+  4:['Petit-déjeuner','Déjeuner','Goûter','Dîner'],
+  5:['Petit-déjeuner','Collation AM','Déjeuner','Goûter','Dîner'],
+  6:['Petit-déjeuner','Collation AM','Déjeuner','Goûter','Dîner','Collation soir']
+};
+const GP_DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+
+function openGenPlanModal(){
+  if(!curClient||!curQ){toast('Questionnaire requis pour générer');return;}
+  // Pre-fill from nutSt
+  txt('gpKcal',nutSt.lastK||'—');
+  txt('gpProt',(nutSt.lastP||'—')+'g');
+  txt('gpCarb',(nutSt.lastC||'—')+'g');
+  txt('gpFat',(nutSt.lastF||'—')+'g');
+  // Pre-fill from questionnaire
+  const mp=parseInt(curQ.meals_per_day)||3;
+  const sel=document.getElementById('gpMealsCount');
+  sel.value=mp<=6?mp:3;
+  gpUpdateMealNames();
+  document.getElementById('gpDiet').value=curQ.diet_type||'omni';
+  document.getElementById('gpPrepTime').value=curQ.prep_time_max||30;
+  // Allergies: separate equipment from food exclusions
+  const foodAllergies=(curQ.allergies||[]).filter(a=>!['Four','Cuiseur vapeur','Blender','Moule à gaufre','Moule à muffin'].includes(a));
+  const equipFromQ=(curQ.allergies||[]).filter(a=>['Four','Cuiseur vapeur','Blender','Moule à gaufre','Moule à muffin'].includes(a));
+  document.getElementById('gpAllergies').value=foodAllergies.join(', ');
+  document.getElementById('gpPrefs').value=[curQ.favorite_foods||'',curQ.meal_habits||''].filter(Boolean).join('\n');
+  // Equipment: invert (items NOT excluded = available)
+  const allEquip=['Four','Cuiseur vapeur','Blender','Poêle','Casserole'];
+  const available=allEquip.filter(e=>!equipFromQ.includes(e));
+  document.getElementById('gpEquip').value=available.join(', ');
+  // Reset loading
+  document.getElementById('gpLoading').style.display='none';
+  document.getElementById('gpGenBtn').disabled=false;
+  document.getElementById('gpGenBtn').textContent='🤖 Générer 7 jours';
+  gpRestoConfig={};
+  openM('mGenPlan');
+}
+
+function gpUpdateMealNames(){
+  const n=parseInt(document.getElementById('gpMealsCount').value)||3;
+  gpMealNames=GP_DEFAULT_MEALS[n]||GP_DEFAULT_MEALS[3];
+  const wrap=document.getElementById('gpMealNamesWrap');
+  wrap.innerHTML=gpMealNames.map((m,i)=>`<input class="fi" style="width:140px;font-size:12px" value="${m}" onchange="gpMealNames[${i}]=this.value;gpUpdateRestoSlot()">`).join('');
+  gpUpdateRestoSlot();
+}
+
+function gpUpdateRestoSlot(){
+  const sel=document.getElementById('gpRestoSlot');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Aucun —</option>'+gpMealNames.map(m=>`<option value="${m}"${m===cur?' selected':''}>${m}</option>`).join('');
+  gpUpdateRestoDays();
+}
+
+function gpUpdateRestoDays(){
+  const slot=document.getElementById('gpRestoSlot').value;
+  const wrap=document.getElementById('gpRestoDays');
+  if(!slot){wrap.style.display='none';gpRestoConfig={};return;}
+  wrap.style.display='flex';
+  const prev=gpRestoConfig[slot]||[];
+  wrap.innerHTML=GP_DAYS.map(d=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:4px 8px;background:var(--bg2);border-radius:6px">
+    <input type="checkbox" class="gpRestoCb" value="${d}" ${prev.includes(d)?'checked':''} onchange="gpSaveRestoDays()"> ${d}
+  </label>`).join('');
+}
+
+function gpSaveRestoDays(){
+  const slot=document.getElementById('gpRestoSlot').value;
+  if(!slot)return;
+  const cbs=document.querySelectorAll('.gpRestoCb:checked');
+  gpRestoConfig={};
+  if(cbs.length>0){
+    gpRestoConfig[slot]=Array.from(cbs).map(c=>c.value);
+  }
+}
+
+async function generateAIPlan(){
+  if(!nutSt.lastK||!nutSt.lastP){toast('Calcule d\'abord les macros');return;}
+  const btn=document.getElementById('gpGenBtn');
+  const loading=document.getElementById('gpLoading');
+  btn.disabled=true;btn.textContent='⏳ Génération…';
+  loading.style.display='block';
+  document.getElementById('gpLoadText').textContent='Connexion à l\'IA…';
+
+  const config={
+    kcal:nutSt.lastK,
+    prot:nutSt.lastP,
+    carb:nutSt.lastC,
+    fat:nutSt.lastF,
+    meals_per_day:gpMealNames.length,
+    meal_names:gpMealNames,
+    diet_type:document.getElementById('gpDiet').value,
+    allergies:document.getElementById('gpAllergies').value.split(',').map(s=>s.trim()).filter(Boolean),
+    prep_time_max:parseInt(document.getElementById('gpPrepTime').value)||30,
+    preferences:document.getElementById('gpPrefs').value,
+    equipment:document.getElementById('gpEquip').value.split(',').map(s=>s.trim()).filter(Boolean),
+    restaurant:gpRestoConfig,
+    restaurant_margin_kcal:parseInt(document.getElementById('gpRestoKcal').value)||700
+  };
+
+  const clientProfile={
+    sex:curQ.sex,
+    age:curQ.age,
+    weight_kg:curQ.weight_kg,
+    height_cm:curQ.height_cm,
+    goal:curQ.goal,
+    diet_type:curQ.diet_type
+  };
+
+  try{
+    document.getElementById('gpLoadText').textContent='Génération du plan alimentaire…';
+    const resp=await fetch(SUPA+'/functions/v1/generate-meal-plan',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      body:JSON.stringify({config,clientProfile})
+    });
+
+    if(!resp.ok){
+      const err=await resp.json().catch(()=>({error:'Erreur serveur'}));
+      throw new Error(err.error||'Erreur '+resp.status);
+    }
+
+    const data=await resp.json();
+    if(!data.plan||!data.plan.jours){throw new Error('Réponse invalide — pas de plan');}
+
+    aiPlanData={...data.plan,config};
+    closeM('mGenPlan');
+    renderAIPlan(aiPlanData,config);
+    toast('Plan IA généré ✓');
+  }catch(e){
+    console.error('AI Plan error:',e);
+    toast('Erreur: '+e.message);
+    document.getElementById('gpLoadText').textContent='Erreur: '+e.message;
+  }finally{
+    btn.disabled=false;btn.textContent='🤖 Générer 7 jours';
+    loading.style.display='none';
+  }
+}
+
+function renderAIPlan(plan,config){
+  const el=document.getElementById('aiPlanResult');
+  if(!el||!plan.jours)return;
+
+  // Validate plan
+  const warnings=validateAIPlan(plan,config);
+  const warnHtml=warnings.length?`<div class="ai-warn"><b>⚠️ Alertes de validation (${warnings.length})</b><ul style="margin:4px 0 0 16px;padding:0">${warnings.map(w=>`<li>${w}</li>`).join('')}</ul></div>`:'';
+
+  // Summary bar
+  const totalKcal=plan.jours.reduce((s,j)=>s+j.repas.reduce((ss,r)=>ss+(r.actual_kcal||0),0),0);
+  const avgKcal=Math.round(totalKcal/plan.jours.length);
+
+  let html=`<div class="card" style="padding:14px;margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div><div style="font-size:16px;font-weight:800;color:var(--dark)">🤖 Plan IA — ${config.kcal} kcal/jour</div>
+      <div style="font-size:11px;color:var(--text3)">Moyenne réelle: ${avgKcal} kcal/jour · ${plan.jours.length} jours · ${config.meal_names.length} repas/jour</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-dark btn-xs" onclick="saveAIPlanToPlans()">💾 Sauvegarder</button>
+        <button class="btn btn-ghost btn-xs" onclick="openGenPlanModal()">↺ Régénérer</button>
+      </div>
+    </div>
+    ${warnHtml}`;
+
+  plan.jours.forEach((j,ji)=>{
+    const dayKcal=j.repas.reduce((s,r)=>s+(r.actual_kcal||0),0);
+    const dayProt=j.repas.reduce((s,r)=>s+(r.actual_prot||0),0);
+    const dayCarb=j.repas.reduce((s,r)=>s+(r.actual_carb||0),0);
+    const dayFat=j.repas.reduce((s,r)=>s+(r.actual_fat||0),0);
+    const kcalOk=Math.abs(dayKcal-config.kcal)<=50;
+
+    html+=`<div class="ai-plan-day">
+      <div class="ai-plan-day-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
+        <span>${j.nom}</span>
+        <span style="font-size:11px;font-weight:400;color:${kcalOk?'rgba(255,255,255,.6)':'#fbbf24'}">${Math.round(dayKcal)} kcal · P:${Math.round(dayProt)}g G:${Math.round(dayCarb)}g L:${Math.round(dayFat)}g</span>
+      </div>
+      <div class="ai-plan-day-body${ji===0?' open':''}">`;
+
+    j.repas.forEach(r=>{
+      const isResto=r.is_restaurant;
+      html+=`<div class="ai-meal">
+        <div class="ai-meal-hdr">
+          <span class="ai-meal-name">${r.nom} ${isResto?'<span class="ai-resto-badge">Restaurant</span>':''}</span>
+          <span class="ai-meal-macros">${Math.round(r.actual_kcal||0)} kcal · P:${Math.round(r.actual_prot||0)}g G:${Math.round(r.actual_carb||0)}g L:${Math.round(r.actual_fat||0)}g</span>
+        </div>`;
+
+      if(isResto){
+        html+=`<div class="ai-meal-meta" style="color:#7c3aed;font-style:italic">${r.note||'Budget libre — restaurant'}</div>`;
+      }else{
+        if(r.temps_prep||r.outils){
+          html+=`<div class="ai-meal-meta">⏱ ${r.temps_prep||'—'} · 🔧 ${(r.outils||[]).join(', ')||'—'}</div>`;
+        }
+        (r.alims||[]).forEach(a=>{
+          const aKcal=Math.round((a.kcal||0)*((a.qte||0)/100));
+          html+=`<div class="ai-alim-row">
+            <div class="ai-alim-name">${a.nom}</div>
+            <div class="ai-alim-qte">${a.qte}g</div>
+            <div class="ai-alim-macro">${aKcal} kcal · P:${Math.round((a.prot||0)*(a.qte||0)/100)}g</div>
+          </div>`;
+        });
+        if(r.instructions){
+          html+=`<div class="ai-meal-recipe">${r.instructions}</div>`;
+        }
+      }
+      html+=`</div>`;
+    });
+
+    html+=`</div></div>`;
+  });
+
+  html+=`</div>`;
+  el.innerHTML=html;
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function validateAIPlan(plan,config){
+  const warnings=[];
+  if(!plan.jours||plan.jours.length!==7)warnings.push('Le plan ne contient pas 7 jours ('+((plan.jours||[]).length)+' trouvés)');
+
+  const excludedLower=(config.allergies||[]).map(a=>a.toLowerCase());
+
+  (plan.jours||[]).forEach(j=>{
+    const dayKcal=j.repas.reduce((s,r)=>s+(r.actual_kcal||0),0);
+    if(Math.abs(dayKcal-config.kcal)>50){
+      warnings.push(`${j.nom}: ${Math.round(dayKcal)} kcal (cible: ${config.kcal}, écart: ${Math.round(dayKcal-config.kcal)})`);
+    }
+    const dayProt=j.repas.reduce((s,r)=>s+(r.actual_prot||0),0);
+    if(Math.abs(dayProt-config.prot)>10){
+      warnings.push(`${j.nom}: ${Math.round(dayProt)}g protéines (cible: ${config.prot}g)`);
+    }
+    // Check excluded foods
+    j.repas.forEach(r=>{
+      (r.alims||[]).forEach(a=>{
+        if(excludedLower.some(ex=>a.nom.toLowerCase().includes(ex))){
+          warnings.push(`${j.nom} / ${r.nom}: "${a.nom}" est dans les exclusions !`);
+        }
+      });
+    });
+  });
+
+  // Check caloric consistency across same slots
+  if(plan.jours.length>=2){
+    const slotKcals={};
+    plan.jours.forEach(j=>{
+      j.repas.forEach(r=>{
+        if(r.is_restaurant)return;
+        if(!slotKcals[r.nom])slotKcals[r.nom]=[];
+        slotKcals[r.nom].push(r.actual_kcal||0);
+      });
+    });
+    Object.entries(slotKcals).forEach(([slot,vals])=>{
+      const min=Math.min(...vals),max=Math.max(...vals);
+      if(max-min>80){
+        warnings.push(`Slot "${slot}": écart calorique ${Math.round(min)}-${Math.round(max)} kcal (max recommandé: 80 kcal)`);
+      }
+    });
+  }
+
+  return warnings;
+}
+
+function saveAIPlanToPlans(){
+  if(!aiPlanData||!aiPlanData.jours){toast('Pas de plan à sauvegarder');return;}
+  const config=aiPlanData.config||{};
+  const plan={
+    id:Date.now(),
+    type:'full',
+    source:'ai',
+    nom:'Plan IA — '+(curClient?curClient.first_name+' '+curClient.last_name:'Client')+' — '+config.kcal+' kcal',
+    clientId:curClient?.id||null,
+    clientNom:curClient?curClient.first_name+' '+curClient.last_name:null,
+    kcal:config.kcal||0,
+    prot:config.prot||0,
+    carb:config.carb||0,
+    fat:config.fat||0,
+    config:config,
+    jours:aiPlanData.jours.map(j=>({
+      nom:j.nom,
+      repas:j.repas.map(r=>({
+        nom:r.nom,
+        target_kcal:r.target_kcal||0,
+        actual_kcal:r.actual_kcal||0,
+        actual_prot:r.actual_prot||0,
+        actual_carb:r.actual_carb||0,
+        actual_fat:r.actual_fat||0,
+        is_restaurant:r.is_restaurant||false,
+        temps_prep:r.temps_prep||'',
+        outils:r.outils||[],
+        instructions:r.instructions||'',
+        note:r.note||'',
+        alims:(r.alims||[]).map(a=>({
+          nom:a.nom,
+          source:a.source||'',
+          kcal:a.kcal||0,
+          prot:a.prot||0,
+          carb:a.carb||0,
+          fat:a.fat||0,
+          qte:a.qte||0
+        }))
+      }))
+    })),
+    createdAt:new Date().toISOString()
+  };
+  plans.push(plan);
+  lsSave('fz_plans',plans);
+  renderPlansListPage();
+  toast('Plan IA sauvegardé ✓');
+}
 </script>
 </body>
 </html>
