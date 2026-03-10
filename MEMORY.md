@@ -19,7 +19,10 @@
 - [x] Support supersets
 - [x] Séances d'entraînement
 - [x] Bibliothèque exercices (avec vidéo YouTube)
-- [x] Base de données aliments
+- [x] Base de données aliments (avec source macro : protéines/glucides/lipides)
+- [x] Équivalences alimentaires dans le plan builder (swap automatique avec quantités ajustées)
+- [x] Exercices de remplacement (alternatives configurables par exercice, swap en séance)
+- [x] Capture vidéo en séance (filmer ou importer, stockage IndexedDB)
 - [x] Templates repas/recettes
 - [x] Modules de formation (chapitres + vidéos)
 - [x] Gestion équipe coaching
@@ -44,6 +47,10 @@
 | 2026-03-09 | Fichiers monolithiques HTML | Simplicité de déploiement (GitHub Pages, pas de build) |
 | 2026-03-10 | Séries individuelles par exercice | Besoin coaching réel : chaque série peut avoir des paramètres différents |
 | 2026-03-10 | Création inline aliments/repas | UX : ne pas quitter le plan builder pour créer un aliment |
+| 2026-03-10 | Source macro par aliment | Permet le calcul d'équivalences automatiques |
+| 2026-03-10 | Équivalences alimentaires | Client peut swapper un aliment par un équivalent de même source macro |
+| 2026-03-10 | Exercices de remplacement | Coach configure des alternatives, client pourra swapper dans l'app |
+| 2026-03-10 | Vidéo séance via IndexedDB | localStorage trop limité (5MB), IndexedDB pour stocker les blobs vidéo |
 | 2026-03-10 | CLAUDE.md + MEMORY.md | Continuité entre sessions Claude |
 
 ## Historique des sessions
@@ -57,6 +64,10 @@
 - Ajout séries individuelles par exercice (programme builder + séances)
 - Ajout création inline d'aliments et repas dans le plan builder
 - Création du CLAUDE.md et MEMORY.md
+- **Source macro** par aliment (protéines/glucides/lipides) dans modal + inline form
+- **Équivalences alimentaires** : bouton ⇄ par aliment dans le plan builder, dropdown avec alternatives de même source et quantités auto-ajustées
+- **Exercices de remplacement** : champ multi-select dans la fiche exercice, bouton swap dans programme builder et séances
+- **Capture vidéo en séance** : bouton filmer (caméra) + importer (fichier), stockage IndexedDB, lecture inline
 
 ## Bugs connus
 - Aucun bug critique identifié pour le moment

@@ -294,7 +294,26 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .meal-nm{font-size:13px;font-weight:700;color:var(--dark)}
 .meal-macros{font-size:11px;color:var(--text3);margin-left:auto}
 .meal-body{padding:10px 13px}
-.food-row{display:grid;grid-template-columns:1fr 58px 50px 50px 50px 18px;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.food-row{display:grid;grid-template-columns:1fr 24px 58px 50px 50px 50px 18px;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.eq-btn{background:none;border:1px solid var(--border2);border-radius:5px;cursor:pointer;font-size:11px;padding:2px 4px;color:var(--text3);transition:all .12s;position:relative}
+.eq-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-pale)}
+.eq-drop{position:absolute;top:100%;left:-120px;width:280px;background:var(--white);border:1.5px solid var(--gold-border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:200;max-height:260px;overflow-y:auto;padding:6px;display:none}
+.eq-drop.open{display:block}
+.eq-item{display:grid;grid-template-columns:1fr 52px;gap:6px;align-items:center;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:11px;transition:background .1s}
+.eq-item:hover{background:var(--gold-pale)}
+.repl-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;font-size:11px;font-weight:600;color:var(--dark)}
+.repl-tag .repl-x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;line-height:1}
+.repl-tag .repl-x:hover{color:#c03030}
+.swap-btn{background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:5px;cursor:pointer;font-size:9px;font-weight:700;color:#8a6010;padding:2px 6px;transition:all .12s}
+.swap-btn:hover{background:var(--gold);color:var(--dark)}
+.vid-capture-row{display:flex;gap:6px;align-items:center;padding:6px 12px;border-top:1px solid var(--border)}
+.vid-cap-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--white);font-size:10px;font-weight:700;color:var(--text3);cursor:pointer;font-family:var(--font);transition:all .12s}
+.vid-cap-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-pale)}
+.vid-cap-btn.has-vid{border-color:#22c55e;color:#22c55e;background:#f0fdf4}
+.vid-thumb{width:64px;height:44px;border-radius:6px;overflow:hidden;cursor:pointer;background:var(--dark);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.vid-thumb video{width:100%;height:100%;object-fit:cover}
+.eq-item-nm{font-weight:600;color:var(--dark)}
+.eq-item-qty{font-size:10px;font-weight:700;color:var(--gold);text-align:right}
 .food-row:last-child{border-bottom:none}
 .food-qte{width:50px;background:var(--bg);border:1.5px solid var(--border2);border-radius:6px;padding:3px 5px;font-size:12px;text-align:center;outline:none;font-family:var(--font)}
 .food-qte:focus{border-color:var(--gold)}
@@ -533,7 +552,10 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
             <div id="pfInlineAlimForm" style="display:none;background:var(--white);border:1.5px solid var(--gold-border);border-radius:10px;padding:10px;margin-bottom:10px">
               <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px">Nouvel aliment rapide</div>
               <input class="fi" id="pfAlNom" placeholder="Nom *" style="font-size:12px;padding:6px 8px;margin-bottom:5px">
-              <select class="fs" id="pfAlCat" style="font-size:11px;padding:5px 7px;margin-bottom:5px"><option>Viandes</option><option>Poissons</option><option>Œufs &amp; laitiers</option><option>Légumineuses</option><option>Céréales</option><option>Légumes</option><option>Fruits</option><option>Oléagineux</option><option>Autres</option></select>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:5px">
+                <select class="fs" id="pfAlCat" style="font-size:11px;padding:5px 7px"><option>Viandes</option><option>Poissons</option><option>Œufs &amp; laitiers</option><option>Légumineuses</option><option>Céréales</option><option>Légumes</option><option>Fruits</option><option>Oléagineux</option><option>Autres</option></select>
+                <select class="fs" id="pfAlSource" style="font-size:11px;padding:5px 7px"><option value="proteines">Protéines</option><option value="glucides">Glucides</option><option value="lipides">Lipides</option></select>
+              </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:5px">
                 <input class="fi" type="number" id="pfAlKcal" placeholder="Kcal/100g" style="font-size:11px;padding:5px 7px">
                 <input class="fi" type="number" id="pfAlProt" placeholder="Prot (g)" style="font-size:11px;padding:5px 7px">
@@ -784,7 +806,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <div class="mh"><div class="mt" id="alimMT">Ajouter un aliment</div><button class="mc" onclick="closeM('mNewAliment')">✕</button></div>
   <div class="mb">
     <div class="fg"><label class="fl">Nom *</label><input class="fi" id="alNom" placeholder="Blanc de poulet cuit"></div>
-    <div class="fg"><label class="fl">Catégorie</label><select class="fs" id="alCat"><option>Viandes</option><option>Poissons</option><option>Œufs &amp; laitiers</option><option>Légumineuses</option><option>Céréales</option><option>Légumes</option><option>Fruits</option><option>Oléagineux</option><option>Autres</option></select></div>
+    <div class="fr2"><div class="fg"><label class="fl">Catégorie</label><select class="fs" id="alCat"><option>Viandes</option><option>Poissons</option><option>Œufs &amp; laitiers</option><option>Légumineuses</option><option>Céréales</option><option>Légumes</option><option>Fruits</option><option>Oléagineux</option><option>Autres</option></select></div><div class="fg"><label class="fl">Source macro</label><select class="fs" id="alSource"><option value="proteines">Protéines</option><option value="glucides">Glucides</option><option value="lipides">Lipides</option></select></div></div>
     <div class="fr2"><div class="fg"><label class="fl">Kcal / 100g</label><input class="fi" type="number" id="alKcal" placeholder="165"></div><div class="fg"><label class="fl">Protéines (g)</label><input class="fi" type="number" id="alProt" placeholder="31"></div></div>
     <div class="fr2"><div class="fg"><label class="fl">Glucides (g)</label><input class="fi" type="number" id="alCarb" placeholder="0"></div><div class="fg"><label class="fl">Lipides (g)</label><input class="fi" type="number" id="alFat" placeholder="3.6"></div></div>
     <input type="hidden" id="alEditId">
@@ -821,6 +843,14 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div class="fr3"><div class="fg"><label class="fl">Séries</label><input class="fi" id="exoSeries" placeholder="3-4"></div><div class="fg"><label class="fl">Reps</label><input class="fi" id="exoReps" placeholder="8-12"></div><div class="fg"><label class="fl">Repos (s)</label><input class="fi" id="exoRest" placeholder="90"></div></div>
     <div class="fg"><label class="fl">Vidéo YouTube <span class="fl-o">optionnel</span></label><input class="fi" id="exoVideo" placeholder="https://youtube.com/..."></div>
     <div class="fg"><label class="fl">Notes</label><textarea class="fta" id="exoNotes" placeholder="Points de vigilance…" style="min-height:56px"></textarea></div>
+    <div class="fg">
+      <label class="fl">Exercices de remplacement <span class="fl-o">optionnel</span></label>
+      <div style="position:relative">
+        <input class="fi" id="exoReplSearch" placeholder="Chercher un exercice…" oninput="exoSearchRepl(this.value)" autocomplete="off">
+        <div id="exoReplDrop" style="position:absolute;top:100%;left:0;right:0;background:var(--white);border:1.5px solid var(--gold-border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.1);z-index:200;max-height:150px;overflow-y:auto;display:none"></div>
+      </div>
+      <div id="exoReplList" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px"></div>
+    </div>
     <input type="hidden" id="exoEditId">
   </div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeM('mNewExo')">Annuler</button><button class="btn btn-dark" onclick="saveExo()">Ajouter</button></div>
@@ -915,6 +945,39 @@ let repas=lsGet('fz_repas',[]);
 let plans=lsGet('fz_plans',[]);
 let modules=lsGet('fz_modules',[]);
 let team=lsGet('fz_team',[]);
+
+// === IndexedDB pour vidéos de séances ===
+let vidDB=null;
+function initVidDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open('fz_videos',1);
+    req.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains('videos'))db.createObjectStore('videos',{keyPath:'id'});};
+    req.onsuccess=e=>{vidDB=e.target.result;resolve(vidDB);};
+    req.onerror=e=>reject(e);
+  });
+}
+function saveVidToDB(id,blob){
+  return new Promise((resolve,reject)=>{
+    const tx=vidDB.transaction('videos','readwrite');
+    tx.objectStore('videos').put({id,blob,date:new Date().toISOString()});
+    tx.oncomplete=()=>resolve();tx.onerror=e=>reject(e);
+  });
+}
+function getVidFromDB(id){
+  return new Promise((resolve,reject)=>{
+    const tx=vidDB.transaction('videos','readonly');
+    const req=tx.objectStore('videos').get(id);
+    req.onsuccess=()=>resolve(req.result);req.onerror=e=>reject(e);
+  });
+}
+function delVidFromDB(id){
+  return new Promise((resolve,reject)=>{
+    const tx=vidDB.transaction('videos','readwrite');
+    tx.objectStore('videos').delete(id);
+    tx.oncomplete=()=>resolve();tx.onerror=e=>reject(e);
+  });
+}
+initVidDB().catch(e=>console.warn('IndexedDB vidéos non disponible',e));
 let nutSt={};
 /* Plan complet builder */
 let pfClient=null,pfDays=[],pfDayIdx=0,pfMealIdx=null,pfEditId=null;
@@ -1325,6 +1388,7 @@ function pfRenderMeals(){
     <div class="meal-body">
       ${r.alims.map((a,ai)=>`<div class="food-row" draggable="true" ondragstart="pfDragStart(event,${ri},${ai})" style="cursor:grab">
         <div style="font-size:12px;font-weight:600;color:var(--dark);display:flex;align-items:center;gap:5px"><span style="color:var(--text3);font-size:10px">⠿</span>${a.nom}</div>
+        <button class="eq-btn" onclick="event.stopPropagation();pfToggleEquiv(this,${ri},${ai})" title="Voir les équivalences">⇄</button>
         <input class="food-qte" type="number" value="${a.qte}" onchange="pfUpdQte(${ri},${ai},this.value)" onclick="event.stopPropagation()">
         <span class="macro-p">${Math.round(a.prot*a.qte/100)}g P</span>
         <span class="macro-g">${Math.round(a.carb*a.qte/100)}g G</span>
@@ -1374,7 +1438,7 @@ function pfSearchAlim(q){
 }
 function pfAddFood(a){
   if(pfMealIdx===null||pfMealIdx===undefined){toast('Clique sur un repas pour le sélectionner');return;}
-  pfDays[pfDayIdx].repas[pfMealIdx].alims.push({nom:a.nom,kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat,qte:100});
+  pfDays[pfDayIdx].repas[pfMealIdx].alims.push({nom:a.nom,source:a.source||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat,qte:100});
   pfRenderMeals();pfRenderTotals();
   const key='pfRecent';let rec=lsGet(key,[]);rec=rec.filter(r=>r.nom!==a.nom);rec.unshift(a);if(rec.length>6)rec.pop();lsSave(key,rec);pfRenderRecent();
   document.getElementById('pfAlimIn').value='';document.getElementById('pfAlimDrop').classList.remove('open');
@@ -1426,12 +1490,57 @@ function pfCreateAlimInline(){
 }
 function pfSaveInlineAlim(){
   const nom=document.getElementById('pfAlNom').value.trim();if(!nom){toast('Nom requis');return;}
-  const a={nom,cat:document.getElementById('pfAlCat').value,kcal:parseFloat(document.getElementById('pfAlKcal').value)||0,prot:parseFloat(document.getElementById('pfAlProt').value)||0,carb:parseFloat(document.getElementById('pfAlCarb').value)||0,fat:parseFloat(document.getElementById('pfAlFat').value)||0};
+  const a={nom,cat:document.getElementById('pfAlCat').value,source:document.getElementById('pfAlSource').value||'proteines',kcal:parseFloat(document.getElementById('pfAlKcal').value)||0,prot:parseFloat(document.getElementById('pfAlProt').value)||0,carb:parseFloat(document.getElementById('pfAlCarb').value)||0,fat:parseFloat(document.getElementById('pfAlFat').value)||0};
   alims.push({...a,id:Date.now()});lsSave('fz_alims',alims);
   document.getElementById('pfInlineAlimForm').style.display='none';
   toast(nom+' ajouté à la BDD ✓');
   // Auto-ajouter au repas sélectionné si un repas est sélectionné
   if(pfMealIdx!==null&&pfMealIdx!==undefined)pfAddFood(a);
+}
+// === EQUIVALENCES ALIMENTAIRES ===
+function pfToggleEquiv(btn,ri,ai){
+  // Fermer les autres dropdowns
+  document.querySelectorAll('.eq-drop.open').forEach(d=>d.classList.remove('open'));
+  let drop=btn.querySelector('.eq-drop');
+  if(!drop){drop=document.createElement('div');drop.className='eq-drop';btn.style.position='relative';btn.appendChild(drop);}
+  const a=pfDays[pfDayIdx]?.repas?.[ri]?.alims?.[ai];if(!a)return;
+  // Déterminer la source de l'aliment
+  let src=a.source;
+  if(!src){
+    // Auto-détection si pas de source définie
+    const dbAlim=alims.find(x=>x.nom===a.nom);
+    src=dbAlim?.source;
+    if(!src){if(a.prot>=a.carb&&a.prot>=a.fat)src='proteines';else if(a.carb>=a.prot&&a.carb>=a.fat)src='glucides';else src='lipides';}
+  }
+  // Macro cible selon la source
+  const macroKey=src==='proteines'?'prot':src==='glucides'?'carb':'fat';
+  const macroLabel=src==='proteines'?'P':src==='glucides'?'G':'L';
+  const targetGrams=(a[macroKey]*a.qte/100);
+  if(targetGrams<=0){drop.innerHTML=`<div style="padding:10px;font-size:11px;color:var(--text3)">Aucune macro à comparer (0g)</div>`;drop.classList.add('open');return;}
+  // Trouver les équivalents
+  const equivs=alims.filter(al=>{
+    if(al.nom===a.nom)return false;
+    const alSrc=al.source||(al.prot>=al.carb&&al.prot>=al.fat?'proteines':al.carb>=al.prot&&al.carb>=al.fat?'glucides':'lipides');
+    return alSrc===src&&al[macroKey]>0;
+  }).map(al=>{
+    const qtyNeeded=Math.round(targetGrams*100/al[macroKey]);
+    return{nom:al.nom,qty:qtyNeeded,kcal:Math.round(al.kcal*qtyNeeded/100),prot:al.prot,carb:al.carb,fat:al.fat,source:al.source,macroKey,macroVal:Math.round(al[macroKey]*qtyNeeded/100)};
+  }).sort((a,b)=>a.qty-b.qty);
+  const srcColor={proteines:'#3b82f6',glucides:'#f59e0b',lipides:'#c49a2a'};
+  const srcLabel={proteines:'Protéines',glucides:'Glucides',lipides:'Lipides'};
+  drop.innerHTML=`<div style="padding:6px 8px 4px;font-size:10px;font-weight:700;color:${srcColor[src]};letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);margin-bottom:4px">⇄ Équivalences ${srcLabel[src]} · ${Math.round(targetGrams)}g ${macroLabel}</div>`+
+    (equivs.length?equivs.map(eq=>`<div class="eq-item" onclick="event.stopPropagation();pfSwapEquiv(${ri},${ai},'${eq.nom.replace(/'/g,"\\'")}',${eq.qty},${eq.prot},${eq.carb},${eq.fat},${eq.kcal},'${src}')">
+      <div><div class="eq-item-nm">${eq.nom}</div><div style="font-size:9px;color:var(--text3)">${eq.kcal} kcal · P:${Math.round(eq.prot*eq.qty/100)}g G:${Math.round(eq.carb*eq.qty/100)}g L:${Math.round(eq.fat*eq.qty/100)}g</div></div>
+      <div class="eq-item-qty">${eq.qty}g</div>
+    </div>`).join(''):`<div style="padding:10px;font-size:11px;color:var(--text3)">Aucun aliment de même source trouvé.<br>Ajoute des aliments avec la source "${srcLabel[src]}"</div>`);
+  drop.classList.add('open');
+  // Fermer au clic extérieur
+  setTimeout(()=>{const handler=e=>{if(!drop.contains(e.target)&&e.target!==btn){drop.classList.remove('open');document.removeEventListener('click',handler);}};document.addEventListener('click',handler);},10);
+}
+function pfSwapEquiv(ri,ai,nom,qty,prot,carb,fat,kcal,src){
+  const a=pfDays[pfDayIdx]?.repas?.[ri]?.alims?.[ai];if(!a)return;
+  a.nom=nom;a.qte=qty;a.prot=prot;a.carb=carb;a.fat=fat;a.kcal=kcal;a.source=src;
+  pfRenderMeals();pfRenderTotals();toast(nom+' ('+qty+'g) ✓');
 }
 function pfCreateRepasInline(){
   document.getElementById('pfInlineRepasForm').style.display='block';
@@ -1490,13 +1599,13 @@ function delPlan(id){if(!confirm('Supprimer ce plan ?'))return;plans=plans.filte
 /* ===== ALIMENTS ===== */
 function openAlim(id){
   document.getElementById('alimMT').textContent=id?'Modifier aliment':'Ajouter un aliment';
-  if(id){const a=alims.find(x=>x.id===id);if(!a)return;document.getElementById('alNom').value=a.nom;document.getElementById('alCat').value=a.cat;document.getElementById('alKcal').value=a.kcal;document.getElementById('alProt').value=a.prot;document.getElementById('alCarb').value=a.carb;document.getElementById('alFat').value=a.fat;document.getElementById('alEditId').value=id;}
-  else{['alNom','alKcal','alProt','alCarb','alFat'].forEach(x=>document.getElementById(x).value='');document.getElementById('alEditId').value='';}
+  if(id){const a=alims.find(x=>x.id===id);if(!a)return;document.getElementById('alNom').value=a.nom;document.getElementById('alCat').value=a.cat;document.getElementById('alSource').value=a.source||'proteines';document.getElementById('alKcal').value=a.kcal;document.getElementById('alProt').value=a.prot;document.getElementById('alCarb').value=a.carb;document.getElementById('alFat').value=a.fat;document.getElementById('alEditId').value=id;}
+  else{['alNom','alKcal','alProt','alCarb','alFat'].forEach(x=>document.getElementById(x).value='');document.getElementById('alSource').value='proteines';document.getElementById('alEditId').value='';}
   openM('mNewAliment');
 }
 function saveAlim(){
   const nom=document.getElementById('alNom').value.trim();if(!nom){toast('Nom requis');return;}
-  const a={nom,cat:document.getElementById('alCat').value,kcal:parseFloat(document.getElementById('alKcal').value)||0,prot:parseFloat(document.getElementById('alProt').value)||0,carb:parseFloat(document.getElementById('alCarb').value)||0,fat:parseFloat(document.getElementById('alFat').value)||0};
+  const a={nom,cat:document.getElementById('alCat').value,source:document.getElementById('alSource').value||'proteines',kcal:parseFloat(document.getElementById('alKcal').value)||0,prot:parseFloat(document.getElementById('alProt').value)||0,carb:parseFloat(document.getElementById('alCarb').value)||0,fat:parseFloat(document.getElementById('alFat').value)||0};
   const alEditRaw=document.getElementById('alEditId').value;
   const editId=alEditRaw?parseInt(alEditRaw):null;
   if(editId){const i=alims.findIndex(x=>x.id===editId);if(i>=0)alims[i]={...a,id:editId};else alims.push({...a,id:Date.now()});}
@@ -1506,7 +1615,8 @@ function saveAlim(){
 function renderAlims(){
   const tb=document.getElementById('alimBody');if(!tb)return;
   if(!alims.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">🥦</div><div class="et">Aucun aliment</div><div class="es">Ajoute tes premiers aliments</div></div></td></tr>`;return;}
-  tb.innerHTML=alims.map(a=>`<tr><td style="font-weight:600">${a.nom}</td><td><span class="tag">${a.cat}</span></td><td>${a.kcal}</td><td>${a.prot}g</td><td>${a.carb}g</td><td>${a.fat}g</td><td style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openAlim(${a.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delAlim(${a.id})">✕</button></td></tr>`).join('');
+  const srcBadge=s=>{const c={proteines:'#3b82f6',glucides:'#f59e0b',lipides:'#c49a2a'};const l={proteines:'P',glucides:'G',lipides:'L'};return`<span style="display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:800;background:${c[s]||'#999'}22;color:${c[s]||'#999'}">${l[s]||'—'}</span>`;};
+  tb.innerHTML=alims.map(a=>`<tr><td style="font-weight:600">${a.nom} ${srcBadge(a.source)}</td><td><span class="tag">${a.cat}</span></td><td>${a.kcal}</td><td>${a.prot}g</td><td>${a.carb}g</td><td>${a.fat}g</td><td style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openAlim(${a.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delAlim(${a.id})">✕</button></td></tr>`).join('');
 }
 function delAlim(id){if(!confirm('Supprimer ?'))return;alims=alims.filter(a=>a.id!==id);lsSave('fz_alims',alims);renderAlims();toast('Supprimé');}
 
@@ -1650,8 +1760,9 @@ function progRenderDay(){
         <span style="color:var(--text3);font-size:12px;cursor:grab">⠿</span>
         <div class="exo-letter">${String.fromCharCode(65+i)}</div>
         ${e.video?`<div style="width:36px;height:30px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="watchVid('${e.nom.replace(/'/g,"\'")}','${e.video}','')" title="Visionner la vidéo"><img src="https://img.youtube.com/vi/${ytId(e.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);font-size:11px">▶</div></div>`:`<div style="width:36px;height:30px;border-radius:6px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">💪</div>`}
-        <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3)">${e.muscle||''} · ${e.equip||''}</div></div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3)">${e.muscle||''} · ${e.equip||''}${(e.replacements||[]).length?' · <span style="color:var(--gold)">⇄ '+(e.replacements||[]).length+' rempl.</span>':''}</div></div>
         <div style="display:flex;gap:4px">
+          ${(e.replacements||[]).length?`<button class="swap-btn" onclick="progSwapExo('${key}',${i})" title="Remplacer l'exercice">⇄</button>`:''}
           <button onclick="progMkSuperset('${key}',${i})" title="Convertir en superset" style="padding:3px 7px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:6px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer">⚡SS</button>
           <button onclick="progDelExo('${key}',${i})" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:14px">🗑</button>
         </div>
@@ -1754,6 +1865,48 @@ function progDelSupExo(sec,idx,si){
   progRenderDay();
 }
 function progDelExo(sec,i){if(progDays[progDayIdx]&&progDays[progDayIdx][sec])progDays[progDayIdx][sec].splice(i,1);progRenderDay();}
+function progSwapExo(sec,i){
+  const e=progDays[progDayIdx]?.[sec]?.[i];if(!e||!e.replacements?.length)return;
+  const opts=e.replacements.map(id=>exos.find(x=>x.id===id)).filter(Boolean);
+  if(!opts.length){toast('Aucun remplacement trouvé');return;}
+  const html=opts.map((r,ri)=>`<div class="lib-item" style="padding:8px 10px;cursor:pointer" onclick="progDoSwap('${sec}',${i},${ri});closeM('mSwapExo')">
+    <div class="lib-thumb" style="width:30px;height:26px;font-size:12px">${r.video?`<img src="https://img.youtube.com/vi/${ytId(r.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover">`:'💪'}</div>
+    <div><div class="lib-nm">${r.nom}</div><div class="lib-meta">${r.muscle||'—'} · ${r.equip||'—'}</div></div>
+  </div>`).join('');
+  let m=document.getElementById('mSwapExo');
+  if(!m){m=document.createElement('div');m.className='overlay';m.id='mSwapExo';m.innerHTML=`<div class="modal"><div class="mh"><div class="mt">Remplacer l'exercice</div><button class="mc" onclick="closeM('mSwapExo')">✕</button></div><div class="mb" id="swapExoList"></div></div>`;document.body.appendChild(m);}
+  document.getElementById('swapExoList').innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Exercice actuel : <strong>${e.nom}</strong></div>`+html;
+  openM('mSwapExo');
+  window._swapOpts=opts;
+}
+function progDoSwap(sec,i,ri){
+  const r=window._swapOpts?.[ri];if(!r)return;
+  const e=progDays[progDayIdx]?.[sec]?.[i];if(!e)return;
+  const oldRepls=e.replacements||[];
+  e.nom=r.nom;e.muscle=r.muscle||'';e.equip=r.equip||'';e.video=r.video||'';e.replacements=r.replacements||oldRepls;
+  progRenderDay();toast(r.nom+' ✓');
+}
+function seanceSwapExo(sec,i){
+  const e=seanceData[sec]?.[i];if(!e||!e.replacements?.length)return;
+  const opts=e.replacements.map(id=>exos.find(x=>x.id===id)).filter(Boolean);
+  if(!opts.length){toast('Aucun remplacement trouvé');return;}
+  const html=opts.map((r,ri)=>`<div class="lib-item" style="padding:8px 10px;cursor:pointer" onclick="seanceDoSwap('${sec}',${i},${ri});closeM('mSwapExo')">
+    <div class="lib-thumb" style="width:30px;height:26px;font-size:12px">${r.video?`<img src="https://img.youtube.com/vi/${ytId(r.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover">`:'💪'}</div>
+    <div><div class="lib-nm">${r.nom}</div><div class="lib-meta">${r.muscle||'—'} · ${r.equip||'—'}</div></div>
+  </div>`).join('');
+  let m=document.getElementById('mSwapExo');
+  if(!m){m=document.createElement('div');m.className='overlay';m.id='mSwapExo';m.innerHTML=`<div class="modal"><div class="mh"><div class="mt">Remplacer l'exercice</div><button class="mc" onclick="closeM('mSwapExo')">✕</button></div><div class="mb" id="swapExoList"></div></div>`;document.body.appendChild(m);}
+  document.getElementById('swapExoList').innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Exercice actuel : <strong>${e.nom}</strong></div>`+html;
+  openM('mSwapExo');
+  window._swapOpts=opts;
+}
+function seanceDoSwap(sec,i,ri){
+  const r=window._swapOpts?.[ri];if(!r)return;
+  const e=seanceData[sec]?.[i];if(!e)return;
+  const oldRepls=e.replacements||[];
+  e.nom=r.nom;e.muscle=r.muscle||'';e.equip=r.equip||'';e.video=r.video||'';e.replacements=r.replacements||oldRepls;
+  seanceRenderAll();toast(r.nom+' ✓');
+}
 function progUpdExo(sec,i,field,val){if(progDays[progDayIdx]&&progDays[progDayIdx][sec]&&progDays[progDayIdx][sec][i])progDays[progDayIdx][sec][i][field]=val;}
 function progUpdSet(sec,i,si,field,val){const e=progDays[progDayIdx]?.[sec]?.[i];if(e&&e.setsData&&e.setsData[si])e.setsData[si][field]=val;}
 function progChangeNbSets(sec,i,n){
@@ -1781,7 +1934,7 @@ function addExoToDay(exo){
   if(!progDays[progDayIdx][sec])progDays[progDayIdx][sec]=[];
   const nbSets=parseInt(exo.sets)||3;
   const setsData=Array.from({length:nbSets},()=>({reps:exo.reps||'8-12',rest:exo.rest||'90s',rir:'',tempo:''}));
-  const newExo={nom:exo.nom,muscle:exo.muscle||'',equip:exo.equip||'',video:exo.video||'',sets:String(nbSets),setsData,notes:''};
+  const newExo={nom:exo.nom,muscle:exo.muscle||'',equip:exo.equip||'',video:exo.video||'',sets:String(nbSets),setsData,notes:'',replacements:exo.replacements||[]};
   if(isSuperset&&ssIdx!==null&&ssIdx!==undefined){
     const ss=progDays[progDayIdx][sec][ssIdx];
     if(ss&&ss.superset){ss.exercises.push(newExo);toast(exo.nom+' ajouté au superset ✓');}
@@ -1896,7 +2049,8 @@ function seanceRenderAll(){
         <span style="color:var(--text3);font-size:12px;cursor:grab">⠿</span>
         <div class="exo-letter">${String.fromCharCode(65+i)}</div>
         ${e.video?`<div style="width:34px;height:28px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="watchVid('${(e.nom||'').replace(/'/g,"\'")}','${e.video}','')"><img src="https://img.youtube.com/vi/${ytId(e.video||'')}/default.jpg" style="width:100%;height:100%;object-fit:cover"></div>`:`<div style="width:34px;height:28px;background:var(--dark);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0">💪</div>`}
-        <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3)">${e.muscle||''}</div></div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3)">${e.muscle||''}${(e.replacements||[]).length?' · <span style="color:var(--gold)">⇄ '+(e.replacements||[]).length+' rempl.</span>':''}</div></div>
+        ${(e.replacements||[]).length?`<button class="swap-btn" onclick="seanceSwapExo('${sec}',${i})" title="Remplacer l'exercice">⇄</button>`:''}
         <button onclick="seanceDelExo('${sec}',${i})" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:14px">🗑</button>
       </div>
       <div class="nb-sets-wrap">
@@ -1906,9 +2060,20 @@ function seanceRenderAll(){
       </div>
       <div class="sets-hdr"><span></span><span>Reps</span><span>Repos</span><span>RIR</span><span>Tempo</span></div>
       <div class="sets-rows">${setsRows}</div>
+      <div class="vid-capture-row">
+        <button class="vid-cap-btn${e.vidId?' has-vid':''}" onclick="seanceCaptureVid('${sec}',${i},'camera')">📹 Filmer</button>
+        <button class="vid-cap-btn${e.vidId?' has-vid':''}" onclick="seanceCaptureVid('${sec}',${i},'file')">📁 Importer</button>
+        ${e.vidId?`<div class="vid-thumb" onclick="seancePlayVid('${e.vidId}','${(e.nom||'').replace(/'/g,"\\'")}')"><video id="vthumb_${sec}_${i}" muted></video><div style="position:absolute;font-size:14px">▶</div></div><button onclick="seanceDelVid('${sec}',${i})" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:11px" title="Supprimer la vidéo">🗑</button>`:'<span style="font-size:10px;color:var(--text3)">Aucune vidéo enregistrée</span>'}
+      </div>
     </div>`}).join('');
   });
   seanceUpdVol();
+  // Charger les miniatures vidéo
+  setTimeout(()=>{document.querySelectorAll('[id^="vthumb_"]').forEach(async v=>{
+    const parts=v.id.replace('vthumb_','').split('_');const sec=parts[0];const i=parseInt(parts[1]);
+    const e=seanceData[sec]?.[i];if(!e?.vidId||!vidDB)return;
+    try{const rec=await getVidFromDB(e.vidId);if(rec?.blob){const url=URL.createObjectURL(rec.blob);v.src=url;v.currentTime=0.5;}}catch(ex){}
+  });},100);
 }
 function seanceUpdVol(){
   const vm={};['warmup','workout','cooldown'].forEach(sec=>(seanceData[sec]||[]).forEach(e=>{const m=e.muscle||'Autre';vm[m]=(vm[m]||0)+(e.setsData?e.setsData.length:(parseInt(e.sets)||0));}));
@@ -1925,6 +2090,44 @@ function seanceChangeNbSets(sec,i,n){
   e.sets=String(n);seanceRenderAll();
 }
 function seanceAddSet(sec,i){const e=seanceData[sec]?.[i];if(!e)return;if(!e.setsData)e.setsData=[];const last=e.setsData[e.setsData.length-1]||{reps:'8-12',rest:'90s',rir:'',tempo:''};e.setsData.push({...last});e.sets=String(e.setsData.length);seanceRenderAll();}
+// === CAPTURE VIDEO SEANCE ===
+function seanceCaptureVid(sec,i,mode){
+  const e=seanceData[sec]?.[i];if(!e)return;
+  const input=document.createElement('input');
+  input.type='file';input.accept='video/*';
+  if(mode==='camera')input.setAttribute('capture','environment');
+  input.onchange=async()=>{
+    const file=input.files[0];if(!file)return;
+    if(!vidDB){toast('Base vidéo non disponible');return;}
+    const vidId='vid_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
+    try{
+      await saveVidToDB(vidId,file);
+      // Si une ancienne vidéo existe, la supprimer
+      if(e.vidId)delVidFromDB(e.vidId).catch(()=>{});
+      e.vidId=vidId;
+      seanceRenderAll();toast('Vidéo enregistrée ✓');
+    }catch(err){toast('Erreur sauvegarde vidéo');console.error(err);}
+  };
+  input.click();
+}
+function seancePlayVid(vidId,title){
+  if(!vidDB){toast('Base vidéo non disponible');return;}
+  getVidFromDB(vidId).then(rec=>{
+    if(!rec?.blob){toast('Vidéo introuvable');return;}
+    const url=URL.createObjectURL(rec.blob);
+    let m=document.getElementById('mPlayVid');
+    if(!m){m=document.createElement('div');m.className='overlay';m.id='mPlayVid';m.innerHTML=`<div class="modal" style="max-width:620px"><div class="mh"><div class="mt" id="playVidTitle"></div><button class="mc" onclick="closeM('mPlayVid');document.getElementById('playVidEl').pause()">✕</button></div><div class="mb" style="padding:0"><video id="playVidEl" controls style="width:100%;max-height:400px;background:#000;border-radius:0 0 var(--radius) var(--radius)"></video></div></div>`;document.body.appendChild(m);}
+    document.getElementById('playVidTitle').textContent=title||'Vidéo exercice';
+    const vid=document.getElementById('playVidEl');vid.src=url;vid.play().catch(()=>{});
+    openM('mPlayVid');
+  }).catch(()=>toast('Erreur lecture vidéo'));
+}
+function seanceDelVid(sec,i){
+  const e=seanceData[sec]?.[i];if(!e||!e.vidId)return;
+  if(!confirm('Supprimer la vidéo ?'))return;
+  delVidFromDB(e.vidId).catch(()=>{});
+  delete e.vidId;seanceRenderAll();toast('Vidéo supprimée');
+}
 let seanceDragSrc=null;
 function seanceDragStart(e,sec,idx){seanceDragSrc={sec,idx};e.dataTransfer.effectAllowed='move';}
 function seanceDrop(e,targetSec,targetIdx){
@@ -1962,7 +2165,7 @@ function seanceAddExo(idx){
   const sec=seanceExoTarget?.sec||'workout';
   if(!seanceData[sec])seanceData[sec]=[];
   const nbS=parseInt(e.sets)||3;const sd=Array.from({length:nbS},()=>({reps:e.reps||'8-12',rest:e.rest||'90s',rir:'',tempo:''}));
-  seanceData[sec].push({nom:e.nom,muscle:e.muscle||'',equip:e.equip||'',video:e.video||'',sets:String(nbS),setsData:sd});
+  seanceData[sec].push({nom:e.nom,muscle:e.muscle||'',equip:e.equip||'',video:e.video||'',sets:String(nbS),setsData:sd,replacements:e.replacements||[]});
   seanceRenderAll();toast(e.nom+' ajouté ✓');
 }
 function saveSeance(){
@@ -1996,25 +2199,62 @@ function delSeance(id){if(!confirm('Supprimer ?'))return;seances=seances.filter(
 /* ===== EXERCICES ===== */
 function openExo(id){
   document.getElementById('exoMT').textContent=id?'Modifier exercice':'Ajouter un exercice';
-  if(id){const e=exos.find(x=>x.id===id);if(!e)return;['exoNom','exoMuscle','exoEquip','exoSeries','exoReps','exoRest','exoVideo','exoNotes'].forEach(k=>{const el=document.getElementById(k);if(el)el.value=e[k.replace('exo','').toLowerCase()]||'';});document.getElementById('exoNom').value=e.nom;document.getElementById('exoMuscle').value=e.muscle||'Poitrine';document.getElementById('exoEquip').value=e.equip||'Barre';document.getElementById('exoSeries').value=e.sets||'';document.getElementById('exoReps').value=e.reps||'';document.getElementById('exoRest').value=e.rest||'';document.getElementById('exoVideo').value=e.video||'';document.getElementById('exoNotes').value=e.notes||'';document.getElementById('exoEditId').value=id;}
-  else{['exoNom','exoSeries','exoReps','exoRest','exoVideo','exoNotes'].forEach(x=>document.getElementById(x).value='');document.getElementById('exoEditId').value='';}
+  if(id){const e=exos.find(x=>x.id===id);if(!e)return;document.getElementById('exoNom').value=e.nom;document.getElementById('exoMuscle').value=e.muscle||'Poitrine';document.getElementById('exoEquip').value=e.equip||'Barre';document.getElementById('exoSeries').value=e.sets||'';document.getElementById('exoReps').value=e.reps||'';document.getElementById('exoRest').value=e.rest||'';document.getElementById('exoVideo').value=e.video||'';document.getElementById('exoNotes').value=e.notes||'';document.getElementById('exoEditId').value=id;window._exoRepls=Array.isArray(e.replacements)?[...e.replacements]:[];}
+  else{['exoNom','exoSeries','exoReps','exoRest','exoVideo','exoNotes'].forEach(x=>document.getElementById(x).value='');document.getElementById('exoEditId').value='';window._exoRepls=[];}
+  document.getElementById('exoReplSearch').value='';document.getElementById('exoReplDrop').style.display='none';
+  exoRenderReplTags();
   openM('mNewExo');
 }
 function saveExo(){
   const nom=document.getElementById('exoNom').value.trim();if(!nom){toast('Nom requis');return;}
-  const e={nom,muscle:document.getElementById('exoMuscle').value,equip:document.getElementById('exoEquip').value,sets:document.getElementById('exoSeries').value,reps:document.getElementById('exoReps').value,rest:document.getElementById('exoRest').value,video:document.getElementById('exoVideo').value,notes:document.getElementById('exoNotes').value};
+  const e={nom,muscle:document.getElementById('exoMuscle').value,equip:document.getElementById('exoEquip').value,sets:document.getElementById('exoSeries').value,reps:document.getElementById('exoReps').value,rest:document.getElementById('exoRest').value,video:document.getElementById('exoVideo').value,notes:document.getElementById('exoNotes').value,replacements:window._exoRepls||[]};
   const exoEditRaw=document.getElementById('exoEditId').value;
   const editId=exoEditRaw?parseInt(exoEditRaw):null;
   if(editId){const i=exos.findIndex(x=>x.id===editId);if(i>=0)exos[i]={...e,id:editId};else exos.push({...e,id:Date.now()});}
   else exos.push({...e,id:Date.now()});
   lsSave('fz_exos',exos);renderExoPage();filterLib(document.getElementById('libIn')?.value||'');closeM('mNewExo');toast('Exercice enregistré ✓');
 }
+// === EXERCICES DE REMPLACEMENT ===
+window._exoRepls=[];
+function exoSearchRepl(q){
+  const drop=document.getElementById('exoReplDrop');
+  if(!q||q.length<2){drop.style.display='none';return;}
+  const editId=document.getElementById('exoEditId').value?parseInt(document.getElementById('exoEditId').value):null;
+  const res=exos.filter(e=>{
+    if(editId&&e.id===editId)return false;
+    if(window._exoRepls.includes(e.id))return false;
+    return e.nom.toLowerCase().includes(q.toLowerCase());
+  }).slice(0,6);
+  if(!res.length){drop.style.display='none';return;}
+  drop.innerHTML=res.map(e=>`<div class="lib-item" style="padding:6px 8px;cursor:pointer" onclick="exoAddRepl(${e.id})">
+    <div class="lib-thumb" style="width:28px;height:24px;font-size:12px">${e.video?`<img src="https://img.youtube.com/vi/${ytId(e.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover">`:'💪'}</div>
+    <div><div class="lib-nm" style="font-size:12px">${e.nom}</div><div class="lib-meta">${e.muscle||'—'} · ${e.equip||'—'}</div></div>
+  </div>`).join('');
+  drop.style.display='block';
+}
+function exoAddRepl(id){
+  if(!window._exoRepls.includes(id))window._exoRepls.push(id);
+  document.getElementById('exoReplSearch').value='';
+  document.getElementById('exoReplDrop').style.display='none';
+  exoRenderReplTags();
+}
+function exoRemoveRepl(id){
+  window._exoRepls=window._exoRepls.filter(x=>x!==id);
+  exoRenderReplTags();
+}
+function exoRenderReplTags(){
+  const el=document.getElementById('exoReplList');if(!el)return;
+  el.innerHTML=window._exoRepls.map(id=>{
+    const e=exos.find(x=>x.id===id);
+    return e?`<span class="repl-tag">${e.nom} <button class="repl-x" onclick="exoRemoveRepl(${id})">✕</button></span>`:'';
+  }).join('');
+}
 function renderExoPage(){
   const el=document.getElementById('exoPageList');if(!el)return;
   if(!exos.length){el.innerHTML=`<div class="empty"><div class="ei">🏋️</div><div class="et">Aucun exercice</div><div class="es">Commence par ajouter tes exercices</div></div>`;return;}
   el.innerHTML=exos.map(e=>`<div class="exo-card">
     <div style="width:40px;height:36px;border-radius:7px;background:var(--dark);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${e.video?`<img src="https://img.youtube.com/vi/${ytId(e.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent='💪'">`:'💪'}</div>
-    <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${e.muscle||'—'} · ${e.equip||'—'} · ${e.sets||'?'} séries ${e.reps||'?'} reps</div></div>
+    <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${e.muscle||'—'} · ${e.equip||'—'} · ${e.sets||'?'} séries ${e.reps||'?'} reps</div>${(e.replacements||[]).length?`<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:3px">${e.replacements.map(rid=>{const r=exos.find(x=>x.id===rid);return r?`<span style="font-size:9px;padding:1px 6px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:4px;color:#8a6010;font-weight:600">⇄ ${r.nom}</span>`:''}).join('')}</div>`:''}</div>
     <div style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openExo(${e.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delExo(${e.id})">✕</button></div>
   </div>`).join('');
 }
