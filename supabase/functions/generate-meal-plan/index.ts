@@ -105,6 +105,25 @@ Deno.serve(async (req: Request) => {
       .map((m) => `  - ${m.name} (RESTAURANT les ${m.restaurantDays.join(", ")}): budget ~${m.kcal} kcal — ne PAS générer de recette pour ces jours`)
       .join("\n");
 
+    // Build food database section for prompt
+    const foodDB: Array<{nom: string; kcal: number; prot: number; carb: number; fat: number; source: string}> = config.food_database || [];
+    const recipesDB: Array<{nom: string; type: string; items: Array<{nom: string; qte: number}>; kcal: number; prot: number}> = config.recipes || [];
+
+    const foodDBText = foodDB.length > 0
+      ? `\n=== BASE D'ALIMENTS DU COACH (PRIORITAIRE — ${foodDB.length} aliments) ===
+Utilise EN PRIORITÉ ces aliments avec leurs valeurs nutritionnelles EXACTES (pour 100g cru).
+Si un aliment existe dans cette base, tu DOIS copier EXACTEMENT ses valeurs kcal/prot/carb/fat.
+Tu peux ajouter des aliments hors-base si nécessaire pour la variété, mais marque-les avec "from_db": false.
+
+${foodDB.map(a => `${a.nom}: ${a.kcal}kcal P:${a.prot}g G:${a.carb}g L:${a.fat}g [${a.source}]`).join("\n")}\n`
+      : "";
+
+    const recipesText = recipesDB.length > 0
+      ? `\n=== RECETTES EXISTANTES DU COACH (INSPIRATION — ${recipesDB.length} recettes) ===
+Tu peux intégrer ces recettes dans le plan ou t'en inspirer :
+${recipesDB.map(r => `- ${r.nom} (${r.type||'repas'}): ${r.items.map(i => `${i.nom} ${i.qte}g`).join(", ")} → ~${r.kcal}kcal ~${r.prot}g P`).join("\n")}\n`
+      : "";
+
     const prompt = `Tu es un diététicien-nutritionniste expert francophone. Génère un plan alimentaire complet de 7 jours en JSON strict.
 
 === PROFIL CLIENT ===
@@ -122,7 +141,7 @@ Deno.serve(async (req: Request) => {
 === RÉPARTITION PAR REPAS (targets fixes pour CHAQUE jour) ===
 ${mealTargetsText}
 ${restaurantText ? `\n=== REPAS RESTAURANT ===\n${restaurantText}\nPour les jours restaurant: marquer is_restaurant: true, alims: [], et ajouter une note "Budget libre — restaurant".\nPour les AUTRES jours de ce même slot: générer une recette normale avec le même target calorique.` : ""}
-
+${foodDBText}${recipesText}
 === CONTRAINTES STRICTES ===
 - Régime: ${dietLabels[config.diet_type] || "Omnivore"}
 - Aliments/ingrédients INTERDITS (allergies/exclusions): ${(config.allergies || []).length ? config.allergies.join(", ") : "Aucune restriction"}
@@ -140,6 +159,8 @@ ${config.preferences ? `- Préférences alimentaires: ${config.preferences}` : "
 7. Le calcul: actual_kcal du repas = somme de (alim.kcal * alim.qte / 100) pour chaque aliment
 8. Vérifier que la somme des actual_kcal de tous les repas = ${config.kcal} ±20 kcal
 9. NE JAMAIS utiliser d'aliments de la liste d'exclusions
+10. Pour chaque aliment de la base du coach, COPIER les valeurs nutritionnelles EXACTES — ne pas les modifier
+11. Instructions de préparation détaillées et appétissantes pour chaque repas
 
 === FORMAT JSON REQUIS ===
 Retourne UNIQUEMENT du JSON valide (pas de texte avant ou après, pas de markdown), avec cette structure exacte:
@@ -167,7 +188,8 @@ Retourne UNIQUEMENT du JSON valide (pas de texte avant ou après, pas de markdow
               "prot": 13.5,
               "carb": 58.7,
               "fat": 7.0,
-              "qte": 80
+              "qte": 80,
+              "from_db": true
             }
           ]
         }
@@ -178,13 +200,14 @@ Retourne UNIQUEMENT du JSON valide (pas de texte avant ou après, pas de markdow
 
 Les 7 jours sont: ${days.join(", ")}.
 Chaque jour a exactement ${mealsCount} repas: ${mealNames.join(", ")}.
-Le champ "source" est "proteines", "glucides" ou "lipides" selon le macronutriment dominant de l'aliment.`;
+Le champ "source" est "proteines", "glucides" ou "lipides" selon le macronutriment dominant de l'aliment.
+Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est ajouté par l'IA (false).`;
 
     const client = new Anthropic({ apiKey });
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 16000,
+      max_tokens: 24000,
       messages: [{ role: "user", content: prompt }],
     });
 

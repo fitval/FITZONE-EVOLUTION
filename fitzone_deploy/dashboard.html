@@ -868,7 +868,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <div class="mb">
     <div class="fg"><label class="fl">Nom *</label><input class="fi" id="exoNom" placeholder="Développé couché barre"></div>
     <div class="fr2">
-      <div class="fg"><label class="fl">Muscle</label><select class="fs" id="exoMuscle"><option>Poitrine</option><option>Dos</option><option>Épaules</option><option>Biceps</option><option>Triceps</option><option>Quadriceps</option><option>Ischio-jambiers</option><option>Mollets</option><option>Fessiers</option><option>Abdominaux</option></select></div>
+      <div class="fg"><label class="fl">Muscle</label><select class="fs" id="exoMuscle"><option>Poitrine</option><option>Grand dorsal</option><option>Trapèzes</option><option>Deltoïde antérieur</option><option>Deltoïde postérieur</option><option>Deltoïde moyen</option><option>Biceps</option><option>Triceps</option><option>Quadriceps</option><option>Ischio-jambiers</option><option>Mollets</option><option>Fessiers</option><option>Abdominaux</option></select></div>
       <div class="fg"><label class="fl">Équipement</label><select class="fs" id="exoEquip"><option>Barre</option><option>Haltères</option><option>Machine</option><option>Poulie</option><option>Poids de corps</option><option>Élastique</option></select></div>
     </div>
     <div class="fr3"><div class="fg"><label class="fl">Séries</label><input class="fi" id="exoSeries" placeholder="3-4"></div><div class="fg"><label class="fl">Reps</label><input class="fi" id="exoReps" placeholder="8-12"></div><div class="fg"><label class="fl">Repos (s)</label><input class="fi" id="exoRest" placeholder="90"></div></div>
@@ -1030,6 +1030,8 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
       </div>
       <div id="gpRestoDays" style="display:none;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
     </div>
+    <!-- Food DB info -->
+    <div id="gpDbInfo" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#15803d;font-weight:500"></div>
     <!-- Allergies -->
     <div class="fg"><label class="fl">Exclusions / Allergies</label>
       <textarea class="fi" id="gpAllergies" rows="2" placeholder="Gluten, Fruits de mer, Lactose…" style="resize:vertical"></textarea>
@@ -1052,6 +1054,46 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <div class="mf" id="gpFooter">
     <button class="btn btn-ghost" onclick="closeM('mGenPlan')">Annuler</button>
     <button class="btn" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700" id="gpGenBtn" onclick="generateAIPlan()">🤖 Générer 7 jours</button>
+  </div>
+</div></div>
+
+<!-- Modal édition profil alimentaire -->
+<div class="overlay" id="mEditFood"><div class="modal" style="max-width:580px">
+  <div class="mh"><span>Modifier le profil alimentaire</span><span class="mx" onclick="closeM('mEditFood')">✕</span></div>
+  <div class="mb" style="max-height:70vh;overflow-y:auto">
+    <div class="fr2">
+      <div class="fg"><label class="fl">Régime alimentaire</label>
+        <select class="fs" id="efDiet" onchange="efApplyDietExcl()">
+          <option value="omni">Omnivore</option><option value="vgt">Végétarien</option><option value="vgn">Végétalien</option><option value="pes">Pescétarien</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Repas / jour</label>
+        <select class="fs" id="efMeals">
+          <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Temps de préparation max</label>
+      <select class="fs" id="efPrep">
+        <option value="15">15 min</option><option value="30">30 min</option><option value="60">60 min</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Exclusions alimentaires</label>
+      <div id="efExclWrap" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px"></div>
+    </div>
+    <div class="fg"><label class="fl">Équipement exclu</label>
+      <div id="efEquipWrap" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px"></div>
+    </div>
+    <div class="fg"><label class="fl">Aliments préférés / détestés</label>
+      <textarea class="fta" id="efFavFoods" rows="2" placeholder="J'adore le poulet, je déteste les brocolis…" style="min-height:50px"></textarea>
+    </div>
+    <div class="fg"><label class="fl">Habitudes alimentaires</label>
+      <textarea class="fta" id="efHabits" rows="2" placeholder="Je grignote le soir, je saute le petit-déjeuner…" style="min-height:50px"></textarea>
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-ghost" onclick="closeM('mEditFood')">Annuler</button>
+    <button class="btn btn-dark" onclick="saveClientFoodProfile()">Enregistrer</button>
   </div>
 </div></div>
 
@@ -1495,7 +1537,7 @@ function renderQTab(){
       <div class="qi"><div class="qil">Poids</div><div class="qiv">${q.weight_kg||'—'} kg</div></div>
       ${q.weight_goal?`<div class="qi"><div class="qil">Poids cible</div><div class="qiv">${q.weight_goal} kg</div></div>`:''}
     </div></div>
-    <div class="qsec"><div class="qsec-label">Objectifs & mode de vie</div><div class="qgrid">
+    <div class="qsec"><div class="qsec-label" style="display:flex;justify-content:space-between;align-items:center">Objectifs & mode de vie <button class="btn btn-ghost btn-xs" onclick="openEditFoodProfile()" style="font-size:11px;padding:2px 8px">✏️ Modifier profil alimentaire</button></div><div class="qgrid">
       <div class="qi"><div class="qil">Objectif</div><div class="qiv">${gm[q.goal]||q.goal||'—'}</div></div>
       <div class="qi"><div class="qil">Motivation</div><div class="qiv">${q.motivation_score||'—'} / 10</div></div>
       <div class="qi"><div class="qil">Régime</div><div class="qiv">${dm[q.diet_type]||q.diet_type||'—'}</div></div>
@@ -3558,6 +3600,81 @@ let gpMealNames=['Petit-déjeuner','Déjeuner','Dîner'];
 let gpRestoConfig={};
 let aiPlanData=null;
 
+/* ===== EDIT FOOD PROFILE ===== */
+const EF_FOOD_EXCLUSIONS=['Bœuf','Porc','Agneau','Veau','Poulet','Dinde','Canard','Charcuterie','Saumon','Thon','Cabillaud','Sardines','Crevettes','Fruits de mer','Lait de vache','Fromage','Yaourt','Fromage blanc','Œufs','Beurre','Champignons','Épinards','Brocoli','Courgette','Aubergine','Poivron','Avocat','Banane','Gluten','Légumineuses','Noix & oléagineux','Soja','Sucre raffiné','Alcool'];
+const EF_EQUIP_EXCLUSIONS=['Four','Cuiseur vapeur','Blender','Moule à gaufre','Moule à muffin'];
+const EF_DIET_EXCL={
+  vgt:['Bœuf','Porc','Agneau','Veau','Poulet','Dinde','Canard','Charcuterie','Saumon','Thon','Cabillaud','Sardines','Crevettes','Fruits de mer'],
+  vgn:['Bœuf','Porc','Agneau','Veau','Poulet','Dinde','Canard','Charcuterie','Saumon','Thon','Cabillaud','Sardines','Crevettes','Fruits de mer','Lait de vache','Fromage','Yaourt','Fromage blanc','Œufs','Beurre'],
+  pes:['Bœuf','Porc','Agneau','Veau','Poulet','Dinde','Canard','Charcuterie'],
+  omni:[]
+};
+let efSelectedFood=[],efSelectedEquip=[];
+
+function openEditFoodProfile(){
+  if(!curQ){toast('Questionnaire requis');return;}
+  const q=curQ;
+  document.getElementById('efDiet').value=q.diet_type||'omni';
+  document.getElementById('efMeals').value=q.meals_per_day||'3';
+  document.getElementById('efPrep').value=q.prep_time_max||30;
+  document.getElementById('efFavFoods').value=q.favorite_foods||'';
+  document.getElementById('efHabits').value=q.meal_habits||'';
+  // Parse existing exclusions
+  const allExcl=q.allergies||[];
+  efSelectedFood=allExcl.filter(e=>!EF_EQUIP_EXCLUSIONS.includes(e));
+  efSelectedEquip=allExcl.filter(e=>EF_EQUIP_EXCLUSIONS.includes(e));
+  efRenderChips();
+  openM('mEditFood');
+}
+
+function efRenderChips(){
+  const fw=document.getElementById('efExclWrap');
+  fw.innerHTML=EF_FOOD_EXCLUSIONS.map(e=>{
+    const sel=efSelectedFood.includes(e);
+    return `<span onclick="efToggleFood('${e.replace(/'/g,"\\'")}')" style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;transition:all .2s;${sel?'background:#fee2e2;border:1px solid #fca5a5;color:#dc2626':'background:var(--bg2);border:1px solid var(--border);color:var(--text2)'}">${sel?'✕ ':''}${e}</span>`;
+  }).join('');
+  const ew=document.getElementById('efEquipWrap');
+  ew.innerHTML=EF_EQUIP_EXCLUSIONS.map(e=>{
+    const sel=efSelectedEquip.includes(e);
+    return `<span onclick="efToggleEquip('${e.replace(/'/g,"\\'")}')" style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;transition:all .2s;${sel?'background:#fee2e2;border:1px solid #fca5a5;color:#dc2626':'background:var(--bg2);border:1px solid var(--border);color:var(--text2)'}">${sel?'✕ ':''}${e}</span>`;
+  }).join('');
+}
+
+function efToggleFood(e){
+  const i=efSelectedFood.indexOf(e);
+  if(i>=0)efSelectedFood.splice(i,1);else efSelectedFood.push(e);
+  efRenderChips();
+}
+function efToggleEquip(e){
+  const i=efSelectedEquip.indexOf(e);
+  if(i>=0)efSelectedEquip.splice(i,1);else efSelectedEquip.push(e);
+  efRenderChips();
+}
+
+function efApplyDietExcl(){
+  const diet=document.getElementById('efDiet').value;
+  const forced=EF_DIET_EXCL[diet]||[];
+  // Add forced exclusions, keep manual ones
+  forced.forEach(e=>{if(!efSelectedFood.includes(e))efSelectedFood.push(e);});
+  efRenderChips();
+}
+
+async function saveClientFoodProfile(){
+  const updates={
+    diet_type:document.getElementById('efDiet').value,
+    meals_per_day:document.getElementById('efMeals').value,
+    prep_time_max:parseInt(document.getElementById('efPrep').value),
+    allergies:[...efSelectedFood,...efSelectedEquip],
+    favorite_foods:document.getElementById('efFavFoods').value,
+    meal_habits:document.getElementById('efHabits').value
+  };
+  await db.from('questionnaires').update(updates).eq('id',curQ.id);
+  Object.assign(curQ,updates);
+  renderQTab();
+  closeM('mEditFood');
+  toast('Profil alimentaire mis à jour');
+}
+
 const GP_DEFAULT_MEALS={
   3:['Petit-déjeuner','Déjeuner','Dîner'],
   4:['Petit-déjeuner','Déjeuner','Goûter','Dîner'],
@@ -3589,6 +3706,10 @@ function openGenPlanModal(){
   const allEquip=['Four','Cuiseur vapeur','Blender','Poêle','Casserole'];
   const available=allEquip.filter(e=>!equipFromQ.includes(e));
   document.getElementById('gpEquip').value=available.join(', ');
+  // Food DB info
+  const dbInfo=document.getElementById('gpDbInfo');
+  dbInfo.textContent=`📦 ${alims.length} aliments dans votre base · ${repas.length} recettes disponibles`;
+  if(alims.length<10)dbInfo.innerHTML+=` — <span style="color:#ca8a04">Enrichissez votre base pour de meilleurs résultats</span>`;
   // Reset loading
   document.getElementById('gpLoading').style.display='none';
   document.getElementById('gpGenBtn').disabled=false;
@@ -3654,7 +3775,11 @@ async function generateAIPlan(){
     preferences:document.getElementById('gpPrefs').value,
     equipment:document.getElementById('gpEquip').value.split(',').map(s=>s.trim()).filter(Boolean),
     restaurant:gpRestoConfig,
-    restaurant_margin_kcal:parseInt(document.getElementById('gpRestoKcal').value)||700
+    restaurant_margin_kcal:parseInt(document.getElementById('gpRestoKcal').value)||700,
+    // Base aliments du coach (valeurs nutritionnelles exactes)
+    food_database:alims.map(a=>({nom:a.nom,cat:a.cat||'',source:a.source||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat})),
+    // Recettes existantes comme inspiration
+    recipes:repas.slice(0,30).map(r=>({nom:r.nom,type:r.type||'',items:(r.items||[]).map(i=>({nom:i.nom,qte:i.qte})),kcal:r.kcal||0,prot:r.prot||0}))
   };
 
   const clientProfile={
@@ -3682,10 +3807,12 @@ async function generateAIPlan(){
     const data=await resp.json();
     if(!data.plan||!data.plan.jours){throw new Error('Réponse invalide — pas de plan');}
 
-    aiPlanData={...data.plan,config};
+    document.getElementById('gpLoadText').textContent='Optimisation des quantités…';
+    const optimized=optimizeAIPlan(data.plan,config);
+    aiPlanData={...optimized,config};
     closeM('mGenPlan');
     renderAIPlan(aiPlanData,config);
-    toast('Plan IA généré ✓');
+    toast('Plan IA généré et optimisé');
   }catch(e){
     console.error('AI Plan error:',e);
     toast('Erreur: '+e.message);
@@ -3707,11 +3834,15 @@ function renderAIPlan(plan,config){
   // Summary bar
   const totalKcal=plan.jours.reduce((s,j)=>s+j.repas.reduce((ss,r)=>ss+(r.actual_kcal||0),0),0);
   const avgKcal=Math.round(totalKcal/plan.jours.length);
+  // Count DB vs non-DB foods
+  let dbCount=0,aiCount=0;
+  plan.jours.forEach(j=>j.repas.forEach(r=>(r.alims||[]).forEach(a=>{if(a.from_db!==false)dbCount++;else aiCount++;})));
 
   let html=`<div class="card" style="padding:14px;margin-top:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div><div style="font-size:16px;font-weight:800;color:var(--dark)">🤖 Plan IA — ${config.kcal} kcal/jour</div>
-      <div style="font-size:11px;color:var(--text3)">Moyenne réelle: ${avgKcal} kcal/jour · ${plan.jours.length} jours · ${config.meal_names.length} repas/jour</div></div>
+      <div style="font-size:11px;color:var(--text3)">Moyenne réelle: ${avgKcal} kcal/jour · ${plan.jours.length} jours · ${config.meal_names.length} repas/jour</div>
+      <div style="font-size:10px;margin-top:2px"><span style="color:#16a34a;font-weight:600">${dbCount} aliments base coach</span>${aiCount?` · <span style="color:#ea580c;font-weight:600">${aiCount} aliments IA</span>`:''}</div></div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-dark btn-xs" onclick="saveAIPlanToPlans()">💾 Sauvegarder</button>
         <button class="btn btn-ghost btn-xs" onclick="openGenPlanModal()">↺ Régénérer</button>
@@ -3749,8 +3880,12 @@ function renderAIPlan(plan,config){
         }
         (r.alims||[]).forEach(a=>{
           const aKcal=Math.round((a.kcal||0)*((a.qte||0)/100));
-          html+=`<div class="ai-alim-row">
-            <div class="ai-alim-name">${a.nom}</div>
+          const isFromDB=a.from_db!==false;
+          const dbBadge=isFromDB
+            ?'<span style="font-size:9px;color:#16a34a;font-weight:600;margin-left:4px" title="Aliment de votre base">DB</span>'
+            :`<span style="font-size:9px;color:#ea580c;font-weight:600;margin-left:4px;cursor:pointer" title="Aliment hors-base — cliquer pour ajouter" onclick="aiAddToFoodDB('${a.nom.replace(/'/g,"\\'")}',${a.kcal||0},${a.prot||0},${a.carb||0},${a.fat||0})">+ Ajouter</span>`;
+          html+=`<div class="ai-alim-row" style="${isFromDB?'':'border-left:2px solid #fb923c;padding-left:6px'}">
+            <div class="ai-alim-name">${a.nom}${dbBadge}</div>
             <div class="ai-alim-qte">${a.qte}g</div>
             <div class="ai-alim-macro">${aKcal} kcal · P:${Math.round((a.prot||0)*(a.qte||0)/100)}g</div>
           </div>`;
@@ -3862,6 +3997,86 @@ function saveAIPlanToPlans(){
   lsSave('fz_plans',plans);dbSave('plans_full',plan);
   renderPlansListPage();
   toast('Plan IA sauvegardé ✓');
+}
+
+/* ===== OPTIMISATION POST-GÉNÉRATION ===== */
+function optimizeAIPlan(plan,config){
+  if(!plan||!plan.jours)return plan;
+  plan.jours.forEach(jour=>{
+    jour.repas.forEach(repas=>{
+      if(repas.is_restaurant)return;
+      // Match aliments avec la base du coach
+      (repas.alims||[]).forEach(a=>{
+        const nameLow=a.nom.toLowerCase().trim();
+        const match=alims.find(db=>db.nom.toLowerCase().trim()===nameLow)
+          ||alims.find(db=>nameLow.includes(db.nom.toLowerCase().trim())||db.nom.toLowerCase().trim().includes(nameLow));
+        if(match){
+          a.kcal=match.kcal;a.prot=match.prot;a.carb=match.carb;a.fat=match.fat;
+          a.source=match.source;a.from_db=true;
+        }else{
+          a.from_db=false;
+        }
+      });
+      // Recalculer macros réelles du repas
+      const ma=repas.alims||[];
+      repas.actual_kcal=ma.reduce((s,a)=>s+Math.round(a.kcal*(a.qte||0)/100),0);
+      repas.actual_prot=ma.reduce((s,a)=>s+Math.round(a.prot*(a.qte||0)/100),0);
+      repas.actual_carb=ma.reduce((s,a)=>s+Math.round(a.carb*(a.qte||0)/100),0);
+      repas.actual_fat=ma.reduce((s,a)=>s+Math.round(a.fat*(a.qte||0)/100),0);
+    });
+    // Ajuster quantités pour coller aux targets
+    aiAdjustDay(jour,config);
+  });
+  return plan;
+}
+
+function aiAdjustDay(jour,config){
+  const calc=()=>{
+    let k=0,p=0,c=0,f=0;
+    jour.repas.forEach(r=>{if(!r.is_restaurant){
+      (r.alims||[]).forEach(a=>{const q=(a.qte||0)/100;k+=a.kcal*q;p+=a.prot*q;c+=a.carb*q;f+=a.fat*q;});
+    }});
+    return{k:Math.round(k),p:Math.round(p),c:Math.round(c),f:Math.round(f)};
+  };
+  let actual=calc();
+  // Ajustement global si écart kcal > 40
+  if(Math.abs(actual.k-config.kcal)>40&&actual.k>0){
+    const ratio=config.kcal/actual.k;
+    jour.repas.forEach(r=>{if(!r.is_restaurant)(r.alims||[]).forEach(a=>{a.qte=Math.round((a.qte||0)*ratio);});});
+    actual=calc();
+  }
+  // Ajustement fin protéines via sources protéiques
+  if(Math.abs(actual.p-config.prot)>10){
+    const protFoods=[];
+    jour.repas.forEach(r=>{if(!r.is_restaurant)(r.alims||[]).forEach(a=>{if(a.source==='proteines'||a.prot>15)protFoods.push(a);});});
+    if(protFoods.length>0){
+      const protFromThese=protFoods.reduce((s,a)=>s+a.prot*(a.qte||0)/100,0);
+      if(protFromThese>0){
+        const needed=config.prot-actual.p+protFromThese;
+        const pRatio=needed/protFromThese;
+        if(pRatio>0.5&&pRatio<2.0){
+          protFoods.forEach(a=>{a.qte=Math.round((a.qte||0)*pRatio);});
+        }
+      }
+    }
+  }
+  // Recalculer les macros finales de chaque repas
+  jour.repas.forEach(r=>{
+    if(r.is_restaurant)return;
+    const ma=r.alims||[];
+    r.actual_kcal=ma.reduce((s,a)=>s+Math.round(a.kcal*(a.qte||0)/100),0);
+    r.actual_prot=ma.reduce((s,a)=>s+Math.round(a.prot*(a.qte||0)/100),0);
+    r.actual_carb=ma.reduce((s,a)=>s+Math.round(a.carb*(a.qte||0)/100),0);
+    r.actual_fat=ma.reduce((s,a)=>s+Math.round(a.fat*(a.qte||0)/100),0);
+  });
+}
+
+function aiAddToFoodDB(nom,kcal,prot,carb,fat){
+  const newAlim={id:Date.now(),nom,cat:'Autres',source:prot>=carb&&prot>=fat?'proteines':carb>=prot&&carb>=fat?'glucides':'lipides',kcal,prot,carb,fat};
+  alims.push(newAlim);lsSave('fz_alims',alims);dbSave('aliments',newAlim);
+  toast(nom+' ajouté à la base');
+  // Re-render le plan pour mettre à jour les badges
+  if(aiPlanData)renderAIPlan(aiPlanData,aiPlanData.config);
 }
 </script>
 </body>
