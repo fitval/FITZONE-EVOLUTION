@@ -1549,9 +1549,18 @@ function nManual(){
   nutSt={...nutSt,lastK:k,lastP:pg,lastC:cg,lastF:fg};
 }
 async function loadPlanDisp(){
-  if(!curClient)return;const{data}=await db.from('plans').select('*').eq('client_id',curClient.id).order('created_at',{ascending:false}).limit(1);
+  if(!curClient)return;
   const el=document.getElementById('planDisp');if(!el)return;
-  if(data?.[0]){const p=data[0];el.innerHTML=`<div class="card cp"><div class="cl cl-gold">Dernier plan Supabase</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><div style="text-align:center;padding:9px;background:var(--bg);border-radius:9px"><div style="font-size:15px;font-weight:800">${(p.kcal_target||0).toLocaleString('fr')}</div><div style="font-size:9px;color:var(--text3);font-weight:700">KCAL</div></div><div style="text-align:center;padding:9px;background:#eff6ff;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#3b82f6">${p.protein_g}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div><div style="text-align:center;padding:9px;background:#fffbeb;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#f59e0b">${p.carb_g}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700">GLUC.</div></div><div style="text-align:center;padding:9px;background:var(--gold-pale);border-radius:9px"><div style="font-size:15px;font-weight:800;color:var(--gold)">${p.fat_g}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700">LIP.</div></div></div></div>`;}}
+  let html='';
+  // Plans macros (table plans)
+  const{data:macrosData}=await db.from('plans').select('*').eq('client_id',curClient.id).order('created_at',{ascending:false}).limit(1);
+  if(macrosData?.[0]){const p=macrosData[0];html+=`<div class="card cp" style="margin-bottom:10px"><div class="cl cl-gold">Plan macros</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><div style="text-align:center;padding:9px;background:var(--bg);border-radius:9px"><div style="font-size:15px;font-weight:800">${(p.kcal_target||0).toLocaleString('fr')}</div><div style="font-size:9px;color:var(--text3);font-weight:700">KCAL</div></div><div style="text-align:center;padding:9px;background:#eff6ff;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#3b82f6">${p.protein_g}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div><div style="text-align:center;padding:9px;background:#fffbeb;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#f59e0b">${p.carb_g}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700">GLUC.</div></div><div style="text-align:center;padding:9px;background:var(--gold-pale);border-radius:9px"><div style="font-size:15px;font-weight:800;color:var(--gold)">${p.fat_g}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700">LIP.</div></div></div></div>`;}
+  // Plans complets (table plans_full)
+  const{data:fullData}=await db.from('plans_full').select('*').eq('client_id',curClient.id).order('created_at',{ascending:false});
+  if(fullData&&fullData.length>0){fullData.forEach(pf=>{const nbJ=(pf.jours||[]).length;html+=`<div class="card cp" style="margin-bottom:10px"><div class="cl cl-gold">🍽️ ${pf.nom||'Plan complet'} <span style="font-weight:400;font-size:10px;color:var(--text3)">${nbJ} jour${nbJ>1?'s':''} · ${pf.type||'full'}</span></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><div style="text-align:center;padding:9px;background:var(--bg);border-radius:9px"><div style="font-size:15px;font-weight:800">${pf.kcal||0}</div><div style="font-size:9px;color:var(--text3);font-weight:700">KCAL</div></div><div style="text-align:center;padding:9px;background:#eff6ff;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#3b82f6">${pf.prot||0}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div><div style="text-align:center;padding:9px;background:#fffbeb;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#f59e0b">${pf.carb||0}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700">GLUC.</div></div><div style="text-align:center;padding:9px;background:var(--gold-pale);border-radius:9px"><div style="font-size:15px;font-weight:800;color:var(--gold)">${pf.fat||0}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700">LIP.</div></div></div></div>`;});}
+  if(!html)html=`<div style="font-size:12px;color:var(--text3);margin-top:8px">Aucun plan assigné à ce client</div>`;
+  el.innerHTML=html;
+}
 async function savePlanClient(){
   const btn=document.getElementById('btnSP');if(!btn||!curClient)return;
   btn.disabled=true;btn.textContent='⏳…';
@@ -2008,13 +2017,16 @@ function closePlanBuilder(){
 }
 function openPlanBuilderForClient(){
   if(!curClient)return;
-  switchSection('nutrition');
+  const cl=curClient;
+  document.getElementById('detPage').classList.remove('show');
+  showPage('nut-plans',document.getElementById('nav-nut-plans'));
+  openSub('sub-nut','arr-nut');
   setTimeout(()=>{
     startFullPlan();
-    pfClient=curClient;
-    document.getElementById('pfClLbl').textContent=curClient.first_name+' '+curClient.last_name;
+    pfClient=cl;
+    document.getElementById('pfClLbl').textContent=cl.first_name+' '+cl.last_name;
     pfUpdateClientBadge();
-  },100);
+  },200);
 }
 
 /* plan macros state */
@@ -2434,13 +2446,16 @@ function closeProgBuilder(){
 }
 function openProgBuilderForClient(){
   if(!curClient)return;
-  switchSection('training');
+  const cl=curClient;
+  document.getElementById('detPage').classList.remove('show');
+  showPage('tr-progs',document.getElementById('nav-tr-progs'));
+  openSub('sub-train','arr-tr');
   setTimeout(()=>{
     openProgBuilder();
-    progClient=curClient;
-    document.getElementById('progClIn').value=curClient.first_name+' '+curClient.last_name;
-    document.getElementById('progClLbl').textContent=curClient.first_name+' '+curClient.last_name;
-  },100);
+    progClient=cl;
+    document.getElementById('progClIn').value=cl.first_name+' '+cl.last_name;
+    document.getElementById('progClLbl').textContent=cl.first_name+' '+cl.last_name;
+  },200);
 }
 function progRenderDays(){
   const c=document.getElementById('progDaysTabs');if(!c)return;
