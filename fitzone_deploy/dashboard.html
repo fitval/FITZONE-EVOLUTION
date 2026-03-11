@@ -1127,12 +1127,27 @@ const DB_MAP={
   team:{ls:'fz_team',arr:'team'}
 };
 
+function dbMapFromDB(rows){
+  return rows.map(r=>{
+    const o={...r};
+    if(o.client_id!==undefined){o.clientId=o.client_id;delete o.client_id;}
+    if(o.client_nom!==undefined){o.clientNom=o.client_nom;delete o.client_nom;}
+    if(o.created_at!==undefined){o.createdAt=o.created_at;delete o.created_at;}
+    if(o.prog_id!==undefined){o.progId=o.prog_id;delete o.prog_id;}
+    if(o.sets_data!==undefined){o.setsData=o.sets_data;delete o.sets_data;}
+    if(o.description!==undefined&&o.desc===undefined){o.desc=o.description;delete o.description;}
+    if(o.first_name!==undefined&&o.first===undefined){o.first=o.first_name;}
+    if(o.last_name!==undefined&&o.last===undefined){o.last=o.last_name;}
+    if(o.clients_data!==undefined&&o.clients===undefined){o.clients=o.clients_data;}
+    return o;
+  });
+}
 async function dbLoad(table){
   const m=DB_MAP[table];if(!m)return[];
   try{
     const{data,error}=await db.from(table).select('*').eq('coach_id',currentCoach.id);
     if(error)throw error;
-    if(data&&data.length>0)return data;
+    if(data&&data.length>0)return dbMapFromDB(data);
     return lsGet(m.ls,[]);
   }catch(e){
     console.warn('dbLoad fallback localStorage:',table,e);
@@ -1145,6 +1160,14 @@ async function dbSave(table,item){
   if(!item.coach_id&&currentCoach)item.coach_id=currentCoach.id;
   // Map JS field names to DB column names
   let row={...item};
+  // Common camelCase → snake_case mapping
+  if(row.clientId!==undefined){row.client_id=row.clientId;delete row.clientId;}
+  if(row.clientNom!==undefined){row.client_nom=row.clientNom;delete row.clientNom;}
+  if(row.createdAt!==undefined){row.created_at=row.createdAt;delete row.createdAt;}
+  if(row.progId!==undefined){row.prog_id=row.progId;delete row.progId;}
+  if(row.setsData!==undefined){row.sets_data=row.setsData;delete row.setsData;}
+  // Table-specific mappings
+  if(table==='programs'&&row.desc!==undefined){row.description=row.desc;delete row.desc;}
   if(table==='team'){
     row.first_name=row.first||row.first_name||'';row.last_name=row.last||row.last_name||'';
     row.clients_data=row.clients||row.clients_data||[];
