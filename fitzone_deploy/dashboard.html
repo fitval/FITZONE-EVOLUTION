@@ -4198,21 +4198,21 @@ function renderAIPlan(plan,config){
     const dayProt=j.repas.reduce((s,r)=>s+(r.actual_prot||0),0);
     const dayCarb=j.repas.reduce((s,r)=>s+(r.actual_carb||0),0);
     const dayFat=j.repas.reduce((s,r)=>s+(r.actual_fat||0),0);
-    const kcalOk=Math.abs(dayKcal-config.kcal)<=50;
+    const kcalOk=Math.abs(dayKcal-config.kcal)<=30;
 
     html+=`<div class="ai-plan-day">
       <div class="ai-plan-day-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
         <span>${j.nom}</span>
-        <span style="font-size:11px;font-weight:400;color:${kcalOk?'rgba(255,255,255,.6)':'#fbbf24'}">${Math.round(dayKcal)} kcal · P:${Math.round(dayProt)}g G:${Math.round(dayCarb)}g L:${Math.round(dayFat)}g</span>
+        <span id="aiDay${ji}Macros" style="font-size:11px;font-weight:400;color:${kcalOk?'rgba(255,255,255,.6)':'#fbbf24'}">${Math.round(dayKcal)} kcal · P:${Math.round(dayProt)}g G:${Math.round(dayCarb)}g L:${Math.round(dayFat)}g</span>
       </div>
       <div class="ai-plan-day-body${ji===0?' open':''}">`;
 
-    j.repas.forEach(r=>{
+    j.repas.forEach((r,ri)=>{
       const isResto=r.is_restaurant;
       html+=`<div class="ai-meal">
         <div class="ai-meal-hdr">
           <span class="ai-meal-name">${r.nom} ${isResto?'<span class="ai-resto-badge">Restaurant</span>':''}</span>
-          <span class="ai-meal-macros">${Math.round(r.actual_kcal||0)} kcal · P:${Math.round(r.actual_prot||0)}g G:${Math.round(r.actual_carb||0)}g L:${Math.round(r.actual_fat||0)}g</span>
+          <span class="ai-meal-macros" id="aiMeal${ji}_${ri}Macros">${Math.round(r.actual_kcal||0)} kcal · P:${Math.round(r.actual_prot||0)}g G:${Math.round(r.actual_carb||0)}g L:${Math.round(r.actual_fat||0)}g</span>
         </div>`;
 
       if(isResto){
@@ -4221,18 +4221,22 @@ function renderAIPlan(plan,config){
         if(r.temps_prep||r.outils){
           html+=`<div class="ai-meal-meta">⏱ ${r.temps_prep||'—'} · 🔧 ${(r.outils||[]).join(', ')||'—'}</div>`;
         }
-        (r.alims||[]).forEach(a=>{
+        (r.alims||[]).forEach((a,ai)=>{
           const aKcal=Math.round((a.kcal||0)*((a.qte||0)/100));
           const isFromDB=a.from_db!==false;
           const dbBadge=isFromDB
             ?'<span style="font-size:9px;color:#16a34a;font-weight:600;margin-left:4px" title="Aliment de votre base">DB</span>'
             :`<span style="font-size:9px;color:#ea580c;font-weight:600;margin-left:4px;cursor:pointer" title="Aliment hors-base — cliquer pour ajouter" onclick="aiAddToFoodDB('${a.nom.replace(/'/g,"\\'")}',${a.kcal||0},${a.prot||0},${a.carb||0},${a.fat||0})">+ Ajouter</span>`;
-          html+=`<div class="ai-alim-row" style="${isFromDB?'':'border-left:2px solid #fb923c;padding-left:6px'}">
-            <div class="ai-alim-name">${a.nom}${dbBadge}</div>
-            <div class="ai-alim-qte">${a.qte}g</div>
-            <div class="ai-alim-macro">${aKcal} kcal · P:${Math.round((a.prot||0)*(a.qte||0)/100)}g</div>
+          html+=`<div class="ai-alim-row" style="${isFromDB?'':'border-left:2px solid #fb923c;padding-left:6px'};display:flex;align-items:center;gap:6px">
+            <div class="ai-alim-name" style="flex:1">${a.nom}${dbBadge}</div>
+            <input type="number" value="${a.qte}" min="0" max="2000" step="5" style="width:60px;padding:2px 4px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-weight:600;text-align:center;background:var(--bg)" onchange="aiUpdateQte(${ji},${ri},${ai},+this.value)">
+            <span style="font-size:11px;color:var(--text3)">g</span>
+            <span id="aiAlim${ji}_${ri}_${ai}Macro" class="ai-alim-macro">${aKcal} kcal · P:${Math.round((a.prot||0)*(a.qte||0)/100)}g</span>
+            <span style="cursor:pointer;color:#ef4444;font-size:14px;padding:0 2px" title="Supprimer" onclick="aiRemoveAlim(${ji},${ri},${ai})">✕</span>
           </div>`;
         });
+        // Bouton ajouter aliment
+        html+=`<div style="margin-top:4px"><button class="btn btn-ghost" style="font-size:10px;padding:2px 8px;border:1px dashed var(--border);border-radius:6px" onclick="aiShowAddAlim(${ji},${ri})">+ Aliment</button></div>`;
         if(r.instructions){
           html+=`<div class="ai-meal-recipe">${r.instructions}</div>`;
         }
@@ -4248,6 +4252,97 @@ function renderAIPlan(plan,config){
   el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+function aiRecalcMeal(ji,ri){
+  if(!aiPlanData||!aiPlanData.jours[ji])return;
+  const r=aiPlanData.jours[ji].repas[ri];
+  if(!r||r.is_restaurant)return;
+  const ma=r.alims||[];
+  r.actual_kcal=ma.reduce((s,a)=>s+Math.round(a.kcal*(a.qte||0)/100),0);
+  r.actual_prot=ma.reduce((s,a)=>s+Math.round(a.prot*(a.qte||0)/100),0);
+  r.actual_carb=ma.reduce((s,a)=>s+Math.round(a.carb*(a.qte||0)/100),0);
+  r.actual_fat=ma.reduce((s,a)=>s+Math.round(a.fat*(a.qte||0)/100),0);
+  // Mettre à jour l'affichage macros du repas
+  const mEl=document.getElementById(`aiMeal${ji}_${ri}Macros`);
+  if(mEl)mEl.textContent=`${r.actual_kcal} kcal · P:${r.actual_prot}g G:${r.actual_carb}g L:${r.actual_fat}g`;
+  // Mettre à jour l'affichage macros du jour
+  const jour=aiPlanData.jours[ji];
+  const dayK=jour.repas.reduce((s,r2)=>s+(r2.actual_kcal||0),0);
+  const dayP=jour.repas.reduce((s,r2)=>s+(r2.actual_prot||0),0);
+  const dayC=jour.repas.reduce((s,r2)=>s+(r2.actual_carb||0),0);
+  const dayF=jour.repas.reduce((s,r2)=>s+(r2.actual_fat||0),0);
+  const config=aiPlanData.config||{};
+  const kcalOk=Math.abs(dayK-(config.kcal||0))<=30;
+  const dEl=document.getElementById(`aiDay${ji}Macros`);
+  if(dEl){dEl.textContent=`${dayK} kcal · P:${dayP}g G:${dayC}g L:${dayF}g`;dEl.style.color=kcalOk?'rgba(255,255,255,.6)':'#fbbf24';}
+  // Mettre à jour résumé global (moyenne)
+  const totalK=aiPlanData.jours.reduce((s,j2)=>s+j2.repas.reduce((ss,r2)=>ss+(r2.actual_kcal||0),0),0);
+  const avgEl=document.querySelector('#aiPlanResult .card > div:first-child > div > div:nth-child(2)');
+  if(avgEl)avgEl.textContent=`Moyenne réelle: ${Math.round(totalK/aiPlanData.jours.length)} kcal/jour · ${aiPlanData.jours.length} jours · ${(config.meal_names||[]).length} repas/jour`;
+}
+
+function aiUpdateQte(ji,ri,ai,newQte){
+  if(!aiPlanData||!aiPlanData.jours[ji])return;
+  const a=aiPlanData.jours[ji].repas[ri].alims[ai];
+  if(!a)return;
+  a.qte=Math.max(0,Math.round(newQte));
+  // Mettre à jour macro de cet aliment
+  const aEl=document.getElementById(`aiAlim${ji}_${ri}_${ai}Macro`);
+  if(aEl){
+    const aKcal=Math.round(a.kcal*a.qte/100);
+    aEl.textContent=`${aKcal} kcal · P:${Math.round(a.prot*a.qte/100)}g`;
+  }
+  aiRecalcMeal(ji,ri);
+}
+
+function aiRemoveAlim(ji,ri,ai){
+  if(!aiPlanData||!aiPlanData.jours[ji])return;
+  const r=aiPlanData.jours[ji].repas[ri];
+  if(!r||!r.alims)return;
+  r.alims.splice(ai,1);
+  // Re-rend tout le plan (nécessaire car les index changent)
+  renderAIPlan(aiPlanData,aiPlanData.config);
+}
+
+function aiShowAddAlim(ji,ri){
+  // Mini-popup pour choisir un aliment de la base
+  const existing=document.getElementById('aiAddAlimPopup');
+  if(existing)existing.remove();
+  const pop=document.createElement('div');
+  pop.id='aiAddAlimPopup';
+  pop.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:16px;z-index:10000;width:340px;max-height:400px;display:flex;flex-direction:column';
+  pop.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <b style="font-size:13px">Ajouter un aliment</b>
+    <span style="cursor:pointer;font-size:18px" onclick="this.closest('#aiAddAlimPopup').remove()">✕</span>
+  </div>
+  <input type="text" placeholder="Rechercher…" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;margin-bottom:8px;box-sizing:border-box" oninput="aiFilterAddAlim(this.value,${ji},${ri})">
+  <div id="aiAddAlimList" style="overflow-y:auto;flex:1;max-height:280px"></div>`;
+  document.body.appendChild(pop);
+  aiFilterAddAlim('',ji,ri);
+}
+
+function aiFilterAddAlim(q,ji,ri){
+  const list=document.getElementById('aiAddAlimList');
+  if(!list)return;
+  const low=q.toLowerCase();
+  const filtered=alims.filter(a=>!q||a.nom.toLowerCase().includes(low)).slice(0,30);
+  list.innerHTML=filtered.map(a=>`<div style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:12px;display:flex;justify-content:space-between;align-items:center" onmouseenter="this.style.background='var(--bg)'" onmouseleave="this.style.background=''" onclick="aiDoAddAlim(${ji},${ri},'${a.nom.replace(/'/g,"\\'")}',${a.kcal},${a.prot},${a.carb},${a.fat},'${a.source||''}')">
+    <span style="font-weight:600">${a.nom}</span>
+    <span style="color:var(--text3);font-size:10px">${a.kcal}kcal P:${a.prot}g</span>
+  </div>`).join('')||(q?'<div style="padding:8px;color:var(--text3);font-size:12px;text-align:center">Aucun résultat</div>':'');
+}
+
+function aiDoAddAlim(ji,ri,nom,kcal,prot,carb,fat,source){
+  if(!aiPlanData||!aiPlanData.jours[ji])return;
+  const r=aiPlanData.jours[ji].repas[ri];
+  if(!r)return;
+  if(!r.alims)r.alims=[];
+  r.alims.push({nom,kcal,prot,carb,fat,source,qte:100,from_db:true});
+  const pop=document.getElementById('aiAddAlimPopup');
+  if(pop)pop.remove();
+  renderAIPlan(aiPlanData,aiPlanData.config);
+  toast(nom+' ajouté');
+}
+
 function validateAIPlan(plan,config){
   const warnings=[];
   if(!plan.jours||plan.jours.length!==7)warnings.push('Le plan ne contient pas 7 jours ('+((plan.jours||[]).length)+' trouvés)');
@@ -4256,11 +4351,11 @@ function validateAIPlan(plan,config){
 
   (plan.jours||[]).forEach(j=>{
     const dayKcal=j.repas.reduce((s,r)=>s+(r.actual_kcal||0),0);
-    if(Math.abs(dayKcal-config.kcal)>50){
-      warnings.push(`${j.nom}: ${Math.round(dayKcal)} kcal (cible: ${config.kcal}, écart: ${Math.round(dayKcal-config.kcal)})`);
+    if(Math.abs(dayKcal-config.kcal)>30){
+      warnings.push(`${j.nom}: ${Math.round(dayKcal)} kcal (cible: ${config.kcal}, écart: ${dayKcal>config.kcal?'+':''}${Math.round(dayKcal-config.kcal)})`);
     }
     const dayProt=j.repas.reduce((s,r)=>s+(r.actual_prot||0),0);
-    if(Math.abs(dayProt-config.prot)>10){
+    if(Math.abs(dayProt-config.prot)>8){
       warnings.push(`${j.nom}: ${Math.round(dayProt)}g protéines (cible: ${config.prot}g)`);
     }
     // Check excluded foods
@@ -4382,14 +4477,14 @@ function aiAdjustDay(jour,config){
     return{k:Math.round(k),p:Math.round(p),c:Math.round(c),f:Math.round(f)};
   };
   let actual=calc();
-  // Ajustement global si écart kcal > 40
-  if(Math.abs(actual.k-config.kcal)>40&&actual.k>0){
+  // Pass 1: Ajustement global si écart kcal > 30
+  if(Math.abs(actual.k-config.kcal)>30&&actual.k>0){
     const ratio=config.kcal/actual.k;
     jour.repas.forEach(r=>{if(!r.is_restaurant)(r.alims||[]).forEach(a=>{a.qte=Math.round((a.qte||0)*ratio);});});
     actual=calc();
   }
-  // Ajustement fin protéines via sources protéiques
-  if(Math.abs(actual.p-config.prot)>10){
+  // Pass 2: Ajustement fin protéines via sources protéiques
+  if(Math.abs(actual.p-config.prot)>8){
     const protFoods=[];
     jour.repas.forEach(r=>{if(!r.is_restaurant)(r.alims||[]).forEach(a=>{if(a.source==='proteines'||a.prot>15)protFoods.push(a);});});
     if(protFoods.length>0){
@@ -4402,6 +4497,45 @@ function aiAdjustDay(jour,config){
         }
       }
     }
+    actual=calc();
+  }
+  // Pass 3: Ajustement fin glucides via sources glucidiques
+  if(Math.abs(actual.c-config.carb)>10){
+    const carbFoods=[];
+    jour.repas.forEach(r=>{if(!r.is_restaurant)(r.alims||[]).forEach(a=>{if(a.source==='glucides'||a.carb>20)carbFoods.push(a);});});
+    if(carbFoods.length>0){
+      const carbFromThese=carbFoods.reduce((s,a)=>s+a.carb*(a.qte||0)/100,0);
+      if(carbFromThese>0){
+        const needed=config.carb-actual.c+carbFromThese;
+        const cRatio=needed/carbFromThese;
+        if(cRatio>0.7&&cRatio<1.5){
+          carbFoods.forEach(a=>{a.qte=Math.round((a.qte||0)*cRatio);});
+        }
+      }
+    }
+    actual=calc();
+  }
+  // Pass 4: Ajustement fin lipides via sources lipidiques
+  if(Math.abs(actual.f-config.fat)>5){
+    const fatFoods=[];
+    jour.repas.forEach(r=>{if(!r.is_restaurant)(r.alims||[]).forEach(a=>{if(a.source==='lipides'||a.fat>10)fatFoods.push(a);});});
+    if(fatFoods.length>0){
+      const fatFromThese=fatFoods.reduce((s,a)=>s+a.fat*(a.qte||0)/100,0);
+      if(fatFromThese>0){
+        const needed=config.fat-actual.f+fatFromThese;
+        const fRatio=needed/fatFromThese;
+        if(fRatio>0.7&&fRatio<1.5){
+          fatFoods.forEach(a=>{a.qte=Math.round((a.qte||0)*fRatio);});
+        }
+      }
+    }
+    actual=calc();
+  }
+  // Pass 5: Correction finale kcal si les passes macro ont dévié
+  actual=calc();
+  if(Math.abs(actual.k-config.kcal)>30&&actual.k>0){
+    const ratio=config.kcal/actual.k;
+    jour.repas.forEach(r=>{if(!r.is_restaurant)(r.alims||[]).forEach(a=>{a.qte=Math.round((a.qte||0)*ratio);});});
   }
   // Recalculer les macros finales de chaque repas
   jour.repas.forEach(r=>{

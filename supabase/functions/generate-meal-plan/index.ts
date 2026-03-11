@@ -151,18 +151,28 @@ ${foodDBText}${recipesText}
 - Équipement cuisine disponible: ${(config.equipment || []).length ? config.equipment.join(", ") : "Standard (poêle, four, casserole)"}
 ${config.preferences ? `- Préférences alimentaires: ${config.preferences}` : ""}
 
+=== MÉTHODE DE CALCUL OBLIGATOIRE ===
+AVANT de générer le JSON, tu DOIS suivre cette méthode pour CHAQUE repas de CHAQUE jour :
+1. Choisis les aliments et leurs quantités (qte en grammes crus)
+2. Pour chaque aliment, calcule: kcal_alim = alim.kcal × alim.qte / 100 (idem pour prot, carb, fat)
+3. Additionne les kcal de tous les aliments du repas → c'est le actual_kcal du repas
+4. Additionne les actual_kcal de tous les repas du jour → doit être = ${config.kcal} ±15 kcal
+5. Si le total du jour dépasse ou est en-dessous de ${config.kcal} ±15 kcal, AJUSTE les quantités (qte) des aliments jusqu'à ce que ce soit correct
+6. NE PASSE PAS au jour suivant tant que le total n'est pas dans la tolérance
+
 === RÈGLES IMPÉRATIVES ===
-1. CHAQUE jour doit totaliser EXACTEMENT ${config.kcal} kcal (±20 kcal), ${config.prot}g P (±5g), ${config.carb}g G (±5g), ${config.fat}g L (±3g)
+1. CHAQUE jour doit totaliser EXACTEMENT ${config.kcal} kcal (±15 kcal), ${config.prot}g P (±5g), ${config.carb}g G (±8g), ${config.fat}g L (±3g)
 2. CHAQUE slot de repas doit avoir le MÊME target calorique TOUS les 7 jours (permet au client d'interchanger les jours)
 3. VARIER les recettes entre les jours (pas le même plat 2 jours de suite)
 4. Répartir les protéines uniformément sur tous les repas (minimum 15g de protéines par repas)
 5. Toutes les quantités en GRAMMES CRUS (poids avant cuisson)
 6. Les valeurs nutritionnelles de chaque aliment sont pour 100g cru
 7. Le calcul: actual_kcal du repas = somme de (alim.kcal * alim.qte / 100) pour chaque aliment
-8. Vérifier que la somme des actual_kcal de tous les repas = ${config.kcal} ±20 kcal
+8. Vérifier que la somme des actual_kcal de tous les repas = ${config.kcal} ±15 kcal
 9. NE JAMAIS utiliser d'aliments de la liste d'exclusions
 10. Pour chaque aliment de la base du coach, COPIER les valeurs nutritionnelles EXACTES — ne pas les modifier
 11. Instructions de préparation détaillées et appétissantes pour chaque repas
+12. Les champs actual_kcal, actual_prot, actual_carb, actual_fat de chaque repas DOIVENT être la SOMME EXACTE calculée à partir des aliments (pas une approximation)
 
 === FORMAT JSON REQUIS ===
 Retourne UNIQUEMENT du JSON valide (pas de texte avant ou après, pas de markdown), avec cette structure exacte:
@@ -171,6 +181,10 @@ Retourne UNIQUEMENT du JSON valide (pas de texte avant ou après, pas de markdow
   "jours": [
     {
       "nom": "Lundi",
+      "total_kcal": ${config.kcal},
+      "total_prot": ${config.prot},
+      "total_carb": ${config.carb},
+      "total_fat": ${config.fat},
       "repas": [
         {
           "nom": "Petit-déjeuner",
@@ -200,6 +214,8 @@ Retourne UNIQUEMENT du JSON valide (pas de texte avant ou après, pas de markdow
   ]
 }
 
+IMPORTANT: Les champs total_kcal/total_prot/total_carb/total_fat de chaque jour sont la SOMME des actual_* de ses repas. Ils DOIVENT correspondre.
+
 Les 7 jours sont: ${days.join(", ")}.
 Chaque jour a exactement ${mealsCount} repas: ${mealNames.join(", ")}.
 Le champ "source" est "proteines", "glucides" ou "lipides" selon le macronutriment dominant de l'aliment.
@@ -210,7 +226,7 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
     // Use streaming to avoid timeout on long generations
     const stream = await client.messages.stream({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 16000,
+      max_tokens: 20000,
       messages: [{ role: "user", content: prompt }],
     });
 
