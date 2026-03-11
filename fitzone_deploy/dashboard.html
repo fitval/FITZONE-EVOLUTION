@@ -3733,9 +3733,11 @@ async function irProcessNext(){
       const controller=new AbortController();
       const timeout=setTimeout(()=>controller.abort(),90000);
 
+      const{data:{session:arSess}}=await db.auth.getSession();
+      const arToken=arSess?.access_token||KEY;
       const resp=await fetch(SUPA+'/functions/v1/analyze-recipe',{
         method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY,'apikey':KEY},
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+arToken,'apikey':KEY},
         body:JSON.stringify({image_base64:b64,media_type:mediaType,food_database:foodDB}),
         signal:controller.signal
       });
@@ -4136,9 +4138,11 @@ async function generateAIPlan(){
 
   try{
     document.getElementById('gpLoadText').textContent='Génération du plan alimentaire…';
+    const{data:{session:sess}}=await db.auth.getSession();
+    const token=sess?.access_token||KEY;
     const resp=await fetch(SUPA+'/functions/v1/generate-meal-plan',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY,'apikey':KEY},
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':KEY},
       body:JSON.stringify({config,clientProfile})
     });
 
