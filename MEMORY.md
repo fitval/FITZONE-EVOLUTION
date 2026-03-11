@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-03-10 (migration Supabase)
+**Dernière mise à jour** : 2026-03-11 (app mobile client)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -41,10 +41,12 @@
 - [x] Section Galerie client (grille photos issues des bilans)
 - [x] Notification 🔔 avec badge pour bilans non lus
 - [x] Page Bilans hebdo (listing tous bilans de tous clients)
+- [x] App mobile client (`client.html`) avec 4 onglets : Programme, Nutrition, Bilan, Progression
+- [x] Bouton "App" dans le dashboard pour copier le lien client
 
 ### Ce qui reste à faire (prochaines priorités)
 - [x] **Migration localStorage → Supabase** : exercices, programmes, aliments, repas, plans complets, modules, équipe, settings, roadmaps, daily logs, train logs, bilans (code prêt, **il faut exécuter le SQL dans Supabase**)
-- [ ] **App mobile client** : permettre aux clients d'accéder à leurs programmes et plans nutrition
+- [x] **App mobile client** : `client.html` — 4 onglets (Programme, Nutrition, Bilan, Progression) avec token URL
 - [ ] **Amélioration UX** : responsive, animations, feedback visuel
 - [ ] **Multi-coach** : isolation des données par coach (RLS Supabase)
 - [ ] **Domaine personnalisé** : configurer un nom de domaine propre
@@ -71,6 +73,9 @@
 | 2026-03-10 | Migration localStorage → Supabase | Persistance cloud, multi-device, prépare app mobile |
 | 2026-03-10 | Double-write (Supabase + localStorage) | Fallback offline, pas de perte de données si Supabase down |
 | 2026-03-10 | JSONB pour données complexes | Minimise le nombre de tables, garde la simplicité |
+| 2026-03-11 | App client = page web séparée | Même pattern que questionnaire (token URL), pas de framework |
+| 2026-03-11 | Bottom tab bar pour l'app client | Navigation mobile native-like (4 onglets) |
+| 2026-03-11 | Resize photos avant base64 | Canvas max 1200px + JPEG 0.7 pour limiter la taille |
 
 ## Historique des sessions
 
@@ -108,6 +113,17 @@
 - **Chargement hybride** : données globales chargées au démarrage depuis Supabase, données client chargées à la demande (lazy)
 - **RLS activé** sur toutes les tables (politique "Allow all for authenticated" — à renforcer plus tard)
 - **⚠️ ACTION REQUISE** : exécuter `supabase/migration.sql` dans le SQL Editor de Supabase
+
+### Session 2026-03-11 (app mobile client)
+- **Fix dbSave mapping** : correction camelCase → snake_case pour programmes, séances, plans (clientId→client_id, etc.)
+- **App mobile client** (`client.html` ~750 lignes) : page web complète pour les clients
+  - Auth par token URL (même pattern que questionnaire)
+  - **Onglet Programme** : liste programmes, détail avec jours/exercices/sets, vidéo YouTube, supersets, alternatives
+  - **Onglet Nutrition** : plans macros et complets, détail jours/repas/aliments avec calcul macros
+  - **Onglet Bilan** : historique + formulaire (poids, énergie, sommeil, adhérence, photos avec resize canvas)
+  - **Onglet Progression** : suivi quotidien (8 métriques), graphique SVG, historique, sliders
+  - Design mobile-first, bottom tab bar, même thème gold/clair
+- **Bouton "App"** dans le dashboard : visible dans la fiche client pour les clients actifs
 
 ## Bugs connus
 - Aucun bug critique identifié pour le moment

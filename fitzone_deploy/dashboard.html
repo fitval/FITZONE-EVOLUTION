@@ -1051,7 +1051,9 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 <script>
 const SUPA='https://wsrykmutyhjxdnhnyexl.supabase.co';
 const KEY='sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
-const QBASE=window.location.origin+'/questionnaire.html';
+const _base=window.location.href.substring(0,window.location.href.lastIndexOf('/')+1);
+const QBASE=_base+'questionnaire.html';
+const CBASE=_base+'client.html';
 const{createClient}=supabase;
 const db=createClient(SUPA,KEY);
 
@@ -1423,12 +1425,12 @@ async function openDet(id){
   document.getElementById('tc-questionnaire').classList.add('active');
   document.getElementById('backBtn').style.display='flex';
   document.getElementById('tbTitle').textContent=(curClient.first_name||'')+' '+(curClient.last_name||'');
-  document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="copyT('${QBASE}?token=${curClient.token}')">🔗 Lien</button>${curClient.status==='questionnaire_done'?`<button class="btn btn-gold btn-sm" onclick="valCl('${curClient.id}')">✅ Valider</button>`:''}`;
+  document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="copyT('${QBASE}?token=${curClient.token}')">🔗 Lien</button>${curClient.status==='active'?`<button class="btn btn-ghost btn-sm" onclick="copyT('${CBASE}?token=${curClient.token}')">📱 App</button>`:''}${curClient.status!=='active'?`<button class="btn btn-gold btn-sm" onclick="valCl('${curClient.id}')">✅ Valider</button>`:''}`;
   window.scrollTo(0,0);
 }
 function renderDetHero(){
   const c=curClient,q=curQ,ini=((c.first_name||'?')[0]+(c.last_name||'?')[0]).toUpperCase(),col=c.avatar_color||'#c49a2a';
-  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px">${stBadge(c.status)}</div></div><div style="display:flex;gap:7px"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${c.status==='questionnaire_done'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}</div>`;
+  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px">${stBadge(c.status)}</div></div><div style="display:flex;gap:7px"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:''}${c.status!=='active'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}</div>`;
 }
 function swDet(name,el){
   document.querySelectorAll('#detTabs .tab').forEach(t=>t.classList.remove('active'));

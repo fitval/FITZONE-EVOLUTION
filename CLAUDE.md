@@ -21,6 +21,7 @@ Application SaaS de coaching sportif et nutritionnel.
 - `fitzone_deploy/login.html` — Auth coach (Supabase Auth)
 - `fitzone_deploy/dashboard.html` — Dashboard coach (fichier monolithique ~2200 lignes, ~185 KB)
 - `fitzone_deploy/questionnaire.html` — Formulaire client (accès par token, ~53 KB)
+- `fitzone_deploy/client.html` — App mobile client (accès par token, 4 onglets : Programme/Nutrition/Bilan/Progression)
 
 ## Supabase
 - **URL** : `https://wsrykmutyhjxdnhnyexl.supabase.co`
