@@ -226,7 +226,7 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
     // Use streaming to avoid timeout on long generations
     const stream = await client.messages.stream({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 20000,
+      max_tokens: 30000,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -247,6 +247,18 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
     }
 
     const plan = JSON.parse(jsonStr);
+
+    // Normaliser les noms de champs (Claude peut utiliser "aliments"/"ingredients" au lieu de "alims")
+    if (plan.jours) {
+      for (const jour of plan.jours) {
+        for (const repas of (jour.repas || [])) {
+          if (!repas.alims || !Array.isArray(repas.alims) || repas.alims.length === 0) {
+            repas.alims = repas.aliments || repas.ingredients || repas.foods || repas.items || [];
+          }
+          delete repas.aliments; delete repas.ingredients; delete repas.foods; delete repas.items;
+        }
+      }
+    }
 
     return new Response(
       JSON.stringify({ plan, model: finalMessage.model, usage: finalMessage.usage }),

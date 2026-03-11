@@ -4150,6 +4150,17 @@ async function generateAIPlan(){
     const data=await resp.json();
     if(!data.plan||!data.plan.jours){throw new Error('Réponse invalide — pas de plan');}
 
+    // Debug: voir la structure brute du premier repas
+    console.log('AI Plan raw response (1er repas):', JSON.stringify(data.plan.jours?.[0]?.repas?.[0]).substring(0,500));
+
+    // Normaliser champs alims (Claude peut retourner "aliments"/"ingredients" au lieu de "alims")
+    data.plan.jours.forEach(j=>j.repas.forEach(r=>{
+      if(!r.alims||!r.alims.length){
+        r.alims=r.aliments||r.ingredients||r.foods||r.items||[];
+      }
+      delete r.aliments;delete r.ingredients;delete r.foods;delete r.items;
+    }));
+
     document.getElementById('gpLoadText').textContent='Optimisation des quantités…';
     const optimized=optimizeAIPlan(data.plan,config);
     aiPlanData={...optimized,config};
