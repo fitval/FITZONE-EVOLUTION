@@ -109,13 +109,15 @@ Deno.serve(async (req: Request) => {
     const foodDB: Array<{nom: string; kcal: number; prot: number; carb: number; fat: number; source: string}> = config.food_database || [];
     const recipesDB: Array<{nom: string; type: string; items: Array<{nom: string; qte: number}>; kcal: number; prot: number}> = config.recipes || [];
 
-    const foodDBText = foodDB.length > 0
-      ? `\n=== BASE D'ALIMENTS DU COACH (PRIORITAIRE — ${foodDB.length} aliments) ===
+    // Limit food DB to 150 items max to keep prompt manageable
+    const foodDBLimited = foodDB.slice(0, 150);
+    const foodDBText = foodDBLimited.length > 0
+      ? `\n=== BASE D'ALIMENTS DU COACH (PRIORITAIRE — ${foodDBLimited.length} aliments) ===
 Utilise EN PRIORITÉ ces aliments avec leurs valeurs nutritionnelles EXACTES (pour 100g cru).
 Si un aliment existe dans cette base, tu DOIS copier EXACTEMENT ses valeurs kcal/prot/carb/fat.
 Tu peux ajouter des aliments hors-base si nécessaire pour la variété, mais marque-les avec "from_db": false.
 
-${foodDB.map(a => `${a.nom}: ${a.kcal}kcal P:${a.prot}g G:${a.carb}g L:${a.fat}g [${a.source}]`).join("\n")}\n`
+${foodDBLimited.map(a => `${a.nom}: ${a.kcal}kcal P:${a.prot}g G:${a.carb}g L:${a.fat}g [${a.source}]`).join("\n")}\n`
       : "";
 
     const recipesText = recipesDB.length > 0
@@ -205,20 +207,25 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
 
     const client = new Anthropic({ apiKey });
 
-    const message = await client.messages.create({
+    // Use streaming to avoid timeout on long generations
+    const stream = await client.messages.stream({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 24000,
+      max_tokens: 16000,
       messages: [{ role: "user", content: prompt }],
     });
 
-    // Extract text content
-    const textBlock = message.content.find((b: { type: string }) => b.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      throw new Error("No text response from Claude");
+    // Collect streamed text
+    let fullText = "";
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        fullText += event.delta.text;
+      }
     }
 
+    const finalMessage = await stream.finalMessage();
+
     // Parse JSON from response (handle potential markdown wrapping)
-    let jsonStr = (textBlock as { type: "text"; text: string }).text.trim();
+    let jsonStr = fullText.trim();
     if (jsonStr.startsWith("```")) {
       jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
     }
@@ -226,7 +233,7 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
     const plan = JSON.parse(jsonStr);
 
     return new Response(
-      JSON.stringify({ plan, model: message.model, usage: message.usage }),
+      JSON.stringify({ plan, model: finalMessage.model, usage: finalMessage.usage }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
