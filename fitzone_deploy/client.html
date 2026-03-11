@@ -269,7 +269,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
       <div id="trainContent"></div>
     </div>
     <div id="tabNutri" class="tab-section">
-      <div style="padding-top:20px"><div class="card-label" style="color:var(--text3)">MA NUTRITION</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Nutrition</div></div>
+      <div style="padding-top:20px"><div class="card-label" style="color:var(--text3)">MA NUTRITION</div><div style="font-size:24px;font-weight:800;margin-bottom:4px">Nutrition</div><div style="font-size:13px;color:var(--text3);margin-bottom:16px">Clique sur le plan alimentaire pour accéder au détail</div></div>
       <div id="nutriContent"></div>
     </div>
     <div id="tabBilan" class="tab-section">
@@ -279,6 +279,10 @@ textarea.form-input { min-height:100px; resize:vertical; }
     <div id="tabSuivi" class="tab-section">
       <div style="padding-top:20px"><div style="font-size:24px;font-weight:800;margin-bottom:16px">Suivi</div></div>
       <div id="suiviContent"></div>
+    </div>
+    <div id="tabLearn" class="tab-section">
+      <div style="padding-top:20px"><div class="card-label" style="color:var(--text3)">APPRENTISSAGE</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Apprentissage</div></div>
+      <div id="learnContent"></div>
     </div>
   </div>
 
@@ -290,13 +294,13 @@ textarea.form-input { min-height:100px; resize:vertical; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 12h2m16 0h2M6 8v8M18 8v8M6 12h12M9 6v12M15 6v12"/></svg><span>Entraînement</span>
     </button>
     <button class="tab-btn" onclick="switchTab('Nutri')" id="btnNutri">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><path d="M6 1v3M10 1v3M14 1v3"/></svg><span>Nutrition</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 11c0-2.8-2.2-5-5-5s-5 2.2-5 5c0 3.5 5 9 5 9s5-5.5 5-9z"/><path d="M10 11a2 2 0 100-4 2 2 0 000 4z"/><path d="M19 6l-3 6h4l-3 6"/></svg><span>Nutrition</span>
     </button>
     <button class="tab-btn" onclick="switchTab('Bilan')" id="btnBilan">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h6M7 16h8"/></svg><span>Bilan</span>
     </button>
-    <button class="tab-btn" onclick="switchTab('Suivi')" id="btnSuivi">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Suivi</span>
+    <button class="tab-btn" onclick="switchTab('Learn')" id="btnLearn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Apprentissage</span>
     </button>
   </div>
 </div>
@@ -314,7 +318,7 @@ const db=supabase.createClient(SUPA,KEY);
 
 /* ===== STATE ===== */
 let clientData=null;
-let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[];
+let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[];
 let currentDayIdx=0,currentPlanIdx=null;
 let workoutActive=false, workoutData=[], workoutStart=null, workoutTimerInterval=null;
 let restTimerInterval=null;
@@ -343,14 +347,15 @@ function showState(s){
 }
 
 async function loadData(){
-  const[p1,p2,p3,p4,p5]=await Promise.all([
+  const[p1,p2,p3,p4,p5,p6]=await Promise.all([
     db.from('programs').select('*').eq('client_id',clientData.id),
     db.from('plans_full').select('*').eq('client_id',clientData.id),
     db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false}),
     db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90),
-    db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30)
+    db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30),
+    db.from('modules').select('*').eq('coach_id',clientData.coach_id)
   ]);
-  programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];
+  programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];
 }
 
 /* ===== TABS ===== */
@@ -366,6 +371,7 @@ function switchTab(name){
   else if(name==='Nutri')renderNutriList();
   else if(name==='Bilan')renderBilanList();
   else if(name==='Suivi')renderSuivi();
+  else if(name==='Learn')renderLearn();
 }
 
 /* ===== UTILS ===== */
@@ -395,7 +401,7 @@ function renderHome(){
   let html='';
 
   // Rapport quotidien - red border if not filled
-  html+=`<div class="card-dark rapport-card${notFilled?' card-red-border':''} fade-up" onclick="switchTab('Suivi')" style="animation-delay:.05s">
+  html+=`<div class="card-dark rapport-card${notFilled?' card-red-border':''} fade-up" onclick="showSuiviInline()" style="animation-delay:.05s">
     <div class="card-label">RAPPORT QUOTIDIEN</div>
     <div style="display:flex;align-items:center;gap:16px">
       <div style="flex:1"><div class="rapport-title">Saisir mes données</div><div class="rapport-sub">Poids · Pas · Faim · Énergie...</div></div>
@@ -592,8 +598,8 @@ function renderActiveWorkout(){
       h+=`</div>`;
     }
 
-    // BW toggle
-    h+=`<div class="bw-toggle"><label><input type="checkbox" ${ex.bw?'checked':''} onchange="workoutData[${ei}].bw=this.checked;renderActiveWorkout()"> BW</label></div>`;
+    // Poids du corps toggle
+    h+=`<div class="bw-toggle"><label><input type="checkbox" ${ex.bw?'checked':''} onchange="workoutData[${ei}].bw=this.checked;renderActiveWorkout()"> Poids du corps</label></div>`;
 
     // Set header
     h+=`<div class="set-header"><div>#</div><div>${ex.bw?'':'kg'}</div><div>reps</div><div>RIR</div><div></div></div>`;
@@ -611,17 +617,65 @@ function renderActiveWorkout(){
       </div>`;
     });
 
-    // Add set
-    h+=`<button class="add-set-btn" onclick="addSet(${ei})">+ Ajouter une série</button>`;
-
     // Camera button
     h+=`<button class="cam-btn" onclick="filmExo(${ei})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> Filmer</button>`;
 
     h+=`</div>`;
   });
 
-  h+=`<button class="btn-gold" style="margin-top:16px" onclick="endWorkout(true)">Terminer la séance</button>`;
+  h+=`<button class="btn-gold" style="margin-top:16px" onclick="showPostWorkout()">Terminer la séance</button>`;
   document.getElementById('trainContent').innerHTML=h;
+}
+
+function showPostWorkout(){
+  clearInterval(workoutTimerInterval);
+  const elapsed=workoutStart?fmtTimer(Math.floor((Date.now()-workoutStart)/1000)):'00:00';
+  let h=`<div style="text-align:center;padding:32px 0">
+    <div style="font-size:48px;margin-bottom:16px">🎉</div>
+    <div style="font-size:22px;font-weight:800;margin-bottom:6px">Félicitations !</div>
+    <div style="font-size:15px;color:var(--text2);margin-bottom:24px">Tu as terminé ta séance en ${elapsed}</div>
+  </div>
+  <div class="card">
+    <div class="suivi-field"><div class="suivi-field-label">À quel point la séance a été dure ? <span>/10</span></div>
+      <div class="slider-group"><input type="range" min="1" max="10" value="7" id="wo_rpe" oninput="document.getElementById('wo_rpe_val').textContent=this.value"><div class="slider-val" id="wo_rpe_val">7</div><span style="font-size:12px;color:var(--text3)">/10</span></div>
+    </div>
+    <div class="suivi-field" style="margin-top:16px"><div class="suivi-field-label">Si tu as un commentaire ou un retour à ton coach, mentionne-le ici</div>
+      <textarea id="wo_comment" placeholder="Ex: Grosse séance, j'ai bien progressé sur le squat..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:14px;font-family:var(--font);background:var(--white);color:var(--text);outline:none;min-height:80px;resize:vertical"></textarea>
+    </div>
+  </div>
+  <button class="btn-gold" style="margin-top:16px" onclick="finalizeWorkout()">Valider la séance</button>`;
+  document.getElementById('trainContent').innerHTML=h;
+}
+
+async function finalizeWorkout(){
+  const rpe=document.getElementById('wo_rpe')?document.getElementById('wo_rpe').value:'';
+  const comment=document.getElementById('wo_comment')?document.getElementById('wo_comment').value.trim():'';
+  workoutActive=false;
+  if(workoutData.length){
+    const day=(programs[0].jours||[])[currentDayIdx];
+    const sessionName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
+    const exercises=workoutData.map(ex=>({
+      nom:ex.nom,
+      sets:ex.sets.filter(s=>s.done).map(s=>({kg:s.kg||'',reps:s.repsActual||'',rir:s.rirActual||'',load:s.kg||''}))
+    }));
+    const logData={coach_id:clientData.coach_id,client_id:clientData.id,session_name:sessionName,date:today(),exercises};
+    if(rpe)logData.cycle=rpe;
+    await db.from('train_logs').insert(logData);
+    // Save RPE + comment as daily log note
+    if(rpe||comment){
+      const existing=dailyLogs.find(l=>l.date===today());
+      const extra={'RPE séance':rpe};
+      if(comment)extra['Commentaire séance']=comment;
+      if(existing){await db.from('daily_logs').update({data:{...existing.data,...extra}}).eq('id',existing.id);}
+      else{await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:today(),data:extra});}
+    }
+    toast('Séance enregistrée !');
+    const{data}=await db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30);
+    trainLogs=data||[];
+    const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
+    dailyLogs=nl||[];
+  }
+  renderTrainPreview();
 }
 
 function validateSet(ei,si){
@@ -681,24 +735,9 @@ function filmExo(ei){
   inp.click();
 }
 
-async function endWorkout(save){
+function endWorkout(save){
   clearInterval(workoutTimerInterval);
   workoutActive=false;
-  if(save&&workoutData.length){
-    const day=(programs[0].jours||[])[currentDayIdx];
-    const sessionName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
-    const exercises=workoutData.map(ex=>({
-      nom:ex.nom,
-      sets:ex.sets.filter(s=>s.done).map(s=>({kg:s.kg||'',reps:s.repsActual||'',rir:s.rirActual||'',load:s.kg||''}))
-    }));
-    await db.from('train_logs').insert({
-      coach_id:clientData.coach_id,client_id:clientData.id,
-      session_name:sessionName,date:today(),exercises
-    });
-    toast('Séance enregistrée !');
-    const{data}=await db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30);
-    trainLogs=data||[];
-  }
   renderTrainPreview();
 }
 
@@ -713,19 +752,37 @@ function renderNutriList(){
   document.getElementById('nutriContent').innerHTML=h;
 }
 function openPlan(idx){currentPlanIdx=idx;currentDayIdx=0;renderPlanDetail();}
+function calcDayMacros(day){
+  let dk=0,dp=0,dc=0,df=0;
+  (day.repas||[]).forEach(meal=>{
+    (meal.items||[]).forEach(it=>{const q=(it.qte||100)/100;dk+=(it.kcal||0)*q;dp+=(it.prot||0)*q;dc+=(it.carb||0)*q;df+=(it.fat||0)*q;});
+  });
+  return{kcal:dk,prot:dp,carb:dc,fat:df};
+}
 function renderPlanDetail(){
   const p=plans[currentPlanIdx],jours=p.jours||[];
   let h=`<button class="back-btn" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> ${p.nom||'Retour'}</button>`;
-  h+=`<div class="card" style="margin-bottom:16px"><div class="plan-macros"><div class="plan-macro kcal"><div class="plan-macro-val">${Math.round(p.kcal||0)}</div><div class="plan-macro-label">Kcal</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(p.prot||0)}g</div><div class="plan-macro-label">Prot</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(p.carb||0)}g</div><div class="plan-macro-label">Gluc</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(p.fat||0)}g</div><div class="plan-macro-label">Lip</div></div></div></div>`;
+
+  // Calculate average macros across all days
+  let avgK=0,avgP=0,avgC=0,avgF=0;
+  if(jours.length){
+    jours.forEach(day=>{const m=calcDayMacros(day);avgK+=m.kcal;avgP+=m.prot;avgC+=m.carb;avgF+=m.fat;});
+    avgK/=jours.length;avgP/=jours.length;avgC/=jours.length;avgF/=jours.length;
+  } else { avgK=p.kcal||0;avgP=p.prot||0;avgC=p.carb||0;avgF=p.fat||0; }
+
+  h+=`<div class="card" style="margin-bottom:16px"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">MOYENNE JOURNALIÈRE</div><div class="plan-macros"><div class="plan-macro kcal"><div class="plan-macro-val">${Math.round(avgK)}</div><div class="plan-macro-label">Kcal</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(avgP)}g</div><div class="plan-macro-label">Prot</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(avgC)}g</div><div class="plan-macro-label">Gluc</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(avgF)}g</div><div class="plan-macro-label">Lip</div></div></div></div>`;
   if(p.type==='macros'||!jours.length){if(p.notes)h+=`<div class="card"><div style="font-size:14px;color:var(--text2);line-height:1.5">${p.notes}</div></div>`;document.getElementById('nutriContent').innerHTML=h;return;}
   h+=`<div class="day-tabs">${jours.map((j,i)=>`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderPlanDetail()">${j.nom||'Jour '+(i+1)}</button>`).join('')}</div>`;
   const day=jours[currentDayIdx];
+  const dayM=calcDayMacros(day);
+  h+=`<div style="display:flex;gap:12px;padding:12px 0;font-size:12px;color:var(--text2);font-weight:600"><span style="color:var(--gold)">${Math.round(dayM.kcal)} kcal</span><span>P ${Math.round(dayM.prot)}g</span><span>G ${Math.round(dayM.carb)}g</span><span>L ${Math.round(dayM.fat)}g</span></div>`;
   (day.repas||[]).forEach(meal=>{
     const items=meal.items||[];
     let mk=0,mp=0,mc=0,mf=0;
     items.forEach(it=>{const q=(it.qte||100)/100;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;});
-    h+=`<div class="meal-card"><div class="meal-name">${meal.nom||'Repas'}<span class="meal-macros">${Math.round(mk)} kcal</span></div>`;
-    items.forEach(it=>{const q=(it.qte||100)/100;h+=`<div class="food-row"><div class="food-name">${it.nom||'Aliment'}</div><div class="food-qty">${it.qte||100}g</div><div class="food-macros">P${Math.round((it.prot||0)*q)} G${Math.round((it.carb||0)*q)} L${Math.round((it.fat||0)*q)}</div></div>`;});
+    h+=`<div class="meal-card"><div class="meal-name">${meal.nom||'Repas'}<span class="meal-macros">${Math.round(mk)} kcal · P${Math.round(mp)} G${Math.round(mc)} L${Math.round(mf)}</span></div>`;
+    if(!items.length) h+=`<div style="font-size:13px;color:var(--text3);padding:8px 0">Aucun aliment ajouté</div>`;
+    items.forEach(it=>{const q=(it.qte||100)/100;h+=`<div class="food-row"><div class="food-name">${it.nom||'Aliment'}</div><div class="food-qty">${it.qte||100}g</div><div class="food-macros">${Math.round((it.kcal||0)*q)}kcal · P${Math.round((it.prot||0)*q)} G${Math.round((it.carb||0)*q)} L${Math.round((it.fat||0)*q)}</div></div>`;});
     h+=`</div>`;
   });
   document.getElementById('nutriContent').innerHTML=h;
@@ -780,7 +837,7 @@ function renderSuivi(){
   h+=`<div class="card"><div class="suivi-date-pick"><input type="date" value="${suiviDate}" onchange="suiviDate=this.value;renderSuivi()"></div>`;
 
   // All fields visible
-  h+=`<div class="suivi-field"><div class="suivi-field-label">Poids <span>(kg)</span></div><input type="number" step="0.1" id="sv_poids" value="${d['Poids']||''}" placeholder="Ex: 73.5"></div>`;
+  h+=`<div class="suivi-field"><div class="suivi-field-label">Poids <span>(kg à jeun après 🚾)</span></div><input type="number" step="0.1" id="sv_poids" value="${d['Poids']||''}" placeholder="Ex: 73.5"></div>`;
   h+=`<div class="suivi-field"><div class="suivi-field-label">Énergie <span>/5</span></div><input type="number" min="1" max="5" id="sv_energie" value="${d['Énergie']||''}" placeholder="1 à 5"></div>`;
   h+=`<div class="suivi-field"><div class="suivi-field-label">Faim <span>/5</span></div><input type="number" min="1" max="5" id="sv_faim" value="${d['Faim']||''}" placeholder="1 à 5"></div>`;
   h+=`<div class="suivi-field"><div class="suivi-field-label">Stress <span>/5</span></div><input type="number" min="1" max="5" id="sv_stress" value="${d['Stress']||''}" placeholder="1 à 5"></div>`;
@@ -802,15 +859,6 @@ function renderSuivi(){
   } else h+=`<div class="card" style="text-align:center;padding:32px"><div style="font-size:14px;color:var(--text3)">Pas assez de données pour le graphique.</div></div>`;
   h+=`</div>`;
 
-  // Recent logs
-  h+=`<div style="margin-top:10px"><div class="card-label" style="color:var(--text3)">HISTORIQUE RÉCENT</div>`;
-  const recent=dailyLogs.slice(0,14);
-  if(!recent.length)h+=`<div style="font-size:14px;color:var(--text3);padding:12px 0">Aucune donnée.</div>`;
-  else recent.forEach(l=>{
-    const dd=l.data||{};
-    h+=`<div class="log-row" style="cursor:pointer" onclick="suiviDate='${l.date}';renderSuivi()"><div class="log-date">${fmtDateShort(l.date)}</div><div class="log-vals">${dd['Poids']?`<span>⚖️${dd['Poids']}kg</span>`:''} ${dd['Énergie']?`<span>⚡${dd['Énergie']}/5</span>`:''} ${dd['Pas']?`<span>👟${parseInt(dd['Pas']).toLocaleString('fr-FR')}</span>`:''}</div></div>`;
-  });
-  h+=`</div>`;
 
   document.getElementById('suiviContent').innerHTML=h;
 }
@@ -848,6 +896,72 @@ async function saveSuivi(){
   const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
   dailyLogs=nl||[];
   renderSuivi();
+}
+
+/* ===== SUIVI INLINE (from Home) ===== */
+function showSuiviInline(){
+  // Show suivi tab content without changing tab bar highlight
+  document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tabSuivi').classList.add('active');
+  document.getElementById('scrollArea').scrollTop=0;
+  // Keep Home highlighted since user navigated from there
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btnHome').classList.add('active');
+  renderSuivi();
+}
+
+/* ===== APPRENTISSAGE ===== */
+function renderLearn(){
+  if(!modules.length){
+    document.getElementById('learnContent').innerHTML=`<div class="empty"><div class="empty-icon">🎓</div><div class="empty-text">Aucun contenu d'apprentissage disponible pour le moment.</div></div>`;
+    return;
+  }
+  let h='';
+  modules.forEach((mod,i)=>{
+    const chaps=mod.chapitres||[];
+    h+=`<div class="card fade-up" style="animation-delay:${i*.05}s;cursor:pointer" onclick="openModule(${i})">
+      ${mod.img?`<img src="${mod.img}" style="width:100%;height:140px;object-fit:cover;border-radius:var(--r-xs);margin-bottom:12px">`:''}
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px">${mod.title||'Module'}</div>
+      ${mod.cat?`<div style="font-size:11px;background:var(--gold-pale);color:var(--gold);padding:3px 10px;border-radius:20px;font-weight:600;display:inline-block;margin-bottom:6px">${mod.cat}</div>`:''}
+      <div style="font-size:13px;color:var(--text2)">${chaps.length} chapitre${chaps.length>1?'s':''}</div>
+      ${mod.description||mod.desc?`<div style="font-size:13px;color:var(--text3);margin-top:6px;line-height:1.4">${(mod.description||mod.desc||'').substring(0,120)}${(mod.description||mod.desc||'').length>120?'...':''}</div>`:''}
+    </div>`;
+  });
+  document.getElementById('learnContent').innerHTML=h;
+}
+
+let currentModIdx=null;
+function openModule(idx){
+  currentModIdx=idx;
+  const mod=modules[idx];
+  const chaps=mod.chapitres||[];
+  let h=`<button class="back-btn" onclick="renderLearn()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
+  h+=`<div style="font-size:20px;font-weight:800;margin-bottom:16px">${mod.title||'Module'}</div>`;
+  if(mod.description||mod.desc) h+=`<div style="font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:20px">${mod.description||mod.desc}</div>`;
+
+  if(!chaps.length){
+    h+=`<div class="empty"><div class="empty-text">Aucun chapitre dans ce module.</div></div>`;
+  } else {
+    chaps.forEach((ch,ci)=>{
+      h+=`<div class="card" style="margin-bottom:12px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:8px">${ch.titre||'Chapitre '+(ci+1)}</div>
+        ${ch.contenu?`<div style="font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:12px">${ch.contenu}</div>`:''}`;
+      const vids=ch.videos||[];
+      if(vids.length){
+        vids.forEach(v=>{
+          const vid=ytId(v)||v;
+          if(vid){
+            h+=`<div class="exo-thumb" style="width:100%;height:auto;aspect-ratio:16/9;margin-bottom:8px;border-radius:var(--r-xs)" onclick="openModal('<iframe src=\\'https://www.youtube-nocookie.com/embed/${vid}\\' allowfullscreen style=\\'width:100%;aspect-ratio:16/9;border:none\\'></iframe>')">
+              <img src="https://img.youtube.com/vi/${vid}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover" loading="lazy">
+              <div class="play-icon"><svg viewBox="0 0 24 24" fill="white" style="width:40px;height:40px"><polygon points="8,5 19,12 8,19"/></svg></div>
+            </div>`;
+          }
+        });
+      }
+      h+=`</div>`;
+    });
+  }
+  document.getElementById('learnContent').innerHTML=h;
 }
 </script>
 </body>

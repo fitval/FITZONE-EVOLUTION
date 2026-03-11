@@ -1520,6 +1520,7 @@ function renderNutTab(){
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <button class="btn btn-dark btn-sm" id="btnSP" onclick="savePlanClient()">⚡ Enregistrer plan Supabase</button>
     <button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700;cursor:pointer" onclick="openGenPlanModal()">🤖 Générer plan IA</button>
+    <button class="btn btn-gold btn-sm" onclick="openPlanBuilderForClient()">🍽️ Créer un plan complet</button>
   </div>
   <div id="planDisp" style="margin-top:12px"></div>
   <div id="aiPlanResult" style="margin-top:12px"></div>`;
@@ -1723,41 +1724,125 @@ function renderTrainingTab(){
     window['_trainLoaded_'+curClient.id]=true;
     db.from('train_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).then(({data})=>{
       if(data&&data.length>0){
-        const supaLogs=data.map(d=>({session:d.session_name,date:d.date,cycle:parseInt(d.cycle)||1,exercises:d.exercises||[]}));
+        const supaLogs=data.map(d=>({session:d.session_name,date:d.date,cycle:parseInt(d.cycle)||1,exercises:d.exercises||[],rpe:d.rpe||null,comment:d.comment||''}));
         if(supaLogs.length>logs.length){lsSave('trainlog_'+curClient.id,supaLogs);renderTrainingTab();}
       }
     }).catch(()=>{});
   }
   const colors={1:'#8b5cf6',2:'#ef4444',3:'#f59e0b',4:'#22c55e'};
-  const colorLabels={1:'Violet (cycle 1)',2:'Rouge (cycle 2)',3:'Jaune (cycle 3)',4:'Vert (cycle 4)'};
   // Group by session name
   const sessions={};logs.forEach(l=>{if(!sessions[l.session])sessions[l.session]=[];sessions[l.session].push(l);});
   const sesNames=Object.keys(sessions);
   const selSes=window._trainSes||sesNames[0]||'';
+  const viewMode=window._trainView||'progression';
   el.innerHTML=`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
       <select class="fs" style="min-width:200px" onchange="window._trainSes=this.value;renderTrainingTab()">${sesNames.map(s=>`<option${s===selSes?' selected':''}>${s}</option>`).join('')}</select>
+      <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <button class="btn btn-xs ${viewMode==='progression'?'btn-dark':'btn-ghost'}" style="border-radius:0;border:none" onclick="window._trainView='progression';renderTrainingTab()">📊 Progression</button>
+        <button class="btn btn-xs ${viewMode==='cycles'?'btn-dark':'btn-ghost'}" style="border-radius:0;border:none" onclick="window._trainView='cycles';renderTrainingTab()">🔄 Cycles</button>
+      </div>
       <button class="btn btn-dark btn-sm" onclick="addTrainLog()">+ Ajouter une séance</button>
+      <button class="btn btn-gold btn-sm" onclick="openProgBuilderForClient()">🏋️ Créer un programme</button>
     </div>
-    ${selSes&&sessions[selSes]?`<div style="overflow-x:auto"><div style="display:flex;gap:12px;min-width:fit-content">
-      ${sessions[selSes].sort((a,b)=>new Date(a.date)-new Date(b.date)).map((log,li)=>{
-        const cycle=log.cycle||((li%4)+1);const col=colors[cycle]||'#8b5cf6';
-        const totalSets=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).length,0);
-        const totalVol=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).reduce((ss,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+ss,0),0);
-        return`<div style="min-width:260px;border:2px solid ${col};border-radius:12px;overflow:hidden;flex-shrink:0">
-          <div style="background:${col};color:white;padding:10px 14px;font-weight:700;font-size:13px">CYCLE ${cycle} <span style="float:right;font-weight:400;font-size:11px">${new Date(log.date).toLocaleDateString('fr-FR')}</span></div>
-          <table style="width:100%;font-size:11px;border-collapse:collapse">
-            <thead><tr style="background:${col}22"><th style="padding:4px 8px;text-align:left;font-size:10px;border-bottom:1px solid ${col}44">SET</th><th style="padding:4px 8px">REPS</th><th style="padding:4px 8px">LOAD</th><th style="padding:4px 8px">RIR</th><th style="padding:4px 8px;font-weight:800">REPS×LOAD</th><th style="padding:4px 8px">NOTES</th></tr></thead>
-            <tbody>${(log.exercises||[]).map(e=>{
-              const exVol=e.sets.reduce((s,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+s,0);
-              return`<tr style="border-bottom:2px solid ${col}33"><td colspan="4" style="padding:6px 8px;font-weight:700;color:var(--dark)">${e.nom}</td><td style="padding:6px 8px;font-weight:800;color:${col}">${Math.round(exVol)}</td><td style="padding:6px 8px;font-size:10px;color:var(--text3)">${e.notes||''}</td></tr>`+
-              (e.sets||[]).map((st,si)=>`<tr style="border-bottom:1px dotted var(--border)"><td style="padding:3px 8px;font-weight:700">${si+1}</td><td style="padding:3px 8px;text-align:center">${st.reps||''}</td><td style="padding:3px 8px;text-align:center;${parseFloat(st.load)>(e.sets[si-1]?parseFloat(e.sets[si-1].load):0)?'background:#dcfce7':''}">${st.load||''}</td><td style="padding:3px 8px;text-align:center">${st.rir||''}</td><td></td><td></td></tr>`).join('');
-            }).join('')}</tbody>
-            <tfoot><tr style="background:${col};color:white;font-weight:800"><td style="padding:6px 8px" colspan="2">TOTAL SETS</td><td style="padding:6px 8px">${totalSets}</td><td></td><td style="padding:6px 8px">TOTAL VOL</td><td style="padding:6px 8px">${Math.round(totalVol)}</td></tr></tfoot>
-          </table>
-        </div>`;
-      }).join('')}
-    </div></div>`:'<div class="empty" style="padding:30px"><div class="ei">💪</div><div class="et">Aucune séance enregistrée</div><div class="es">Ajoute la première séance de ce client</div></div>'}`;
+    <div id="trainContent"></div>`;
+  const contentEl=document.getElementById('trainContent');
+  if(!selSes||!sessions[selSes]){contentEl.innerHTML='<div class="empty" style="padding:30px"><div class="ei">💪</div><div class="et">Aucune séance enregistrée</div><div class="es">Ajoute la première séance de ce client</div></div>';return;}
+  const sorted=sessions[selSes].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(viewMode==='progression'){renderProgressionView(contentEl,sorted,colors);}
+  else{renderCyclesView(contentEl,sorted,colors);}
+}
+function renderProgressionView(el,sorted,colors){
+  // Build unified exercise list across all sessions
+  const allExos=[];
+  sorted.forEach(log=>{(log.exercises||[]).forEach(e=>{if(!allExos.find(x=>x.nom===e.nom))allExos.push({nom:e.nom,maxSets:0});});});
+  // Compute max sets per exercise across all sessions
+  sorted.forEach(log=>{(log.exercises||[]).forEach(e=>{const a=allExos.find(x=>x.nom===e.nom);if(a)a.maxSets=Math.max(a.maxSets,(e.sets||[]).length);});});
+  let html=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${300+sorted.length*200}px">
+    <thead><tr style="background:var(--bg2)">
+      <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);font-size:10px;min-width:120px">EXERCICE</th>
+      <th style="padding:8px 6px;border:1px solid var(--border);font-size:10px;width:35px">SET</th>
+      ${sorted.map((log,i)=>{const cycle=log.cycle||((i%4)+1);const col=colors[cycle]||'#8b5cf6';return`<th colspan="4" style="padding:8px 6px;border:1px solid var(--border);background:${col};color:white;font-size:10px;text-align:center">
+        <div style="font-weight:700">CYCLE ${cycle}</div><div style="font-weight:400;font-size:9px;opacity:.8">${new Date(log.date).toLocaleDateString('fr-FR')}</div>
+      </th>`;}).join('')}
+    </tr>
+    <tr style="background:var(--bg2)">
+      <th style="border:1px solid var(--border)"></th><th style="border:1px solid var(--border)"></th>
+      ${sorted.map(()=>`<th style="padding:3px 4px;border:1px solid var(--border);font-size:9px;font-weight:700">REPS</th><th style="padding:3px 4px;border:1px solid var(--border);font-size:9px;font-weight:700">LOAD</th><th style="padding:3px 4px;border:1px solid var(--border);font-size:9px;font-weight:700">RIR</th><th style="padding:3px 4px;border:1px solid var(--border);font-size:9px;font-weight:700">VOL</th>`).join('')}
+    </tr></thead><tbody>`;
+  allExos.forEach(exo=>{
+    for(let si=0;si<exo.maxSets;si++){
+      html+=`<tr style="border-bottom:1px solid var(--border)${si===0?';border-top:2px solid var(--text3)':''}">`;
+      if(si===0)html+=`<td rowspan="${exo.maxSets}" style="padding:6px 10px;font-weight:700;border:1px solid var(--border);vertical-align:top;background:var(--bg2)">${exo.nom}</td>`;
+      html+=`<td style="padding:4px 6px;text-align:center;border:1px solid var(--border);font-weight:700;color:var(--text3)">${si+1}</td>`;
+      sorted.forEach((log,logIdx)=>{
+        const ex=(log.exercises||[]).find(e=>e.nom===exo.nom);
+        const set=ex&&ex.sets&&ex.sets[si]?ex.sets[si]:null;
+        const reps=set?parseFloat(set.reps)||0:0;
+        const load=set?parseFloat(set.load)||0:0;
+        const rir=set?(set.rir!==undefined&&set.rir!==''?set.rir:'-'):'-';
+        const vol=reps*load;
+        // Compare with previous session
+        let prevLog=null;for(let pi=logIdx-1;pi>=0;pi--){if((sorted[pi].exercises||[]).find(e=>e.nom===exo.nom)){prevLog=sorted[pi];break;}}
+        let repsBg='',loadBg='',volBg='';
+        if(prevLog&&set){
+          const pe=(prevLog.exercises||[]).find(e=>e.nom===exo.nom);
+          const ps=pe&&pe.sets&&pe.sets[si]?pe.sets[si]:null;
+          if(ps){
+            const pr=parseFloat(ps.reps)||0,pl=parseFloat(ps.load)||0,pv=pr*pl;
+            repsBg=reps>pr?'background:#dcfce7':reps<pr?'background:#fee2e2':'';
+            loadBg=load>pl?'background:#dcfce7':load<pl?'background:#fee2e2':'';
+            volBg=vol>pv?'background:#dcfce7':vol<pv?'background:#fee2e2':'';
+          }
+        }
+        if(!set){html+=`<td style="padding:3px 4px;text-align:center;border:1px solid var(--border);color:var(--text3)">-</td>`.repeat(4);}
+        else{html+=`<td style="padding:3px 4px;text-align:center;border:1px solid var(--border);${repsBg}">${reps||'-'}</td><td style="padding:3px 4px;text-align:center;border:1px solid var(--border);${loadBg}">${load||'-'}</td><td style="padding:3px 4px;text-align:center;border:1px solid var(--border)">${rir}</td><td style="padding:3px 4px;text-align:center;border:1px solid var(--border);font-weight:700;${volBg}">${vol?Math.round(vol):'-'}</td>`;}
+      });
+      html+=`</tr>`;
+    }
+  });
+  // Totals row
+  html+=`<tr style="background:var(--dark);color:white;font-weight:800"><td style="padding:8px 10px;border:1px solid var(--border)" colspan="2">TOTAUX</td>`;
+  sorted.forEach((log,logIdx)=>{
+    const totalSets=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).length,0);
+    const totalVol=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).reduce((ss,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+ss,0),0);
+    let prevVol=0;if(logIdx>0){prevVol=sorted[logIdx-1].exercises.reduce((s,e)=>s+(e.sets||[]).reduce((ss,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+ss,0),0);}
+    const volDiff=logIdx>0?(totalVol>prevVol?'↑':'↓'):'';
+    const volCol=logIdx>0?(totalVol>prevVol?'#4ade80':totalVol<prevVol?'#f87171':'#fff'):'#fff';
+    html+=`<td style="padding:6px 4px;text-align:center;border:1px solid var(--border);font-size:10px">${totalSets}s</td><td style="padding:6px 4px;text-align:center;border:1px solid var(--border);font-size:10px" colspan="2"></td><td style="padding:6px 4px;text-align:center;border:1px solid var(--border);font-size:11px"><span style="color:${volCol}">${volDiff}</span> ${Math.round(totalVol)}</td>`;
+  });
+  html+=`</tr></tbody></table></div>`;
+  // RPE row if available
+  const rpeData=sorted.filter(l=>l.rpe);
+  if(rpeData.length>0){
+    html+=`<div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap">${sorted.map(log=>{
+      if(!log.rpe)return'';
+      const cycle=log.cycle||1;const col=colors[cycle]||'#8b5cf6';
+      return`<div style="padding:6px 12px;border-radius:8px;border:1px solid ${col};font-size:11px"><strong style="color:${col}">RPE ${log.rpe}/10</strong> <span style="color:var(--text3);font-size:10px">${new Date(log.date).toLocaleDateString('fr-FR')}</span>${log.comment?`<div style="font-size:10px;color:var(--text3);margin-top:2px">"${log.comment}"</div>`:''}</div>`;
+    }).join('')}</div>`;
+  }
+  el.innerHTML=html;
+}
+function renderCyclesView(el,sorted,colors){
+  el.innerHTML=`<div style="overflow-x:auto"><div style="display:flex;gap:12px;min-width:fit-content">
+    ${sorted.map((log,li)=>{
+      const cycle=log.cycle||((li%4)+1);const col=colors[cycle]||'#8b5cf6';
+      const totalSets=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).length,0);
+      const totalVol=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).reduce((ss,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+ss,0),0);
+      return`<div style="min-width:260px;border:2px solid ${col};border-radius:12px;overflow:hidden;flex-shrink:0">
+        <div style="background:${col};color:white;padding:10px 14px;font-weight:700;font-size:13px">CYCLE ${cycle} <span style="float:right;font-weight:400;font-size:11px">${new Date(log.date).toLocaleDateString('fr-FR')}</span></div>
+        <table style="width:100%;font-size:11px;border-collapse:collapse">
+          <thead><tr style="background:${col}22"><th style="padding:4px 8px;text-align:left;font-size:10px;border-bottom:1px solid ${col}44">SET</th><th style="padding:4px 8px">REPS</th><th style="padding:4px 8px">LOAD</th><th style="padding:4px 8px">RIR</th><th style="padding:4px 8px;font-weight:800">REPS×LOAD</th><th style="padding:4px 8px">NOTES</th></tr></thead>
+          <tbody>${(log.exercises||[]).map(e=>{
+            const exVol=e.sets.reduce((s,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+s,0);
+            return`<tr style="border-bottom:2px solid ${col}33"><td colspan="4" style="padding:6px 8px;font-weight:700;color:var(--dark)">${e.nom}</td><td style="padding:6px 8px;font-weight:800;color:${col}">${Math.round(exVol)}</td><td style="padding:6px 8px;font-size:10px;color:var(--text3)">${e.notes||''}</td></tr>`+
+            (e.sets||[]).map((st,si)=>`<tr style="border-bottom:1px dotted var(--border)"><td style="padding:3px 8px;font-weight:700">${si+1}</td><td style="padding:3px 8px;text-align:center">${st.reps||''}</td><td style="padding:3px 8px;text-align:center">${st.load||''}</td><td style="padding:3px 8px;text-align:center">${st.rir||''}</td><td></td><td></td></tr>`).join('');
+          }).join('')}</tbody>
+          <tfoot><tr style="background:${col};color:white;font-weight:800"><td style="padding:6px 8px" colspan="2">TOTAL SETS</td><td style="padding:6px 8px">${totalSets}</td><td></td><td style="padding:6px 8px">TOTAL VOL</td><td style="padding:6px 8px">${Math.round(totalVol)}</td></tr></tfoot>
+        </table>
+      </div>`;
+    }).join('')}
+  </div></div>`;
 }
 function addTrainLog(){
   let m=document.getElementById('mTrainLog');
@@ -1921,6 +2006,16 @@ function closePlanBuilder(){
   document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`;
   renderPlansListPage();
 }
+function openPlanBuilderForClient(){
+  if(!curClient)return;
+  switchSection('nutrition');
+  setTimeout(()=>{
+    startFullPlan();
+    pfClient=curClient;
+    document.getElementById('pfClLbl').textContent=curClient.first_name+' '+curClient.last_name;
+    pfUpdateClientBadge();
+  },100);
+}
 
 /* plan macros state */
 let pmClient=null;
@@ -1933,11 +2028,12 @@ function saveMacrosPlan(){
 /* Plan complet */
 function pfRenderDays(){
   const c=document.getElementById('pfDayTabs');if(!c)return;
-  c.innerHTML=pfDays.map((d,i)=>`<div class="day-tab${i===pfDayIdx?' active':''}" onclick="pfSelDay(${i})">${d.nom}</div>`).join('')+`<div class="add-day-btn" onclick="pfAddDay()">+</div>`;
+  c.innerHTML=pfDays.map((d,i)=>`<div class="day-tab${i===pfDayIdx?' active':''}" onclick="pfSelDay(${i})" ondblclick="pfRenameDay(${i})">${d.nom}</div>`).join('')+`<div class="add-day-btn" onclick="pfAddDay()">+</div>`;
   pfRenderTotals();
 }
 function pfSelDay(i){pfDayIdx=i;pfMealIdx=null;pfRenderDays();pfRenderMeals();}
 function pfAddDay(){pfDays.push({nom:'Jour '+(pfDays.length+1),repas:[{nom:'Repas 1',alims:[]}]});pfSelDay(pfDays.length-1);}
+function pfRenameDay(i){const n=prompt('Renommer le jour :',pfDays[i].nom);if(n&&n.trim()){pfDays[i].nom=n.trim();pfRenderDays();pfRenderMeals();}}
 function pfCalcDay(i){const t={k:0,p:0,g:0,l:0};pfDays[i]?.repas.forEach(r=>r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;}));return t;}
 function pfCalcMeal(r){const t={k:0,p:0,g:0,l:0};r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;});return t;}
 function pfCalcTotal(){const t={k:0,p:0,g:0,l:0};pfDays.forEach(d=>d.repas.forEach(r=>r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;})));return t;}
@@ -2335,6 +2431,16 @@ function closeProgBuilder(){
   document.getElementById('progBuilderWrap').style.display='none';document.getElementById('progListWrap').style.display='block';
   document.getElementById('tbActs').innerHTML=`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`;
   renderProgList();
+}
+function openProgBuilderForClient(){
+  if(!curClient)return;
+  switchSection('training');
+  setTimeout(()=>{
+    openProgBuilder();
+    progClient=curClient;
+    document.getElementById('progClIn').value=curClient.first_name+' '+curClient.last_name;
+    document.getElementById('progClLbl').textContent=curClient.first_name+' '+curClient.last_name;
+  },100);
 }
 function progRenderDays(){
   const c=document.getElementById('progDaysTabs');if(!c)return;
