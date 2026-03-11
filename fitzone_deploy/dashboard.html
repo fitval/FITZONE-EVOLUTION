@@ -637,7 +637,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 
   <!-- PAGE: NUTRITION — REPAS -->
   <div class="page" id="page-nut-repas">
-    <div class="sh"><div class="st">Repas / Recettes</div><button class="btn btn-dark btn-sm" onclick="openRepas()">+ Repas</button></div>
+    <div class="sh"><div class="st">Repas / Recettes</div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="openImportRecipes()" style="font-size:12px">📸 Importer (photos)</button><button class="btn btn-dark btn-sm" onclick="openRepas()">+ Repas</button></div></div>
     <div id="repasList"></div>
   </div>
 
@@ -1094,6 +1094,73 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <div class="mf">
     <button class="btn btn-ghost" onclick="closeM('mEditFood')">Annuler</button>
     <button class="btn btn-dark" onclick="saveClientFoodProfile()">Enregistrer</button>
+  </div>
+</div></div>
+
+<!-- Modal import recettes par photos -->
+<div class="overlay" id="mImportRecipes"><div class="modal" style="max-width:700px">
+  <div class="mh"><span>Importer des recettes (photos)</span><span class="mx" onclick="closeImportRecipes()">✕</span></div>
+  <div class="mb" style="max-height:75vh;overflow-y:auto">
+    <!-- Upload zone -->
+    <div id="irUploadZone" style="border:2px dashed var(--gold-border);border-radius:12px;padding:30px;text-align:center;cursor:pointer;background:var(--bg);transition:all .2s" onclick="document.getElementById('irFileInput').click()" ondragover="event.preventDefault();this.style.borderColor='var(--gold)';this.style.background='#fef9ef'" ondragleave="this.style.borderColor='var(--gold-border)';this.style.background='var(--bg)'" ondrop="event.preventDefault();this.style.borderColor='var(--gold-border)';this.style.background='var(--bg)';irHandleFiles(event.dataTransfer.files)">
+      <div style="font-size:36px;margin-bottom:8px">📸</div>
+      <div style="font-size:14px;font-weight:700;color:var(--dark)">Glisse tes screenshots ici</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:4px">ou clique pour sélectionner (JPG, PNG, WEBP)</div>
+      <input type="file" id="irFileInput" accept="image/*" multiple style="display:none" onchange="irHandleFiles(this.files)">
+    </div>
+    <!-- Progress bar -->
+    <div id="irProgress" style="display:none;margin-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:700;color:var(--dark)" id="irProgressText">Analyse en cours…</span>
+        <span style="font-size:11px;color:var(--text3)" id="irProgressCount">0 / 0</span>
+      </div>
+      <div style="height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
+        <div id="irProgressBar" style="height:100%;background:linear-gradient(90deg,var(--gold),#e8b84a);width:0%;transition:width .3s;border-radius:3px"></div>
+      </div>
+      <div id="irCurrentFile" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+    </div>
+    <!-- Queue / Results list -->
+    <div id="irResults" style="margin-top:14px"></div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-ghost" onclick="closeImportRecipes()">Fermer</button>
+    <button class="btn btn-dark" id="irSaveAllBtn" style="display:none" onclick="irSaveAll()">Sauvegarder tout</button>
+  </div>
+</div></div>
+
+<!-- Modal review recette individuelle -->
+<div class="overlay" id="mReviewRecipe"><div class="modal" style="max-width:600px">
+  <div class="mh"><span id="rrTitle">Review recette</span><span class="mx" onclick="closeM('mReviewRecipe')">✕</span></div>
+  <div class="mb" style="max-height:70vh;overflow-y:auto">
+    <div class="fr2">
+      <div class="fg"><label class="fl">Nom de la recette</label><input class="fi" id="rrNom"></div>
+      <div class="fg"><label class="fl">Type</label>
+        <select class="fs" id="rrType">
+          <option value="petit-dejeuner">Petit-déjeuner</option>
+          <option value="dejeuner">Déjeuner</option>
+          <option value="diner">Dîner</option>
+          <option value="collation">Collation</option>
+          <option value="dessert">Dessert</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Instructions</label>
+      <textarea class="fta" id="rrInstr" rows="4" style="min-height:70px"></textarea>
+    </div>
+    <div class="fg"><label class="fl">Ingrédients</label>
+      <div id="rrItemsList"></div>
+      <button class="btn btn-ghost btn-xs" onclick="rrAddItem()" style="margin-top:6px;font-size:11px">+ Ingrédient</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;text-align:center;background:var(--dark);border-radius:8px;padding:10px">
+      <div><div style="font-size:16px;font-weight:800;color:#fff" id="rrKcal">0</div><div style="font-size:9px;color:rgba(255,255,255,.4)">KCAL</div></div>
+      <div><div style="font-size:16px;font-weight:800;color:#60a5fa" id="rrProt">0</div><div style="font-size:9px;color:#93c5fd">PROT</div></div>
+      <div><div style="font-size:16px;font-weight:800;color:#fbbf24" id="rrCarb">0</div><div style="font-size:9px;color:#fcd34d">GLUC</div></div>
+      <div><div style="font-size:16px;font-weight:800;color:#c49a2a" id="rrFat">0</div><div style="font-size:9px;color:#d4a94a">LIP</div></div>
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-ghost" onclick="closeM('mReviewRecipe')">Annuler</button>
+    <button class="btn btn-dark" onclick="rrSave()">Valider et sauvegarder</button>
   </div>
 </div></div>
 
@@ -3599,6 +3666,263 @@ document.addEventListener('DOMContentLoaded',()=>{
 let gpMealNames=['Petit-déjeuner','Déjeuner','Dîner'];
 let gpRestoConfig={};
 let aiPlanData=null;
+
+/* ===== IMPORT RECETTES (SCREENSHOTS) ===== */
+let irQueue=[],irResults=[],irProcessing=false,irCurrentIdx=0;
+let rrCurrentRecipe=null,rrCurrentIdx=-1;
+
+function openImportRecipes(){
+  irQueue=[];irResults=[];irProcessing=false;irCurrentIdx=0;
+  document.getElementById('irUploadZone').style.display='';
+  document.getElementById('irProgress').style.display='none';
+  document.getElementById('irResults').innerHTML='';
+  document.getElementById('irSaveAllBtn').style.display='none';
+  document.getElementById('irFileInput').value='';
+  openM('mImportRecipes');
+}
+
+function closeImportRecipes(){
+  irProcessing=false;
+  closeM('mImportRecipes');
+}
+
+function irHandleFiles(files){
+  if(!files||!files.length)return;
+  const arr=Array.from(files).filter(f=>f.type.startsWith('image/'));
+  if(!arr.length){toast('Aucune image valide');return;}
+  irQueue=arr;irResults=new Array(arr.length).fill(null);irCurrentIdx=0;
+  document.getElementById('irUploadZone').style.display='none';
+  document.getElementById('irProgress').style.display='';
+  txt('irProgressCount',`0 / ${arr.length}`);
+  txt('irProgressText','Analyse en cours…');
+  document.getElementById('irProgressBar').style.width='0%';
+  irRenderResults();
+  irProcessNext();
+}
+
+async function irProcessNext(){
+  if(irCurrentIdx>=irQueue.length){
+    irProcessing=false;
+    txt('irProgressText','Terminé !');
+    document.getElementById('irSaveAllBtn').style.display='';
+    return;
+  }
+  irProcessing=true;
+  const file=irQueue[irCurrentIdx];
+  const idx=irCurrentIdx;
+  txt('irCurrentFile',file.name);
+  txt('irProgressCount',`${idx+1} / ${irQueue.length}`);
+  document.getElementById('irProgressBar').style.width=Math.round((idx/irQueue.length)*100)+'%';
+
+  try{
+    // Convert to base64
+    const b64=await irFileToBase64(file);
+    const mediaType=file.type||'image/jpeg';
+
+    // Send compact food DB for matching
+    const foodDB=alims.map(a=>({nom:a.nom,source:a.source||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat}));
+
+    const resp=await fetch(SUPA+'/functions/v1/analyze-recipe',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      body:JSON.stringify({image_base64:b64,media_type:mediaType,food_database:foodDB})
+    });
+
+    if(!resp.ok){
+      const err=await resp.json().catch(()=>({error:'Erreur serveur'}));
+      throw new Error(err.error||'Erreur '+resp.status);
+    }
+
+    const data=await resp.json();
+    irResults[idx]={status:'ok',recipe:data.recipe,fileName:file.name};
+  }catch(e){
+    console.error('Recipe import error:',e);
+    irResults[idx]={status:'error',error:e.message,fileName:file.name};
+  }
+
+  irRenderResults();
+  irCurrentIdx++;
+  // Small delay between requests to avoid rate limiting
+  setTimeout(()=>irProcessNext(),500);
+}
+
+function irFileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    // Resize image before sending (max 1500px, JPEG 0.8)
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const maxDim=1500;
+        let w=img.width,h=img.height;
+        if(w>maxDim||h>maxDim){
+          if(w>h){h=Math.round(h*(maxDim/w));w=maxDim;}
+          else{w=Math.round(w*(maxDim/h));h=maxDim;}
+        }
+        const canvas=document.createElement('canvas');
+        canvas.width=w;canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        const dataUrl=canvas.toDataURL('image/jpeg',0.8);
+        resolve(dataUrl.split(',')[1]); // Remove data:image/jpeg;base64, prefix
+      };
+      img.onerror=reject;
+      img.src=reader.result;
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function irRenderResults(){
+  const el=document.getElementById('irResults');
+  let html='';
+  irResults.forEach((r,i)=>{
+    if(!r){
+      // Pending
+      html+=`<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:10px;background:var(--bg)">
+        <span style="font-size:11px;color:var(--text3)">${i+1}.</span>
+        <span style="font-size:12px;color:var(--text3)">${irQueue[i]?.name||'...'}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--text3)">En attente…</span>
+      </div>`;
+    }else if(r.status==='error'){
+      html+=`<div style="padding:8px 12px;border:1px solid #fca5a5;border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:10px;background:#fff5f5">
+        <span style="font-size:11px;color:#dc2626">${i+1}.</span>
+        <span style="font-size:12px;font-weight:600;color:#dc2626">${r.fileName}</span>
+        <span style="margin-left:auto;font-size:10px;color:#dc2626">${r.error}</span>
+        <button class="btn btn-ghost btn-xs" onclick="irRetry(${i})" style="font-size:10px">Réessayer</button>
+      </div>`;
+    }else{
+      const rc=r.recipe;
+      const saved=r.saved;
+      html+=`<div style="padding:8px 12px;border:1px solid ${saved?'#86efac':'var(--gold-border)'};border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:10px;background:${saved?'#f0fdf4':'#fffbeb'}">
+        <span style="font-size:11px;color:var(--text2)">${i+1}.</span>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700;color:var(--dark)">${rc.nom||'Sans nom'}</div>
+          <div style="font-size:10px;color:var(--text3)">${(rc.items||[]).length} ingrédients · ${rc.kcal||0} kcal · P:${rc.prot||0}g G:${rc.carb||0}g L:${rc.fat||0}g</div>
+        </div>
+        ${saved
+          ?'<span style="font-size:11px;color:#16a34a;font-weight:600">Sauvegardé</span>'
+          :`<button class="btn btn-ghost btn-xs" onclick="irReview(${i})" style="font-size:10px">Review</button>
+             <button class="btn btn-dark btn-xs" onclick="irSaveOne(${i})" style="font-size:10px">Sauvegarder</button>`
+        }
+      </div>`;
+    }
+  });
+  el.innerHTML=html;
+}
+
+function irRetry(idx){
+  irResults[idx]=null;
+  irCurrentIdx=idx;
+  irRenderResults();
+  irProcessNext();
+}
+
+function irReview(idx){
+  const r=irResults[idx];
+  if(!r||r.status!=='ok')return;
+  rrCurrentRecipe=JSON.parse(JSON.stringify(r.recipe));
+  rrCurrentIdx=idx;
+  document.getElementById('rrNom').value=rrCurrentRecipe.nom||'';
+  document.getElementById('rrType').value=rrCurrentRecipe.type||'dejeuner';
+  document.getElementById('rrInstr').value=rrCurrentRecipe.instructions||'';
+  rrRenderItems();
+  rrRecalc();
+  document.getElementById('rrTitle').textContent='Review: '+(rrCurrentRecipe.nom||'Recette');
+  openM('mReviewRecipe');
+}
+
+function rrRenderItems(){
+  const el=document.getElementById('rrItemsList');
+  const items=rrCurrentRecipe.items||[];
+  el.innerHTML=items.map((it,i)=>`<div style="display:grid;grid-template-columns:1fr 70px 60px 60px 60px 30px;gap:4px;align-items:center;margin-bottom:4px;font-size:11px">
+    <input class="fi" style="font-size:11px;padding:4px 6px" value="${it.nom||''}" onchange="rrCurrentRecipe.items[${i}].nom=this.value">
+    <input class="fi" style="font-size:11px;padding:4px 6px;text-align:center" type="number" value="${it.qte||0}" onchange="rrCurrentRecipe.items[${i}].qte=parseFloat(this.value)||0;rrRecalc()">
+    <div style="text-align:center;color:var(--text3)">${Math.round((it.kcal||0)*(it.qte||0)/100)} kcal</div>
+    <div style="text-align:center;color:#60a5fa">P:${Math.round((it.prot||0)*(it.qte||0)/100)}g</div>
+    <div style="text-align:center;color:#fbbf24">G:${Math.round((it.carb||0)*(it.qte||0)/100)}g</div>
+    <button style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:14px" onclick="rrCurrentRecipe.items.splice(${i},1);rrRenderItems();rrRecalc()">✕</button>
+  </div>`).join('')||'<div style="font-size:11px;color:var(--text3);padding:8px">Aucun ingrédient</div>';
+}
+
+function rrAddItem(){
+  if(!rrCurrentRecipe.items)rrCurrentRecipe.items=[];
+  rrCurrentRecipe.items.push({nom:'',source:'',kcal:0,prot:0,carb:0,fat:0,qte:100});
+  rrRenderItems();
+}
+
+function rrRecalc(){
+  let k=0,p=0,c=0,f=0;
+  (rrCurrentRecipe.items||[]).forEach(it=>{
+    const r=(it.qte||0)/100;
+    k+=Math.round((it.kcal||0)*r);p+=Math.round((it.prot||0)*r);
+    c+=Math.round((it.carb||0)*r);f+=Math.round((it.fat||0)*r);
+  });
+  txt('rrKcal',k);txt('rrProt',p);txt('rrCarb',c);txt('rrFat',f);
+  rrCurrentRecipe.kcal=k;rrCurrentRecipe.prot=p;rrCurrentRecipe.carb=c;rrCurrentRecipe.fat=f;
+}
+
+function rrSave(){
+  if(!rrCurrentRecipe)return;
+  rrCurrentRecipe.nom=document.getElementById('rrNom').value;
+  rrCurrentRecipe.type=document.getElementById('rrType').value;
+  rrCurrentRecipe.instructions=document.getElementById('rrInstr').value;
+  rrRecalc();
+  // Save to repas
+  const newRepas={
+    id:Date.now(),
+    nom:rrCurrentRecipe.nom,
+    type:rrCurrentRecipe.type,
+    instr:rrCurrentRecipe.instructions,
+    items:rrCurrentRecipe.items,
+    kcal:rrCurrentRecipe.kcal,
+    prot:rrCurrentRecipe.prot,
+    carb:rrCurrentRecipe.carb,
+    fat:rrCurrentRecipe.fat
+  };
+  repas.push(newRepas);
+  lsSave('fz_repas',repas);dbSave('repas',newRepas);
+  // Mark as saved in results
+  if(rrCurrentIdx>=0&&irResults[rrCurrentIdx]){
+    irResults[rrCurrentIdx].saved=true;
+    irResults[rrCurrentIdx].recipe=rrCurrentRecipe;
+  }
+  closeM('mReviewRecipe');
+  irRenderResults();
+  renderRepasList();
+  toast(rrCurrentRecipe.nom+' sauvegardé');
+}
+
+function irSaveOne(idx){
+  const r=irResults[idx];
+  if(!r||r.status!=='ok'||r.saved)return;
+  const rc=r.recipe;
+  const newRepas={
+    id:Date.now()+idx,
+    nom:rc.nom||'Recette importée',
+    type:rc.type||'dejeuner',
+    instr:rc.instructions||'',
+    items:rc.items||[],
+    kcal:rc.kcal||0,prot:rc.prot||0,carb:rc.carb||0,fat:rc.fat||0
+  };
+  repas.push(newRepas);
+  lsSave('fz_repas',repas);dbSave('repas',newRepas);
+  r.saved=true;
+  irRenderResults();
+  toast(rc.nom+' sauvegardé');
+}
+
+function irSaveAll(){
+  let count=0;
+  irResults.forEach((r,i)=>{
+    if(r&&r.status==='ok'&&!r.saved){
+      irSaveOne(i);
+      count++;
+    }
+  });
+  renderRepasList();
+  toast(count+' recettes sauvegardées');
+}
 
 /* ===== EDIT FOOD PROFILE ===== */
 const EF_FOOD_EXCLUSIONS=['Bœuf','Porc','Agneau','Veau','Poulet','Dinde','Canard','Charcuterie','Saumon','Thon','Cabillaud','Sardines','Crevettes','Fruits de mer','Lait de vache','Fromage','Yaourt','Fromage blanc','Œufs','Beurre','Champignons','Épinards','Brocoli','Courgette','Aubergine','Poivron','Avocat','Banane','Gluten','Légumineuses','Noix & oléagineux','Soja','Sucre raffiné','Alcool'];
