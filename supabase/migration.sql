@@ -217,3 +217,7 @@ CREATE POLICY "Allow all for authenticated" ON roadmaps FOR ALL TO authenticated
 CREATE POLICY "Allow all for authenticated" ON daily_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for authenticated" ON train_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for authenticated" ON bilans FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Colonnes additionnelles pour clients
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS bilan_day INTEGER DEFAULT 5;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS photo TEXT;

@@ -1430,7 +1430,17 @@ async function openDet(id){
 }
 function renderDetHero(){
   const c=curClient,q=curQ,ini=((c.first_name||'?')[0]+(c.last_name||'?')[0]).toUpperCase(),col=c.avatar_color||'#c49a2a';
-  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px">${stBadge(c.status)}</div></div><div style="display:flex;gap:7px"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:''}${c.status!=='active'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}</div>`;
+  const bd=c.bilan_day!=null?parseInt(c.bilan_day):5;
+  const jours=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const opts=jours.map((j,i)=>`<option value="${i}"${i===bd?' selected':''}>${j}</option>`).join('');
+  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select></div></div><div style="display:flex;gap:7px"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:''}${c.status!=='active'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}</div>`;
+}
+async function setBilanDay(day){
+  const d=parseInt(day);
+  await db.from('clients').update({bilan_day:d}).eq('id',curClient.id);
+  curClient.bilan_day=d;
+  const idx=allClients.findIndex(c=>c.id===curClient.id);if(idx>=0)allClients[idx].bilan_day=d;
+  toast('Jour de bilan mis à jour ✓');
 }
 function swDet(name,el){
   document.querySelectorAll('#detTabs .tab').forEach(t=>t.classList.remove('active'));

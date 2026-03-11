@@ -259,7 +259,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
 <div id="app">
   <div class="scroll-area" id="scrollArea">
     <div id="tabHome" class="tab-section active">
-      <div class="home-header"><div class="home-date" id="homeDate"></div><div class="home-avatar" id="homeAvatar"></div></div>
+      <div class="home-header"><div class="home-date" id="homeDate"></div><div class="home-avatar" id="homeAvatar" onclick="openProfileModal()" style="cursor:pointer;overflow:hidden"></div></div>
       <div class="home-phase" id="homePhase"></div>
       <div class="home-greet"><div class="home-greet-line1">Bonjour,</div><div class="home-greet-line2" id="homeName"></div></div>
       <div id="homeCards"></div>
@@ -306,6 +306,23 @@ textarea.form-input { min-height:100px; resize:vertical; }
 </div>
 
 <div class="modal-overlay" id="modal" onclick="closeModal()"><button class="modal-close" onclick="closeModal()">✕</button><div id="modalContent" onclick="event.stopPropagation()"></div></div>
+<div class="modal-overlay" id="profileModal" onclick="closeProfileModal()">
+  <div onclick="event.stopPropagation()" style="background:var(--white);border-radius:var(--r-md);padding:24px;width:100%;max-width:380px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-size:18px;font-weight:800">Mon profil</div>
+      <button onclick="closeProfileModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">✕</button>
+    </div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div id="profilePhotoPreview" style="width:80px;height:80px;border-radius:50%;background:var(--gold);color:white;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;margin:0 auto 10px;overflow:hidden;cursor:pointer" onclick="document.getElementById('profilePhotoInput').click()"></div>
+      <div style="font-size:12px;color:var(--text3)">Appuyer pour changer la photo</div>
+      <input type="file" accept="image/*" id="profilePhotoInput" style="display:none" onchange="handleProfilePhoto(this)">
+    </div>
+    <div class="form-group"><label class="form-label">Prénom</label><input type="text" class="form-input" id="profFirstName"></div>
+    <div class="form-group"><label class="form-label">Nom</label><input type="text" class="form-input" id="profLastName"></div>
+    <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="profEmail"></div>
+    <button class="btn-gold" onclick="saveProfile()" style="width:100%;margin-top:12px" id="profSaveBtn">Enregistrer</button>
+  </div>
+</div>
 <div class="rest-overlay" id="restOverlay"><div class="rest-label">REPOS</div><div class="rest-time" id="restTime">0:00</div><button class="rest-skip" onclick="skipRest()">Passer →</button></div>
 <div class="toast" id="toast"></div>
 <input type="file" accept="image/*,video/*" id="camInput" style="display:none">
@@ -383,6 +400,52 @@ function ytId(url){if(!url)return null;const m=url.match(/(?:youtu\.be\/|youtube
 function today(){return new Date().toISOString().slice(0,10);}
 function openModal(html){document.getElementById('modalContent').innerHTML=html;document.getElementById('modal').classList.add('show');document.body.style.overflow='hidden';}
 function closeModal(){document.getElementById('modal').classList.remove('show');document.body.style.overflow='';}
+
+/* ===== PROFILE MODAL ===== */
+let profilePhotoData=null;
+function openProfileModal(){
+  profilePhotoData=clientData.photo||null;
+  document.getElementById('profFirstName').value=clientData.first_name||'';
+  document.getElementById('profLastName').value=clientData.last_name||'';
+  document.getElementById('profEmail').value=clientData.email||'';
+  const prev=document.getElementById('profilePhotoPreview');
+  if(profilePhotoData){prev.innerHTML=`<img src="${profilePhotoData}" style="width:100%;height:100%;object-fit:cover">`;prev.style.background='none';}
+  else{prev.textContent=(clientData.first_name||'?')[0].toUpperCase();prev.style.background='var(--gold)';}
+  document.getElementById('profileModal').classList.add('show');document.body.style.overflow='hidden';
+}
+function closeProfileModal(){document.getElementById('profileModal').classList.remove('show');document.body.style.overflow='';}
+function handleProfilePhoto(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const max=300,s=Math.min(max/img.width,max/img.height,1);
+      const c=document.createElement('canvas');c.width=img.width*s;c.height=img.height*s;
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      profilePhotoData=c.toDataURL('image/jpeg',0.7);
+      const prev=document.getElementById('profilePhotoPreview');
+      prev.innerHTML=`<img src="${profilePhotoData}" style="width:100%;height:100%;object-fit:cover">`;prev.style.background='none';
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);input.value='';
+}
+async function saveProfile(){
+  const btn=document.getElementById('profSaveBtn');btn.disabled=true;btn.textContent='Enregistrement...';
+  const fn=document.getElementById('profFirstName').value.trim();
+  const ln=document.getElementById('profLastName').value.trim();
+  const em=document.getElementById('profEmail').value.trim();
+  const upd={first_name:fn,last_name:ln,email:em};
+  if(profilePhotoData)upd.photo=profilePhotoData;
+  else if(clientData.photo&&!profilePhotoData)upd.photo=null;
+  const{error}=await db.from('clients').update(upd).eq('id',clientData.id);
+  btn.disabled=false;btn.textContent='Enregistrer';
+  if(error){toast('Erreur: '+error.message);return;}
+  clientData.first_name=fn;clientData.last_name=ln;clientData.email=em;
+  if(profilePhotoData)clientData.photo=profilePhotoData;
+  closeProfileModal();renderHome();toast('Profil mis à jour ✓');
+}
 function fmtTimer(sec){const m=Math.floor(sec/60),s=sec%60;return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;}
 function parseRestSec(rest){if(!rest)return 60;const m=rest.match(/(\d+)\s*m(?:in)?/i);const s=rest.match(/(\d+)\s*s(?:ec)?/i);return(m?parseInt(m[1])*60:0)+(s?parseInt(s[1]):0)||60;}
 
@@ -392,7 +455,9 @@ function renderHome(){
   const days=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
   const months=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   document.getElementById('homeDate').textContent=`${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} · Sem. ${getWeekNumber(now)}`;
-  document.getElementById('homeAvatar').textContent=(clientData.first_name||'?')[0].toUpperCase();
+  const avEl=document.getElementById('homeAvatar');
+  if(clientData.photo){avEl.innerHTML=`<img src="${clientData.photo}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;avEl.style.background='none';}
+  else{avEl.textContent=(clientData.first_name||'?')[0].toUpperCase();avEl.style.background='var(--gold)';}
   document.getElementById('homeName').textContent=(clientData.first_name||'')+'.';
   document.getElementById('homePhase').textContent=plans.length>0?plans[0].nom:'Mon suivi';
 
@@ -447,12 +512,22 @@ function renderMiniChart(pts){
   return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%"><polyline points="${c.join(' ')}" fill="none" stroke="var(--text3)" stroke-width="1.5" stroke-linecap="round"/><circle cx="${c[c.length-1].split(',')[0]}" cy="${c[c.length-1].split(',')[1]}" r="3.5" fill="var(--gold)"/></svg>`;
 }
 function getBilanCountdown(){
-  const lb=bilans[0],nd=new Date();
-  if(lb&&lb.date){const d=new Date(lb.date);d.setDate(d.getDate()+7);while(d<new Date())d.setDate(d.getDate()+7);nd.setTime(d.getTime());}
-  else{nd.setDate(nd.getDate()+(5+7-nd.getDay())%7);if(nd<=new Date())nd.setDate(nd.getDate()+7);}
-  const diff=Math.ceil((nd-new Date())/(864e5));
+  const bilanDay=clientData.bilan_day!=null?parseInt(clientData.bilan_day):5; // 0=dim..6=sam, défaut vendredi
+  const now=new Date();
+  const nd=new Date(now);
+  // Calculer le prochain jour de bilan
+  let diff=(bilanDay+7-now.getDay())%7;
+  if(diff===0)diff=7; // si c'est aujourd'hui, prochain = dans 7j
+  nd.setDate(now.getDate()+diff);
+  // Si dernier bilan fait il y a moins de 7j sur le bon jour, pousser à +7
+  if(bilans[0]&&bilans[0].date){
+    const last=new Date(bilans[0].date);
+    const daysSince=Math.floor((now-last)/(864e5));
+    if(daysSince<7){nd.setDate(last.getDate()+7);while(nd<=now)nd.setDate(nd.getDate()+7);}
+  }
+  const daysLeft=Math.max(0,Math.ceil((nd-now)/(864e5)));
   const l=nd.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  return{days:diff,label:l.charAt(0).toUpperCase()+l.slice(1)};
+  return{days:daysLeft,label:l.charAt(0).toUpperCase()+l.slice(1)};
 }
 function getStepsData(){
   const t=new Date(),labels=['J-3','J-2','J-1','Auj.'],bars=[];let ts=0,mx=1;
@@ -944,16 +1019,21 @@ function openModule(idx){
   } else {
     chaps.forEach((ch,ci)=>{
       h+=`<div class="card" style="margin-bottom:12px">
-        <div style="font-size:15px;font-weight:700;margin-bottom:8px">${ch.titre||'Chapitre '+(ci+1)}</div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:8px">${ch.title||ch.titre||'Chapitre '+(ci+1)}</div>
         ${ch.contenu?`<div style="font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:12px">${ch.contenu}</div>`:''}`;
       const vids=ch.videos||[];
       if(vids.length){
         vids.forEach(v=>{
-          const vid=ytId(v)||v;
+          const vUrl=typeof v==='string'?v:v.url;
+          const vid=ytId(vUrl);
           if(vid){
-            h+=`<div class="exo-thumb" style="width:100%;height:auto;aspect-ratio:16/9;margin-bottom:8px;border-radius:var(--r-xs)" onclick="openModal('<iframe src=\\'https://www.youtube-nocookie.com/embed/${vid}\\' allowfullscreen style=\\'width:100%;aspect-ratio:16/9;border:none\\'></iframe>')">
-              <img src="https://img.youtube.com/vi/${vid}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover" loading="lazy">
-              <div class="play-icon"><svg viewBox="0 0 24 24" fill="white" style="width:40px;height:40px"><polygon points="8,5 19,12 8,19"/></svg></div>
+            h+=`<div style="margin-bottom:12px">
+              ${v.title?`<div style="font-size:13px;font-weight:600;margin-bottom:6px">${v.title}${v.dur?' <span style="font-size:11px;color:var(--text3);font-weight:400">'+v.dur+'</span>':''}</div>`:''}
+              <div class="exo-thumb" style="width:100%;height:auto;aspect-ratio:16/9;border-radius:var(--r-xs)" onclick="openModal('<iframe src=\\'https://www.youtube-nocookie.com/embed/${vid}?autoplay=1\\' allowfullscreen style=\\'width:100%;aspect-ratio:16/9;border:none\\'></iframe>')">
+                <img src="https://img.youtube.com/vi/${vid}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover" loading="lazy">
+                <div class="play-icon"><svg viewBox="0 0 24 24" fill="white" style="width:40px;height:40px"><polygon points="8,5 19,12 8,19"/></svg></div>
+              </div>
+              ${v.desc?`<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${v.desc}</div>`:''}
             </div>`;
           }
         });
