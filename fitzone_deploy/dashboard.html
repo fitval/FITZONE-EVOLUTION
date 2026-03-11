@@ -628,7 +628,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 
   <!-- PAGE: NUTRITION — ALIMENTS -->
   <div class="page" id="page-nut-alim">
-    <div class="sh"><div class="st">Base de données aliments</div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('importAlimFile').click()">📥 Importer</button><button class="btn btn-dark btn-sm" onclick="openAlim()">+ Aliment</button></div></div>
+    <div class="sh"><div class="st">Base de données aliments</div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="openGSheet('aliments')">📊 Google Sheets</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('importAlimFile').click()">📥 Importer CSV</button><button class="btn btn-dark btn-sm" onclick="openAlim()">+ Aliment</button></div></div>
     <input type="file" id="importAlimFile" accept=".csv,.json,.tsv,.txt" style="display:none" onchange="importAlimsFile(this)">
     <div style="font-size:10px;color:var(--text3);margin-bottom:8px">⚖️ Tous les aliments sont pesés <strong>cru</strong> (valeurs nutritionnelles pour 100g cru)</div>
     <div class="tw"><table><thead><tr><th>Aliment</th><th>Catégorie</th><th>Kcal/100g</th><th>Prot.</th><th>Gluc.</th><th>Lip.</th><th>Actions</th></tr></thead>
@@ -749,7 +749,8 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 
   <!-- PAGE: TRAINING — EXERCICES -->
   <div class="page" id="page-tr-exos">
-    <div class="sh"><div class="st">Bibliothèque d'exercices</div><button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button></div>
+    <div class="sh"><div class="st">Bibliothèque d'exercices</div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="openGSheet('exercises')">📊 Google Sheets</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('importExoFile').click()">📥 Importer CSV</button><button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button></div></div>
+    <input type="file" id="importExoFile" accept=".csv,.json,.tsv,.txt" style="display:none" onchange="importExosFile(this)">
     <div id="exoPageList"></div>
   </div>
 
@@ -952,6 +953,35 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <input type="hidden" id="coEditIdx">
   </div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeM('mNewCoach')">Annuler</button><button class="btn btn-dark" onclick="saveCoach()">Ajouter</button></div>
+</div></div>
+
+<!-- MODAL: IMPORT GOOGLE SHEETS -->
+<div class="overlay" id="mGSheet"><div class="modal" style="max-width:520px">
+  <div class="mh"><div class="mt" id="gsheetMT">📊 Importer depuis Google Sheets</div><button class="mc" onclick="closeM('mGSheet')">✕</button></div>
+  <div class="mb">
+    <div style="background:var(--bg);border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:6px">📋 Comment faire ?</div>
+      <ol style="font-size:11px;color:var(--text2);line-height:1.7;padding-left:18px;margin:0">
+        <li>Ouvre ton Google Sheet</li>
+        <li><strong>Fichier → Partager → Publier sur le Web</strong></li>
+        <li>Choisis l'onglet et le format <strong>CSV</strong></li>
+        <li>Copie le lien et colle-le ci-dessous</li>
+      </ol>
+    </div>
+    <div id="gsheetColInfo"></div>
+    <div class="fg"><label class="fl">URL du Google Sheet *</label><input class="fi" id="gsheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." oninput="onGSheetUrlInput(this)"></div>
+    <div id="gsheetPreview" style="display:none;margin-top:10px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:6px">Aperçu :</div>
+      <div id="gsheetPreviewBody" style="max-height:200px;overflow-y:auto;background:var(--bg);border-radius:8px;padding:8px;font-size:11px"></div>
+    </div>
+    <div id="gsheetStatus" style="display:none;margin-top:8px;font-size:12px;padding:8px 10px;border-radius:8px"></div>
+    <input type="hidden" id="gsheetType">
+  </div>
+  <div class="mf">
+    <button class="btn btn-ghost" onclick="closeM('mGSheet')">Annuler</button>
+    <button class="btn btn-ghost" id="gsheetPreviewBtn" onclick="previewGSheet()" style="display:none">👁️ Aperçu</button>
+    <button class="btn btn-dark" onclick="importGSheet()">📥 Importer</button>
+  </div>
 </div></div>
 
 <!-- MODAL: GENERATE AI MEAL PLAN -->
@@ -2389,6 +2419,248 @@ function importAlimsFile(input){
   };
   reader.readAsText(file);
   input.value='';
+}
+
+/* ===== IMPORT EXERCICES CSV ===== */
+function importExosFile(input){
+  const file=input.files[0];if(!file)return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  const reader=new FileReader();
+  reader.onload=e=>{
+    let items=[];
+    try{
+      const text=e.target.result;
+      if(ext==='json'){
+        const data=JSON.parse(text);
+        items=Array.isArray(data)?data:data.exercises||data.exercices||data.items||[];
+      }else{
+        const sep=ext==='tsv'||text.split('\t').length>text.split(';').length?'\t':text.indexOf(';')>-1?';':',';
+        const lines=text.trim().split('\n');
+        const hdr=lines[0].toLowerCase().split(sep).map(h=>h.trim().replace(/"/g,''));
+        const iNom=hdr.findIndex(h=>h.match(/^(nom|name|exercice|exercise)/));
+        const iMuscle=hdr.findIndex(h=>h.match(/^(muscle|groupe|group)/));
+        const iVideo=hdr.findIndex(h=>h.match(/^(video|vidéo|lien|link|url|youtube)/));
+        const iEquip=hdr.findIndex(h=>h.match(/^(equip|équip|materiel|matériel|equipment)/));
+        const iSets=hdr.findIndex(h=>h.match(/^(series|séries|sets)/));
+        const iReps=hdr.findIndex(h=>h.match(/^(reps|répétitions|repetitions)/));
+        const iNotes=hdr.findIndex(h=>h.match(/^(notes|note|description)/));
+        for(let l=1;l<lines.length;l++){
+          const cols=lines[l].split(sep).map(c=>c.trim().replace(/"/g,''));
+          const nom=cols[iNom>=0?iNom:0];
+          if(!nom)continue;
+          items.push({nom,muscle:iMuscle>=0?cols[iMuscle]:'',equip:iEquip>=0?cols[iEquip]:'',video:iVideo>=0?cols[iVideo]:'',sets:iSets>=0?cols[iSets]:'',reps:iReps>=0?cols[iReps]:'',notes:iNotes>=0?cols[iNotes]:'',replacements:[]});
+        }
+      }
+      if(!items.length){toast('Aucun exercice trouvé dans le fichier');return;}
+      let added=0;
+      items.forEach(it=>{
+        if(!it.nom)return;
+        const exists=exos.find(e=>e.nom.toLowerCase()===it.nom.toLowerCase());
+        if(!exists){exos.push({...it,id:Date.now()+added,replacements:it.replacements||[]});added++;}
+      });
+      lsSave('fz_exos',exos);
+      const newItems=exos.slice(-added);
+      for(const it of newItems){dbSave('exercises',it);}
+      renderExoPage();
+      toast(added+' exercice(s) importé(s) ✓ ('+items.length+' lu(s), '+(items.length-added)+' doublon(s))');
+    }catch(err){toast('Erreur de lecture: '+err.message);console.error(err);}
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+/* ===== IMPORT GOOGLE SHEETS ===== */
+function openGSheet(type){
+  document.getElementById('gsheetType').value=type;
+  document.getElementById('gsheetUrl').value='';
+  document.getElementById('gsheetPreview').style.display='none';
+  document.getElementById('gsheetPreviewBtn').style.display='none';
+  document.getElementById('gsheetStatus').style.display='none';
+  const info=document.getElementById('gsheetColInfo');
+  if(type==='aliments'){
+    document.getElementById('gsheetMT').textContent='📊 Importer des aliments depuis Google Sheets';
+    info.innerHTML=`<div style="background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px;line-height:1.6">
+      <div style="font-weight:700;margin-bottom:4px">Colonnes attendues :</div>
+      <code style="background:rgba(0,0,0,.06);padding:2px 6px;border-radius:4px;font-size:10px">Nom | Kcal | Protéines | Glucides | Lipides | Catégorie | Source</code>
+      <div style="margin-top:4px;color:var(--text3)">⚖️ Valeurs pour 100g cru. Les colonnes Catégorie et Source sont optionnelles.</div>
+    </div>`;
+  }else{
+    document.getElementById('gsheetMT').textContent='📊 Importer des exercices depuis Google Sheets';
+    info.innerHTML=`<div style="background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px;line-height:1.6">
+      <div style="font-weight:700;margin-bottom:4px">Colonnes attendues :</div>
+      <code style="background:rgba(0,0,0,.06);padding:2px 6px;border-radius:4px;font-size:10px">Nom | Groupe musculaire | Lien vidéo</code>
+      <div style="margin-top:4px;color:var(--text3)">💪 Les colonnes Équipement, Séries, Reps, Notes sont optionnelles.</div>
+    </div>`;
+  }
+  openM('mGSheet');
+}
+function gsheetToCsvUrl(url){
+  url=url.trim();
+  // Already a CSV export link
+  if(url.includes('/export?') && url.includes('format=csv')) return url;
+  if(url.includes('/pub?') && url.includes('output=csv')) return url;
+  // Published to web link: https://docs.google.com/spreadsheets/d/e/XXXXX/pub?...
+  if(url.includes('/pub')){
+    const base=url.split('?')[0];
+    return base+'?output=csv';
+  }
+  // Standard edit link: https://docs.google.com/spreadsheets/d/XXXXX/edit...
+  const match=url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if(match){
+    let gid='0';
+    const gidMatch=url.match(/gid=(\d+)/);
+    if(gidMatch)gid=gidMatch[1];
+    return`https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv&gid=${gid}`;
+  }
+  return url;
+}
+async function fetchGSheetCSV(url){
+  const csvUrl=gsheetToCsvUrl(url);
+  const res=await fetch(csvUrl);
+  if(!res.ok)throw new Error('Impossible de récupérer le fichier (HTTP '+res.status+'). Vérifie que le Sheet est publié.');
+  return await res.text();
+}
+function parseCSV(text){
+  const lines=[];let cur='',inQ=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(ch==='"'){inQ=!inQ;}
+    else if((ch===','||ch===';'||ch==='\t')&&!inQ){cur+='|SEP|';}
+    else if(ch==='\n'&&!inQ){lines.push(cur);cur='';}
+    else if(ch==='\r'&&!inQ){/* skip */}
+    else{cur+=ch;}
+  }
+  if(cur.trim())lines.push(cur);
+  return lines.map(l=>l.split('|SEP|').map(c=>c.trim()));
+}
+function parseGSheetAliments(rows){
+  if(rows.length<2)throw new Error('Le fichier ne contient pas assez de lignes');
+  const hdr=rows[0].map(h=>h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
+  const iNom=hdr.findIndex(h=>h.match(/^(nom|name|aliment|food)/));
+  const iKcal=hdr.findIndex(h=>h.match(/(kcal|cal|energie|energy)/));
+  const iProt=hdr.findIndex(h=>h.match(/(prot|protein)/));
+  const iCarb=hdr.findIndex(h=>h.match(/(gluc|carb)/));
+  const iFat=hdr.findIndex(h=>h.match(/(lip|fat|graisse)/));
+  const iCat=hdr.findIndex(h=>h.match(/(cat|categ|group|type)/));
+  const iSrc=hdr.findIndex(h=>h.match(/(source|macro)/));
+  if(iNom<0)throw new Error('Colonne "Nom" non trouvée. Première ligne: '+rows[0].join(', '));
+  const items=[];
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    const nom=r[iNom];if(!nom)continue;
+    const prot=parseFloat(r[iProt>=0?iProt:0])||0;
+    const carb=parseFloat(r[iCarb>=0?iCarb:0])||0;
+    const fat=parseFloat(r[iFat>=0?iFat:0])||0;
+    let source=iSrc>=0?r[iSrc].toLowerCase():'';
+    if(!source){
+      if(prot>=carb&&prot>=fat)source='proteines';
+      else if(carb>=prot&&carb>=fat)source='glucides';
+      else source='lipides';
+    }
+    if(source.match(/prot/))source='proteines';
+    else if(source.match(/gluc|carb/))source='glucides';
+    else if(source.match(/lip|fat|graisse/))source='lipides';
+    items.push({nom,cat:iCat>=0?r[iCat]||'Autres':'Autres',source,kcal:parseFloat(r[iKcal>=0?iKcal:0])||0,prot,carb,fat});
+  }
+  return items;
+}
+function parseGSheetExercises(rows){
+  if(rows.length<2)throw new Error('Le fichier ne contient pas assez de lignes');
+  const hdr=rows[0].map(h=>h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
+  const iNom=hdr.findIndex(h=>h.match(/^(nom|name|exercice|exercise)/));
+  const iMuscle=hdr.findIndex(h=>h.match(/(muscle|groupe|group)/));
+  const iVideo=hdr.findIndex(h=>h.match(/(video|lien|link|url|youtube)/));
+  const iEquip=hdr.findIndex(h=>h.match(/(equip|materiel)/));
+  const iSets=hdr.findIndex(h=>h.match(/(series|sets)/));
+  const iReps=hdr.findIndex(h=>h.match(/(reps|rep)/));
+  const iNotes=hdr.findIndex(h=>h.match(/(notes|note|desc)/));
+  if(iNom<0)throw new Error('Colonne "Nom" non trouvée. Première ligne: '+rows[0].join(', '));
+  const items=[];
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    const nom=r[iNom];if(!nom)continue;
+    items.push({nom,muscle:iMuscle>=0?r[iMuscle]||'':'',equip:iEquip>=0?r[iEquip]||'':'',video:iVideo>=0?r[iVideo]||'':'',sets:iSets>=0?r[iSets]||'':'',reps:iReps>=0?r[iReps]||'':'',notes:iNotes>=0?r[iNotes]||'':'',replacements:[]});
+  }
+  return items;
+}
+async function previewGSheet(){
+  const url=document.getElementById('gsheetUrl').value;
+  if(!url){toast('Colle l\'URL du Google Sheet');return;}
+  const status=document.getElementById('gsheetStatus');
+  status.style.display='block';status.style.background='var(--gold-pale)';status.style.color='var(--gold)';
+  status.textContent='⏳ Chargement du fichier…';
+  try{
+    const text=await fetchGSheetCSV(url);
+    const rows=parseCSV(text);
+    const type=document.getElementById('gsheetType').value;
+    const items=type==='aliments'?parseGSheetAliments(rows):parseGSheetExercises(rows);
+    const preview=document.getElementById('gsheetPreviewBody');
+    const prev=document.getElementById('gsheetPreview');
+    if(type==='aliments'){
+      preview.innerHTML=`<table style="width:100%;font-size:10px;border-collapse:collapse"><thead><tr style="background:var(--dark);color:#fff"><th style="padding:4px 6px;text-align:left">Nom</th><th>Kcal</th><th>P</th><th>G</th><th>L</th><th>Source</th></tr></thead><tbody>${items.slice(0,10).map(a=>`<tr style="border-bottom:1px solid var(--border)"><td style="padding:3px 6px;font-weight:600">${a.nom}</td><td style="text-align:center">${a.kcal}</td><td style="text-align:center">${a.prot}g</td><td style="text-align:center">${a.carb}g</td><td style="text-align:center">${a.fat}g</td><td style="text-align:center;font-size:9px">${a.source}</td></tr>`).join('')}</tbody></table>${items.length>10?`<div style="padding:4px;text-align:center;color:var(--text3);font-size:10px">… et ${items.length-10} autres</div>`:''}`;
+    }else{
+      preview.innerHTML=`<table style="width:100%;font-size:10px;border-collapse:collapse"><thead><tr style="background:var(--dark);color:#fff"><th style="padding:4px 6px;text-align:left">Nom</th><th>Muscle</th><th>Vidéo</th></tr></thead><tbody>${items.slice(0,10).map(e=>`<tr style="border-bottom:1px solid var(--border)"><td style="padding:3px 6px;font-weight:600">${e.nom}</td><td style="text-align:center">${e.muscle||'—'}</td><td style="text-align:center">${e.video?'✅':'—'}</td></tr>`).join('')}</tbody></table>${items.length>10?`<div style="padding:4px;text-align:center;color:var(--text3);font-size:10px">… et ${items.length-10} autres</div>`:''}`;
+    }
+    prev.style.display='block';
+    status.style.background='#dcfce7';status.style.color='#166534';
+    status.textContent=`✅ ${items.length} élément(s) trouvé(s) — prêt à importer`;
+  }catch(err){
+    status.style.background='#fef2f2';status.style.color='#dc2626';
+    status.textContent='❌ '+err.message;
+  }
+}
+async function importGSheet(){
+  const url=document.getElementById('gsheetUrl').value;
+  if(!url){toast('Colle l\'URL du Google Sheet');return;}
+  const type=document.getElementById('gsheetType').value;
+  const status=document.getElementById('gsheetStatus');
+  status.style.display='block';status.style.background='var(--gold-pale)';status.style.color='var(--gold)';
+  status.textContent='⏳ Import en cours…';
+  try{
+    const text=await fetchGSheetCSV(url);
+    const rows=parseCSV(text);
+    if(type==='aliments'){
+      const items=parseGSheetAliments(rows);
+      if(!items.length){toast('Aucun aliment trouvé');return;}
+      let added=0;
+      items.forEach(it=>{
+        const exists=alims.find(a=>a.nom.toLowerCase()===it.nom.toLowerCase());
+        if(!exists){alims.push({...it,id:Date.now()+added});added++;}
+      });
+      lsSave('fz_alims',alims);
+      const newItems=alims.slice(-added);
+      for(const it of newItems){dbSave('aliments',it);}
+      renderAlims();
+      status.style.background='#dcfce7';status.style.color='#166534';
+      status.textContent=`✅ ${added} aliment(s) importé(s) (${items.length-added} doublon(s) ignoré(s))`;
+      toast(added+' aliment(s) importé(s) depuis Google Sheets ✓');
+    }else{
+      const items=parseGSheetExercises(rows);
+      if(!items.length){toast('Aucun exercice trouvé');return;}
+      let added=0;
+      items.forEach(it=>{
+        const exists=exos.find(e=>e.nom.toLowerCase()===it.nom.toLowerCase());
+        if(!exists){exos.push({...it,id:Date.now()+added});added++;}
+      });
+      lsSave('fz_exos',exos);
+      const newItems=exos.slice(-added);
+      for(const it of newItems){dbSave('exercises',it);}
+      renderExoPage();
+      status.style.background='#dcfce7';status.style.color='#166534';
+      status.textContent=`✅ ${added} exercice(s) importé(s) (${items.length-added} doublon(s) ignoré(s))`;
+      toast(added+' exercice(s) importé(s) depuis Google Sheets ✓');
+    }
+    setTimeout(()=>closeM('mGSheet'),1500);
+  }catch(err){
+    status.style.background='#fef2f2';status.style.color='#dc2626';
+    status.textContent='❌ '+err.message;
+    console.error(err);
+  }
+}
+function onGSheetUrlInput(el){
+  document.getElementById('gsheetPreviewBtn').style.display=el.value.trim()?'inline-flex':'none';
+  document.getElementById('gsheetPreview').style.display='none';
+  document.getElementById('gsheetStatus').style.display='none';
 }
 
 /* ===== REPAS ===== */
