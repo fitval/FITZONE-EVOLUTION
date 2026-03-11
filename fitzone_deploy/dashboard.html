@@ -3735,7 +3735,7 @@ async function irProcessNext(){
 
       const resp=await fetch(SUPA+'/functions/v1/analyze-recipe',{
         method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY,'apikey':KEY},
         body:JSON.stringify({image_base64:b64,media_type:mediaType,food_database:foodDB}),
         signal:controller.signal
       });
@@ -4138,7 +4138,7 @@ async function generateAIPlan(){
     document.getElementById('gpLoadText').textContent='Génération du plan alimentaire…';
     const resp=await fetch(SUPA+'/functions/v1/generate-meal-plan',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY,'apikey':KEY},
       body:JSON.stringify({config,clientProfile})
     });
 
