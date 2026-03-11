@@ -3714,46 +3714,65 @@ async function irProcessNext(){
   txt('irProgressCount',`${idx+1} / ${irQueue.length}`);
   document.getElementById('irProgressBar').style.width=Math.round((idx/irQueue.length)*100)+'%';
 
-  try{
-    // Convert to base64
-    const b64=await irFileToBase64(file);
-    const mediaType=file.type||'image/jpeg';
+  const maxRetries=2;
+  let lastError='';
+  for(let attempt=0;attempt<=maxRetries;attempt++){
+    try{
+      if(attempt>0){
+        txt('irCurrentFile',file.name+` (retry ${attempt}/${maxRetries})`);
+        await new Promise(r=>setTimeout(r,attempt*2000)); // 2s, 4s backoff
+      }
+      // Convert to base64
+      const b64=await irFileToBase64(file);
+      const mediaType=file.type||'image/jpeg';
 
-    // Send compact food DB for matching
-    const foodDB=alims.map(a=>({nom:a.nom,source:a.source||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat}));
+      // Send compact food DB for matching
+      const foodDB=alims.map(a=>({nom:a.nom,source:a.source||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat}));
 
-    const resp=await fetch(SUPA+'/functions/v1/analyze-recipe',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
-      body:JSON.stringify({image_base64:b64,media_type:mediaType,food_database:foodDB})
-    });
+      // Fetch with 90s timeout
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),90000);
 
-    if(!resp.ok){
-      const err=await resp.json().catch(()=>({error:'Erreur serveur'}));
-      throw new Error(err.error||'Erreur '+resp.status);
+      const resp=await fetch(SUPA+'/functions/v1/analyze-recipe',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+        body:JSON.stringify({image_base64:b64,media_type:mediaType,food_database:foodDB}),
+        signal:controller.signal
+      });
+      clearTimeout(timeout);
+
+      if(!resp.ok){
+        const err=await resp.json().catch(()=>({error:'Erreur serveur'}));
+        throw new Error(err.error||'Erreur '+resp.status);
+      }
+
+      const data=await resp.json();
+      irResults[idx]={status:'ok',recipe:data.recipe,fileName:file.name};
+      lastError='';
+      break; // Success, exit retry loop
+    }catch(e){
+      lastError=e.name==='AbortError'?'Timeout (90s)':e.message;
+      console.error(`Recipe import error (attempt ${attempt+1}):`,e);
+      if(attempt===maxRetries){
+        irResults[idx]={status:'error',error:lastError,fileName:file.name};
+      }
     }
-
-    const data=await resp.json();
-    irResults[idx]={status:'ok',recipe:data.recipe,fileName:file.name};
-  }catch(e){
-    console.error('Recipe import error:',e);
-    irResults[idx]={status:'error',error:e.message,fileName:file.name};
   }
 
   irRenderResults();
   irCurrentIdx++;
-  // Small delay between requests to avoid rate limiting
-  setTimeout(()=>irProcessNext(),500);
+  // Delay between requests to avoid rate limiting (1.5s)
+  setTimeout(()=>irProcessNext(),1500);
 }
 
 function irFileToBase64(file){
   return new Promise((resolve,reject)=>{
-    // Resize image before sending (max 1500px, JPEG 0.8)
+    // Resize image before sending (max 1024px, JPEG 0.6)
     const reader=new FileReader();
     reader.onload=()=>{
       const img=new Image();
       img.onload=()=>{
-        const maxDim=1500;
+        const maxDim=1024;
         let w=img.width,h=img.height;
         if(w>maxDim||h>maxDim){
           if(w>h){h=Math.round(h*(maxDim/w));w=maxDim;}
@@ -3762,7 +3781,7 @@ function irFileToBase64(file){
         const canvas=document.createElement('canvas');
         canvas.width=w;canvas.height=h;
         canvas.getContext('2d').drawImage(img,0,0,w,h);
-        const dataUrl=canvas.toDataURL('image/jpeg',0.8);
+        const dataUrl=canvas.toDataURL('image/jpeg',0.6);
         resolve(dataUrl.split(',')[1]); // Remove data:image/jpeg;base64, prefix
       };
       img.onerror=reject;
