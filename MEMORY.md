@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-03-10
+**Dernière mise à jour** : 2026-03-10 (migration Supabase)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -43,7 +43,7 @@
 - [x] Page Bilans hebdo (listing tous bilans de tous clients)
 
 ### Ce qui reste à faire (prochaines priorités)
-- [ ] **Migration localStorage → Supabase** : exercices, programmes, aliments, repas, plans complets, modules, équipe, settings
+- [x] **Migration localStorage → Supabase** : exercices, programmes, aliments, repas, plans complets, modules, équipe, settings, roadmaps, daily logs, train logs, bilans (code prêt, **il faut exécuter le SQL dans Supabase**)
 - [ ] **App mobile client** : permettre aux clients d'accéder à leurs programmes et plans nutrition
 - [ ] **Amélioration UX** : responsive, animations, feedback visuel
 - [ ] **Multi-coach** : isolation des données par coach (RLS Supabase)
@@ -68,6 +68,9 @@
 | 2026-03-10 | Learning 3 niveaux | UX modulaire : modules → chapitres → vidéo individuelle |
 | 2026-03-10 | Bilans client en base64 | Photos stockées en base64 dans localStorage (bilans_<id>) |
 | 2026-03-10 | Progression SVG charts | Graphiques légers sans dépendance externe |
+| 2026-03-10 | Migration localStorage → Supabase | Persistance cloud, multi-device, prépare app mobile |
+| 2026-03-10 | Double-write (Supabase + localStorage) | Fallback offline, pas de perte de données si Supabase down |
+| 2026-03-10 | JSONB pour données complexes | Minimise le nombre de tables, garde la simplicité |
 
 ## Historique des sessions
 
@@ -95,6 +98,16 @@
 - **Notification 🔔** : badge rouge compteur bilans non lus, lié à la page bilans-all
 - **Sections fiche client** : Progression (graphique SVG + métriques quotidiennes), Training (blocs cycles colorés), Bilan (historique + photos base64), Galerie (grille photos)
 - **Page Bilans hebdo** : listing global tous bilans de tous clients, marquage lu/non-lu
+
+### Session 2026-03-10 (migration Supabase)
+- **Migration localStorage → Supabase complète** : toutes les données sont maintenant synchronisées avec Supabase
+- Nouvelles tables Supabase : `exercises`, `programs`, `seances`, `aliments`, `repas`, `plans_full`, `modules`, `team`, `settings`, `roadmaps`, `daily_logs`, `train_logs`, `bilans`
+- **Couche d'abstraction DB** : fonctions `dbLoad()`, `dbSave()`, `dbDelete()`, `dbLoadClientData()`
+- **Migration automatique** : au premier chargement, les données localStorage sont uploadées vers Supabase (flag `fz_migrated_v1`)
+- **Double-write** : chaque sauvegarde écrit dans Supabase ET localStorage (fallback)
+- **Chargement hybride** : données globales chargées au démarrage depuis Supabase, données client chargées à la demande (lazy)
+- **RLS activé** sur toutes les tables (politique "Allow all for authenticated" — à renforcer plus tard)
+- **⚠️ ACTION REQUISE** : exécuter `supabase/migration.sql` dans le SQL Editor de Supabase
 
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
