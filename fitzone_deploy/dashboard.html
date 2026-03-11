@@ -1115,6 +1115,144 @@ function lsGet(k,def){try{return JSON.parse(localStorage.getItem(k))||def;}catch
 function lsSave(k,v){localStorage.setItem(k,JSON.stringify(v));}
 const txt=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
 
+/* ===== SUPABASE DB LAYER ===== */
+const DB_MAP={
+  exercises:{ls:'fz_exos',arr:'exos'},
+  programs:{ls:'fz_progs',arr:'progs'},
+  seances:{ls:'fz_seances',arr:'seances'},
+  aliments:{ls:'fz_alims',arr:'alims'},
+  repas:{ls:'fz_repas',arr:'repas'},
+  plans_full:{ls:'fz_plans',arr:'plans'},
+  modules:{ls:'fz_modules',arr:'modules'},
+  team:{ls:'fz_team',arr:'team'}
+};
+
+async function dbLoad(table){
+  const m=DB_MAP[table];if(!m)return[];
+  try{
+    const{data,error}=await db.from(table).select('*').eq('coach_id',currentCoach.id);
+    if(error)throw error;
+    if(data&&data.length>0)return data;
+    return lsGet(m.ls,[]);
+  }catch(e){
+    console.warn('dbLoad fallback localStorage:',table,e);
+    return lsGet(m.ls,[]);
+  }
+}
+
+async function dbSave(table,item){
+  const m=DB_MAP[table];if(!m)return;
+  if(!item.coach_id&&currentCoach)item.coach_id=currentCoach.id;
+  // Map JS field names to DB column names
+  let row={...item};
+  if(table==='team'){
+    row.first_name=row.first||row.first_name||'';row.last_name=row.last||row.last_name||'';
+    row.clients_data=row.clients||row.clients_data||[];
+    delete row.first;delete row.last;delete row.clients;
+  }
+  try{
+    const{error}=await db.from(table).upsert(row,{onConflict:'id'});
+    if(error){console.error('❌ dbSave error:',table,error.message,error.details,error.hint,JSON.stringify(row));toast('⚠️ Erreur Supabase: '+error.message);}
+    else console.log('✅ dbSave OK:',table,row.id);
+  }catch(e){console.warn('dbSave exception:',table,e);}
+  // Always update localStorage too
+  const arr=window[m.arr]||[];
+  const idx=arr.findIndex(a=>a.id===item.id);
+  if(idx>=0)arr[idx]=item;else arr.push(item);
+  lsSave(m.ls,arr);
+}
+
+async function dbDelete(table,id){
+  const m=DB_MAP[table];if(!m)return;
+  try{
+    await db.from(table).delete().eq('id',id);
+  }catch(e){console.warn('dbDelete error:',table,e);}
+  window[m.arr]=(window[m.arr]||[]).filter(a=>a.id!==id);
+  lsSave(m.ls,window[m.arr]);
+}
+
+async function dbLoadClientData(table,clientId,defaults){
+  try{
+    const{data,error}=await db.from(table).select('*').eq('coach_id',currentCoach.id).eq('client_id',clientId);
+    if(error)throw error;
+    if(data&&data.length>0)return data;
+  }catch(e){console.warn('dbLoadClient fallback:',table,e);}
+  return defaults;
+}
+
+async function migrateToSupabase(){
+  if(lsGet('fz_migrated_v1',false))return;
+  let migrated=0;
+  for(const[table,m]of Object.entries(DB_MAP)){
+    const data=lsGet(m.ls,[]);
+    if(data.length>0){
+      const items=data.map(d=>({...d,coach_id:currentCoach.id}));
+      // Batch insert in chunks of 100
+      for(let i=0;i<items.length;i+=100){
+        const chunk=items.slice(i,i+100);
+        const{error}=await db.from(table).upsert(chunk,{onConflict:'id'});
+        if(error)console.warn('Migration error:',table,error.message);
+        else migrated+=chunk.length;
+      }
+    }
+  }
+  // Migrate client-specific data
+  for(const c of allClients){
+    const road=lsGet('road_'+c.id,{});
+    if(Object.keys(road).length>0){
+      await db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:c.id,weeks:road},{onConflict:'coach_id,client_id'}).catch(e=>console.warn('road migrate:',e));
+    }
+    const daily=lsGet('daily_'+c.id,[]);
+    for(const d of daily){
+      await db.from('daily_logs').insert({coach_id:currentCoach.id,client_id:c.id,date:d.date,data:d}).catch(e=>console.warn('daily migrate:',e));
+    }
+    const tlog=lsGet('trainlog_'+c.id,[]);
+    for(const t of tlog){
+      await db.from('train_logs').insert({coach_id:currentCoach.id,client_id:c.id,session_name:t.session,date:t.date,cycle:String(t.cycle||''),exercises:t.exercises||[]}).catch(e=>console.warn('trainlog migrate:',e));
+    }
+    const bil=lsGet('bilans_'+c.id,[]);
+    for(const b of bil){
+      await db.from('bilans').insert({coach_id:currentCoach.id,client_id:c.id,titre:b.titre||'',date:b.date,poids:b.poids?String(b.poids):'',contenu:b.contenu||'',photos:b.photos||[],reponses:b.reponses||null,read:!!b.read}).catch(e=>console.warn('bilan migrate:',e));
+    }
+  }
+  // Migrate settings
+  const settings=lsGet('fz_settings',{});
+  if(settings.first||settings.last||settings.gym){
+    await db.from('settings').upsert({coach_id:currentCoach.id,first_name:settings.first||'',last_name:settings.last||'',gym:settings.gym||''},{onConflict:'coach_id'}).catch(e=>console.warn('settings migrate:',e));
+  }
+  lsSave('fz_migrated_v1',true);
+  if(migrated>0)toast('✓ '+migrated+' données migrées vers le cloud');
+}
+
+async function loadAllData(){
+  exos=await dbLoad('exercises');
+  progs=await dbLoad('programs');
+  alims=await dbLoad('aliments');
+  repas=await dbLoad('repas');
+  plans=await dbLoad('plans_full');
+  modules=await dbLoad('modules');
+  team=await dbLoad('team');
+  seances=await dbLoad('seances');
+  // Load settings
+  try{
+    const{data}=await db.from('settings').select('*').eq('coach_id',currentCoach.id).limit(1);
+    if(data&&data[0]){
+      const s=data[0];
+      const st=document.getElementById('sFirst');if(st&&s.first_name)st.value=s.first_name;
+      const sl=document.getElementById('sLast');if(sl&&s.last_name)sl.value=s.last_name;
+      const sg=document.getElementById('sGym');if(sg&&s.gym)sg.value=s.gym;
+      if(s.first_name||s.last_name){
+        txt('sbNm',(s.first_name||'')+(s.last_name?' '+(s.last_name[0]||'').toLowerCase()+'.':''));
+        txt('ovNm',(s.first_name||'')+' '+(s.last_name||''));
+        txt('sbAv',((s.first_name||'?')[0]+((s.last_name||'?')[0]||'?')).toUpperCase());
+        txt('ovAv',((s.first_name||'?')[0]+((s.last_name||'?')[0]||'?')).toUpperCase());
+      }
+      if(s.gym)txt('ovGym',s.gym);
+      lsSave('fz_settings',{first:s.first_name,last:s.last_name,gym:s.gym});
+    }
+  }catch(e){console.warn('settings load fallback',e);}
+}
+
 /* ===== AUTH CHECK ===== */
 async function checkAuth(){
   const{data:{session}}=await db.auth.getSession();
@@ -1148,6 +1286,8 @@ window.addEventListener('DOMContentLoaded',async()=>{
   if(!ok)return;
   document.getElementById('sQUrl').textContent=QBASE;
   await loadClients();
+  await migrateToSupabase();
+  await loadAllData();
   renderExoPage();renderProgList();renderSeanceList();renderAlims();renderRepasList();renderMods();renderTeam();
   updateOv();renderPlansListPage();
   document.addEventListener('click',e=>{if(!e.target.closest('.ss-wrap'))document.querySelectorAll('.ss-drop').forEach(d=>d.classList.remove('open'));});
@@ -1401,7 +1541,17 @@ function renderRoadTab(){
   const nuttypes=['','Déficit','Maintenance','Surplus'];
   const cardios=['Step','LISS','HIIT','Vélo','Course'];
   const sd=curClient.start_date||new Date().toISOString().slice(0,10);
-  const saved=lsGet('road_'+curClient.id,{});
+  let saved=lsGet('road_'+curClient.id,{});
+  // Try loading from Supabase (async, re-render if different)
+  if(currentCoach&&!window['_roadLoaded_'+curClient.id]){
+    window['_roadLoaded_'+curClient.id]=true;
+    db.from('roadmaps').select('weeks').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).limit(1).then(({data})=>{
+      if(data&&data[0]&&data[0].weeks&&Object.keys(data[0].weeks).length>0){
+        const supa=data[0].weeks;
+        if(JSON.stringify(supa)!==JSON.stringify(saved)){lsSave('road_'+curClient.id,supa);renderRoadTab();}
+      }
+    }).catch(()=>{});
+  }
   const now=new Date();
   let rows='';
   for(let i=1;i<=52;i++){
@@ -1449,12 +1599,23 @@ function renderRoadTab(){
 function sRoad(row,field,val){
   const key='road_'+curClient.id,d=lsGet(key,{});
   if(!d[row])d[row]={};d[row][field]=val;lsSave(key,d);
+  if(currentCoach)db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'}).catch(e=>console.warn('road save:',e));
 }
 
 /* ===== PROGRESSION TAB (Graphiques données quotidiennes) ===== */
 function renderProgressionTab(){
   const el=document.getElementById('tc-progression');if(!el||!curClient)return;
-  const logs=lsGet('daily_'+curClient.id,[]);
+  let logs=lsGet('daily_'+curClient.id,[]);
+  // Async load from Supabase
+  if(currentCoach&&!window['_dailyLoaded_'+curClient.id]){
+    window['_dailyLoaded_'+curClient.id]=true;
+    db.from('daily_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).then(({data})=>{
+      if(data&&data.length>0){
+        const supaLogs=data.map(d=>({...d.data,date:d.date}));
+        if(supaLogs.length>logs.length){lsSave('daily_'+curClient.id,supaLogs);renderProgressionTab();}
+      }
+    }).catch(()=>{});
+  }
   const metrics=['Poids','Énergie','Faim','Stress','Sommeil (h)','Pas','Alimentation suivie (%)','Note attitude (/10)'];
   const selMetric=window._progMetric||'Poids';
   // Filter data for selected metric
@@ -1523,13 +1684,25 @@ function saveDailyLog(){
   const key='daily_'+curClient.id;const logs=lsGet(key,[]);
   const existing=logs.findIndex(l=>l.date===date);
   if(existing>=0)logs[existing]={...logs[existing],...entry};else logs.push(entry);
-  lsSave(key,logs);closeM('mDailyLog');renderProgressionTab();toast('Entrée enregistrée ✓');
+  lsSave(key,logs);
+  if(currentCoach)db.from('daily_logs').upsert({coach_id:currentCoach.id,client_id:curClient.id,date:date,data:entry},{onConflict:'id'}).catch(e=>console.warn('daily save:',e));
+  closeM('mDailyLog');renderProgressionTab();toast('Entrée enregistrée ✓');
 }
 
 /* ===== TRAINING TAB (Cycles de progression) ===== */
 function renderTrainingTab(){
   const el=document.getElementById('tc-training');if(!el||!curClient)return;
-  const logs=lsGet('trainlog_'+curClient.id,[]);
+  let logs=lsGet('trainlog_'+curClient.id,[]);
+  // Async load from Supabase
+  if(currentCoach&&!window['_trainLoaded_'+curClient.id]){
+    window['_trainLoaded_'+curClient.id]=true;
+    db.from('train_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).then(({data})=>{
+      if(data&&data.length>0){
+        const supaLogs=data.map(d=>({session:d.session_name,date:d.date,cycle:parseInt(d.cycle)||1,exercises:d.exercises||[]}));
+        if(supaLogs.length>logs.length){lsSave('trainlog_'+curClient.id,supaLogs);renderTrainingTab();}
+      }
+    }).catch(()=>{});
+  }
   const colors={1:'#8b5cf6',2:'#ef4444',3:'#f59e0b',4:'#22c55e'};
   const colorLabels={1:'Violet (cycle 1)',2:'Rouge (cycle 2)',3:'Jaune (cycle 3)',4:'Vert (cycle 4)'};
   // Group by session name
@@ -1583,19 +1756,30 @@ function saveTrainLog(){
   const ses=document.getElementById('tlSesName').value.trim();if(!ses){toast('Nom requis');return;}
   const log={session:ses,date:document.getElementById('tlDate').value,cycle:parseInt(document.getElementById('tlCycle').value)||1,exercises:window._tlExos.filter(e=>e.nom)};
   const key='trainlog_'+curClient.id;const logs=lsGet(key,[]);logs.push(log);lsSave(key,logs);
+  if(currentCoach)db.from('train_logs').insert({coach_id:currentCoach.id,client_id:curClient.id,session_name:log.session,date:log.date,cycle:String(log.cycle||''),exercises:log.exercises||[]}).catch(e=>console.warn('trainlog save:',e));
   closeM('mTrainLog');window._trainSes=ses;renderTrainingTab();toast('Séance ajoutée ✓');
 }
 
 /* ===== BILAN TAB ===== */
 function renderBilanTab(){
   const el=document.getElementById('tc-bilan');if(!el||!curClient)return;
-  const bilans=lsGet('bilans_'+curClient.id,[]);
+  let bilans=lsGet('bilans_'+curClient.id,[]);
+  // Async load from Supabase
+  if(currentCoach&&!window['_bilansLoaded_'+curClient.id]){
+    window['_bilansLoaded_'+curClient.id]=true;
+    db.from('bilans').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:true}).then(({data})=>{
+      if(data&&data.length>0){
+        const supaBilans=data.map(d=>({titre:d.titre,date:d.date,poids:d.poids,contenu:d.contenu||'',photos:d.photos||[],reponses:d.reponses||null,read:!!d.read,_supa_id:d.id}));
+        if(supaBilans.length>bilans.length){lsSave('bilans_'+curClient.id,supaBilans);renderBilanTab();}
+      }
+    }).catch(()=>{});
+  }
   if(!bilans.length){el.innerHTML=`<div class="empty"><div class="ei">📝</div><div class="et">Aucun bilan</div><div class="es">Les bilans apparaîtront ici quand le client les soumettra</div></div><button class="btn btn-dark btn-sm" style="margin-top:12px" onclick="addBilan()">+ Ajouter un bilan manuellement</button>`;return;}
   el.innerHTML=`<button class="btn btn-dark btn-sm" style="margin-bottom:12px" onclick="addBilan()">+ Ajouter un bilan</button>`+
     bilans.slice().reverse().map((b,bi)=>`<div class="plan-card"><div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
       <div style="width:36px;height:36px;border-radius:10px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">📝</div>
       <div style="flex:1"><div style="font-size:14px;font-weight:700">${b.titre||'Bilan du '+new Date(b.date).toLocaleDateString('fr-FR')}</div><div style="font-size:11px;color:var(--text3)">${new Date(b.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}${b.poids?' · '+b.poids+' kg':''}</div></div>
-      <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();let bl=lsGet('bilans_'+curClient.id,[]);bl.splice(bl.length-1-${bi},1);lsSave('bilans_'+curClient.id,bl);renderBilanTab();toast('Supprimé')">✕</button>
+      <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();let bl=lsGet('bilans_'+curClient.id,[]);const removed=bl.splice(bl.length-1-${bi},1)[0];lsSave('bilans_'+curClient.id,bl);if(removed&&removed._supa_id&&currentCoach)db.from('bilans').delete().eq('id',removed._supa_id).catch(()=>{});renderBilanTab();toast('Supprimé')">✕</button>
     </div><div class="plan-body">
       ${b.contenu?`<div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-line">${b.contenu}</div>`:''}
       ${(b.photos||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${b.photos.map(p=>`<img src="${p}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;cursor:pointer" onclick="window.open('${p}','_blank')">`).join('')}</div>`:''}
@@ -1612,9 +1796,11 @@ function saveBilan(){
   const files=document.getElementById('biPhotos').files;
   if(files.length){
     let loaded=0;
-    Array.from(files).forEach(f=>{const reader=new FileReader();reader.onload=e=>{b.photos.push(e.target.result);loaded++;if(loaded===files.length){const key='bilans_'+curClient.id;const bl=lsGet(key,[]);bl.push(b);lsSave(key,bl);closeM('mAddBilan');renderBilanTab();renderGalerieTab();toast('Bilan enregistré ✓');updateNotifBadge();}};reader.readAsDataURL(f);});
+    Array.from(files).forEach(f=>{const reader=new FileReader();reader.onload=e=>{b.photos.push(e.target.result);loaded++;if(loaded===files.length){const key='bilans_'+curClient.id;const bl=lsGet(key,[]);bl.push(b);lsSave(key,bl);if(currentCoach)db.from('bilans').insert({coach_id:currentCoach.id,client_id:curClient.id,titre:b.titre||'',date:b.date,poids:b.poids?String(b.poids):'',contenu:b.contenu||'',photos:b.photos||[],read:false}).catch(e2=>console.warn('bilan save:',e2));closeM('mAddBilan');renderBilanTab();renderGalerieTab();toast('Bilan enregistré ✓');updateNotifBadge();}};reader.readAsDataURL(f);});
   }else{
-    const key='bilans_'+curClient.id;const bl=lsGet(key,[]);bl.push(b);lsSave(key,bl);closeM('mAddBilan');renderBilanTab();toast('Bilan enregistré ✓');updateNotifBadge();
+    const key='bilans_'+curClient.id;const bl=lsGet(key,[]);bl.push(b);lsSave(key,bl);
+    if(currentCoach)db.from('bilans').insert({coach_id:currentCoach.id,client_id:curClient.id,titre:b.titre||'',date:b.date,poids:b.poids?String(b.poids):'',contenu:b.contenu||'',photos:b.photos||[],read:false}).catch(e=>console.warn('bilan save:',e));
+    closeM('mAddBilan');renderBilanTab();toast('Bilan enregistré ✓');updateNotifBadge();
   }
 }
 
@@ -1638,6 +1824,13 @@ function updateNotifBadge(){
   allClients.forEach(c=>{const bl=lsGet('bilans_'+c.id,[]);bl.forEach(b=>{if(!b.read)count++;});});
   badge.style.display=count>0?'flex':'none';
   badge.textContent=count;
+  // Also check Supabase for unread bilans (async update)
+  if(currentCoach&&!window._notifSupaChecked){
+    window._notifSupaChecked=true;
+    db.from('bilans').select('id',{count:'exact',head:true}).eq('coach_id',currentCoach.id).eq('read',false).then(({count:sc})=>{
+      if(sc&&sc>count){badge.style.display='flex';badge.textContent=sc;}
+    }).catch(()=>{});
+  }
 }
 
 function renderBilansAll(){
@@ -1668,7 +1861,10 @@ function renderBilansAll(){
 function markBilanRead(clientId,date,el){
   const key='bilans_'+clientId;const bl=lsGet(key,[]);
   const b=bl.find(x=>x.date===date);
-  if(b&&!b.read){b.read=true;lsSave(key,bl);updateNotifBadge();if(el)el.style.borderLeft='none';}
+  if(b&&!b.read){b.read=true;lsSave(key,bl);
+    if(currentCoach&&b._supa_id)db.from('bilans').update({read:true}).eq('id',b._supa_id).catch(()=>{});
+    else if(currentCoach)db.from('bilans').update({read:true}).eq('coach_id',currentCoach.id).eq('client_id',clientId).eq('date',date).catch(()=>{});
+    updateNotifBadge();if(el)el.style.borderLeft='none';}
 }
 
 /* ===== PLANS ALIMENTAIRES ===== */
@@ -1706,7 +1902,7 @@ let pmClient=null;
 function saveMacrosPlan(){
   const nom=document.getElementById('pmNom')?.value.trim();if(!nom){toast('Nom requis');return;}
   const plan={id:Date.now(),type:'macros',nom,clientId:pmClient?.id||null,clientNom:pmClient?pmClient.first_name+' '+pmClient.last_name:null,kcal:parseInt(document.getElementById('pmKcal')?.value)||0,prot:parseInt(document.getElementById('pmProt')?.value)||0,carb:parseInt(document.getElementById('pmCarb')?.value)||0,fat:parseInt(document.getElementById('pmFat')?.value)||0,notes:document.getElementById('pmNotes')?.value||'',createdAt:new Date().toISOString()};
-  plans.push(plan);lsSave('fz_plans',plans);closeM('mMacrosPlan');renderPlansListPage();toast('Plan macros créé ✓');
+  plans.push(plan);lsSave('fz_plans',plans);dbSave('plans_full',plan);closeM('mMacrosPlan');renderPlansListPage();toast('Plan macros créé ✓');
 }
 
 /* Plan complet */
@@ -1859,7 +2055,7 @@ function pfCreateAlimInline(){
 function pfSaveInlineAlim(){
   const nom=document.getElementById('pfAlNom').value.trim();if(!nom){toast('Nom requis');return;}
   const a={nom,cat:document.getElementById('pfAlCat').value,source:document.getElementById('pfAlSource').value||'proteines',kcal:parseFloat(document.getElementById('pfAlKcal').value)||0,prot:parseFloat(document.getElementById('pfAlProt').value)||0,carb:parseFloat(document.getElementById('pfAlCarb').value)||0,fat:parseFloat(document.getElementById('pfAlFat').value)||0};
-  alims.push({...a,id:Date.now()});lsSave('fz_alims',alims);
+  const newAlim={...a,id:Date.now()};alims.push(newAlim);lsSave('fz_alims',alims);dbSave('aliments',newAlim);
   document.getElementById('pfInlineAlimForm').style.display='none';
   toast(nom+' ajouté à la BDD ✓');
   // Auto-ajouter au repas sélectionné si un repas est sélectionné
@@ -1918,7 +2114,7 @@ function pfCreateRepasInline(){
 function pfSaveInlineRepas(){
   const nom=document.getElementById('pfRpNom').value.trim();if(!nom){toast('Nom requis');return;}
   const r={nom,type:document.getElementById('pfRpType').value,instr:document.getElementById('pfRpInstr').value,items:[],kcal:0,prot:0,carb:0,fat:0};
-  repas.push({...r,id:Date.now()});lsSave('fz_repas',repas);
+  const newRepas={...r,id:Date.now()};repas.push(newRepas);lsSave('fz_repas',repas);dbSave('repas',newRepas);
   document.getElementById('pfInlineRepasForm').style.display='none';
   // Auto-ajouter comme repas du jour
   if(pfDays[pfDayIdx]){
@@ -1933,7 +2129,7 @@ function savePlanFull(){
   const t=pfCalcTotal();
   const plan={id:pfEditId||Date.now(),type:'full',nom,clientId:pfClient?.id||null,clientNom:pfClient?pfClient.first_name+' '+pfClient.last_name:null,kcal:Math.round(t.k),prot:Math.round(t.p),carb:Math.round(t.g),fat:Math.round(t.l),jours:JSON.parse(JSON.stringify(pfDays)),createdAt:new Date().toISOString()};
   if(pfEditId){const i=plans.findIndex(p=>p.id===pfEditId);if(i>=0)plans[i]=plan;else plans.push(plan);}else plans.push(plan);
-  lsSave('fz_plans',plans);closePlanBuilder();renderPlansListPage();toast('Plan enregistré ✓');
+  lsSave('fz_plans',plans);dbSave('plans_full',plan);closePlanBuilder();renderPlansListPage();toast('Plan enregistré ✓');
 }
 function renderPlansListPage(){
   const el=document.getElementById('plansPageList');if(!el)return;
@@ -1978,7 +2174,7 @@ function editFullPlan(id){
   document.getElementById('plansPageList').style.display='none';document.getElementById('planBuilderWrap').style.display='block';
   document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="closePlanBuilder()">← Retour</button><button class="btn btn-gold btn-sm" onclick="savePlanFull()">💾 Enregistrer</button>`;
 }
-function delPlan(id){if(!confirm('Supprimer ce plan ?'))return;plans=plans.filter(p=>p.id!==id);lsSave('fz_plans',plans);renderPlansListPage();toast('Plan supprimé');}
+function delPlan(id){if(!confirm('Supprimer ce plan ?'))return;dbDelete('plans_full',id);renderPlansListPage();toast('Plan supprimé');}
 
 /* ===== ALIMENTS ===== */
 function openAlim(id){
@@ -1994,7 +2190,7 @@ function saveAlim(){
   const editId=alEditRaw?parseInt(alEditRaw):null;
   if(editId){const i=alims.findIndex(x=>x.id===editId);if(i>=0)alims[i]={...a,id:editId};else alims.push({...a,id:Date.now()});}
   else alims.push({...a,id:Date.now()});
-  lsSave('fz_alims',alims);renderAlims();closeM('mNewAliment');toast('Aliment enregistré ✓');
+  lsSave('fz_alims',alims);dbSave('aliments',alims.find(a=>a.id===(editId||alims[alims.length-1].id)));renderAlims();closeM('mNewAliment');toast('Aliment enregistré ✓');
 }
 function renderAlims(){
   const tb=document.getElementById('alimBody');if(!tb)return;
@@ -2002,7 +2198,7 @@ function renderAlims(){
   const srcBadge=s=>{const c={proteines:'#3b82f6',glucides:'#f59e0b',lipides:'#c49a2a'};const l={proteines:'P',glucides:'G',lipides:'L'};return`<span style="display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:800;background:${c[s]||'#999'}22;color:${c[s]||'#999'}">${l[s]||'—'}</span>`;};
   tb.innerHTML=alims.map(a=>`<tr><td style="font-weight:600">${a.nom} ${srcBadge(a.source)}</td><td><span class="tag">${a.cat}</span></td><td>${a.kcal}</td><td>${a.prot}g</td><td>${a.carb}g</td><td>${a.fat}g</td><td style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openAlim(${a.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delAlim(${a.id})">✕</button></td></tr>`).join('');
 }
-function delAlim(id){if(!confirm('Supprimer ?'))return;alims=alims.filter(a=>a.id!==id);lsSave('fz_alims',alims);renderAlims();toast('Supprimé');}
+function delAlim(id){if(!confirm('Supprimer ?'))return;dbDelete('aliments',id);renderAlims();toast('Supprimé');}
 function importAlimsFile(input){
   const file=input.files[0];if(!file)return;
   const ext=file.name.split('.').pop().toLowerCase();
@@ -2040,7 +2236,11 @@ function importAlimsFile(input){
         const exists=alims.find(a=>a.nom.toLowerCase()===it.nom.toLowerCase());
         if(!exists){alims.push({...it,id:Date.now()+added,source:it.source||''});added++;}
       });
-      lsSave('fz_alims',alims);renderAlims();
+      lsSave('fz_alims',alims);
+      // Sync new aliments to Supabase
+      const newItems=alims.slice(-added);
+      for(const it of newItems){dbSave('aliments',it);}
+      renderAlims();
       toast(added+' aliment(s) importé(s) ✓ ('+items.length+' lu(s), '+(items.length-added)+' doublon(s))');
     }catch(err){toast('Erreur de lecture: '+err.message);console.error(err);}
   };
@@ -2080,7 +2280,7 @@ function saveRepas(){
   const editId=rpEditRaw?parseInt(rpEditRaw):null;
   if(editId){const i=repas.findIndex(x=>x.id===editId);if(i>=0)repas[i]={...r,id:editId};else repas.push({...r,id:Date.now()});}
   else repas.push({...r,id:Date.now()});
-  lsSave('fz_repas',repas);renderRepasList();closeM('mNewRepas');toast('Repas enregistré ✓');
+  lsSave('fz_repas',repas);dbSave('repas',repas.find(x=>x.id===(editId||repas[repas.length-1].id)));renderRepasList();closeM('mNewRepas');toast('Repas enregistré ✓');
 }
 function renderRepasList(){
   const el=document.getElementById('repasList');if(!el)return;
@@ -2092,7 +2292,7 @@ function renderRepasList(){
       <div style="display:flex;gap:12px;font-size:11px;color:var(--text3);padding-top:6px;border-top:1px solid var(--border)"><span>Total : <strong>${r.kcal||0} kcal</strong></span><span class="macro-p">P: ${r.prot||0}g</span><span class="macro-g">G: ${r.carb||0}g</span><span class="macro-l">L: ${r.fat||0}g</span></div>
     </div></div>`).join('');
 }
-function delRepas(id){if(!confirm('Supprimer ?'))return;repas=repas.filter(r=>r.id!==id);lsSave('fz_repas',repas);renderRepasList();toast('Supprimé');}
+function delRepas(id){if(!confirm('Supprimer ?'))return;dbDelete('repas',id);renderRepasList();toast('Supprimé');}
 
 /* ===== PROGRAMME BUILDER ===== */
 function openProgBuilder(id){
@@ -2406,7 +2606,7 @@ function saveProg(){
   const tags=document.getElementById('progTags')?.value.split(',').map(t=>t.trim()).filter(Boolean);
   const prog={id:progEditId||Date.now(),nom,tags,desc:document.getElementById('progDesc')?.value||'',jours:JSON.parse(JSON.stringify(progDays)),clientId:progClient?.id||null,clientNom:progClient?(progClient.first_name+' '+progClient.last_name):null,createdAt:new Date().toISOString()};
   if(progEditId){const i=progs.findIndex(p=>p.id===progEditId);if(i>=0)progs[i]=prog;else progs.push(prog);}else progs.push(prog);
-  lsSave('fz_progs',progs);closeProgBuilder();toast('Programme enregistré ✓');
+  lsSave('fz_progs',progs);dbSave('programs',prog);closeProgBuilder();toast('Programme enregistré ✓');
 }
 function calcVolSemaine(jours){
   const vol={};
@@ -2440,7 +2640,7 @@ function renderProgList(){
     </div>`;
   }).join('');
 }
-function delProg(id){if(!confirm('Supprimer ?'))return;progs=progs.filter(p=>p.id!==id);lsSave('fz_progs',progs);renderProgList();toast('Supprimé');}
+function delProg(id){if(!confirm('Supprimer ?'))return;dbDelete('programs',id);renderProgList();toast('Supprimé');}
 
 /* ===== SEANCES ===== */
 let seances=lsGet('fz_seances',[]);
@@ -2606,7 +2806,7 @@ function saveSeance(){
   const tags=document.getElementById('seanceTags')?.value.split(',').map(t=>t.trim()).filter(Boolean);
   const s={id:seanceEditId||Date.now(),nom,tags,notes:document.getElementById('seanceNotes')?.value||'',warmup:JSON.parse(JSON.stringify(seanceData.warmup||[])),workout:JSON.parse(JSON.stringify(seanceData.workout||[])),cooldown:JSON.parse(JSON.stringify(seanceData.cooldown||[])),clientId:seanceClient?.id||null,clientNom:seanceClient?(seanceClient.first_name+' '+seanceClient.last_name):null,progId:document.getElementById('seanceProgSel')?.value||null,createdAt:new Date().toISOString()};
   if(seanceEditId){const i=seances.findIndex(x=>x.id===seanceEditId);if(i>=0)seances[i]=s;else seances.push(s);}else seances.push(s);
-  lsSave('fz_seances',seances);closeSeanceBuilder();toast('Séance enregistrée ✓');
+  lsSave('fz_seances',seances);dbSave('seances',s);closeSeanceBuilder();toast('Séance enregistrée ✓');
 }
 function renderSeanceList(){
   const el=document.getElementById('seanceListWrap');if(!el)return;
@@ -2627,7 +2827,7 @@ function renderSeanceList(){
     </div>`;
   }).join('');
 }
-function delSeance(id){if(!confirm('Supprimer ?'))return;seances=seances.filter(s=>s.id!==id);lsSave('fz_seances',seances);renderSeanceList();toast('Séance supprimée');}
+function delSeance(id){if(!confirm('Supprimer ?'))return;dbDelete('seances',id);renderSeanceList();toast('Séance supprimée');}
 
 /* ===== EXERCICES ===== */
 function openExo(id){
@@ -2645,7 +2845,8 @@ function saveExo(){
   const editId=exoEditRaw?parseInt(exoEditRaw):null;
   if(editId){const i=exos.findIndex(x=>x.id===editId);if(i>=0)exos[i]={...e,id:editId};else exos.push({...e,id:Date.now()});}
   else exos.push({...e,id:Date.now()});
-  lsSave('fz_exos',exos);renderExoPage();filterLib(document.getElementById('libIn')?.value||'');closeM('mNewExo');toast('Exercice enregistré ✓');
+  const savedExo=exos.find(x=>x.id===(editId||exos[exos.length-1].id));
+  lsSave('fz_exos',exos);dbSave('exercises',savedExo);renderExoPage();filterLib(document.getElementById('libIn')?.value||'');closeM('mNewExo');toast('Exercice enregistré ✓');
 }
 // === EXERCICES DE REMPLACEMENT ===
 window._exoRepls=[];
@@ -2691,7 +2892,7 @@ function renderExoPage(){
     <div style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openExo(${e.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delExo(${e.id})">✕</button></div>
   </div>`).join('');
 }
-function delExo(id){if(!confirm('Supprimer ?'))return;exos=exos.filter(e=>e.id!==id);lsSave('fz_exos',exos);renderExoPage();toast('Supprimé');}
+function delExo(id){if(!confirm('Supprimer ?'))return;dbDelete('exercises',id);renderExoPage();toast('Supprimé');}
 const ytId=url=>{if(!url)return'';const m=url.match(/(?:v=|\/embed\/|youtu\.be\/)([^&?/]+)/);return m?m[1]:'';}
 
 /* ===== LEARNING ===== */
@@ -2707,7 +2908,8 @@ function saveMod(){
   const editId=parseInt(document.getElementById('modEditId').value);
   if(editId){const i=modules.findIndex(x=>x.id===editId);if(i>=0){m.chapitres=modules[i].chapitres||[];modules[i]={...m,id:editId};}else modules.push({...m,id:Date.now()});}
   else modules.push({...m,id:Date.now()});
-  lsSave('fz_modules',modules);renderMods();closeM('mNewMod');toast('Module créé ✓');updateOv();
+  const savedMod=modules.find(x=>x.id===(editId||modules[modules.length-1].id));
+  lsSave('fz_modules',modules);dbSave('modules',savedMod);renderMods();closeM('mNewMod');toast('Module créé ✓');updateOv();
 }
 function openChap(modId,chapId){
   document.getElementById('chapMT').textContent=chapId?'Modifier chapitre':'Nouveau chapitre';
@@ -2728,7 +2930,7 @@ function saveChap(){
     if(ci>=0){modules[mi].chapitres[ci]={...ch,id:editId,videos:modules[mi].chapitres[ci].videos||[]};}
     else modules[mi].chapitres.push({...ch,id:Date.now()});
   } else modules[mi].chapitres.push({...ch,id:Date.now()});
-  lsSave('fz_modules',modules);renderMods();closeM('mNewChap');toast(editId?'Chapitre modifié ✓':'Chapitre créé ✓');
+  lsSave('fz_modules',modules);dbSave('modules',modules[mi]);renderMods();closeM('mNewChap');toast(editId?'Chapitre modifié ✓':'Chapitre créé ✓');
 }
 function openVid(modId,chapId,vidId){
   document.getElementById('vidMT').textContent=vidId?'Modifier vidéo':'Ajouter une vidéo';
@@ -2758,7 +2960,7 @@ function saveVid(){
     if(vi>=0)modules[mi].chapitres[ci].videos[vi]={...v,id:editId};
     else modules[mi].chapitres[ci].videos.push({...v,id:Date.now()});
   } else modules[mi].chapitres[ci].videos.push({...v,id:Date.now()});
-  lsSave('fz_modules',modules);renderMods();closeM('mNewVid');toast(editId?'Vidéo modifiée ✓':'Vidéo ajoutée ✓');
+  lsSave('fz_modules',modules);dbSave('modules',modules[mi]);renderMods();closeM('mNewVid');toast(editId?'Vidéo modifiée ✓':'Vidéo ajoutée ✓');
 }
 function watchVid(title,url,desc){
   document.getElementById('watchTitle').textContent=title;
@@ -2843,8 +3045,8 @@ function renderMods(){
     </div>
   </div>`).join('')}</div>`;
 }
-function delMod(id){if(!confirm('Supprimer ce module et tout son contenu ?'))return;modules=modules.filter(m=>m.id!==id);lsSave('fz_modules',modules);renderMods();updateOv();toast('Module supprimé');}
-function delVid(modId,chapId,vidId){const mi=modules.findIndex(x=>x.id===modId);if(mi<0)return;const ci=modules[mi].chapitres?.findIndex(c=>c.id===chapId);if(ci<0||ci===undefined)return;modules[mi].chapitres[ci].videos=modules[mi].chapitres[ci].videos.filter(v=>v.id!==vidId);lsSave('fz_modules',modules);renderMods();toast('Vidéo supprimée');}
+function delMod(id){if(!confirm('Supprimer ce module et tout son contenu ?'))return;dbDelete('modules',id);renderMods();updateOv();toast('Module supprimé');}
+function delVid(modId,chapId,vidId){const mi=modules.findIndex(x=>x.id===modId);if(mi<0)return;const ci=modules[mi].chapitres?.findIndex(c=>c.id===chapId);if(ci<0||ci===undefined)return;modules[mi].chapitres[ci].videos=modules[mi].chapitres[ci].videos.filter(v=>v.id!==vidId);lsSave('fz_modules',modules);dbSave('modules',modules[mi]);renderMods();toast('Vidéo supprimée');}
 
 /* ===== EQUIPE ===== */
 function openCoach(idx){
@@ -2862,8 +3064,8 @@ function saveCoach(){
   if(!first||!email){toast('Prénom et email requis');return;}
   const co={first,last,email,role:document.getElementById('coRole').value,color:coColor,clients:coClients};
   const editIdx=document.getElementById('coEditIdx').value;
-  if(editIdx!==''){team[parseInt(editIdx)]=co;}else team.push(co);
-  lsSave('fz_team',team);renderTeam();closeM('mNewCoach');toast('Coach enregistré ✓');updateOv();
+  if(editIdx!==''){const ei=parseInt(editIdx);if(!team[ei].id)team[ei].id=Date.now();co.id=team[ei].id;team[ei]=co;}else{co.id=Date.now();team.push(co);}
+  lsSave('fz_team',team);dbSave('team',co);renderTeam();closeM('mNewCoach');toast('Coach enregistré ✓');updateOv();
 }
 function renderTeam(){
   const el=document.getElementById('teamList');if(!el)return;
@@ -2871,13 +3073,15 @@ function renderTeam(){
   if(!team.length){el.innerHTML=`<div class="empty"><div class="ei">👨‍💼</div><div class="et">Aucun coach</div><div class="es">Ajoute ton premier collaborateur</div></div>`;return;}
   el.innerHTML=team.map((co,i)=>{const r=roleMap[co.role]||{label:co.role,cls:'role-coach'};return`<div class="coach-card"><div class="co-av" style="background:${co.color||'#c49a2a'}">${((co.first||'?')[0]+(co.last||'?')[0]).toUpperCase()}</div><div style="flex:1"><div style="font-size:13px;font-weight:700">${co.first} ${co.last}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${co.email}</div></div><span class="role-badge ${r.cls}">${r.label}</span><button class="btn btn-ghost btn-xs" onclick="openCoach(${i})">✏️</button><button class="btn btn-danger btn-xs" onclick="delCoach(${i})">✕</button></div>`;}).join('');
 }
-function delCoach(i){if(!confirm('Supprimer ?'))return;team.splice(i,1);lsSave('fz_team',team);renderTeam();toast('Supprimé');}
+function delCoach(i){if(!confirm('Supprimer ?'))return;const co=team[i];if(co&&co.id)dbDelete('team',co.id);else{team.splice(i,1);lsSave('fz_team',team);}renderTeam();toast('Supprimé');}
 
 /* ===== SETTINGS ===== */
 function saveSettings(){
   const f=document.getElementById('sFirst').value,l=document.getElementById('sLast').value,g=document.getElementById('sGym').value;
   txt('sbNm',f+' '+(l[0]||'')+'.'.trim());txt('ovNm',f+' '+l);txt('ovGym',g);txt('sbAv',(f[0]||'')+(l[0]||''));txt('ovAv',(f[0]||'')+(l[0]||''));
-  lsSave('fz_settings',{first:f,last:l,gym:g});toast('Paramètres enregistrés ✓');
+  lsSave('fz_settings',{first:f,last:l,gym:g});
+  if(currentCoach)db.from('settings').upsert({coach_id:currentCoach.id,first_name:f,last_name:l,gym:g},{onConflict:'coach_id'}).catch(e=>console.warn('settings save:',e));
+  toast('Paramètres enregistrés ✓');
 }
 
 /* ===== OVERVIEW ===== */
@@ -3227,7 +3431,7 @@ function saveAIPlanToPlans(){
     createdAt:new Date().toISOString()
   };
   plans.push(plan);
-  lsSave('fz_plans',plans);
+  lsSave('fz_plans',plans);dbSave('plans_full',plan);
   renderPlansListPage();
   toast('Plan IA sauvegardé ✓');
 }
