@@ -719,9 +719,14 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
               <select class="fs" id="seanceProgSel"><option value="">— Indépendante —</option></select>
             </div>
           </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">📊 Volume séance</div>
-            <div id="seanceVolume" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+              <div id="seanceVolume" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+              <span style="opacity:.3;margin:0 2px">|</span>
+              <button onclick="toggleSeanceCol('rir')" id="seanceTogRIR" style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--gold);background:var(--gold-pale);color:var(--gold);font-family:var(--font)">RIR ✓</button>
+              <button onclick="toggleSeanceCol('tempo')" id="seanceTogTempo" style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--gold);background:var(--gold-pale);color:var(--gold);font-family:var(--font)">Tempo ✓</button>
+            </div>
           </div>
           <div class="sec-label" style="border-top:none;margin-top:0">🔥 Échauffement</div>
           <div id="seanceSec-warmup" ondragover="event.preventDefault()" ondrop="seanceDropSec(event,'warmup')"></div>
@@ -1247,6 +1252,7 @@ let nutSt={};
 let pfClient=null,pfDays=[],pfDayIdx=0,pfMealIdx=null,pfEditId=null,pfFromClient=false;
 /* Programme builder */
 let progDays=[],progDayIdx=0,progEditId=null,progExoTarget={sec:null,idx:null},progClient=null;
+let progShowRIR=true,progShowTempo=true,seanceShowRIR=true,seanceShowTempo=true;
 /* Repas builder */
 let rpItems=[];
 /* Equipe */
@@ -3135,6 +3141,16 @@ function renderRepasList(){
 function delRepas(id){if(!confirm('Supprimer ?'))return;dbDelete('repas',id);renderRepasList();toast('Supprimé');}
 
 /* ===== PROGRAMME BUILDER ===== */
+function setsGrid(showRIR,showTempo){const n=2+(showRIR?1:0)+(showTempo?1:0);return`32px repeat(${n},1fr)`;}
+function setsHdrHtml(showRIR,showTempo){return`<span></span><span>Reps</span><span>Repos</span>${showRIR?'<span>RIR</span>':''}${showTempo?'<span>Tempo</span>':''}`;}
+function toggleProgCol(col){if(col==='rir')progShowRIR=!progShowRIR;else progShowTempo=!progShowTempo;progRenderDay();}
+function toggleSeanceCol(col){
+  if(col==='rir')seanceShowRIR=!seanceShowRIR;else seanceShowTempo=!seanceShowTempo;
+  const btn=document.getElementById(col==='rir'?'seanceTogRIR':'seanceTogTempo');
+  const on=col==='rir'?seanceShowRIR:seanceShowTempo;
+  if(btn){btn.style.borderColor=on?'var(--gold)':'var(--border)';btn.style.background=on?'var(--gold-pale)':'var(--bg)';btn.style.color=on?'var(--gold)':'var(--text3)';btn.textContent=(col==='rir'?'RIR':'Tempo')+(on?' ✓':'');}
+  seanceRenderAll();
+}
 function openProgBuilder(id){
   if(id){const p=progs.find(x=>x.id===id);if(!p)return;progEditId=id;progDays=JSON.parse(JSON.stringify(p.jours||[]));progDayIdx=0;document.getElementById('progNom').value=p.nom;document.getElementById('progTags').value=(p.tags||[]).join(', ');document.getElementById('progDesc').value=p.desc||'';document.getElementById('progBuilderTitle').textContent='Modifier: '+p.nom;}
   else{progEditId=null;progDays=[{nom:'Jour 1',warmup:[],workout:[],cooldown:[]}];progDayIdx=0;document.getElementById('progNom').value='';document.getElementById('progTags').value='';document.getElementById('progDesc').value='';document.getElementById('progBuilderTitle').textContent='Nouveau programme';}
@@ -3214,13 +3230,13 @@ function progRenderDay(){
               <label style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)">Nb séries</label>
               <input class="nb-sets-in" type="number" min="1" max="20" value="${ex.setsData.length}" onchange="progChangeSupNbSets('${key}',${i},${si},parseInt(this.value)||1)">
             </div>
-            <div class="sets-hdr" style="padding:0"><span></span><span>Reps</span><span>Repos</span><span>RIR</span><span>Tempo</span></div>
-            <div class="sets-rows" style="padding:0">${ex.setsData.map((s,ri)=>`<div class="set-row">
+            <div class="sets-hdr" style="padding:0;grid-template-columns:${setsGrid(progShowRIR,progShowTempo)}">${setsHdrHtml(progShowRIR,progShowTempo)}</div>
+            <div class="sets-rows" style="padding:0">${ex.setsData.map((s,ri)=>`<div class="set-row" style="grid-template-columns:${setsGrid(progShowRIR,progShowTempo)}">
               <div class="set-num">${ri+1}</div>
               <input class="ef-in" value="${s.reps||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].reps=this.value" placeholder="10">
               <input class="ef-in" value="${s.rest||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].rest=this.value" placeholder="60s">
-              <input class="ef-in" value="${s.rir||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].rir=this.value" placeholder="2">
-              <input class="ef-in" value="${s.tempo||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].tempo=this.value" placeholder="3-1-2">
+              ${progShowRIR?`<input class="ef-in" value="${s.rir||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].rir=this.value" placeholder="2">`:''}
+              ${progShowTempo?`<input class="ef-in" value="${s.tempo||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].tempo=this.value" placeholder="3-1-2">`:''}
             </div>`).join('')}</div>
           </div>`}).join('')}
         <div style="padding:7px 12px">
@@ -3234,12 +3250,12 @@ function progRenderDay(){
       e.setsData=Array.from({length:n},()=>({reps:e.reps||'',rest:e.rest||'',rir:e.rir||'',tempo:e.tempo||''}));
     }
     if(!e.setsData)e.setsData=[{reps:'8-12',rest:'90s',rir:'',tempo:''}];
-    const setsRows=e.setsData.map((s,si)=>`<div class="set-row">
+    const setsRows=e.setsData.map((s,si)=>`<div class="set-row" style="grid-template-columns:${setsGrid(progShowRIR,progShowTempo)}">
       <div class="set-num">${si+1}</div>
       <input class="ef-in" value="${s.reps||''}" onchange="progUpdSet('${key}',${i},${si},'reps',this.value)" placeholder="8-12">
       <input class="ef-in" value="${s.rest||''}" onchange="progUpdSet('${key}',${i},${si},'rest',this.value)" placeholder="90s">
-      <input class="ef-in" value="${s.rir||''}" onchange="progUpdSet('${key}',${i},${si},'rir',this.value)" placeholder="2">
-      <input class="ef-in" value="${s.tempo||''}" onchange="progUpdSet('${key}',${i},${si},'tempo',this.value)" placeholder="3-1-2">
+      ${progShowRIR?`<input class="ef-in" value="${s.rir||''}" onchange="progUpdSet('${key}',${i},${si},'rir',this.value)" placeholder="2">`:''}
+      ${progShowTempo?`<input class="ef-in" value="${s.tempo||''}" onchange="progUpdSet('${key}',${i},${si},'tempo',this.value)" placeholder="3-1-2">`:''}
     </div>`).join('');
     return`<div class="exo-block" draggable="true" ondragstart="progDragStart(event,'${key}',${i})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="progDrop(event,'${key}',${i})">
       <div class="exo-block-hdr">
@@ -3258,7 +3274,7 @@ function progRenderDay(){
         <input class="nb-sets-in" type="number" min="1" max="20" value="${e.setsData.length}" onchange="progChangeNbSets('${key}',${i},parseInt(this.value)||1)">
         <button class="set-row-btn" onclick="progAddSet('${key}',${i})">+ Série</button>
       </div>
-      <div class="sets-hdr"><span></span><span>Reps</span><span>Repos</span><span>RIR</span><span>Tempo</span></div>
+      <div class="sets-hdr" style="grid-template-columns:${setsGrid(progShowRIR,progShowTempo)}">${setsHdrHtml(progShowRIR,progShowTempo)}</div>
       <div class="sets-rows">${setsRows}</div>
       <div style="padding:0 12px 9px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div class="ef-wrap"><div class="ef-lbl">RPE</div><input class="ef-in" style="text-align:left" value="${e.rpe||''}" onchange="progUpdExo('${key}',${i},'rpe',this.value)" placeholder="7-8"></div>
@@ -3282,7 +3298,12 @@ function progRenderDay(){
     </div>
     <div style="margin-bottom:14px">
       <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:7px">📊 Volume de la séance</div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px">${volHtml}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">${volHtml}
+        <span style="opacity:.3;margin:0 4px">|</span>
+        <span style="font-size:10px;font-weight:600;color:var(--text3);margin-right:2px">Colonnes :</span>
+        <button onclick="toggleProgCol('rir')" style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid ${progShowRIR?'var(--gold)':'var(--border)'};background:${progShowRIR?'var(--gold-pale)':'var(--bg)'};color:${progShowRIR?'var(--gold)':'var(--text3)'};font-family:var(--font)">RIR${progShowRIR?' ✓':''}</button>
+        <button onclick="toggleProgCol('tempo')" style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid ${progShowTempo?'var(--gold)':'var(--border)'};background:${progShowTempo?'var(--gold-pale)':'var(--bg)'};color:${progShowTempo?'var(--gold)':'var(--text3)'};font-family:var(--font)">Tempo${progShowTempo?' ✓':''}</button>
+      </div>
     </div>
     ${mkSection(d.warmup||[],'🔥 Échauffement','warmup')}
     ${mkSection(d.workout||[],'💪 Entraînement','workout')}
@@ -3570,12 +3591,12 @@ function seanceRenderAll(){
       // Migration ancien format
       if(!e.setsData&&(e.sets||e.reps)){const n=parseInt(e.sets)||1;e.setsData=Array.from({length:n},()=>({reps:e.reps||'',rest:e.rest||'',rir:e.rir||'',tempo:e.tempo||''}));}
       if(!e.setsData)e.setsData=[{reps:'8-12',rest:'90s',rir:'',tempo:''}];
-      const setsRows=e.setsData.map((s,si)=>`<div class="set-row">
+      const setsRows=e.setsData.map((s,si)=>`<div class="set-row" style="grid-template-columns:${setsGrid(seanceShowRIR,seanceShowTempo)}">
         <div class="set-num">${si+1}</div>
         <input class="ef-in" value="${s.reps||''}" onchange="seanceUpdSet('${sec}',${i},${si},'reps',this.value)" placeholder="8-12">
         <input class="ef-in" value="${s.rest||''}" onchange="seanceUpdSet('${sec}',${i},${si},'rest',this.value)" placeholder="90s">
-        <input class="ef-in" value="${s.rir||''}" onchange="seanceUpdSet('${sec}',${i},${si},'rir',this.value)" placeholder="2">
-        <input class="ef-in" value="${s.tempo||''}" onchange="seanceUpdSet('${sec}',${i},${si},'tempo',this.value)" placeholder="3-1-2">
+        ${seanceShowRIR?`<input class="ef-in" value="${s.rir||''}" onchange="seanceUpdSet('${sec}',${i},${si},'rir',this.value)" placeholder="2">`:''}
+        ${seanceShowTempo?`<input class="ef-in" value="${s.tempo||''}" onchange="seanceUpdSet('${sec}',${i},${si},'tempo',this.value)" placeholder="3-1-2">`:''}
       </div>`).join('');
       return`<div class="exo-block" draggable="true" ondragstart="seanceDragStart(event,'${sec}',${i})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="seanceDrop(event,'${sec}',${i})">
       <div class="exo-block-hdr">
@@ -3591,7 +3612,7 @@ function seanceRenderAll(){
         <input class="nb-sets-in" type="number" min="1" max="20" value="${e.setsData.length}" onchange="seanceChangeNbSets('${sec}',${i},parseInt(this.value)||1)">
         <button class="set-row-btn" onclick="seanceAddSet('${sec}',${i})">+ Série</button>
       </div>
-      <div class="sets-hdr"><span></span><span>Reps</span><span>Repos</span><span>RIR</span><span>Tempo</span></div>
+      <div class="sets-hdr" style="grid-template-columns:${setsGrid(seanceShowRIR,seanceShowTempo)}">${setsHdrHtml(seanceShowRIR,seanceShowTempo)}</div>
       <div class="sets-rows">${setsRows}</div>
       <div class="vid-capture-row">
         <button class="vid-cap-btn${e.vidId?' has-vid':''}" onclick="seanceCaptureVid('${sec}',${i},'camera')">📹 Filmer</button>
