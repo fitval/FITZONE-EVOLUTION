@@ -2297,7 +2297,7 @@ function _buildBilanCard(o){
   c+=`</div></div>`;
   // Status badge + actions
   c+=`<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">`;
-  if(showValidate&&!validated)c+=`<button class="btn btn-dark btn-xs" onclick="event.stopPropagation();validateBilan('${clientId}',${clientIdx!=null?clientIdx:realIdx});${clientName?'renderBilansAll()':'renderBilanTab()'}">Valider</button>`;
+  if(showValidate&&!validated)c+=`<button class="btn btn-dark btn-xs" onclick="event.stopPropagation();validateBilan('${clientId}',${clientIdx!=null?clientIdx:realIdx}).then(()=>{${clientName?'renderBilansAll()':''}})">Valider</button>`;
   if(validated)c+=`<span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(72,187,120,.12);color:#38a169">Validé</span>`;
   if(showDelete)c+=`<button style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3);padding:4px" onclick="event.stopPropagation();deleteBilanEntry('${clientId}',${realIdx})" title="Supprimer">✕</button>`;
   c+=`</div></div>`;
@@ -2335,13 +2335,22 @@ function _buildBilanCard(o){
   c+=`</div></div>`;
   return c;
 }
-function validateBilan(clientId,idx){
+async function validateBilan(clientId,idx){
   const key='bilans_'+clientId;const bl=lsGet(key,[]);
   if(!bl[idx])return;
   bl[idx].read=true;lsSave(key,bl);
-  if(currentCoach&&bl[idx]._supa_id)db.from('bilans').update({read:true}).eq('id',bl[idx]._supa_id).catch(()=>{});
-  else if(currentCoach)db.from('bilans').update({read:true}).eq('coach_id',currentCoach.id).eq('client_id',clientId).eq('date',bl[idx].date).catch(()=>{});
-  updateNotifBadge();renderBilanTab();toast('Bilan validé ✓');
+  // Update Supabase
+  if(currentCoach){
+    if(bl[idx]._supa_id){
+      await db.from('bilans').update({read:true}).eq('id',bl[idx]._supa_id).catch(()=>{});
+    } else {
+      await db.from('bilans').update({read:true}).eq('coach_id',currentCoach.id).eq('client_id',clientId).eq('date',bl[idx].date).catch(()=>{});
+    }
+  }
+  updateNotifBadge();
+  // Refresh the view that called this
+  if(curClient&&curClient.id===clientId)renderBilanTab();
+  toast('Bilan validé ✓');
 }
 function deleteBilanEntry(clientId,idx){
   const key='bilans_'+clientId;const bl=lsGet(key,[]);
