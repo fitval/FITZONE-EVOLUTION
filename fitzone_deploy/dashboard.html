@@ -1871,11 +1871,16 @@ async function saveClientPlanEdit(){
   let tk=0,tp=0,tc=0,tf=0,nj=(p.jours||[]).length;
   (p.jours||[]).forEach(j=>{(j.repas||[]).forEach(r=>(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;tk+=a.kcal*q;tp+=a.prot*q;tc+=a.carb*q;tf+=a.fat*q;}));});
   if(nj){p.kcal=Math.round(tk/nj);p.prot=Math.round(tp/nj);p.carb=Math.round(tc/nj);p.fat=Math.round(tf/nj);}
-  // Save to Supabase
+  // Save via upsert (same approach as dbSave — works with RLS)
   try{
-    const{error}=await db.from('plans_full').update({nom:p.nom,kcal:p.kcal,prot:p.prot,carb:p.carb,fat:p.fat,jours:p.jours}).eq('id',p.id);
-    if(error){toast('Erreur: '+error.message);return;}
-  }catch(e){toast('Erreur sauvegarde');return;}
+    const row={...p};
+    if(!row.coach_id&&currentCoach)row.coach_id=currentCoach.id;
+    if(row.clientId!==undefined){row.client_id=row.clientId;delete row.clientId;}
+    if(row.clientNom!==undefined){row.client_nom=row.clientNom;delete row.clientNom;}
+    if(row.createdAt!==undefined){row.created_at=row.createdAt;delete row.createdAt;}
+    const{error}=await db.from('plans_full').upsert(row,{onConflict:'id'});
+    if(error){console.error('saveClientPlanEdit error:',error);toast('Erreur: '+error.message);return;}
+  }catch(e){console.error('saveClientPlanEdit exception:',e);toast('Erreur sauvegarde');return;}
   // Sync local
   const idx=plans.findIndex(x=>x.id==p.id);
   if(idx>=0)plans[idx]={...plans[idx],...p};
