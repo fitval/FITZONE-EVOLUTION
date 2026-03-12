@@ -335,7 +335,7 @@ const db=supabase.createClient(SUPA,KEY);
 
 /* ===== STATE ===== */
 let clientData=null;
-let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[];
+let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAlims=[];
 let currentDayIdx=0,currentPlanIdx=null;
 let workoutActive=false, workoutData=[], workoutStart=null, workoutTimerInterval=null;
 let restTimerInterval=null;
@@ -364,15 +364,16 @@ function showState(s){
 }
 
 async function loadData(){
-  const[p1,p2,p3,p4,p5,p6]=await Promise.all([
+  const[p1,p2,p3,p4,p5,p6,p7]=await Promise.all([
     db.from('programs').select('*').eq('client_id',clientData.id),
     db.from('plans_full').select('*').eq('client_id',clientData.id),
     db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false}),
     db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90),
     db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30),
-    db.from('modules').select('*').eq('coach_id',clientData.coach_id)
+    db.from('modules').select('*').eq('coach_id',clientData.coach_id),
+    db.from('aliments').select('*').eq('coach_id',clientData.coach_id)
   ]);
-  programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];
+  programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];
 }
 
 /* ===== TABS ===== */
@@ -585,7 +586,9 @@ function renderExoPreview(ex,idx){
   if(restStr)chips+=`<span class="exo-chip">Rest: ${restStr}</span>`;
   if(rirStr!=='')chips+=`<span class="exo-chip">RIR: ${rirStr}</span>`;
 
-  return`<div class="exo-preview fade-up">${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div class="exo-letter">${letter}</div></div>`;
+  const repls=ex.replacements||[];
+  const swapBtn=repls.length?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer">⇄</button>`:'';
+  return`<div class="exo-preview fade-up" data-repls='${JSON.stringify(repls).replace(/'/g,"&#39;")}'>${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px">${swapBtn}<div class="exo-letter">${letter}</div></div></div>`;
 }
 
 /* ===== ACTIVE WORKOUT ===== */
@@ -852,16 +855,131 @@ function renderPlanDetail(){
   const day=jours[currentDayIdx];
   const dayM=calcDayMacros(day);
   h+=`<div style="display:flex;gap:12px;padding:12px 0;font-size:12px;color:var(--text2);font-weight:600"><span style="color:var(--gold)">${Math.round(dayM.kcal)} kcal</span><span>P ${Math.round(dayM.prot)}g</span><span>G ${Math.round(dayM.carb)}g</span><span>L ${Math.round(dayM.fat)}g</span></div>`;
-  (day.repas||[]).forEach(meal=>{
+  (day.repas||[]).forEach((meal,ri)=>{
     const items=mealItems(meal);
     let mk=0,mp=0,mc=0,mf=0;
     items.forEach(it=>{const q=(it.qte||100)/100;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;});
     h+=`<div class="meal-card"><div class="meal-name">${meal.nom||'Repas'}<span class="meal-macros">${Math.round(mk)} kcal · P${Math.round(mp)} G${Math.round(mc)} L${Math.round(mf)}</span></div>`;
     if(!items.length) h+=`<div style="font-size:13px;color:var(--text3);padding:8px 0">Aucun aliment ajouté</div>`;
-    items.forEach(it=>{const q=(it.qte||100)/100;h+=`<div class="food-row"><div class="food-name">${it.nom||'Aliment'}</div><div class="food-qty">${it.qte||100}g</div><div class="food-macros">${Math.round((it.kcal||0)*q)}kcal · P${Math.round((it.prot||0)*q)} G${Math.round((it.carb||0)*q)} L${Math.round((it.fat||0)*q)}</div></div>`;});
+    items.forEach((it,ai)=>{const q=(it.qte||100)/100;h+=`<div class="food-row"><div class="food-name">${it.nom||'Aliment'}</div><button onclick="showFoodSwap(${currentPlanIdx},${currentDayIdx},${ri},${ai})" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:5px;padding:2px 6px;font-size:9px;font-weight:700;color:#8a6010;cursor:pointer;margin-right:6px;flex-shrink:0">⇄</button><div class="food-qty">${it.qte||100}g</div><div class="food-macros">${Math.round((it.kcal||0)*q)}kcal · P${Math.round((it.prot||0)*q)} G${Math.round((it.carb||0)*q)} L${Math.round((it.fat||0)*q)}</div></div>`;});
     h+=`</div>`;
   });
   document.getElementById('nutriContent').innerHTML=h;
+}
+
+/* ===== EXERCISE PREVIEW SWAP ===== */
+function togglePreviewSwap(btn){
+  const card=btn.closest('.exo-preview');
+  const repls=JSON.parse(card.dataset.repls||'[]');
+  if(!repls.length)return;
+  // Toggle existing menu
+  const existing=card.querySelector('.swap-menu');
+  if(existing){existing.remove();return;}
+  // Close other menus
+  document.querySelectorAll('.exo-preview .swap-menu').forEach(m=>m.remove());
+  const menu=document.createElement('div');
+  menu.className='swap-menu';
+  menu.style.cssText='margin-top:8px';
+  repls.forEach(r=>{
+    const name=r.nom||r;
+    const div=document.createElement('div');
+    div.className='swap-item';
+    div.innerHTML=`<span style="color:var(--gold)">↔</span> ${name}`;
+    div.onclick=()=>{
+      // Swap in program data
+      const p=programs[0],day=(p.jours||[])[currentDayIdx];
+      if(!day)return;
+      let found=false;
+      ['warmup','workout','cooldown'].forEach(sec=>{
+        (day[sec]||[]).forEach(ex=>{
+          if(found)return;
+          if(ex.superset&&ex.exercises){
+            ex.exercises.forEach(sub=>{if(!found&&sub.nom===card.querySelector('.exo-info-name').textContent){sub.nom=r.nom||name;sub.video=r.video||'';sub.replacements=r.replacements||repls;found=true;}});
+          } else {
+            if(ex.nom&&ex.nom.toUpperCase()===card.querySelector('.exo-info-name').textContent){ex.nom=r.nom||name;ex.video=r.video||'';ex.replacements=r.replacements||repls;found=true;}
+          }
+        });
+      });
+      renderTrainPreview();
+      toast(name+' sélectionné');
+    };
+    menu.appendChild(div);
+  });
+  card.appendChild(menu);
+}
+
+/* ===== FOOD SWAP (EQUIVALENCES) ===== */
+function showFoodSwap(planIdx,dayIdx,ri,ai){
+  const p=plans[planIdx],day=(p.jours||[])[dayIdx];
+  if(!day)return;
+  const meal=day.repas[ri];
+  const items=mealItems(meal);
+  const alim=items[ai];
+  if(!alim)return;
+  const src=alim.source||'';
+  const origKcalPer100=alim.kcal||0;
+  const origQte=alim.qte||100;
+  const origKcalTotal=origKcalPer100*origQte/100;
+  // Find alternatives: same source macro from coach DB, excluding current
+  let alternatives=coachAlims.filter(a=>(a.source||'')==src&&a.nom!==alim.nom);
+  // If no source match, show all aliments
+  if(!alternatives.length)alternatives=coachAlims.filter(a=>a.nom!==alim.nom);
+  alternatives=alternatives.slice(0,30);
+  // Build popup
+  const existing=document.getElementById('foodSwapPopup');
+  if(existing)existing.remove();
+  const pop=document.createElement('div');
+  pop.id='foodSwapPopup';
+  pop.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+  let inner=`<div style="background:#fff;border-radius:14px;width:100%;max-width:380px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden" onclick="event.stopPropagation()">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:14px;font-weight:800">Remplacer ${alim.nom}</div>
+        <span style="cursor:pointer;font-size:20px" onclick="document.getElementById('foodSwapPopup').remove()">✕</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3)">Quantité actuelle: ${origQte}g · ${Math.round(origKcalTotal)} kcal${src?' · Source: '+src:''}</div>
+      <input type="text" placeholder="Rechercher un aliment…" oninput="filterFoodSwap(this.value,${planIdx},${dayIdx},${ri},${ai})" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-top:8px;box-sizing:border-box">
+    </div>
+    <div id="foodSwapList" style="overflow-y:auto;flex:1;padding:4px 8px">`;
+  alternatives.forEach(a=>{
+    const newQte=a.kcal>0?Math.round(origKcalTotal/a.kcal*100):100;
+    inner+=`<div onclick="doFoodSwap(${planIdx},${dayIdx},${ri},${ai},'${a.nom.replace(/'/g,"\\'")}',${a.kcal},${a.prot},${a.carb},${a.fat},'${a.source||''}',${newQte})" style="padding:10px;cursor:pointer;border-radius:8px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bg)" ontouchstart="this.style.background='var(--bg)'" ontouchend="this.style.background=''">
+      <div><div style="font-size:13px;font-weight:600">${a.nom}</div><div style="font-size:10px;color:var(--text3)">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div>
+      <div style="text-align:right"><div style="font-size:14px;font-weight:800;color:var(--gold)">${newQte}g</div><div style="font-size:10px;color:var(--text3)">${Math.round(a.kcal*newQte/100)} kcal</div></div>
+    </div>`;
+  });
+  if(!alternatives.length)inner+=`<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">Aucun aliment alternatif disponible</div>`;
+  inner+=`</div></div>`;
+  pop.innerHTML=inner;
+  pop.onclick=()=>pop.remove();
+  document.body.appendChild(pop);
+}
+function filterFoodSwap(q,planIdx,dayIdx,ri,ai){
+  const list=document.getElementById('foodSwapList');if(!list)return;
+  const p=plans[planIdx],day=(p.jours||[])[dayIdx],meal=day.repas[ri],items=mealItems(meal),alim=items[ai];
+  const src=alim.source||'';
+  const origKcalTotal=(alim.kcal||0)*(alim.qte||100)/100;
+  const low=q.toLowerCase();
+  let filtered=coachAlims.filter(a=>a.nom!==alim.nom&&(!q||a.nom.toLowerCase().includes(low)));
+  // Prioritize same source
+  filtered.sort((a,b)=>{const aMatch=(a.source||'')==src?0:1;const bMatch=(b.source||'')==src?0:1;return aMatch-bMatch;});
+  filtered=filtered.slice(0,30);
+  list.innerHTML=filtered.map(a=>{
+    const newQte=a.kcal>0?Math.round(origKcalTotal/a.kcal*100):100;
+    return`<div onclick="doFoodSwap(${planIdx},${dayIdx},${ri},${ai},'${a.nom.replace(/'/g,"\\'")}',${a.kcal},${a.prot},${a.carb},${a.fat},'${a.source||''}',${newQte})" style="padding:10px;cursor:pointer;border-radius:8px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bg)" ontouchstart="this.style.background='var(--bg)'" ontouchend="this.style.background=''">
+      <div><div style="font-size:13px;font-weight:600">${a.nom}${(a.source||'')==src?'<span style="font-size:9px;color:var(--gold);margin-left:4px">même source</span>':''}</div><div style="font-size:10px;color:var(--text3)">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div>
+      <div style="text-align:right"><div style="font-size:14px;font-weight:800;color:var(--gold)">${newQte}g</div><div style="font-size:10px;color:var(--text3)">${Math.round(a.kcal*newQte/100)} kcal</div></div>
+    </div>`;
+  }).join('')||(q?'<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">Aucun résultat</div>':'');
+}
+function doFoodSwap(planIdx,dayIdx,ri,ai,nom,kcal,prot,carb,fat,source,newQte){
+  const p=plans[planIdx],day=(p.jours||[])[dayIdx],meal=day.repas[ri];
+  const items=meal.items||meal.alims;
+  if(!items||!items[ai])return;
+  items[ai]={nom,kcal,prot,carb,fat,source,qte:newQte};
+  const pop=document.getElementById('foodSwapPopup');if(pop)pop.remove();
+  renderPlanDetail();
+  toast(nom+' — '+newQte+'g');
 }
 
 /* ===== BILAN ===== */
