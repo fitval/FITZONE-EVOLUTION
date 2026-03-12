@@ -288,16 +288,13 @@ textarea.form-input { min-height:100px; resize:vertical; }
 
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchTab('Home')" id="btnHome">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/></svg><span>Accueil</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Accueil</span>
     </button>
     <button class="tab-btn" onclick="switchTab('Train')" id="btnTrain">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 12h2m16 0h2M6 8v8M18 8v8M6 12h12M9 6v12M15 6v12"/></svg><span>Entraînement</span>
     </button>
     <button class="tab-btn" onclick="switchTab('Nutri')" id="btnNutri">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2c-2.4 0-4.8 1-6.4 2.6C6.2 7 5.8 10.8 7.6 13.6l-4.3 4.3c-.8.8-.8 2 0 2.8l.2.2c.8.8 2 .8 2.8 0l4.3-4.3C13.4 18.4 17 18 19.4 15.6 22.6 12.4 22.6 7.2 19.4 4 18.2 2.8 16.6 2 15 2z"/><circle cx="15.5" cy="8.5" r="1.5"/></svg><span>Nutrition</span>
-    </button>
-    <button class="tab-btn" onclick="switchTab('Bilan')" id="btnBilan">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h6M7 16h8"/></svg><span>Bilan</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg><span>Nutrition</span>
     </button>
     <button class="tab-btn" onclick="switchTab('Learn')" id="btnLearn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Apprentissage</span>
@@ -382,12 +379,12 @@ function switchTab(name){
   document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab'+name).classList.add('active');
-  document.getElementById('btn'+name).classList.add('active');
+  const btn=document.getElementById('btn'+name);if(btn)btn.classList.add('active');
   document.getElementById('scrollArea').scrollTop=0;
   if(name==='Home')renderHome();
   else if(name==='Train')renderTrainPreview();
   else if(name==='Nutri')renderNutriList();
-  else if(name==='Bilan')renderBilanList();
+  else if(name==='Bilan'){renderBilanList();document.getElementById('btnHome').classList.add('active');}
   else if(name==='Suivi')renderSuivi();
   else if(name==='Learn')renderLearn();
 }
@@ -475,9 +472,25 @@ function renderHome(){
     </div>
   </div>`;
 
-  // Weight + Bilan
-  const wd=getWeightData(),bc=getBilanCountdown();
-  html+=`<div class="grid-2 fade-up" style="animation-delay:.1s">
+  // Bilan hebdomadaire bubble
+  const bc=getBilanCountdown();
+  const bilanActive=bc.isBilanDay&&!bc.bilanDoneThisWeek;
+  const bilanDone=bc.bilanDoneThisWeek;
+  html+=`<div class="card${bilanActive?' bilan-bubble-active':''} fade-up" onclick="${bilanActive?'switchTab(\\'Bilan\\')':'void(0)'}" style="animation-delay:.08s;margin-bottom:14px;cursor:${bilanActive?'pointer':'default'};${bilanActive?'border:2px solid var(--gold);background:linear-gradient(135deg,rgba(196,154,42,.08),rgba(232,184,74,.05))':bilanDone?'opacity:.5':'opacity:.6'}">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;${bilanActive?'background:var(--gold);color:white':'background:var(--bg2);color:var(--text3)'}">
+        ${bilanDone?'✓':'📋'}
+      </div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:700;${bilanActive?'color:var(--gold)':'color:var(--text2)'}">${bilanDone?'Bilan envoyé cette semaine':bilanActive?'Bilan hebdomadaire':'Bilan hebdomadaire'}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">${bilanDone?'Prochain : '+bc.label:bilanActive?'C\'est le jour ! Remplis ton bilan →':'Dans '+bc.days+' jour'+(bc.days>1?'s':'')+' · '+bc.label}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Weight
+  const wd=getWeightData();
+  html+=`<div class="grid-2 fade-up" style="animation-delay:.12s">
     <div class="card"><div class="card-label">POIDS / SEM.</div><div class="weight-val">${wd.current}<span>kg</span></div><div class="weight-delta ${wd.delta<0?'down':'up'}">${wd.delta<0?'↓':'↑'} ${Math.abs(wd.delta).toFixed(1)} kg</div><div class="weight-chart">${renderMiniChart(wd.points)}</div></div>
     <div class="card-dark"><div class="card-label">PROCHAIN BILAN</div><div class="bilan-val">${bc.days}<span>jours</span></div><div class="bilan-sub">${bc.label}</div></div>
   </div>`;
@@ -515,20 +528,22 @@ function renderMiniChart(pts){
 function getBilanCountdown(){
   const bilanDay=clientData.bilan_day!=null?parseInt(clientData.bilan_day):5; // 0=dim..6=sam, défaut vendredi
   const now=new Date();
+  const isBilanDay=now.getDay()===bilanDay;
   const nd=new Date(now);
   // Calculer le prochain jour de bilan
   let diff=(bilanDay+7-now.getDay())%7;
   if(diff===0)diff=7; // si c'est aujourd'hui, prochain = dans 7j
   nd.setDate(now.getDate()+diff);
   // Si dernier bilan fait il y a moins de 7j sur le bon jour, pousser à +7
+  let bilanDoneThisWeek=false;
   if(bilans[0]&&bilans[0].date){
     const last=new Date(bilans[0].date);
     const daysSince=Math.floor((now-last)/(864e5));
-    if(daysSince<7){nd.setDate(last.getDate()+7);while(nd<=now)nd.setDate(nd.getDate()+7);}
+    if(daysSince<7){nd.setDate(last.getDate()+7);while(nd<=now)nd.setDate(nd.getDate()+7);bilanDoneThisWeek=true;}
   }
   const daysLeft=Math.max(0,Math.ceil((nd-now)/(864e5)));
   const l=nd.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  return{days:daysLeft,label:l.charAt(0).toUpperCase()+l.slice(1)};
+  return{days:daysLeft,label:l.charAt(0).toUpperCase()+l.slice(1),isBilanDay,bilanDoneThisWeek};
 }
 function getStepsData(){
   const t=new Date(),labels=['J-3','J-2','J-1','Auj.'],bars=[];let ts=0,mx=1;
@@ -849,20 +864,60 @@ function renderPlanDetail(){
     avgK/=jours.length;avgP/=jours.length;avgC/=jours.length;avgF/=jours.length;
   } else { avgK=p.kcal||0;avgP=p.prot||0;avgC=p.carb||0;avgF=p.fat||0; }
 
-  h+=`<div class="card" style="margin-bottom:16px"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">MOYENNE JOURNALIÈRE</div><div class="plan-macros"><div class="plan-macro kcal"><div class="plan-macro-val">${Math.round(avgK)}</div><div class="plan-macro-label">Kcal</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(avgP)}g</div><div class="plan-macro-label">Prot</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(avgC)}g</div><div class="plan-macro-label">Gluc</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(avgF)}g</div><div class="plan-macro-label">Lip</div></div></div></div>`;
+  // Macro summary card
+  const totalK=Math.round(avgK),pPct=totalK?Math.round(avgP*4/totalK*100):0,cPct=totalK?Math.round(avgC*4/totalK*100):0,fPct=totalK?Math.round(avgF*9/totalK*100):0;
+  h+=`<div class="card" style="margin-bottom:16px;padding:20px">
+    <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">MOYENNE JOURNALIÈRE</div>
+    <div style="text-align:center;margin-bottom:14px"><span style="font-size:32px;font-weight:900;color:var(--gold)">${totalK}</span><span style="font-size:14px;color:var(--text3);margin-left:4px">kcal</span></div>
+    <div style="display:flex;gap:3px;height:8px;border-radius:4px;overflow:hidden;margin-bottom:14px">
+      <div style="flex:${pPct};background:#4a90d9;border-radius:4px 0 0 4px"></div>
+      <div style="flex:${cPct};background:var(--gold)"></div>
+      <div style="flex:${fPct};background:#e07c5a;border-radius:0 4px 4px 0"></div>
+    </div>
+    <div style="display:flex;justify-content:space-around">
+      <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#4a90d9">${Math.round(avgP)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Protéines</div></div>
+      <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(avgC)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Glucides</div></div>
+      <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#e07c5a">${Math.round(avgF)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Lipides</div></div>
+    </div>
+  </div>`;
   if(p.type==='macros'||!jours.length){if(p.notes)h+=`<div class="card"><div style="font-size:14px;color:var(--text2);line-height:1.5">${p.notes}</div></div>`;document.getElementById('nutriContent').innerHTML=h;return;}
-  h+=`<div class="day-tabs">${jours.map((j,i)=>`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderPlanDetail()">${j.nom||'Jour '+(i+1)}</button>`).join('')}</div>`;
+  h+=`<div class="day-tabs">${jours.map((j,i)=>`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderPlanDetail()">${j.nom||'J'+(i+1)}</button>`).join('')}</div>`;
   const day=jours[currentDayIdx];
   const dayM=calcDayMacros(day);
-  h+=`<div style="display:flex;gap:12px;padding:12px 0;font-size:12px;color:var(--text2);font-weight:600"><span style="color:var(--gold)">${Math.round(dayM.kcal)} kcal</span><span>P ${Math.round(dayM.prot)}g</span><span>G ${Math.round(dayM.carb)}g</span><span>L ${Math.round(dayM.fat)}g</span></div>`;
+  // Day summary bar
+  h+=`<div style="display:flex;align-items:center;gap:8px;padding:14px 0;flex-wrap:wrap">
+    <div style="background:var(--gold);color:white;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700">${Math.round(dayM.kcal)} kcal</div>
+    <div style="background:rgba(74,144,217,.12);color:#4a90d9;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">P ${Math.round(dayM.prot)}g</div>
+    <div style="background:rgba(196,154,42,.12);color:#a07820;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">G ${Math.round(dayM.carb)}g</div>
+    <div style="background:rgba(224,124,90,.12);color:#c05a30;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">L ${Math.round(dayM.fat)}g</div>
+  </div>`;
+  // Meals
+  const mealIcons={'Petit-déjeuner':'🌅','Déjeuner':'🍽️','Dîner':'🌙','Goûter':'🍎','Collation':'🥤','Collation AM':'🥤','Collation PM':'🥤'};
   (day.repas||[]).forEach((meal,ri)=>{
     const items=mealItems(meal);
     let mk=0,mp=0,mc=0,mf=0;
     items.forEach(it=>{const q=(it.qte||100)/100;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;});
-    h+=`<div class="meal-card"><div class="meal-name">${meal.nom||'Repas'}<span class="meal-macros">${Math.round(mk)} kcal · P${Math.round(mp)} G${Math.round(mc)} L${Math.round(mf)}</span></div>`;
-    if(!items.length) h+=`<div style="font-size:13px;color:var(--text3);padding:8px 0">Aucun aliment ajouté</div>`;
-    items.forEach((it,ai)=>{const q=(it.qte||100)/100;h+=`<div class="food-row"><div class="food-name">${it.nom||'Aliment'}</div><button onclick="showFoodSwap(${currentPlanIdx},${currentDayIdx},${ri},${ai})" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:5px;padding:2px 6px;font-size:9px;font-weight:700;color:#8a6010;cursor:pointer;margin-right:6px;flex-shrink:0">⇄</button><div class="food-qty">${it.qte||100}g</div><div class="food-macros">${Math.round((it.kcal||0)*q)}kcal · P${Math.round((it.prot||0)*q)} G${Math.round((it.carb||0)*q)} L${Math.round((it.fat||0)*q)}</div></div>`;});
-    h+=`</div>`;
+    const icon=mealIcons[meal.nom]||'🍴';
+    h+=`<div class="meal-card" style="padding:0;overflow:hidden;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(135deg,rgba(196,154,42,.06),rgba(196,154,42,.02))">
+        <span style="font-size:20px">${icon}</span>
+        <div style="flex:1"><div style="font-size:15px;font-weight:700">${meal.nom||'Repas'}</div></div>
+        <div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--gold)">${Math.round(mk)} kcal</div><div style="font-size:10px;color:var(--text3);margin-top:1px">P${Math.round(mp)} · G${Math.round(mc)} · L${Math.round(mf)}</div></div>
+      </div>
+      <div style="padding:6px 16px 10px">`;
+    if(meal.instructions){h+=`<div style="font-size:12px;color:var(--text2);line-height:1.5;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:6px;white-space:pre-line">${meal.instructions}</div>`;}
+    if(!items.length) h+=`<div style="font-size:13px;color:var(--text3);padding:10px 0">Aucun aliment</div>`;
+    items.forEach((it,ai)=>{
+      const q=(it.qte||100)/100;
+      const srcColor=it.source==='proteines'?'#4a90d9':it.source==='glucides'?'#c49a2a':'#e07c5a';
+      const srcDot=it.source?`<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${srcColor};margin-right:6px;flex-shrink:0"></span>`:'';
+      h+=`<div style="display:flex;align-items:center;padding:10px 0;${ai<items.length-1?'border-bottom:1px solid var(--border)':''}">
+        ${srcDot}<div style="flex:1;font-size:14px;font-weight:500">${it.nom||'Aliment'}</div>
+        <button onclick="showFoodSwap(${currentPlanIdx},${currentDayIdx},${ri},${ai})" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer;margin:0 8px;flex-shrink:0">⇄</button>
+        <div style="text-align:right;flex-shrink:0"><div style="font-size:13px;font-weight:700">${it.qte||100}g</div><div style="font-size:10px;color:var(--text3)">${Math.round((it.kcal||0)*q)} kcal</div></div>
+      </div>`;
+    });
+    h+=`</div></div>`;
   });
   document.getElementById('nutriContent').innerHTML=h;
 }
