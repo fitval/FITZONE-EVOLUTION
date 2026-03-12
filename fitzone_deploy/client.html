@@ -1060,10 +1060,20 @@ function renderBilanList(){
   else bilans.forEach((b,i)=>{
     const ph=b.photos||[];
     const rep=b.reponses||{};
+    const validated=!!b.read;
     h+=`<div class="bilan-entry fade-up" style="animation-delay:${i*.05}s">`;
-    h+=`<div class="bilan-entry-date">${fmtDate(b.date)}</div>`;
-    if(rep.attitude)h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:13px;font-weight:600;color:var(--text2)">Attitude</span><span style="font-size:20px;font-weight:800;color:var(--gold)">${rep.attitude}/10</span></div>`;
+    // Header: date + status badge
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">`;
+    h+=`<div class="bilan-entry-date" style="margin-bottom:0">${fmtDate(b.date)}</div>`;
+    h+=validated
+      ?`<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(72,187,120,.15);color:#38a169">Validé par le coach</div>`
+      :`<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(196,154,42,.12);color:var(--gold)">En attente de validation</div>`;
+    h+=`</div>`;
+    // Attitude score
+    if(rep.attitude)h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:13px;font-weight:600;color:var(--text2)">Attitude</span><span style="font-size:20px;font-weight:800;color:var(--gold)">${rep.attitude}/10</span></div>`;
+    // Photos
     if(ph.length)h+=`<div class="bilan-photos">${ph.map(p=>`<img class="bilan-photo" src="${p}" onclick="openModal('<img src=\\'${p}\\' style=\\'max-width:100%;max-height:80vh\\'/>')">`).join('')}</div>`;
+    // Questions & answers
     h+=renderReponses(rep);
     // Mensurations
     const mens=[];

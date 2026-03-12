@@ -2254,20 +2254,85 @@ function renderBilanTab(){
     }).catch(()=>{_renderBilanContent(el);});
   } else {_renderBilanContent(el);}
 }
+const dashBilanQuestions=[
+  {id:'q2',label:'Pourquoi cette note ?',section:'ATTITUDE',icon:'fa-brain'},
+  {id:'q3',label:'3 plus grosses victoires',section:'VICTOIRES',icon:'fa-trophy'},
+  {id:'q4',label:'Performances d\'entraînement',section:'PERFORMANCES',icon:'fa-dumbbell'},
+  {id:'q5',label:'Bien-être / événements',section:'BIEN-ÊTRE',icon:'fa-heart'},
+  {id:'q6',label:'Amélioration pour la semaine prochaine',section:'CONSTRUIRE',icon:'fa-hammer'},
+  {id:'q7',label:'Soutien / environnement',section:'SOUTIEN',icon:'fa-users'},
+  {id:'q8',label:'Résumé / questions',section:'RÉSUMÉ',icon:'fa-comment-dots'},
+  {id:'q9',label:'Semaine prochaine',section:'SEMAINE PROCHAINE',icon:'fa-calendar-alt'},
+  {id:'q10',label:'Coaching / modifications',section:'COACHING',icon:'fa-clipboard-check'}
+];
 function _renderBilanContent(el){
   if(!el||!curClient)return;
   const bilans=lsGet('bilans_'+curClient.id,[]);
-  if(!bilans.length){el.innerHTML=`<div class="empty"><div class="ei">📝</div><div class="et">Aucun bilan</div><div class="es">Les bilans apparaîtront ici quand le client les soumettra</div></div><button class="btn btn-dark btn-sm" style="margin-top:12px" onclick="addBilan()">+ Ajouter un bilan manuellement</button>`;return;}
-  el.innerHTML=`<button class="btn btn-dark btn-sm" style="margin-bottom:12px" onclick="addBilan()">+ Ajouter un bilan</button>`+
-    bilans.slice().reverse().map((b,bi)=>`<div class="plan-card"><div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
-      <div style="width:36px;height:36px;border-radius:10px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">📝</div>
-      <div style="flex:1"><div style="font-size:14px;font-weight:700">${b.titre||'Bilan du '+new Date(b.date).toLocaleDateString('fr-FR')}</div><div style="font-size:11px;color:var(--text3)">${new Date(b.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}${b.poids?' · '+b.poids+' kg':''}</div></div>
-      <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();let bl=lsGet('bilans_'+curClient.id,[]);const removed=bl.splice(bl.length-1-${bi},1)[0];lsSave('bilans_'+curClient.id,bl);if(removed&&removed._supa_id&&currentCoach)db.from('bilans').delete().eq('id',removed._supa_id).catch(()=>{});renderBilanTab();toast('Supprimé')">✕</button>
-    </div><div class="plan-body">
-      ${b.contenu?`<div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-line">${b.contenu}</div>`:''}
-      ${(b.photos||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${b.photos.map(p=>`<img src="${p}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;cursor:pointer" onclick="window.open('${p}','_blank')">`).join('')}</div>`:''}
-      ${b.reponses?`<div style="margin-top:8px">${Object.entries(b.reponses).map(([k,v])=>`<div style="font-size:12px;margin-bottom:4px"><strong style="color:var(--dark)">${k}:</strong> <span style="color:var(--text2)">${v}</span></div>`).join('')}</div>`:''}
-    </div></div>`).join('');
+  if(!bilans.length){el.innerHTML=`<div class="empty"><div class="ei">📝</div><div class="et">Aucun bilan</div><div class="es">Les bilans apparaîtront ici quand le client les soumettra</div></div>`;return;}
+  el.innerHTML=bilans.slice().reverse().map((b,bi)=>{
+    const rep=b.reponses||{};
+    const ph=b.photos||[];
+    const validated=!!b.read;
+    const realIdx=bilans.length-1-bi;
+    let card=`<div class="card" style="margin-bottom:16px;${!validated?'border-left:3px solid var(--gold)':'border-left:3px solid #38a169'}">`;
+    // Header
+    card+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">`;
+    card+=`<div><div style="font-size:15px;font-weight:700">${b.titre||'Bilan du '+new Date(b.date).toLocaleDateString('fr-FR')}</div><div style="font-size:11px;color:var(--text3)">${new Date(b.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div></div>`;
+    card+=`<div style="display:flex;align-items:center;gap:8px">`;
+    card+=validated
+      ?`<span style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(72,187,120,.15);color:#38a169">Validé</span>`
+      :`<button class="btn btn-dark btn-xs" onclick="event.stopPropagation();validateBilan('${curClient.id}',${realIdx})">Valider le bilan</button>`;
+    card+=`<button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteBilanEntry('${curClient.id}',${realIdx})">✕</button>`;
+    card+=`</div></div>`;
+    // Attitude score
+    if(rep.attitude){
+      card+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--gold-pale,rgba(196,154,42,.08));border-radius:10px">`;
+      card+=`<span style="font-size:13px;font-weight:600;color:var(--text2)">Attitude</span>`;
+      card+=`<div style="display:flex;gap:4px">`;
+      for(let i=1;i<=10;i++)card+=`<div style="width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;${i<=rep.attitude?'background:var(--gold);color:white':'background:var(--bg);color:var(--text3)'}">${i}</div>`;
+      card+=`</div><span style="font-size:18px;font-weight:800;color:var(--gold);margin-left:auto">${rep.attitude}/10</span></div>`;
+    }
+    // Photos
+    if(ph.length){
+      card+=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${ph.map(p=>`<img src="${p}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;cursor:pointer" onclick="window.open('${p}','_blank')">`).join('')}</div>`;
+    }
+    // Questions & answers
+    dashBilanQuestions.forEach(q=>{
+      const val=rep[q.id];
+      card+=`<div style="margin-bottom:10px;padding:8px 0;border-top:1px solid var(--border)">`;
+      card+=`<div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:flex;align-items:center;gap:6px"><i class="fas ${q.icon}" style="font-size:12px"></i>${q.section}</div>`;
+      card+=`<div style="font-size:12px;color:var(--text3);margin-bottom:4px">${q.label}</div>`;
+      card+=val
+        ?`<div style="font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap">${val}</div>`
+        :`<div style="font-size:12px;color:var(--text3);font-style:italic">Non renseigné</div>`;
+      card+=`</div>`;
+    });
+    // Mensurations
+    const mens=[];
+    if(rep.biceps)mens.push('Biceps: '+rep.biceps+' cm');
+    if(rep.nombril)mens.push('Nombril: '+rep.nombril+' cm');
+    if(rep.poitrine)mens.push('Poitrine: '+rep.poitrine+' cm');
+    if(mens.length){
+      card+=`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px"><i class="fas fa-ruler" style="font-size:12px;margin-right:4px"></i>MENSURATIONS</div>`;
+      card+=`<div style="display:flex;flex-wrap:wrap;gap:8px">${mens.map(m=>`<div style="font-size:12px;background:var(--bg);color:var(--text2);padding:4px 10px;border-radius:20px;font-weight:600">${m}</div>`).join('')}</div></div>`;
+    }
+    card+=`</div>`;
+    return card;
+  }).join('');
+}
+function validateBilan(clientId,idx){
+  const key='bilans_'+clientId;const bl=lsGet(key,[]);
+  if(!bl[idx])return;
+  bl[idx].read=true;lsSave(key,bl);
+  if(currentCoach&&bl[idx]._supa_id)db.from('bilans').update({read:true}).eq('id',bl[idx]._supa_id).catch(()=>{});
+  else if(currentCoach)db.from('bilans').update({read:true}).eq('coach_id',currentCoach.id).eq('client_id',clientId).eq('date',bl[idx].date).catch(()=>{});
+  updateNotifBadge();renderBilanTab();toast('Bilan validé ✓');
+}
+function deleteBilanEntry(clientId,idx){
+  const key='bilans_'+clientId;const bl=lsGet(key,[]);
+  const removed=bl.splice(idx,1)[0];lsSave(key,bl);
+  if(removed&&removed._supa_id&&currentCoach)db.from('bilans').delete().eq('id',removed._supa_id).catch(()=>{});
+  renderBilanTab();toast('Supprimé');
 }
 function addBilan(){
   let m=document.getElementById('mAddBilan');
@@ -2318,26 +2383,72 @@ function updateNotifBadge(){
 
 function renderBilansAll(){
   const wrap=document.getElementById('bilansAllWrap');if(!wrap)return;
+  // Load all bilans from Supabase
+  if(currentCoach){
+    db.from('bilans').select('*').eq('coach_id',currentCoach.id).order('date',{ascending:false}).then(({data})=>{
+      if(data){
+        // Sync to localStorage per client
+        const byClient={};
+        data.forEach(d=>{if(!byClient[d.client_id])byClient[d.client_id]=[];byClient[d.client_id].push({titre:d.titre,date:d.date,poids:d.poids,contenu:d.contenu||'',photos:d.photos||[],reponses:d.reponses||null,read:!!d.read,_supa_id:d.id});});
+        Object.entries(byClient).forEach(([cid,bl])=>lsSave('bilans_'+cid,bl));
+      }
+      _renderBilansAllContent(wrap);
+    }).catch(()=>_renderBilansAllContent(wrap));
+  } else _renderBilansAllContent(wrap);
+}
+function _renderBilansAllContent(wrap){
   let allBilans=[];
   allClients.forEach(c=>{
     const bl=lsGet('bilans_'+c.id,[]);
-    bl.forEach(b=>{allBilans.push({...b,clientId:c.id,clientName:(c.first_name||'')+' '+(c.last_name||''),clientColor:c.avatar_color||'#c49a2a'});});
+    bl.forEach((b,idx)=>{allBilans.push({...b,clientId:c.id,clientIdx:idx,clientName:(c.first_name||'')+' '+(c.last_name||''),clientColor:c.avatar_color||'#c49a2a'});});
   });
   allBilans.sort((a,b)=>new Date(b.date)-new Date(a.date));
   if(!allBilans.length){wrap.innerHTML=`<div class="empty"><div class="ei">📋</div><div class="et">Aucun bilan soumis</div><div class="es">Les bilans apparaîtront ici quand vos clients en soumettront.</div></div>`;return;}
   wrap.innerHTML=allBilans.map((b,i)=>{
     const ini=b.clientName.split(' ').map(w=>(w[0]||'')).join('').toUpperCase().slice(0,2);
-    const dt=new Date(b.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
-    const unread=!b.read?'border-left:3px solid var(--gold);':'';
-    return`<div class="card cp" style="margin-bottom:10px;${unread}" onclick="markBilanRead('${b.clientId}','${b.date}',this)">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <div class="c-av" style="background:${b.clientColor};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--dark);flex-shrink:0">${ini}</div>
-        <div><div style="font-weight:700;font-size:13px">${b.clientName}</div><div style="font-size:11px;color:var(--text3)">${dt} — ${b.titre||'Bilan'}</div></div>
-        ${!b.read?'<span style="margin-left:auto;background:var(--gold);color:var(--dark);font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px">Nouveau</span>':''}
-      </div>
-      ${b.contenu?`<div style="font-size:12px;color:var(--text2);line-height:1.5;white-space:pre-wrap;max-height:80px;overflow:hidden">${b.contenu}</div>`:''}
-      ${b.photos&&b.photos.length?`<div style="display:flex;gap:6px;margin-top:8px;overflow-x:auto">${b.photos.slice(0,4).map(p=>`<img src="${p}" style="width:50px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">`).join('')}${b.photos.length>4?`<div style="width:50px;height:50px;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text3)">+${b.photos.length-4}</div>`:''}</div>`:''}
-    </div>`;
+    const dt=new Date(b.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    const rep=b.reponses||{};
+    const ph=b.photos||[];
+    const validated=!!b.read;
+    let card=`<div class="card" style="margin-bottom:14px;${!validated?'border-left:3px solid var(--gold)':'border-left:3px solid #38a169'}">`;
+    // Header with client avatar
+    card+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">`;
+    card+=`<div style="background:${b.clientColor};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--dark);flex-shrink:0">${ini}</div>`;
+    card+=`<div style="flex:1"><div style="font-weight:700;font-size:14px">${b.clientName}</div><div style="font-size:11px;color:var(--text3)">${dt}</div></div>`;
+    card+=validated
+      ?`<span style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(72,187,120,.15);color:#38a169">Validé</span>`
+      :`<button class="btn btn-dark btn-xs" onclick="event.stopPropagation();validateBilan('${b.clientId}',${b.clientIdx});renderBilansAll()">Valider</button>`;
+    card+=`</div>`;
+    // Attitude
+    if(rep.attitude){
+      card+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:8px 12px;background:var(--gold-pale,rgba(196,154,42,.08));border-radius:8px">`;
+      card+=`<span style="font-size:12px;font-weight:600;color:var(--text2)">Attitude</span>`;
+      card+=`<div style="display:flex;gap:3px">`;
+      for(let j=1;j<=10;j++)card+=`<div style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;${j<=rep.attitude?'background:var(--gold);color:white':'background:var(--bg);color:var(--text3)'}">${j}</div>`;
+      card+=`</div><span style="font-size:16px;font-weight:800;color:var(--gold);margin-left:auto">${rep.attitude}/10</span></div>`;
+    }
+    // Photos
+    if(ph.length)card+=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${ph.map(p=>`<img src="${p}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer" onclick="window.open('${p}','_blank')">`).join('')}</div>`;
+    // Expandable Q&A
+    card+=`<div style="cursor:pointer;font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px" onclick="const body=this.nextElementSibling;body.style.display=body.style.display==='none'?'block':'none';this.textContent=body.style.display==='none'?'Voir les réponses ▸':'Masquer ▾'">Voir les réponses ▸</div>`;
+    card+=`<div style="display:none">`;
+    dashBilanQuestions.forEach(q=>{
+      const val=rep[q.id];
+      card+=`<div style="margin-bottom:8px;padding:6px 0;border-top:1px solid var(--border)">`;
+      card+=`<div style="font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px"><i class="fas ${q.icon}" style="font-size:10px;margin-right:4px"></i>${q.section}</div>`;
+      card+=val
+        ?`<div style="font-size:12px;color:var(--text);line-height:1.5;white-space:pre-wrap">${val}</div>`
+        :`<div style="font-size:11px;color:var(--text3);font-style:italic">—</div>`;
+      card+=`</div>`;
+    });
+    // Mensurations
+    const mens=[];
+    if(rep.biceps)mens.push('Biceps: '+rep.biceps+' cm');
+    if(rep.nombril)mens.push('Nombril: '+rep.nombril+' cm');
+    if(rep.poitrine)mens.push('Poitrine: '+rep.poitrine+' cm');
+    if(mens.length)card+=`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">${mens.map(m=>`<div style="font-size:11px;background:var(--bg);color:var(--text2);padding:3px 8px;border-radius:20px;font-weight:600">${m}</div>`).join('')}</div>`;
+    card+=`</div></div>`;
+    return card;
   }).join('');
 }
 
@@ -3275,7 +3386,7 @@ function progEditReplacements(sec,i){
       return`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border-radius:8px">
         ${vid&&ytId(vid)?`<img src="https://img.youtube.com/vi/${ytId(vid)}/default.jpg" style="width:36px;height:28px;border-radius:4px;object-fit:cover">`:`<div style="width:36px;height:28px;border-radius:4px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:12px">💪</div>`}
         <div style="flex:1;font-size:13px;font-weight:600">${name}</div>
-        <button onclick="window._replExo.replacements.splice(${ri},1);(${renderRepl.toString()})()" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:14px">✕</button>
+        <button onclick="window._replExo.replacements.splice(${ri},1);window._replRender()" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:14px">✕</button>
       </div>`;
     }).join(''):'<div style="font-size:12px;color:var(--text3);padding:8px 0">Aucun exercice alternatif configuré</div>';
     // Search in library
