@@ -703,9 +703,9 @@ function renderActiveWorkout(){
       const phReps=s.prevReps?s.prevReps:'reps';
       h+=`<div class="set-row">
         <div class="set-num">${String(si+1).padStart(2,'0')}</div>
-        ${ex.bw?'<div class="set-input"></div>':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kg}" onchange="workoutData[${ei}].sets[${si}].kg=this.value"></div>`}
-        <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsActual}" onchange="workoutData[${ei}].sets[${si}].repsActual=this.value"></div>
-        <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirActual}" onchange="workoutData[${ei}].sets[${si}].rirActual=this.value"></div>
+        ${ex.bw?'<div class="set-input"></div>':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kg}" onchange="workoutData[${ei}].sets[${si}].kg=this.value;workoutData[${ei}].sets[${si}].done=true;renderActiveWorkout()"></div>`}
+        <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsActual}" onchange="workoutData[${ei}].sets[${si}].repsActual=this.value;workoutData[${ei}].sets[${si}].done=true;renderActiveWorkout()"></div>
+        <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirActual}" onchange="workoutData[${ei}].sets[${si}].rirActual=this.value;workoutData[${ei}].sets[${si}].done=true;renderActiveWorkout()"></div>
         <div class="set-check"><button class="${s.done?'done':''}" onclick="validateSet(${ei},${si})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button></div>
       </div>`;
     });
@@ -749,7 +749,7 @@ async function finalizeWorkout(){
     const sessionName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
     const exercises=workoutData.map(ex=>({
       nom:ex.nom,
-      sets:ex.sets.filter(s=>s.done).map(s=>({kg:s.kg||'',reps:s.repsActual||'',rir:s.rirActual||'',load:s.kg||''}))
+      sets:ex.sets.filter(s=>s.done||s.kg||s.repsActual||s.rirActual).map(s=>({kg:s.kg||'',reps:s.repsActual||'',rir:s.rirActual||'',load:s.kg||''}))
     }));
     const logData={coach_id:clientData.coach_id,client_id:clientData.id,session_name:sessionName,date:today(),exercises};
     if(rpe)logData.cycle=rpe;
