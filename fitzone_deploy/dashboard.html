@@ -2069,24 +2069,18 @@ function saveDailyLog(){
 /* ===== TRAINING TAB (Cycles de progression) ===== */
 function renderTrainingTab(){
   const el=document.getElementById('tc-training');if(!el||!curClient)return;
-  // Always load from Supabase (client saves directly there)
+  // Always load fresh from Supabase
   if(currentCoach){
-    console.log('[TRAIN DEBUG] coach_id=',currentCoach.id,'client_id=',curClient.id);
-    db.from('train_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).then(({data,error})=>{
-      console.log('[TRAIN DEBUG] data=',data,'error=',error);
-      if(data&&data.length>0){
-        const supaLogs=data.map(d=>({session:d.session_name,date:d.date,cycle:parseInt(d.cycle)||1,exercises:d.exercises||[],rpe:d.rpe||null,comment:d.comment||''}));
-        lsSave('trainlog_'+curClient.id,supaLogs);
-      }
-      _renderTrainingContent(el);
-    }).catch((e)=>{console.error('[TRAIN DEBUG] catch:',e);_renderTrainingContent(el);});
-  } else {_renderTrainingContent(el);}
+    db.from('train_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:true}).then(({data})=>{
+      const logs=(data||[]).map(d=>({session:d.session_name,date:d.date,cycle:parseInt(d.cycle)||1,exercises:d.exercises||[],rpe:d.rpe||null,comment:d.comment||''}));
+      lsSave('trainlog_'+curClient.id,logs);
+      _renderTrainingContent(el,logs);
+    }).catch(()=>{_renderTrainingContent(el,lsGet('trainlog_'+curClient.id,[]));});
+  } else {_renderTrainingContent(el,lsGet('trainlog_'+curClient.id,[]));}
 }
-function _renderTrainingContent(el){
+function _renderTrainingContent(el,logs){
   if(!el||!curClient)return;
-  const logs=lsGet('trainlog_'+curClient.id,[]);
-  console.log('[TRAIN DEBUG] _renderTrainingContent logs=',logs.length,'logs');
-  if(logs.length>0)console.log('[TRAIN DEBUG] sample exercises:',JSON.stringify(logs[0].exercises?.slice(0,2)));
+  if(!logs)logs=[];
   const colors={1:'#8b5cf6',2:'#ef4444',3:'#f59e0b',4:'#22c55e'};
   // Group by session name
   const sessions={};logs.forEach(l=>{if(!sessions[l.session])sessions[l.session]=[];sessions[l.session].push(l);});
@@ -2111,96 +2105,108 @@ function _renderTrainingContent(el){
   else{renderCyclesView(contentEl,sorted,colors);}
 }
 function renderProgressionView(el,sorted,colors){
-  // Build unified exercise list across all sessions
   const allExos=[];
   sorted.forEach(log=>{(log.exercises||[]).forEach(e=>{if(!allExos.find(x=>x.nom===e.nom))allExos.push({nom:e.nom,maxSets:0});});});
-  // Compute max sets per exercise across all sessions
   sorted.forEach(log=>{(log.exercises||[]).forEach(e=>{const a=allExos.find(x=>x.nom===e.nom);if(a)a.maxSets=Math.max(a.maxSets,(e.sets||[]).length);});});
-  let html=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:${300+sorted.length*200}px">
-    <thead><tr style="background:var(--bg2)">
-      <th style="padding:8px 10px;text-align:left;border:1px solid var(--border);font-size:10px;min-width:120px">EXERCICE</th>
-      <th style="padding:8px 6px;border:1px solid var(--border);font-size:10px;width:35px">SET</th>
-      ${sorted.map((log,i)=>{const cycle=log.cycle||((i%4)+1);const col=colors[cycle]||'#8b5cf6';return`<th colspan="4" style="padding:8px 6px;border:1px solid var(--border);background:${col};color:white;font-size:10px;text-align:center">
-        <div style="font-weight:700">CYCLE ${cycle}</div><div style="font-weight:400;font-size:9px;opacity:.8">${new Date(log.date).toLocaleDateString('fr-FR')}</div>
-      </th>`;}).join('')}
-    </tr>
-    <tr style="background:var(--bg2)">
-      <th style="border:1px solid var(--border)"></th><th style="border:1px solid var(--border)"></th>
-      ${sorted.map(()=>`<th style="padding:3px 4px;border:1px solid var(--border);font-size:9px;font-weight:700">REPS</th><th style="padding:3px 4px;border:1px solid var(--border);font-size:9px;font-weight:700">LOAD</th><th style="padding:3px 4px;border:1px solid var(--border);font-size:9px;font-weight:700">RIR</th><th style="padding:3px 4px;border:1px solid var(--border);font-size:9px;font-weight:700">VOL</th>`).join('')}
-    </tr></thead><tbody>`;
+  if(!allExos.length){el.innerHTML='<div class="empty" style="padding:30px"><div class="ei">📊</div><div class="et">Aucune donnée de performance</div></div>';return;}
+  // Card-based progression per exercise
+  let html='';
   allExos.forEach(exo=>{
-    for(let si=0;si<exo.maxSets;si++){
-      html+=`<tr style="border-bottom:1px solid var(--border)${si===0?';border-top:2px solid var(--text3)':''}">`;
-      if(si===0)html+=`<td rowspan="${exo.maxSets}" style="padding:6px 10px;font-weight:700;border:1px solid var(--border);vertical-align:top;background:var(--bg2)">${exo.nom}</td>`;
-      html+=`<td style="padding:4px 6px;text-align:center;border:1px solid var(--border);font-weight:700;color:var(--text3)">${si+1}</td>`;
-      sorted.forEach((log,logIdx)=>{
-        const ex=(log.exercises||[]).find(e=>e.nom===exo.nom);
-        const set=ex&&ex.sets&&ex.sets[si]?ex.sets[si]:null;
-        const reps=set?parseFloat(set.reps)||0:0;
-        const load=set?parseFloat(set.load)||0:0;
-        const rir=set?(set.rir!==undefined&&set.rir!==''?set.rir:'-'):'-';
-        const vol=reps*load;
-        // Compare with previous session
-        let prevLog=null;for(let pi=logIdx-1;pi>=0;pi--){if((sorted[pi].exercises||[]).find(e=>e.nom===exo.nom)){prevLog=sorted[pi];break;}}
-        let repsBg='',loadBg='',volBg='';
-        if(prevLog&&set){
-          const pe=(prevLog.exercises||[]).find(e=>e.nom===exo.nom);
-          const ps=pe&&pe.sets&&pe.sets[si]?pe.sets[si]:null;
-          if(ps){
-            const pr=parseFloat(ps.reps)||0,pl=parseFloat(ps.load)||0,pv=pr*pl;
-            repsBg=reps>pr?'background:#dcfce7':reps<pr?'background:#fee2e2':'';
-            loadBg=load>pl?'background:#dcfce7':load<pl?'background:#fee2e2':'';
-            volBg=vol>pv?'background:#dcfce7':vol<pv?'background:#fee2e2':'';
+    html+=`<div style="background:var(--white);border-radius:12px;box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden">
+      <div style="padding:14px 16px;background:var(--dark);color:white;font-weight:700;font-size:14px">${exo.nom}</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--bg2)">
+          <th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:var(--text3);width:40px">SET</th>
+          ${sorted.map((log,i)=>{
+            const dt=new Date(log.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+            return`<th colspan="3" style="padding:8px 6px;text-align:center;font-size:10px;border-left:2px solid var(--border)">
+              <div style="font-weight:700;color:var(--dark)">${dt}</div>
+            </th>`;}).join('')}
+        </tr>
+        <tr style="background:var(--bg2)"><th></th>
+          ${sorted.map(()=>`<th style="padding:2px 6px;font-size:9px;color:var(--text3);border-left:2px solid var(--border)">KG</th><th style="padding:2px 6px;font-size:9px;color:var(--text3)">REPS</th><th style="padding:2px 6px;font-size:9px;color:var(--text3)">RIR</th>`).join('')}
+        </tr></thead><tbody>`;
+      for(let si=0;si<exo.maxSets;si++){
+        html+=`<tr style="${si%2?'background:var(--bg2)':''}">
+          <td style="padding:6px 10px;text-align:center;font-weight:700;color:var(--gold)">${si+1}</td>`;
+        sorted.forEach((log,logIdx)=>{
+          const ex=(log.exercises||[]).find(e=>e.nom===exo.nom);
+          const set=ex&&ex.sets&&ex.sets[si]?ex.sets[si]:null;
+          const kg=set?(set.kg||set.load||''):'';
+          const reps=set?(set.reps||''):'';
+          const rir=set?(set.rir||''):'';
+          // Highlight improvements
+          let kgCls='',repsCls='';
+          if(logIdx>0&&set){
+            let prevLog=null;for(let pi=logIdx-1;pi>=0;pi--){if((sorted[pi].exercises||[]).find(e=>e.nom===exo.nom)){prevLog=sorted[pi];break;}}
+            if(prevLog){const pe=(prevLog.exercises||[]).find(e=>e.nom===exo.nom);const ps=pe&&pe.sets&&pe.sets[si]?pe.sets[si]:null;
+              if(ps){const pk=parseFloat(ps.kg||ps.load)||0,pr=parseFloat(ps.reps)||0;
+                if(parseFloat(kg)>pk)kgCls='color:#16a34a;font-weight:700';else if(parseFloat(kg)<pk)kgCls='color:#dc2626';
+                if(parseFloat(reps)>pr)repsCls='color:#16a34a;font-weight:700';else if(parseFloat(reps)<pr)repsCls='color:#dc2626';
+              }
+            }
           }
-        }
-        if(!set){html+=`<td style="padding:3px 4px;text-align:center;border:1px solid var(--border);color:var(--text3)">-</td>`.repeat(4);}
-        else{html+=`<td style="padding:3px 4px;text-align:center;border:1px solid var(--border);${repsBg}">${reps||'-'}</td><td style="padding:3px 4px;text-align:center;border:1px solid var(--border);${loadBg}">${load||'-'}</td><td style="padding:3px 4px;text-align:center;border:1px solid var(--border)">${rir}</td><td style="padding:3px 4px;text-align:center;border:1px solid var(--border);font-weight:700;${volBg}">${vol?Math.round(vol):'-'}</td>`;}
+          html+=`<td style="padding:6px;text-align:center;border-left:2px solid var(--border);${kgCls}">${kg||'—'}</td>
+            <td style="padding:6px;text-align:center;${repsCls}">${reps||'—'}</td>
+            <td style="padding:6px;text-align:center;color:var(--text3)">${rir||'—'}</td>`;
+        });
+        html+=`</tr>`;
+      }
+      // Volume row per exercise
+      html+=`<tr style="background:var(--dark)"><td style="padding:6px 10px;color:white;font-weight:700;font-size:10px">VOL</td>`;
+      sorted.forEach(log=>{
+        const ex=(log.exercises||[]).find(e=>e.nom===exo.nom);
+        const vol=ex?(ex.sets||[]).reduce((s,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.kg||st.load)||0)+s,0):0;
+        const sets=ex?(ex.sets||[]).length:0;
+        html+=`<td colspan="3" style="padding:6px;text-align:center;color:white;font-weight:700;font-size:11px;border-left:2px solid rgba(255,255,255,.1)">${vol?Math.round(vol):'-'} <span style="font-weight:400;font-size:9px;opacity:.6">(${sets}s)</span></td>`;
       });
-      html+=`</tr>`;
-    }
+      html+=`</tr></tbody></table></div></div>`;
   });
-  // Totals row
-  html+=`<tr style="background:var(--dark);color:white;font-weight:800"><td style="padding:8px 10px;border:1px solid var(--border)" colspan="2">TOTAUX</td>`;
-  sorted.forEach((log,logIdx)=>{
-    const totalSets=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).length,0);
-    const totalVol=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).reduce((ss,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+ss,0),0);
-    let prevVol=0;if(logIdx>0){prevVol=sorted[logIdx-1].exercises.reduce((s,e)=>s+(e.sets||[]).reduce((ss,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+ss,0),0);}
-    const volDiff=logIdx>0?(totalVol>prevVol?'↑':'↓'):'';
-    const volCol=logIdx>0?(totalVol>prevVol?'#4ade80':totalVol<prevVol?'#f87171':'#fff'):'#fff';
-    html+=`<td style="padding:6px 4px;text-align:center;border:1px solid var(--border);font-size:10px">${totalSets}s</td><td style="padding:6px 4px;text-align:center;border:1px solid var(--border);font-size:10px" colspan="2"></td><td style="padding:6px 4px;text-align:center;border:1px solid var(--border);font-size:11px"><span style="color:${volCol}">${volDiff}</span> ${Math.round(totalVol)}</td>`;
-  });
-  html+=`</tr></tbody></table></div>`;
-  // RPE row if available
-  const rpeData=sorted.filter(l=>l.rpe);
+  // RPE summary
+  const rpeData=sorted.filter(l=>l.rpe||l.cycle);
   if(rpeData.length>0){
-    html+=`<div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap">${sorted.map(log=>{
-      if(!log.rpe)return'';
-      const cycle=log.cycle||1;const col=colors[cycle]||'#8b5cf6';
-      return`<div style="padding:6px 12px;border-radius:8px;border:1px solid ${col};font-size:11px"><strong style="color:${col}">RPE ${log.rpe}/10</strong> <span style="color:var(--text3);font-size:10px">${new Date(log.date).toLocaleDateString('fr-FR')}</span>${log.comment?`<div style="font-size:10px;color:var(--text3);margin-top:2px">"${log.comment}"</div>`:''}</div>`;
+    html+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">${sorted.map(log=>{
+      const rpe=log.rpe||log.cycle||'';
+      const dt=new Date(log.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+      return`<div style="padding:6px 12px;border-radius:8px;background:var(--gold-pale);font-size:11px"><strong style="color:var(--gold)">RPE ${rpe}/10</strong> <span style="color:var(--text3)">${dt}</span>${log.comment?`<div style="font-size:10px;color:var(--text3);margin-top:2px">${log.comment}</div>`:''}</div>`;
     }).join('')}</div>`;
   }
   el.innerHTML=html;
 }
 function renderCyclesView(el,sorted,colors){
-  el.innerHTML=`<div style="overflow-x:auto"><div style="display:flex;gap:12px;min-width:fit-content">
-    ${sorted.map((log,li)=>{
-      const cycle=log.cycle||((li%4)+1);const col=colors[cycle]||'#8b5cf6';
-      const totalSets=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).length,0);
-      const totalVol=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).reduce((ss,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+ss,0),0);
-      return`<div style="min-width:260px;border:2px solid ${col};border-radius:12px;overflow:hidden;flex-shrink:0">
-        <div style="background:${col};color:white;padding:10px 14px;font-weight:700;font-size:13px">CYCLE ${cycle} <span style="float:right;font-weight:400;font-size:11px">${new Date(log.date).toLocaleDateString('fr-FR')}</span></div>
-        <table style="width:100%;font-size:11px;border-collapse:collapse">
-          <thead><tr style="background:${col}22"><th style="padding:4px 8px;text-align:left;font-size:10px;border-bottom:1px solid ${col}44">SET</th><th style="padding:4px 8px">REPS</th><th style="padding:4px 8px">LOAD</th><th style="padding:4px 8px">RIR</th><th style="padding:4px 8px;font-weight:800">REPS×LOAD</th><th style="padding:4px 8px">NOTES</th></tr></thead>
-          <tbody>${(log.exercises||[]).map(e=>{
-            const exVol=e.sets.reduce((s,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.load)||0)+s,0);
-            return`<tr style="border-bottom:2px solid ${col}33"><td colspan="4" style="padding:6px 8px;font-weight:700;color:var(--dark)">${e.nom}</td><td style="padding:6px 8px;font-weight:800;color:${col}">${Math.round(exVol)}</td><td style="padding:6px 8px;font-size:10px;color:var(--text3)">${e.notes||''}</td></tr>`+
-            (e.sets||[]).map((st,si)=>`<tr style="border-bottom:1px dotted var(--border)"><td style="padding:3px 8px;font-weight:700">${si+1}</td><td style="padding:3px 8px;text-align:center">${st.reps||''}</td><td style="padding:3px 8px;text-align:center">${st.load||''}</td><td style="padding:3px 8px;text-align:center">${st.rir||''}</td><td></td><td></td></tr>`).join('');
-          }).join('')}</tbody>
-          <tfoot><tr style="background:${col};color:white;font-weight:800"><td style="padding:6px 8px" colspan="2">TOTAL SETS</td><td style="padding:6px 8px">${totalSets}</td><td></td><td style="padding:6px 8px">TOTAL VOL</td><td style="padding:6px 8px">${Math.round(totalVol)}</td></tr></tfoot>
-        </table>
-      </div>`;
-    }).join('')}
-  </div></div>`;
+  let html='<div style="display:flex;flex-direction:column;gap:16px">';
+  sorted.forEach((log,li)=>{
+    const dt=new Date(log.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    const totalSets=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).length,0);
+    const totalVol=(log.exercises||[]).reduce((s,e)=>s+(e.sets||[]).reduce((ss,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.kg||st.load)||0)+ss,0),0);
+    const rpe=log.rpe||log.cycle||'';
+    html+=`<div style="background:var(--white);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+      <div style="padding:14px 16px;background:var(--dark);color:white;display:flex;align-items:center;justify-content:space-between">
+        <div><div style="font-weight:700;font-size:14px">${dt}</div><div style="font-size:11px;opacity:.6;margin-top:2px">${totalSets} séries · Vol. ${Math.round(totalVol)}${rpe?' · RPE '+rpe+'/10':''}</div></div>
+        ${log.comment?`<div style="font-size:10px;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:6px;max-width:200px">${log.comment}</div>`:''}
+      </div>
+      <div style="padding:12px 16px">`;
+    (log.exercises||[]).forEach(e=>{
+      const exVol=(e.sets||[]).reduce((s,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.kg||st.load)||0)+s,0);
+      html+=`<div style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-weight:700;font-size:13px">${e.nom}</div>
+          <div style="font-size:11px;color:var(--gold);font-weight:700">${exVol?Math.round(exVol)+' vol':''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">`;
+      (e.sets||[]).forEach((st,si)=>{
+        const kg=st.kg||st.load||'';
+        html+=`<div style="background:var(--bg2);border-radius:8px;padding:6px 10px;font-size:11px;text-align:center;min-width:60px">
+          <div style="font-weight:700;color:var(--dark)">${kg?kg+'kg':'PDC'}</div>
+          <div style="color:var(--text3);font-size:10px">${st.reps||'?'}r${st.rir?' · RIR '+st.rir:''}</div>
+        </div>`;
+      });
+      html+=`</div></div>`;
+    });
+    html+=`</div></div>`;
+  });
+  html+='</div>';
+  el.innerHTML=html;
 }
 function addTrainLog(){
   let m=document.getElementById('mTrainLog');
