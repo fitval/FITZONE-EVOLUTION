@@ -1868,9 +1868,9 @@ async function saveClientPlanEdit(){
   const p=cpEditPlan;
   delete p._dayIdx;
   // Recalc total macros
-  let tk=0,tp=0,tc=0,tf=0,nj=0;
-  (p.jours||[]).forEach(j=>{let dk=0;(j.repas||[]).forEach(r=>(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;dk+=a.kcal*q;tp+=a.prot*q;tc+=a.carb*q;tf+=a.fat*q;}));tk+=dk;nj++;});
-  if(nj)p.kcal=Math.round(tk/nj);p.prot=Math.round(tp/nj);p.carb=Math.round(tc/nj);p.fat=Math.round(tf/nj);
+  let tk=0,tp=0,tc=0,tf=0,nj=(p.jours||[]).length;
+  (p.jours||[]).forEach(j=>{(j.repas||[]).forEach(r=>(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;tk+=a.kcal*q;tp+=a.prot*q;tc+=a.carb*q;tf+=a.fat*q;}));});
+  if(nj){p.kcal=Math.round(tk/nj);p.prot=Math.round(tp/nj);p.carb=Math.round(tc/nj);p.fat=Math.round(tf/nj);}
   // Save to Supabase
   try{
     const{error}=await db.from('plans_full').update({nom:p.nom,kcal:p.kcal,prot:p.prot,carb:p.carb,fat:p.fat,jours:p.jours}).eq('id',p.id);
