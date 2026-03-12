@@ -2085,6 +2085,7 @@ function renderTrainingTab(){
 function _renderTrainingContent(el){
   if(!el||!curClient)return;
   const logs=lsGet('trainlog_'+curClient.id,[]);
+  console.log('[TRAIN DEBUG] _renderTrainingContent logs=',logs.length,'logs, sessions:',logs.map(l=>l.session));
   const colors={1:'#8b5cf6',2:'#ef4444',3:'#f59e0b',4:'#22c55e'};
   // Group by session name
   const sessions={};logs.forEach(l=>{if(!sessions[l.session])sessions[l.session]=[];sessions[l.session].push(l);});
