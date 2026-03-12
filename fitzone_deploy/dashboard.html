@@ -1706,9 +1706,70 @@ async function loadPlanDisp(){
   if(macrosData?.[0]){const p=macrosData[0];html+=`<div class="card cp" style="margin-bottom:10px"><div class="cl cl-gold">Plan macros</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><div style="text-align:center;padding:9px;background:var(--bg);border-radius:9px"><div style="font-size:15px;font-weight:800">${(p.kcal_target||0).toLocaleString('fr')}</div><div style="font-size:9px;color:var(--text3);font-weight:700">KCAL</div></div><div style="text-align:center;padding:9px;background:#eff6ff;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#3b82f6">${p.protein_g}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div><div style="text-align:center;padding:9px;background:#fffbeb;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#f59e0b">${p.carb_g}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700">GLUC.</div></div><div style="text-align:center;padding:9px;background:var(--gold-pale);border-radius:9px"><div style="font-size:15px;font-weight:800;color:var(--gold)">${p.fat_g}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700">LIP.</div></div></div></div>`;}
   // Plans complets (table plans_full)
   const{data:fullData}=await db.from('plans_full').select('*').eq('client_id',curClient.id).order('created_at',{ascending:false});
-  if(fullData&&fullData.length>0){fullData.forEach(pf=>{const nbJ=(pf.jours||[]).length;html+=`<div class="card cp" style="margin-bottom:10px"><div class="cl cl-gold">🍽️ ${pf.nom||'Plan complet'} <span style="font-weight:400;font-size:10px;color:var(--text3)">${nbJ} jour${nbJ>1?'s':''} · ${pf.type||'full'}</span></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><div style="text-align:center;padding:9px;background:var(--bg);border-radius:9px"><div style="font-size:15px;font-weight:800">${pf.kcal||0}</div><div style="font-size:9px;color:var(--text3);font-weight:700">KCAL</div></div><div style="text-align:center;padding:9px;background:#eff6ff;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#3b82f6">${pf.prot||0}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div><div style="text-align:center;padding:9px;background:#fffbeb;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#f59e0b">${pf.carb||0}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700">GLUC.</div></div><div style="text-align:center;padding:9px;background:var(--gold-pale);border-radius:9px"><div style="font-size:15px;font-weight:800;color:var(--gold)">${pf.fat||0}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700">LIP.</div></div></div></div>`;});}
+  if(fullData&&fullData.length>0){fullData.forEach(pf=>{
+    const nbJ=(pf.jours||[]).length;
+    const isAI=pf.source==='ai';
+    const pfId=pf.id;
+    // Macro grid
+    html+=`<div class="card" style="margin-bottom:12px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div>
+          <div style="font-size:14px;font-weight:800;color:var(--dark)">${isAI?'🤖':'🍽️'} ${pf.nom||'Plan complet'}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${nbJ} jour${nbJ>1?'s':''} · ${pf.kcal||0} kcal${isAI?' · Généré par IA':''}</div>
+        </div>
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-gold btn-xs" onclick="editClientPlan(${pfId})" title="Modifier dans le plan builder">✏️</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteClientPlan(${pfId})" title="Supprimer">✕</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+        <div style="text-align:center;padding:8px;background:var(--bg);border-radius:9px"><div style="font-size:15px;font-weight:800">${pf.kcal||0}</div><div style="font-size:9px;color:var(--text3);font-weight:700">KCAL</div></div>
+        <div style="text-align:center;padding:8px;background:#eff6ff;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#3b82f6">${pf.prot||0}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div>
+        <div style="text-align:center;padding:8px;background:#fffbeb;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#f59e0b">${pf.carb||0}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700">GLUC.</div></div>
+        <div style="text-align:center;padding:8px;background:var(--gold-pale);border-radius:9px"><div style="font-size:15px;font-weight:800;color:var(--gold)">${pf.fat||0}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700">LIP.</div></div>
+      </div>`;
+    // Collapsible days detail
+    if(nbJ>0){
+      html+=`<div style="border-top:1px solid var(--border);padding-top:8px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);cursor:pointer;display:flex;align-items:center;gap:4px" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('span').textContent=this.nextElementSibling.style.display==='none'?'▸':'▾'"><span>▸</span> Voir le détail des ${nbJ} jours</div>
+        <div style="display:none;margin-top:8px">`;
+      (pf.jours||[]).forEach(j=>{
+        let dk=0,dp=0,dc=0,df=0;
+        (j.repas||[]).forEach(r=>(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;dk+=a.kcal*q;dp+=a.prot*q;dc+=a.carb*q;df+=a.fat*q;}));
+        html+=`<div style="margin-bottom:8px"><div style="font-size:12px;font-weight:700;color:var(--dark);padding:4px 0;cursor:pointer;border-bottom:1px solid var(--border)" onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none'">${j.nom} <span style="font-size:10px;font-weight:400;color:var(--text3)">${Math.round(dk)} kcal · P:${Math.round(dp)}g G:${Math.round(dc)}g L:${Math.round(df)}g</span></div><div style="display:none;padding-left:8px">`;
+        (j.repas||[]).forEach(r=>{
+          let mk=0,mp=0;(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;mk+=a.kcal*q;mp+=a.prot*q;});
+          html+=`<div style="margin:6px 0"><div style="font-size:11px;font-weight:700;color:var(--gold)">${r.nom} <span style="font-weight:400;color:var(--text3)">${Math.round(mk)} kcal · P:${Math.round(mp)}g</span></div>`;
+          (r.alims||[]).forEach(a=>{
+            const q=(a.qte||100)/100;
+            html+=`<div style="font-size:11px;color:var(--text2);padding:2px 0 2px 8px;display:flex;justify-content:space-between"><span>${a.nom}</span><span style="color:var(--text3)">${a.qte||100}g · ${Math.round(a.kcal*q)} kcal</span></div>`;
+          });
+          if(!(r.alims||[]).length)html+=`<div style="font-size:10px;color:var(--text3);padding:2px 0 2px 8px">Aucun aliment</div>`;
+          if(r.instructions)html+=`<div style="font-size:10px;color:var(--text3);padding:4px 0 2px 8px;font-style:italic">${r.instructions.substring(0,120)}${r.instructions.length>120?'…':''}</div>`;
+          html+=`</div>`;
+        });
+        html+=`</div></div>`;
+      });
+      html+=`</div></div>`;
+    }
+    html+=`</div>`;
+  });}
   if(!html)html=`<div style="font-size:12px;color:var(--text3);margin-top:8px">Aucun plan assigné à ce client</div>`;
   el.innerHTML=html;
+}
+function editClientPlan(id){
+  const p=plans.find(x=>x.id===id);
+  if(!p){toast('Plan introuvable dans le cache local — ouvre la section Nutrition > Plans pour le modifier');return;}
+  document.getElementById('detPage').classList.remove('show');
+  showPage('nut-plans',document.getElementById('nav-nut-plans'));
+  openSub('sub-nut','arr-nut');
+  setTimeout(()=>editFullPlan(id),200);
+}
+async function deleteClientPlan(id){
+  if(!confirm('Supprimer ce plan définitivement ?'))return;
+  dbDelete('plans_full',id);
+  toast('Plan supprimé');
+  loadPlanDisp();
 }
 async function savePlanClient(){
   const btn=document.getElementById('btnSP');if(!btn||!curClient)return;
@@ -2450,8 +2511,10 @@ function renderPlansListPage(){
 function editFullPlan(id){
   const p=plans.find(x=>x.id===id);if(!p)return;
   pfEditId=id;pfDays=JSON.parse(JSON.stringify(p.jours||[{nom:'Jour 1',repas:[]}]));pfDayIdx=0;pfMealIdx=null;
-  pfClient=p.clientId?clients.find(c=>c.id===p.clientId)||null:null;
-  document.getElementById('pfNom').value=p.nom;document.getElementById('pfClIn').value=p.clientNom||'';document.getElementById('pfClLbl').textContent=p.clientNom||'Aucun';
+  const pClId=p.clientId||p.client_id;
+  const pClNom=p.clientNom||p.client_nom||'';
+  pfClient=pClId?clients.find(c=>c.id===pClId)||null:null;
+  document.getElementById('pfNom').value=p.nom;document.getElementById('pfClIn').value=pClNom;document.getElementById('pfClLbl').textContent=pClNom||'Aucun';
   document.getElementById('planBuilderTitle').textContent='Modifier: '+p.nom;
   pfRenderDays();pfRenderMeals();pfRenderRecent();
   document.getElementById('plansPageList').style.display='none';document.getElementById('planBuilderWrap').style.display='block';
