@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-03-12 (Edge Functions IA + éditeur plans + swaps client)
+**Dernière mise à jour** : 2026-03-12 (UX app client : icônes, bilan Home, nutrition UI)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -41,13 +41,16 @@
 - [x] Section Galerie client (grille photos issues des bilans)
 - [x] Notification avec badge pour bilans non lus
 - [x] Page Bilans hebdo (listing tous bilans de tous clients)
-- [x] App mobile client (`client.html`) avec 4 onglets : Programme, Nutrition, Bilan, Progression
+- [x] App mobile client (`client.html`) avec 4 onglets : Accueil, Entraînement, Nutrition, Apprentissage
 - [x] Bouton "App" dans le dashboard pour copier le lien client
 - [x] **Génération plan alimentaire IA** (Edge Function `generate-meal-plan`, Claude Sonnet, streaming)
 - [x] **Import recettes par screenshot** (Edge Function `analyze-recipe`, Claude Vision)
 - [x] **Éditeur inline plan alimentaire** dans la fiche client (modifier quantités, ajouter/supprimer aliments, sauvegarder vers Supabase)
 - [x] **Swap exercices dans preview** app client (bouton ⇄ avant de lancer la séance)
 - [x] **Équivalences alimentaires app client** (bouton ⇄ par aliment, calcul iso-calorique, filtre par même source macro)
+- [x] **Bilan hebdo sur page Accueil** (bulle grisée/dorée selon jour de bilan, cliquable pour remplir)
+- [x] **Icônes app client** : Accueil = maison, Nutrition = bol fumant, onglet Bilan retiré de la nav
+- [x] **UI nutrition améliorée** (barre macros colorée P/G/L, icônes repas, pastilles source macro, instructions affichées)
 
 ### Ce qui reste à faire (prochaines priorités)
 - [ ] **Amélioration UX** : responsive, animations, feedback visuel
@@ -72,6 +75,8 @@
 - Variable globale = `allClients` (PAS `clients`)
 - `mealItems(meal)` dans client.html : retourne `meal.items || meal.alims || []` (compatibilité plans manuels vs IA)
 - App client charge `coachAlims` (base aliments du coach) pour les équivalences alimentaires
+- `getBilanCountdown()` retourne `{days, label, isBilanDay, bilanDoneThisWeek}` — utilisé pour la bulle bilan sur Home
+- Onglet Bilan retiré de la tab-bar mais `tabBilan` section HTML reste (accessible via `switchTab('Bilan')` depuis Home)
 
 ## Décisions techniques prises
 
@@ -102,6 +107,8 @@
 | 2026-03-12 | Éditeur inline plans dans fiche client | UX : modifier un plan sans quitter la fiche client |
 | 2026-03-12 | Upsert pour sauvegarder plans modifiés | Compatible RLS (coach_id requis), update seul échouait |
 | 2026-03-12 | Swap aliments filtré par source macro | Client ne peut remplacer que par un aliment de même source (glucides→glucides) |
+| 2026-03-12 | Bilan retiré de la nav, déplacé sur Home | Simplifier la nav à 4 onglets, bilan accessible via bulle contextuelle |
+| 2026-03-12 | Refonte UI nutrition app client | Plan detail plus visuel : barre macros, icônes repas, pastilles source |
 
 ## Historique des sessions
 
@@ -156,7 +163,7 @@
   - Secret `ANTHROPIC_API_KEY` configuré
   - Fix erreur 401 (clé publishable pas un JWT → désactivation vérification JWT)
 - **Fix liaison données plan IA → app client** : `meal.items` vs `meal.alims` — ajout `mealItems()` helper
-- **Icône nutrition app client** : remplacée par cuisse de poulet (drumstick SVG)
+- **Icône nutrition app client** : remplacée par bol fumant (SVG tasse + vapeur)
 - **Éditeur inline plan alimentaire dans fiche client** :
   - Boutons ✏️ (modifier) et ✕ (supprimer) sur chaque plan
   - Éditeur directement dans `planDisp` (pas de navigation vers page Plans)
@@ -173,6 +180,24 @@
   - **Filtré strictement par même source macro** (glucides→glucides uniquement)
   - Chargement base aliments coach (`coachAlims`) dans l'app client
 - **Installation `gh` CLI** et configuration auth GitHub pour push automatique
+
+### Session 2026-03-12 (UX app client)
+- **Retrait onglet Bilan** de la barre de navigation (4 onglets : Accueil, Entraînement, Nutrition, Apprentissage)
+- **Bulle bilan hebdomadaire sur la page Accueil** :
+  - Dorée + cliquable si c'est le jour du bilan (ouvre le formulaire bilan)
+  - Grisée avec compte à rebours si ce n'est pas le jour
+  - Atténuée avec ✓ si déjà envoyé cette semaine
+  - Logique via `getBilanCountdown()` retournant `isBilanDay` et `bilanDoneThisWeek`
+- **Icône Accueil** : remplacée par maison SVG (était un cercle)
+- **Icône Nutrition** : remplacée par bol fumant SVG (était une clé/drumstick)
+- **Refonte UI détail plan nutrition** (`renderPlanDetail()`) :
+  - Calories en grand au centre avec barre macros colorée (bleu P, or G, orange L)
+  - Pastilles colorées par macro pour le résumé du jour
+  - Icônes émoji par repas (🌅 petit-déj, 🍽️ déjeuner, 🌙 dîner, 🍎 goûter)
+  - Point coloré par source macro sur chaque aliment
+  - Affichage des instructions de préparation quand disponibles
+  - En-tête repas avec fond gradient gold subtil
+- **`switchTab('Bilan')`** fonctionne toujours (appelé depuis la bulle Home), highlight sur btnHome
 
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
