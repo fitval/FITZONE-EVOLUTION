@@ -2449,7 +2449,8 @@ function renderPlansListPage(){
 }
 function editFullPlan(id){
   const p=plans.find(x=>x.id===id);if(!p)return;
-  pfEditId=id;pfDays=JSON.parse(JSON.stringify(p.jours||[{nom:'Jour 1',repas:[]}]));pfDayIdx=0;pfMealIdx=null;pfClient=null;
+  pfEditId=id;pfDays=JSON.parse(JSON.stringify(p.jours||[{nom:'Jour 1',repas:[]}]));pfDayIdx=0;pfMealIdx=null;
+  pfClient=p.clientId?clients.find(c=>c.id===p.clientId)||null:null;
   document.getElementById('pfNom').value=p.nom;document.getElementById('pfClIn').value=p.clientNom||'';document.getElementById('pfClLbl').textContent=p.clientNom||'Aucun';
   document.getElementById('planBuilderTitle').textContent='Modifier: '+p.nom;
   pfRenderDays();pfRenderMeals();pfRenderRecent();
@@ -4199,6 +4200,7 @@ function renderAIPlan(plan,config){
       <div style="font-size:10px;margin-top:2px"><span style="color:#16a34a;font-weight:600">${dbCount} aliments base coach</span>${aiCount?` · <span style="color:#ea580c;font-weight:600">${aiCount} aliments IA</span>`:''}</div></div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-dark btn-xs" onclick="saveAIPlanToPlans()">💾 Sauvegarder</button>
+        <button class="btn btn-gold btn-xs" onclick="saveAndEditAIPlan()">✏️ Modifier</button>
         <button class="btn btn-ghost btn-xs" onclick="openGenPlanModal()">↺ Régénérer</button>
       </div>
     </div>
@@ -4446,6 +4448,15 @@ function saveAIPlanToPlans(){
   lsSave('fz_plans',plans);dbSave('plans_full',plan);
   renderPlansListPage();
   toast('Plan IA sauvegardé ✓');
+  return plan.id;
+}
+function saveAndEditAIPlan(){
+  const id=saveAIPlanToPlans();
+  if(!id)return;
+  document.getElementById('detPage').classList.remove('show');
+  showPage('nut-plans',document.getElementById('nav-nut-plans'));
+  openSub('sub-nut','arr-nut');
+  setTimeout(()=>editFullPlan(id),200);
 }
 
 /* ===== OPTIMISATION POST-GÉNÉRATION ===== */
