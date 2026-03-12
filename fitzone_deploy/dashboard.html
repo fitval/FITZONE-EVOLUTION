@@ -2097,7 +2097,9 @@ function _renderTrainingContent(el,logs){
       <button class="btn btn-dark btn-sm" onclick="addTrainLog()">+ Ajouter une séance</button>
       <button class="btn btn-gold btn-sm" onclick="openProgBuilderForClient()">🏋️ Créer un programme</button>
     </div>
-    <div id="trainContent"></div>`;
+    <div id="trainContent"></div>
+    <div id="trainDebug" style="background:#fef3c7;padding:12px;border-radius:8px;margin-top:12px;font-size:10px;max-height:250px;overflow:auto"></div>`;
+  document.getElementById('trainDebug').innerHTML='<strong>DEBUG ('+logs.length+' logs):</strong><pre>'+JSON.stringify(logs.slice(0,2),null,2)+'</pre>';
   const contentEl=document.getElementById('trainContent');
   if(!selSes||!sessions[selSes]){contentEl.innerHTML='<div class="empty" style="padding:30px"><div class="ei">💪</div><div class="et">Aucune séance enregistrée</div><div class="es">Ajoute la première séance de ce client</div></div>';return;}
   const sorted=sessions[selSes].sort((a,b)=>new Date(a.date)-new Date(b.date));
