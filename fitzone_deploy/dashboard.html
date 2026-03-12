@@ -2273,11 +2273,11 @@ function _renderBilanContent(el){
     const rep=b.reponses||{};const ph=b.photos||[];const validated=!!b.read;const realIdx=bilans.length-1-bi;
     const dt=new Date(b.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
     const answeredCount=dashBilanQuestions.filter(q=>rep[q.id]).length;
-    return _buildBilanCard({rep,ph,validated,realIdx,dt,answeredCount,clientId:curClient.id,showValidate:true,showDelete:true});
+    return _buildBilanCard({rep,ph,validated,realIdx,dt,rawDate:b.date,supaId:b._supa_id,answeredCount,clientId:curClient.id,showValidate:true,showDelete:true});
   }).join('');
 }
 function _buildBilanCard(o){
-  const{rep,ph,validated,realIdx,dt,answeredCount,clientId,clientName,clientColor,clientIdx,showValidate,showDelete}=o;
+  const{rep,ph,validated,realIdx,dt,rawDate,supaId,answeredCount,clientId,clientName,clientColor,clientIdx,showValidate,showDelete}=o;
   const ini=clientName?clientName.split(' ').map(w=>(w[0]||'')).join('').toUpperCase().slice(0,2):'';
   let c=`<div class="plan-card" style="${!validated?'border-left:3px solid var(--gold)':'border-left:3px solid #48bb78'}">`;
   // === HEADER (always visible) ===
@@ -2297,9 +2297,9 @@ function _buildBilanCard(o){
   c+=`</div></div>`;
   // Status badge + actions
   c+=`<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">`;
-  if(showValidate&&!validated)c+=`<button class="btn btn-dark btn-xs" onclick="event.stopPropagation();validateBilan('${clientId}',${clientIdx!=null?clientIdx:realIdx}).then(()=>{${clientName?'renderBilansAll()':''}})">Valider</button>`;
+  if(showValidate&&!validated)c+=`<button class="btn btn-dark btn-xs" onclick="event.stopPropagation();validateBilanByKey('${clientId}','${rawDate}','${supaId||''}',this)">Valider</button>`;
   if(validated)c+=`<span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(72,187,120,.12);color:#38a169">Validé</span>`;
-  if(showDelete)c+=`<button style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3);padding:4px" onclick="event.stopPropagation();deleteBilanEntry('${clientId}',${realIdx})" title="Supprimer">✕</button>`;
+  if(showDelete)c+=`<button style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3);padding:4px" onclick="event.stopPropagation();deleteBilanByKey('${clientId}','${rawDate}','${supaId||''}')" title="Supprimer">✕</button>`;
   c+=`</div></div>`;
   // === BODY (expandable) ===
   c+=`<div class="plan-body">`;
@@ -2335,27 +2335,36 @@ function _buildBilanCard(o){
   c+=`</div></div>`;
   return c;
 }
-async function validateBilan(clientId,idx){
+async function validateBilanByKey(clientId,rawDate,supaId,btnEl){
+  // Update localStorage
   const key='bilans_'+clientId;const bl=lsGet(key,[]);
-  if(!bl[idx])return;
-  bl[idx].read=true;lsSave(key,bl);
+  const b=bl.find(x=>x.date===rawDate);
+  if(b)b.read=true;
+  lsSave(key,bl);
   // Update Supabase
   if(currentCoach){
-    if(bl[idx]._supa_id){
-      await db.from('bilans').update({read:true}).eq('id',bl[idx]._supa_id).catch(()=>{});
+    if(supaId){
+      await db.from('bilans').update({read:true}).eq('id',supaId);
     } else {
-      await db.from('bilans').update({read:true}).eq('coach_id',currentCoach.id).eq('client_id',clientId).eq('date',bl[idx].date).catch(()=>{});
+      await db.from('bilans').update({read:true}).eq('coach_id',currentCoach.id).eq('client_id',clientId).eq('date',rawDate);
     }
   }
+  // Instant UI feedback: swap button for badge
+  if(btnEl){
+    const card=btnEl.closest('.plan-card');
+    if(card)card.style.borderLeftColor='#48bb78';
+    btnEl.outerHTML=`<span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(72,187,120,.12);color:#38a169">Validé</span>`;
+  }
   updateNotifBadge();
-  // Refresh the view that called this
-  if(curClient&&curClient.id===clientId)renderBilanTab();
   toast('Bilan validé ✓');
 }
-function deleteBilanEntry(clientId,idx){
+async function deleteBilanByKey(clientId,rawDate,supaId){
   const key='bilans_'+clientId;const bl=lsGet(key,[]);
-  const removed=bl.splice(idx,1)[0];lsSave(key,bl);
-  if(removed&&removed._supa_id&&currentCoach)db.from('bilans').delete().eq('id',removed._supa_id).catch(()=>{});
+  const idx=bl.findIndex(x=>x.date===rawDate);
+  if(idx>=0)bl.splice(idx,1);
+  lsSave(key,bl);
+  if(supaId&&currentCoach)await db.from('bilans').delete().eq('id',supaId);
+  else if(currentCoach)await db.from('bilans').delete().eq('coach_id',currentCoach.id).eq('client_id',clientId).eq('date',rawDate);
   renderBilanTab();toast('Supprimé');
 }
 function addBilan(){
@@ -2432,7 +2441,7 @@ function _renderBilansAllContent(wrap){
     const rep=b.reponses||{};const ph=b.photos||[];
     const dt=new Date(b.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
     const answeredCount=dashBilanQuestions.filter(q=>rep[q.id]).length;
-    return _buildBilanCard({rep,ph,validated:!!b.read,realIdx:b.clientIdx,dt,answeredCount,clientId:b.clientId,clientIdx:b.clientIdx,clientName:b.clientName,clientColor:b.clientColor,showValidate:true,showDelete:false});
+    return _buildBilanCard({rep,ph,validated:!!b.read,realIdx:b.clientIdx,dt,rawDate:b.date,supaId:b._supa_id,answeredCount,clientId:b.clientId,clientIdx:b.clientIdx,clientName:b.clientName,clientColor:b.clientColor,showValidate:true,showDelete:false});
   }).join('');
 }
 
