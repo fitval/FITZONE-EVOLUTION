@@ -3144,7 +3144,7 @@ function progRenderDay(){
         ${e.video&&ytId(e.video)?`<div style="position:relative;width:36px;height:30px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="watchVid('${e.nom.replace(/'/g,"\'")}','${e.video}','')" title="Visionner la vidéo"><img src="https://img.youtube.com/vi/${ytId(e.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);font-size:11px">▶</div></div>`:`<div style="width:36px;height:30px;border-radius:6px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">💪</div>`}
         <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3)">${e.muscle||''} · ${e.equip||''}${(e.replacements||[]).length?' · <span style="color:var(--gold)">⇄ '+(e.replacements||[]).length+' rempl.</span>':''}</div></div>
         <div style="display:flex;gap:4px">
-          ${(e.replacements||[]).length?`<button class="swap-btn" onclick="progSwapExo('${key}',${i})" title="Remplacer l'exercice">⇄</button>`:''}
+          <button onclick="progEditReplacements('${key}',${i})" title="Exercices alternatifs" style="padding:3px 7px;background:${(e.replacements||[]).length?'var(--gold-pale)':'var(--bg2)'};border:1px solid ${(e.replacements||[]).length?'var(--gold-border)':'var(--border)'};border-radius:6px;font-size:10px;font-weight:700;color:${(e.replacements||[]).length?'#8a6010':'var(--text3)'};cursor:pointer">⇄${(e.replacements||[]).length?' '+(e.replacements||[]).length:''}</button>
           <button onclick="progMkSuperset('${key}',${i})" title="Convertir en superset" style="padding:3px 7px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:6px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer">⚡SS</button>
           <button onclick="progDelExo('${key}',${i})" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:14px">🗑</button>
         </div>
@@ -3260,6 +3260,53 @@ function progSwapExo(sec,i){
   document.getElementById('swapExoList').innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Exercice actuel : <strong>${e.nom}</strong></div>`+html;
   openM('mSwapExo');
   window._swapOpts=opts;
+}
+function progEditReplacements(sec,i){
+  const e=progDays[progDayIdx]?.[sec]?.[i];if(!e)return;
+  if(!e.replacements)e.replacements=[];
+  let m=document.getElementById('mReplExo');
+  if(!m){m=document.createElement('div');m.className='overlay';m.id='mReplExo';m.innerHTML=`<div class="modal modal-lg"><div class="mh"><div class="mt">Exercices alternatifs</div><button class="mc" onclick="closeM('mReplExo')">✕</button></div><div class="mb" id="replExoBody"></div><div class="mf"><button class="btn btn-dark" onclick="closeM('mReplExo');progRenderDay()">Valider</button></div></div>`;document.body.appendChild(m);}
+  const renderRepl=()=>{
+    // Current replacements (stored as objects {nom, video} or IDs)
+    const repls=e.replacements||[];
+    const replHtml=repls.length?repls.map((r,ri)=>{
+      const name=typeof r==='object'?(r.nom||''):(exos.find(x=>x.id===r)?.nom||r);
+      const vid=typeof r==='object'?r.video:(exos.find(x=>x.id===r)?.video||'');
+      return`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border-radius:8px">
+        ${vid&&ytId(vid)?`<img src="https://img.youtube.com/vi/${ytId(vid)}/default.jpg" style="width:36px;height:28px;border-radius:4px;object-fit:cover">`:`<div style="width:36px;height:28px;border-radius:4px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:12px">💪</div>`}
+        <div style="flex:1;font-size:13px;font-weight:600">${name}</div>
+        <button onclick="window._replExo.replacements.splice(${ri},1);(${renderRepl.toString()})()" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:14px">✕</button>
+      </div>`;
+    }).join(''):'<div style="font-size:12px;color:var(--text3);padding:8px 0">Aucun exercice alternatif configuré</div>';
+    // Search in library
+    const curMuscle=(e.muscle||'').toLowerCase();
+    const sameMuscle=exos.filter(x=>x.nom!==e.nom&&(x.muscle||'').toLowerCase()===curMuscle&&!repls.some(r=>(typeof r==='object'?r.nom:exos.find(xx=>xx.id===r)?.nom)===x.nom));
+    const others=exos.filter(x=>x.nom!==e.nom&&(x.muscle||'').toLowerCase()!==curMuscle&&!repls.some(r=>(typeof r==='object'?r.nom:exos.find(xx=>xx.id===r)?.nom)===x.nom));
+    document.getElementById('replExoBody').innerHTML=`
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Exercice : <strong style="color:var(--dark)">${e.nom}</strong> ${e.muscle?'('+e.muscle+')':''}</div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px">Alternatives configurées</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">${replHtml}</div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px">Ajouter un exercice alternatif</div>
+      <input class="fi" id="replSearchIn" placeholder="Rechercher dans la bibliothèque..." oninput="window._replSearch(this.value)" style="margin-bottom:8px">
+      <div id="replSearchResults" style="max-height:250px;overflow-y:auto"></div>`;
+    window._replExo=e;
+    window._replRender=renderRepl;
+    window._replSearch=(q)=>{
+      const low=(q||'').toLowerCase();
+      let results=low?[...sameMuscle,...others].filter(x=>(x.nom||'').toLowerCase().includes(low)||(x.muscle||'').toLowerCase().includes(low)):sameMuscle;
+      results=results.slice(0,20);
+      document.getElementById('replSearchResults').innerHTML=results.length?results.map(x=>{
+        return`<div class="lib-item" style="padding:8px 10px;cursor:pointer" onclick="window._replExo.replacements.push({nom:'${x.nom.replace(/'/g,"\\'")}',video:'${(x.video||'').replace(/'/g,"\\'")}',muscle:'${(x.muscle||'').replace(/'/g,"\\'")}',replacements:[]});window._replRender()">
+          <div class="lib-thumb" style="width:32px;height:26px;font-size:11px">${x.video&&ytId(x.video)?`<img src="https://img.youtube.com/vi/${ytId(x.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:'💪'}</div>
+          <div><div class="lib-nm">${x.nom}</div><div class="lib-meta">${x.muscle||'—'}</div></div>
+          <span style="color:var(--gold);font-size:16px;flex-shrink:0">+</span>
+        </div>`;
+      }).join(''):`<div style="font-size:12px;color:var(--text3);padding:8px">${low?'Aucun résultat':'Même groupe musculaire : aucun exercice disponible — tape pour chercher'}</div>`;
+    };
+    window._replSearch('');
+  };
+  renderRepl();
+  openM('mReplExo');
 }
 function progDoSwap(sec,i,ri){
   const r=window._swapOpts?.[ri];if(!r)return;
