@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-03-12 (UX app client : icônes, bilan Home, nutrition UI)
+**Dernière mise à jour** : 2026-03-12 (dashboard fixes + sync training client→dashboard)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -199,6 +199,16 @@
   - En-tête repas avec fond gradient gold subtil
 - **`switchTab('Bilan')`** fonctionne toujours (appelé depuis la bulle Home), highlight sur btnHome
 
+### Session 2026-03-12 (dashboard fixes + sync training)
+- **Couleur courbe progression** : changée de bleu (#3b82f6) à or (#c49a2a)
+- **Bug program builder** : overlay gris bloquait l'ajout du 2e exercice. Fix : `position:relative` sur le parent du thumbnail vidéo + condition `e.video&&ytId(e.video)` + `onerror` sur img
+- **Exercices sans vidéo** : possibilité d'ajouter des exercices même si la vidéo YouTube n'est pas valide
+- **Sync training client→dashboard** : refactoré les 3 onglets (Training, Progression, Bilans) pour toujours charger depuis Supabase
+- **Bug critique séries vides** : `onchange` sur mobile ne se déclenche qu'au blur → si le client tape ses valeurs et appuie "Terminer" directement, les données n'étaient pas capturées (`sets: []`). Fix : passage à `oninput` + filtre élargi dans `finalizeWorkout()`
+- **Tableau progression style tableur** : colonnes REPS/LOAD/RIR/R×L/NOTE par date de séance, vert/rouge pour les améliorations, ligne TOTAL avec nb séries + volume
+- **Console log debug** : `[WORKOUT SAVE]` dans `finalizeWorkout()` pour tracer les données sauvegardées
+- **Champ comment** sauvegardé dans `train_logs` (était ignoré avant)
+
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
 
@@ -212,3 +222,5 @@
 - Variable globale clients = `allClients` (pas `clients`)
 - Plans IA utilisent `alims`, pas `items` — utiliser `mealItems()` dans client.html
 - Edge Functions nécessitent `--no-verify-jwt` à chaque redéploiement
+- Inputs mobiles : toujours `oninput` (pas `onchange`) pour capturer les valeurs en temps réel
+- Ne pas appeler `renderActiveWorkout()` depuis les handlers d'input (re-render complet = perte de focus)
