@@ -2071,13 +2071,15 @@ function renderTrainingTab(){
   const el=document.getElementById('tc-training');if(!el||!curClient)return;
   // Always load from Supabase (client saves directly there)
   if(currentCoach){
-    db.from('train_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).then(({data})=>{
+    console.log('[TRAIN DEBUG] coach_id=',currentCoach.id,'client_id=',curClient.id);
+    db.from('train_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).then(({data,error})=>{
+      console.log('[TRAIN DEBUG] data=',data,'error=',error);
       if(data&&data.length>0){
         const supaLogs=data.map(d=>({session:d.session_name,date:d.date,cycle:parseInt(d.cycle)||1,exercises:d.exercises||[],rpe:d.rpe||null,comment:d.comment||''}));
         lsSave('trainlog_'+curClient.id,supaLogs);
       }
       _renderTrainingContent(el);
-    }).catch(()=>{_renderTrainingContent(el);});
+    }).catch((e)=>{console.error('[TRAIN DEBUG] catch:',e);_renderTrainingContent(el);});
   } else {_renderTrainingContent(el);}
 }
 function _renderTrainingContent(el){
