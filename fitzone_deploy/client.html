@@ -476,14 +476,14 @@ function renderHome(){
   const bc=getBilanCountdown();
   const bilanActive=bc.isBilanDay&&!bc.bilanDoneThisWeek;
   const bilanDone=bc.bilanDoneThisWeek;
-  html+=`<div class="card${bilanActive?' bilan-bubble-active':''} fade-up" onclick="${bilanActive?'switchTab(\\'Bilan\\')':'void(0)'}" style="animation-delay:.08s;margin-bottom:14px;cursor:${bilanActive?'pointer':'default'};${bilanActive?'border:2px solid var(--gold);background:linear-gradient(135deg,rgba(196,154,42,.08),rgba(232,184,74,.05))':bilanDone?'opacity:.5':'opacity:.6'}">
+  html+=`<div class="card${bilanActive?' bilan-bubble-active':''} fade-up" onclick="${bilanActive?'switchTab(&quot;Bilan&quot;)':'void(0)'}" style="animation-delay:.08s;margin-bottom:14px;cursor:${bilanActive?'pointer':'default'};${bilanActive?'border:2px solid var(--gold);background:linear-gradient(135deg,rgba(196,154,42,.08),rgba(232,184,74,.05))':bilanDone?'opacity:.5':'opacity:.6'}">
     <div style="display:flex;align-items:center;gap:14px">
       <div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;${bilanActive?'background:var(--gold);color:white':'background:var(--bg2);color:var(--text3)'}">
         ${bilanDone?'✓':'📋'}
       </div>
       <div style="flex:1">
         <div style="font-size:15px;font-weight:700;${bilanActive?'color:var(--gold)':'color:var(--text2)'}">${bilanDone?'Bilan envoyé cette semaine':bilanActive?'Bilan hebdomadaire':'Bilan hebdomadaire'}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px">${bilanDone?'Prochain : '+bc.label:bilanActive?'C\'est le jour ! Remplis ton bilan →':'Dans '+bc.days+' jour'+(bc.days>1?'s':'')+' · '+bc.label}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">${bilanDone?'Prochain : '+bc.label:bilanActive?"C'est le jour ! Remplis ton bilan →":'Dans '+bc.days+' jour'+(bc.days>1?'s':'')+' · '+bc.label}</div>
       </div>
     </div>
   </div>`;
