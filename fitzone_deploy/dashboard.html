@@ -2631,7 +2631,7 @@ function editFullPlan(id){
   pfEditId=id;pfDays=JSON.parse(JSON.stringify(p.jours||[{nom:'Jour 1',repas:[]}]));pfDayIdx=0;pfMealIdx=null;
   const pClId=p.clientId||p.client_id;
   const pClNom=p.clientNom||p.client_nom||'';
-  pfClient=pClId?clients.find(c=>c.id===pClId)||null:null;
+  pfClient=pClId?allClients.find(c=>c.id===pClId)||null:null;
   document.getElementById('pfNom').value=p.nom;document.getElementById('pfClIn').value=pClNom;document.getElementById('pfClLbl').textContent=pClNom||'Aucun';
   document.getElementById('planBuilderTitle').textContent='Modifier: '+p.nom;
   pfRenderDays();pfRenderMeals();pfRenderRecent();
