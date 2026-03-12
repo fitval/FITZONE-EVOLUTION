@@ -2105,6 +2105,8 @@ function _renderTrainingContent(el,logs){
   else{renderCyclesView(contentEl,sorted,colors);}
 }
 function renderProgressionView(el,sorted,colors){
+  // DEBUG: show raw data
+  el.innerHTML='<div style="background:#fef3c7;padding:12px;border-radius:8px;margin-bottom:12px;font-size:11px;max-height:300px;overflow:auto"><strong>DEBUG DATA ('+sorted.length+' séances):</strong><pre>'+sorted.map((l,i)=>'Séance '+(i+1)+' ('+l.date+'): '+JSON.stringify(l.exercises,null,1)).join('\n\n')+'</pre></div>';
   const allExos=[];
   sorted.forEach(log=>{(log.exercises||[]).forEach(e=>{if(!allExos.find(x=>x.nom===e.nom))allExos.push({nom:e.nom,maxSets:0});});});
   sorted.forEach(log=>{(log.exercises||[]).forEach(e=>{const a=allExos.find(x=>x.nom===e.nom);if(a)a.maxSets=Math.max(a.maxSets,(e.sets||[]).length);});});
