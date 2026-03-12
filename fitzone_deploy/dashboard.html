@@ -4144,6 +4144,7 @@ async function generateAIPlan(){
 
     if(!resp.ok){
       const err=await resp.json().catch(()=>({error:'Erreur serveur'}));
+      if(resp.status===401){throw new Error('Fonction IA non configurée — déployez les Edge Functions Supabase (voir documentation)');}
       throw new Error(err.error||'Erreur '+resp.status);
     }
 
