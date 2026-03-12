@@ -920,11 +920,10 @@ function showFoodSwap(planIdx,dayIdx,ri,ai){
   const origKcalPer100=alim.kcal||0;
   const origQte=alim.qte||100;
   const origKcalTotal=origKcalPer100*origQte/100;
-  // Find alternatives: same source macro from coach DB, excluding current
-  let alternatives=coachAlims.filter(a=>(a.source||'')==src&&a.nom!==alim.nom);
-  // If no source match, show all aliments
-  if(!alternatives.length)alternatives=coachAlims.filter(a=>a.nom!==alim.nom);
-  alternatives=alternatives.slice(0,30);
+  // Find alternatives: same source macro ONLY, excluding current
+  const srcLabel={proteines:'Protéines',glucides:'Glucides',lipides:'Lipides'}[src]||src||'Tous';
+  let alternatives=src?coachAlims.filter(a=>(a.source||'')==src&&a.nom!==alim.nom):coachAlims.filter(a=>a.nom!==alim.nom);
+  alternatives=alternatives.slice(0,40);
   // Build popup
   const existing=document.getElementById('foodSwapPopup');
   if(existing)existing.remove();
@@ -937,7 +936,8 @@ function showFoodSwap(planIdx,dayIdx,ri,ai){
         <div style="font-size:14px;font-weight:800">Remplacer ${alim.nom}</div>
         <span style="cursor:pointer;font-size:20px" onclick="document.getElementById('foodSwapPopup').remove()">✕</span>
       </div>
-      <div style="font-size:11px;color:var(--text3)">Quantité actuelle: ${origQte}g · ${Math.round(origKcalTotal)} kcal${src?' · Source: '+src:''}</div>
+      <div style="font-size:11px;color:var(--text3)">Quantité actuelle: ${origQte}g · ${Math.round(origKcalTotal)} kcal</div>
+      ${src?`<div style="display:inline-block;font-size:10px;font-weight:700;background:var(--gold-pale);color:var(--gold);padding:3px 8px;border-radius:12px;margin-top:4px">Source : ${srcLabel}</div>`:''}
       <input type="text" placeholder="Rechercher un aliment…" oninput="filterFoodSwap(this.value,${planIdx},${dayIdx},${ri},${ai})" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-top:8px;box-sizing:border-box">
     </div>
     <div id="foodSwapList" style="overflow-y:auto;flex:1;padding:4px 8px">`;
@@ -960,14 +960,13 @@ function filterFoodSwap(q,planIdx,dayIdx,ri,ai){
   const src=alim.source||'';
   const origKcalTotal=(alim.kcal||0)*(alim.qte||100)/100;
   const low=q.toLowerCase();
-  let filtered=coachAlims.filter(a=>a.nom!==alim.nom&&(!q||a.nom.toLowerCase().includes(low)));
-  // Prioritize same source
-  filtered.sort((a,b)=>{const aMatch=(a.source||'')==src?0:1;const bMatch=(b.source||'')==src?0:1;return aMatch-bMatch;});
-  filtered=filtered.slice(0,30);
+  // Filter strictly by same source
+  let filtered=coachAlims.filter(a=>a.nom!==alim.nom&&(!src||(a.source||'')==src)&&(!q||a.nom.toLowerCase().includes(low)));
+  filtered=filtered.slice(0,40);
   list.innerHTML=filtered.map(a=>{
     const newQte=a.kcal>0?Math.round(origKcalTotal/a.kcal*100):100;
     return`<div onclick="doFoodSwap(${planIdx},${dayIdx},${ri},${ai},'${a.nom.replace(/'/g,"\\'")}',${a.kcal},${a.prot},${a.carb},${a.fat},'${a.source||''}',${newQte})" style="padding:10px;cursor:pointer;border-radius:8px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bg)" ontouchstart="this.style.background='var(--bg)'" ontouchend="this.style.background=''">
-      <div><div style="font-size:13px;font-weight:600">${a.nom}${(a.source||'')==src?'<span style="font-size:9px;color:var(--gold);margin-left:4px">même source</span>':''}</div><div style="font-size:10px;color:var(--text3)">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div>
+      <div><div style="font-size:13px;font-weight:600">${a.nom}</div><div style="font-size:10px;color:var(--text3)">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div>
       <div style="text-align:right"><div style="font-size:14px;font-weight:800;color:var(--gold)">${newQte}g</div><div style="font-size:10px;color:var(--text3)">${Math.round(a.kcal*newQte/100)} kcal</div></div>
     </div>`;
   }).join('')||(q?'<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">Aucun résultat</div>':'');
