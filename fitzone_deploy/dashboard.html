@@ -1757,15 +1757,37 @@ async function loadPlanDisp(){
   if(!html)html=`<div style="font-size:12px;color:var(--text3);margin-top:8px">Aucun plan assigné à ce client</div>`;
   el.innerHTML=html;
 }
-function editClientPlan(id){
-  const p=plans.find(x=>x.id===id);
-  if(!p){toast('Plan introuvable — recharge la page');return;}
+async function editClientPlan(id){
+  // Try local first, fallback to Supabase
+  let p=plans.find(x=>x.id==id);
+  if(!p){
+    const{data}=await db.from('plans_full').select('*').eq('id',id).maybeSingle();
+    if(data){p=data;/* sync to local */const mapped=dbMapFromDB([data])[0];const idx=plans.findIndex(x=>x.id==id);if(idx>=0)plans[idx]=mapped;else plans.push(mapped);p=mapped;}
+  }
+  if(!p){toast('Plan introuvable');return;}
   pfFromClient=true;
-  editFullPlan(id);
+  pfEditId=p.id;
+  pfDays=JSON.parse(JSON.stringify(p.jours||[{nom:'Jour 1',repas:[]}]));
+  pfDayIdx=0;pfMealIdx=null;
+  const pClId=p.clientId||p.client_id;
+  const pClNom=p.clientNom||p.client_nom||'';
+  pfClient=pClId?clients.find(c=>c.id===pClId)||curClient:curClient;
+  document.getElementById('pfNom').value=p.nom||'';
+  document.getElementById('pfClIn').value=pClNom||pfClient?.first_name+' '+pfClient?.last_name||'';
+  document.getElementById('pfClLbl').textContent=pClNom||pfClient?.first_name+' '+pfClient?.last_name||'Aucun';
+  document.getElementById('planBuilderTitle').textContent='Modifier: '+(p.nom||'Plan');
+  pfRenderDays();pfRenderMeals();pfRenderRecent();
+  pfUpdateClientBadge();
+  document.getElementById('planBuilderWrap').style.display='block';
 }
 async function deleteClientPlan(id){
   if(!confirm('Supprimer ce plan définitivement ?'))return;
-  dbDelete('plans_full',id);
+  // Remove from local array
+  const idx=plans.findIndex(x=>x.id==id);
+  if(idx>=0)plans.splice(idx,1);
+  lsSave('fz_plans',plans);
+  // Remove from Supabase
+  try{await db.from('plans_full').delete().eq('id',id);}catch(e){console.warn('deleteClientPlan:',e);}
   toast('Plan supprimé');
   loadPlanDisp();
 }
