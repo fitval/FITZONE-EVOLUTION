@@ -2110,6 +2110,9 @@ function renderProgressionView(el,sorted,colors){
   sorted.forEach(log=>{(log.exercises||[]).forEach(e=>{if(!allExos.find(x=>x.nom===e.nom))allExos.push({nom:e.nom,maxSets:0});});});
   sorted.forEach(log=>{(log.exercises||[]).forEach(e=>{const a=allExos.find(x=>x.nom===e.nom);if(a)a.maxSets=Math.max(a.maxSets,(e.sets||[]).length);});});
   if(!allExos.length){el.innerHTML='<div class="empty" style="padding:30px"><div class="ei">📊</div><div class="et">Aucune donnée de performance</div><div class="es">Les données apparaîtront quand le client validera ses séries dans l\'app</div></div>';return;}
+  // If all exercises have 0 sets (old bug: data saved without performance), show a notice
+  const hasAnySet=allExos.some(e=>e.maxSets>0);
+  if(!hasAnySet){el.innerHTML='<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:16px;font-size:13px;color:#92400e;margin-bottom:12px"><strong>Séances enregistrées sans données de performance.</strong><br>Les anciennes séances ont été sauvegardées sans les détails des séries (kg/reps/RIR). Demande au client de refaire une séance via l\'app — les nouvelles séances seront complètes.</div><div style="font-size:12px;color:var(--text3)">'+sorted.length+' séance(s) trouvée(s), exercices : '+allExos.map(e=>e.nom).join(', ')+'</div>';return;}
   let html='';
   allExos.forEach(exo=>{
     html+=`<div style="background:var(--white);border-radius:12px;box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden">
