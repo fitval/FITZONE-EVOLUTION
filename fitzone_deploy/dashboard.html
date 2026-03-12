@@ -317,7 +317,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .food-row:last-child{border-bottom:none}
 .food-qte{width:50px;background:var(--bg);border:1.5px solid var(--border2);border-radius:6px;padding:3px 5px;font-size:12px;text-align:center;outline:none;font-family:var(--font)}
 .food-qte:focus{border-color:var(--gold)}
-.macro-p{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6}
+.macro-p{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;background:#eff6ff;color:#c49a2a}
 .macro-g{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;background:#fffbeb;color:#f59e0b}
 .macro-l{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;background:var(--gold-pale);color:var(--gold)}
 .add-food-zone{display:flex;align-items:center;gap:5px;padding:7px 10px;border:1.5px dashed var(--border2);border-radius:8px;background:transparent;font-family:var(--font);font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;transition:all .12s;width:100%;margin-top:6px}
@@ -853,7 +853,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div id="rpAlimList" style="min-height:36px;margin-bottom:10px"></div>
     <div style="background:var(--bg);border-radius:9px;padding:9px 12px;margin-bottom:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:7px;text-align:center">
       <div><div style="font-size:17px;font-weight:800" id="rpTotK">0</div><div style="font-size:9px;color:var(--text3);font-weight:700">KCAL</div></div>
-      <div><div style="font-size:17px;font-weight:800;color:#3b82f6" id="rpTotP">0g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div>
+      <div><div style="font-size:17px;font-weight:800;color:#c49a2a" id="rpTotP">0g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div>
       <div><div style="font-size:17px;font-weight:800;color:#f59e0b" id="rpTotG">0g</div><div style="font-size:9px;color:#fcd34d;font-weight:700">GLUC.</div></div>
       <div><div style="font-size:17px;font-weight:800;color:var(--gold)" id="rpTotL">0g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700">LIP.</div></div>
     </div>
@@ -1655,14 +1655,14 @@ function renderNutTab(){
       <button onclick="nRecalc()" style="margin-top:8px;font-size:11px;font-weight:600;color:var(--gold);background:rgba(196,154,42,.15);border:1px solid rgba(196,154,42,.28);border-radius:7px;padding:4px 11px;cursor:pointer;font-family:var(--font)">↺ Recalculer</button>
     </div>
     <div class="card cp"><div class="cl">Macros</div>
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:#3b82f6;width:60px">Protéines</div><input type="range" id="slP" min="1.0" max="3.5" step="0.1" value="2.0" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:#3b82f6;cursor:pointer"><input class="medit" type="number" id="eP" value="${pg}" oninput="nManual()" style="color:#3b82f6"><span style="font-size:10px;color:var(--text3)">g</span></div>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:#c49a2a;width:60px">Protéines</div><input type="range" id="slP" min="1.0" max="3.5" step="0.1" value="2.0" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:#c49a2a;cursor:pointer"><input class="medit" type="number" id="eP" value="${pg}" oninput="nManual()" style="color:#c49a2a"><span style="font-size:10px;color:var(--text3)">g</span></div>
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:var(--gold);width:60px">Lipides</div><input type="range" id="slF" min="0.5" max="2.0" step="0.1" value="0.9" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:var(--gold);cursor:pointer"><input class="medit" type="number" id="eF" value="${fg}" oninput="nManual()" style="color:var(--gold)"><span style="font-size:10px;color:var(--text3)">g</span></div>
       <div style="background:var(--bg);border-radius:8px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:11px;font-weight:700;color:#f59e0b">Glucides (auto)</div><div><span style="font-size:18px;font-weight:800;color:#f59e0b" id="eC">${cg}</span><span style="font-size:10px;color:var(--text3)">g</span></div></div>
     </div></div>
   </div>
   <div class="card" style="padding:12px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:13px;text-align:center">
     <div><div style="font-size:20px;font-weight:800" id="rK">${kd.toLocaleString('fr')}</div><div style="font-size:9px;color:var(--text3);font-weight:700;letter-spacing:1px">KCAL</div></div>
-    <div><div style="font-size:20px;font-weight:800;color:#3b82f6" id="rP">${pg}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700;letter-spacing:1px">PROT.</div></div>
+    <div><div style="font-size:20px;font-weight:800;color:#c49a2a" id="rP">${pg}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700;letter-spacing:1px">PROT.</div></div>
     <div><div style="font-size:20px;font-weight:800;color:#f59e0b" id="rC">${cg}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700;letter-spacing:1px">GLUC.</div></div>
     <div><div style="font-size:20px;font-weight:800;color:var(--gold)" id="rF">${fg}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700;letter-spacing:1px">LIP.</div></div>
   </div>
@@ -1703,7 +1703,7 @@ async function loadPlanDisp(){
   let html='';
   // Plans macros (table plans)
   const{data:macrosData}=await db.from('plans').select('*').eq('client_id',curClient.id).order('created_at',{ascending:false}).limit(1);
-  if(macrosData?.[0]){const p=macrosData[0];html+=`<div class="card cp" style="margin-bottom:10px"><div class="cl cl-gold">Plan macros</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><div style="text-align:center;padding:9px;background:var(--bg);border-radius:9px"><div style="font-size:15px;font-weight:800">${(p.kcal_target||0).toLocaleString('fr')}</div><div style="font-size:9px;color:var(--text3);font-weight:700">KCAL</div></div><div style="text-align:center;padding:9px;background:#eff6ff;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#3b82f6">${p.protein_g}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div><div style="text-align:center;padding:9px;background:#fffbeb;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#f59e0b">${p.carb_g}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700">GLUC.</div></div><div style="text-align:center;padding:9px;background:var(--gold-pale);border-radius:9px"><div style="font-size:15px;font-weight:800;color:var(--gold)">${p.fat_g}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700">LIP.</div></div></div></div>`;}
+  if(macrosData?.[0]){const p=macrosData[0];html+=`<div class="card cp" style="margin-bottom:10px"><div class="cl cl-gold">Plan macros</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><div style="text-align:center;padding:9px;background:var(--bg);border-radius:9px"><div style="font-size:15px;font-weight:800">${(p.kcal_target||0).toLocaleString('fr')}</div><div style="font-size:9px;color:var(--text3);font-weight:700">KCAL</div></div><div style="text-align:center;padding:9px;background:#eff6ff;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#c49a2a">${p.protein_g}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div><div style="text-align:center;padding:9px;background:#fffbeb;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#f59e0b">${p.carb_g}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700">GLUC.</div></div><div style="text-align:center;padding:9px;background:var(--gold-pale);border-radius:9px"><div style="font-size:15px;font-weight:800;color:var(--gold)">${p.fat_g}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700">LIP.</div></div></div></div>`;}
   // Plans complets (table plans_full)
   const{data:fullData}=await db.from('plans_full').select('*').eq('client_id',curClient.id).order('created_at',{ascending:false});
   if(fullData&&fullData.length>0){fullData.forEach(pf=>{
@@ -1724,7 +1724,7 @@ async function loadPlanDisp(){
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
         <div style="text-align:center;padding:8px;background:var(--bg);border-radius:9px"><div style="font-size:15px;font-weight:800">${pf.kcal||0}</div><div style="font-size:9px;color:var(--text3);font-weight:700">KCAL</div></div>
-        <div style="text-align:center;padding:8px;background:#eff6ff;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#3b82f6">${pf.prot||0}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div>
+        <div style="text-align:center;padding:8px;background:#eff6ff;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#c49a2a">${pf.prot||0}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700">PROT.</div></div>
         <div style="text-align:center;padding:8px;background:#fffbeb;border-radius:9px"><div style="font-size:15px;font-weight:800;color:#f59e0b">${pf.carb||0}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700">GLUC.</div></div>
         <div style="text-align:center;padding:8px;background:var(--gold-pale);border-radius:9px"><div style="font-size:15px;font-weight:800;color:var(--gold)">${pf.fat||0}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700">LIP.</div></div>
       </div>`;
@@ -1792,7 +1792,7 @@ function renderClientPlanEditor(){
   // Day macros
   let dk=0,dp=0,dc=0,df=0;
   (day.repas||[]).forEach(r=>(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;dk+=a.kcal*q;dp+=a.prot*q;dc+=a.carb*q;df+=a.fat*q;}));
-  h+=`<div style="display:flex;gap:12px;font-size:12px;font-weight:600;margin-bottom:12px;padding:8px;background:var(--bg);border-radius:8px"><span style="color:var(--gold)">${Math.round(dk)} kcal</span><span style="color:#3b82f6">P ${Math.round(dp)}g</span><span style="color:#f59e0b">G ${Math.round(dc)}g</span><span style="color:var(--gold)">L ${Math.round(df)}g</span></div>`;
+  h+=`<div style="display:flex;gap:12px;font-size:12px;font-weight:600;margin-bottom:12px;padding:8px;background:var(--bg);border-radius:8px"><span style="color:var(--gold)">${Math.round(dk)} kcal</span><span style="color:#c49a2a">P ${Math.round(dp)}g</span><span style="color:#f59e0b">G ${Math.round(dc)}g</span><span style="color:var(--gold)">L ${Math.round(df)}g</span></div>`;
   // Meals
   (day.repas||[]).forEach((meal,ri)=>{
     let mk=0,mp=0,mc=0,mf=0;
@@ -2014,10 +2014,10 @@ function renderProgressionTab(){
     const pts=vals.map((v,i)=>{const x=pad+i*(W-2*pad)/(vals.length-1);const y=H-pad-(v-minV)/range*(H-2*pad);return`${x},${y}`;});
     const area=`${pad},${H-pad} ${pts.join(' ')} ${pad+(vals.length-1)*(W-2*pad)/(vals.length-1)},${H-pad}`;
     chartSvg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:240px">
-      <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6" stop-opacity=".2"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/></linearGradient></defs>
+      <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c49a2a" stop-opacity=".2"/><stop offset="100%" stop-color="#c49a2a" stop-opacity="0"/></linearGradient></defs>
       <polygon points="${area}" fill="url(#pg)"/>
-      <polyline points="${pts.join(' ')}" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round"/>
-      ${vals.map((v,i)=>{const x=pad+i*(W-2*pad)/(vals.length-1);const y=H-pad-(v-minV)/range*(H-2*pad);return`<circle cx="${x}" cy="${y}" r="4" fill="#3b82f6" stroke="white" stroke-width="2"/>`;}).join('')}
+      <polyline points="${pts.join(' ')}" fill="none" stroke="#c49a2a" stroke-width="2.5" stroke-linejoin="round"/>
+      ${vals.map((v,i)=>{const x=pad+i*(W-2*pad)/(vals.length-1);const y=H-pad-(v-minV)/range*(H-2*pad);return`<circle cx="${x}" cy="${y}" r="4" fill="#c49a2a" stroke="white" stroke-width="2"/>`;}).join('')}
       ${[minV,minV+(maxV-minV)/2,maxV].map((v,i)=>{const y=H-pad-i*.5*(H-2*pad);return`<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="var(--border)" stroke-dasharray="4"/><text x="${pad-4}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text3)">${Math.round(v*10)/10}</text>`;}).join('')}
       ${filtered.length<=10?filtered.map((d,i)=>{const x=pad+i*(W-2*pad)/(vals.length-1);return`<text x="${x}" y="${H-5}" text-anchor="middle" font-size="8" fill="var(--text3)">${new Date(d.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</text>`;}).join(''):''}
     </svg>`;
@@ -2382,7 +2382,7 @@ function pfRenameDay(i){const n=prompt('Renommer le jour :',pfDays[i].nom);if(n&
 function pfCalcDay(i){const t={k:0,p:0,g:0,l:0};pfDays[i]?.repas.forEach(r=>r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;}));return t;}
 function pfCalcMeal(r){const t={k:0,p:0,g:0,l:0};r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;});return t;}
 function pfCalcTotal(){const t={k:0,p:0,g:0,l:0};pfDays.forEach(d=>d.repas.forEach(r=>r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;})));return t;}
-function pfRenderTotals(){const t=pfCalcDay(pfDayIdx);document.getElementById('pfDayTotals').innerHTML=`<div class="dtot"><div class="dtot-val">${Math.round(t.k)}</div><div class="dtot-lbl">Kcal</div></div><div class="dtot" style="background:#eff6ff"><div class="dtot-val" style="color:#3b82f6">${Math.round(t.p)}g</div><div class="dtot-lbl" style="color:#93c5fd">Prot.</div></div><div class="dtot" style="background:#fffbeb"><div class="dtot-val" style="color:#f59e0b">${Math.round(t.g)}g</div><div class="dtot-lbl" style="color:#fcd34d">Gluc.</div></div><div class="dtot" style="background:var(--gold-pale)"><div class="dtot-val" style="color:var(--gold)">${Math.round(t.l)}g</div><div class="dtot-lbl" style="color:var(--gold-border)">Lip.</div></div>`;}
+function pfRenderTotals(){const t=pfCalcDay(pfDayIdx);document.getElementById('pfDayTotals').innerHTML=`<div class="dtot"><div class="dtot-val">${Math.round(t.k)}</div><div class="dtot-lbl">Kcal</div></div><div class="dtot" style="background:#eff6ff"><div class="dtot-val" style="color:#c49a2a">${Math.round(t.p)}g</div><div class="dtot-lbl" style="color:#93c5fd">Prot.</div></div><div class="dtot" style="background:#fffbeb"><div class="dtot-val" style="color:#f59e0b">${Math.round(t.g)}g</div><div class="dtot-lbl" style="color:#fcd34d">Gluc.</div></div><div class="dtot" style="background:var(--gold-pale)"><div class="dtot-val" style="color:var(--gold)">${Math.round(t.l)}g</div><div class="dtot-lbl" style="color:var(--gold-border)">Lip.</div></div>`;}
 function pfRenderMeals(){
   const w=document.getElementById('pfMeals');if(!w)return;
   const repas=pfDays[pfDayIdx]?.repas||[];
@@ -2556,7 +2556,7 @@ function pfToggleEquiv(btn,ri,ai){
     const qtyNeeded=Math.round(targetGrams*100/al[macroKey]);
     return{nom:al.nom,qty:qtyNeeded,kcal:Math.round(al.kcal*qtyNeeded/100),prot:al.prot,carb:al.carb,fat:al.fat,source:al.source,macroKey,macroVal:Math.round(al[macroKey]*qtyNeeded/100)};
   }).sort((a,b)=>a.qty-b.qty);
-  const srcColor={proteines:'#3b82f6',glucides:'#f59e0b',lipides:'#c49a2a'};
+  const srcColor={proteines:'#c49a2a',glucides:'#f59e0b',lipides:'#c49a2a'};
   const srcLabel={proteines:'Protéines',glucides:'Glucides',lipides:'Lipides'};
   drop.innerHTML=`<div style="padding:6px 8px 4px;font-size:10px;font-weight:700;color:${srcColor[src]};letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);margin-bottom:4px">⇄ Équivalences ${srcLabel[src]} · ${Math.round(targetGrams)}g ${macroLabel}</div>`+
     (equivs.length?equivs.map(eq=>`<div class="eq-item" onclick="event.stopPropagation();pfSwapEquiv(${ri},${ai},'${eq.nom.replace(/'/g,"\\'")}',${eq.qty},${eq.prot},${eq.carb},${eq.fat},${eq.kcal},'${src}')">
@@ -2664,7 +2664,7 @@ function saveAlim(){
 function renderAlims(){
   const tb=document.getElementById('alimBody');if(!tb)return;
   if(!alims.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">🥦</div><div class="et">Aucun aliment</div><div class="es">Ajoute tes premiers aliments</div></div></td></tr>`;return;}
-  const srcBadge=s=>{const c={proteines:'#3b82f6',glucides:'#f59e0b',lipides:'#c49a2a'};const l={proteines:'P',glucides:'G',lipides:'L'};return`<span style="display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:800;background:${c[s]||'#999'}22;color:${c[s]||'#999'}">${l[s]||'—'}</span>`;};
+  const srcBadge=s=>{const c={proteines:'#c49a2a',glucides:'#f59e0b',lipides:'#c49a2a'};const l={proteines:'P',glucides:'G',lipides:'L'};return`<span style="display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:800;background:${c[s]||'#999'}22;color:${c[s]||'#999'}">${l[s]||'—'}</span>`;};
   tb.innerHTML=alims.map(a=>`<tr><td style="font-weight:600">${a.nom} ${srcBadge(a.source)}</td><td><span class="tag">${a.cat}</span></td><td>${a.kcal}</td><td>${a.prot}g</td><td>${a.carb}g</td><td>${a.fat}g</td><td style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openAlim(${a.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delAlim(${a.id})">✕</button></td></tr>`).join('');
 }
 function delAlim(id){if(!confirm('Supprimer ?'))return;dbDelete('aliments',id);renderAlims();toast('Supprimé');}
@@ -3116,7 +3116,7 @@ function progRenderDay(){
       <div class="exo-block-hdr">
         <span style="color:var(--text3);font-size:12px;cursor:grab">⠿</span>
         <div class="exo-letter">${String.fromCharCode(65+i)}</div>
-        ${e.video?`<div style="width:36px;height:30px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="watchVid('${e.nom.replace(/'/g,"\'")}','${e.video}','')" title="Visionner la vidéo"><img src="https://img.youtube.com/vi/${ytId(e.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);font-size:11px">▶</div></div>`:`<div style="width:36px;height:30px;border-radius:6px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">💪</div>`}
+        ${e.video&&ytId(e.video)?`<div style="position:relative;width:36px;height:30px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="watchVid('${e.nom.replace(/'/g,"\'")}','${e.video}','')" title="Visionner la vidéo"><img src="https://img.youtube.com/vi/${ytId(e.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);font-size:11px">▶</div></div>`:`<div style="width:36px;height:30px;border-radius:6px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">💪</div>`}
         <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3)">${e.muscle||''} · ${e.equip||''}${(e.replacements||[]).length?' · <span style="color:var(--gold)">⇄ '+(e.replacements||[]).length+' rempl.</span>':''}</div></div>
         <div style="display:flex;gap:4px">
           ${(e.replacements||[]).length?`<button class="swap-btn" onclick="progSwapExo('${key}',${i})" title="Remplacer l'exercice">⇄</button>`:''}
@@ -3405,7 +3405,7 @@ function seanceRenderAll(){
       <div class="exo-block-hdr">
         <span style="color:var(--text3);font-size:12px;cursor:grab">⠿</span>
         <div class="exo-letter">${String.fromCharCode(65+i)}</div>
-        ${e.video?`<div style="width:34px;height:28px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="watchVid('${(e.nom||'').replace(/'/g,"\'")}','${e.video}','')"><img src="https://img.youtube.com/vi/${ytId(e.video||'')}/default.jpg" style="width:100%;height:100%;object-fit:cover"></div>`:`<div style="width:34px;height:28px;background:var(--dark);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0">💪</div>`}
+        ${e.video&&ytId(e.video)?`<div style="position:relative;width:34px;height:28px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="watchVid('${(e.nom||'').replace(/'/g,"\'")}','${e.video}','')"><img src="https://img.youtube.com/vi/${ytId(e.video||'')}/default.jpg" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"></div>`:`<div style="width:34px;height:28px;background:var(--dark);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0">💪</div>`}
         <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3)">${e.muscle||''}${(e.replacements||[]).length?' · <span style="color:var(--gold)">⇄ '+(e.replacements||[]).length+' rempl.</span>':''}</div></div>
         ${(e.replacements||[]).length?`<button class="swap-btn" onclick="seanceSwapExo('${sec}',${i})" title="Remplacer l'exercice">⇄</button>`:''}
         <button onclick="seanceDelExo('${sec}',${i})" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:14px">🗑</button>
