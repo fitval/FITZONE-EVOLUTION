@@ -183,6 +183,17 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); min-hei
 .bilan-entry-content { font-size:14px; color:var(--text2); line-height:1.5; }
 .bilan-photos { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
 .bilan-photo { width:72px; height:72px; border-radius:var(--r-xs); object-fit:cover; cursor:pointer; }
+.bilan-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--gold); margin:24px 0 12px; padding-bottom:6px; border-bottom:1.5px solid var(--gold-pale,rgba(196,154,42,.15)); display:flex; align-items:center; gap:8px; }
+.bilan-section-title i { font-size:14px; }
+.bilan-gauge { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.bilan-gauge-dot { width:36px; height:36px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:var(--text3); cursor:pointer; transition:all .2s; }
+.bilan-gauge-dot.active { border-color:var(--gold); background:var(--gold); color:white; }
+.bilan-q-label { font-size:14px; font-weight:600; color:var(--text); margin-bottom:6px; line-height:1.4; }
+.bilan-q-sub { font-size:12px; color:var(--text3); margin-bottom:8px; font-style:italic; }
+.bilan-optional-tag { font-size:10px; background:var(--bg2); color:var(--text3); padding:2px 8px; border-radius:10px; font-weight:600; margin-left:6px; }
+.bilan-entry-q { margin-top:10px; padding:10px 0; border-top:1px solid var(--border); }
+.bilan-entry-q-label { font-size:11px; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+.bilan-entry-q-val { font-size:14px; color:var(--text2); line-height:1.5; white-space:pre-wrap; }
 
 /* Form */
 .form-group { margin-bottom:18px; }
@@ -683,7 +694,8 @@ function renderActiveWorkout(){
     let chips=`<span class="exo-chip">Sets: ${nSets}</span><span class="exo-chip">Reps: ${repsStr}</span>`;
     if(restStr)chips+=`<span class="exo-chip">Rest: ${restStr}</span>`;
 
-    h+=`<div class="exo-active"><div class="exo-active-top">${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div class="exo-active-actions"><button class="exo-menu-btn" onclick="toggleSwap(${ei})">···</button><div class="exo-letter">${letter}</div></div></div>`;
+    const hasRepls=(ex.replacements||[]).length>0;
+    h+=`<div class="exo-active"><div class="exo-active-top">${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div class="exo-active-actions">${hasRepls?`<button class="exo-menu-btn" onclick="toggleSwap(${ei})" style="font-size:18px;color:var(--gold)">⇄</button>`:''}<div class="exo-letter">${letter}</div></div></div>`;
 
     // Swap menu (alternatives configurées par le coach)
     if(ex.showSwap&&ex.replacements.length){
@@ -1047,35 +1059,100 @@ function renderBilanList(){
   if(!bilans.length)h+=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Aucun bilan soumis.</div></div>`;
   else bilans.forEach((b,i)=>{
     const ph=b.photos||[];
-    h+=`<div class="bilan-entry fade-up" style="animation-delay:${i*.05}s"><div class="bilan-entry-date">${fmtDate(b.date)}</div>${b.titre?`<div class="bilan-entry-title">${b.titre}</div>`:''}${b.poids?`<div class="bilan-entry-weight">${b.poids} kg</div>`:''}${b.contenu?`<div class="bilan-entry-content">${b.contenu}</div>`:''}${ph.length?`<div class="bilan-photos">${ph.map(p=>`<img class="bilan-photo" src="${p}" onclick="openModal('<img src=\\'${p}\\'/>')">`).join('')}</div>`:''}${b.reponses?renderReponses(b.reponses):''}</div>`;
+    const rep=b.reponses||{};
+    h+=`<div class="bilan-entry fade-up" style="animation-delay:${i*.05}s">`;
+    h+=`<div class="bilan-entry-date">${fmtDate(b.date)}</div>`;
+    if(rep.attitude)h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:13px;font-weight:600;color:var(--text2)">Attitude</span><span style="font-size:20px;font-weight:800;color:var(--gold)">${rep.attitude}/10</span></div>`;
+    if(ph.length)h+=`<div class="bilan-photos">${ph.map(p=>`<img class="bilan-photo" src="${p}" onclick="openModal('<img src=\\'${p}\\' style=\\'max-width:100%;max-height:80vh\\'/>')">`).join('')}</div>`;
+    h+=renderReponses(rep);
+    // Mensurations
+    const mens=[];
+    if(rep.biceps)mens.push('Biceps: '+rep.biceps+' cm');
+    if(rep.nombril)mens.push('Nombril: '+rep.nombril+' cm');
+    if(rep.poitrine)mens.push('Poitrine: '+rep.poitrine+' cm');
+    if(mens.length)h+=`<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">${mens.map(m=>`<div style="font-size:12px;background:var(--bg2);color:var(--text2);padding:4px 10px;border-radius:20px;font-weight:600">${m}</div>`).join('')}</div>`;
+    h+=`</div>`;
   });
   document.getElementById('bilanContent').innerHTML=h;
 }
-function renderReponses(rep){if(!rep||typeof rep!=='object')return'';let h='<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">';Object.entries(rep).forEach(([k,v])=>{h+=`<div style="font-size:12px;background:var(--gold-pale);color:var(--gold);padding:4px 10px;border-radius:20px;font-weight:600">${k}: ${v}</div>`;});return h+'</div>';}
+const bilanQuestions=[
+  {id:'q2',label:'Peux-tu expliciter pourquoi tu t\'es noté ainsi ?',section:'ATTITUDE',icon:'fa-brain'},
+  {id:'q3',label:'Quelles sont tes 3 plus grosses victoires cette semaine ? Dis-moi pourquoi cette semaine a été TOP !',section:'VICTOIRES',icon:'fa-trophy'},
+  {id:'q4',label:'Quelles ont été tes performances d\'entraînement cette semaine ? As-tu fait des nouvelles performances, remarqué un plateau, etc. ?',section:'PERFORMANCES',icon:'fa-dumbbell'},
+  {id:'q5',label:'S\'est-il passé quelque chose cette semaine qui ne figure pas sur ton tableur et qui pourrait avoir un effet sur toi, ton entraînement ou ton suivi des progrès ?',section:'BIEN-ÊTRE',icon:'fa-heart'},
+  {id:'q6',label:'Comment aurais-tu pu améliorer cette semaine ou essayer de t\'améliorer pour la semaine prochaine ?',section:'CONSTRUIRE',icon:'fa-hammer'},
+  {id:'q7',label:'Les personnes qui t\'entourent facilitent-elles ou compliquent-elles le processus ? Te soutiennent-elles ?',section:'SOUTIEN / ENVIRONNEMENT',icon:'fa-users'},
+  {id:'q8',label:'Si tu devais conclure cette semaine, que dirais-tu ? Et as-tu des questions à me poser ?',section:'RÉSUMÉ / QUESTIONS',icon:'fa-comment-dots'},
+  {id:'q9',label:'Y a-t-il quelque chose à venir qui affectera tes progrès ?',section:'SEMAINE PROCHAINE',icon:'fa-calendar-alt'},
+  {id:'q10',label:'Y a-t-il quelque chose qui pourrait t\'aider pour adhérer encore mieux au plan / modifications à apporter ?',section:'COACHING',icon:'fa-clipboard-check'}
+];
+function renderReponses(rep){
+  if(!rep||typeof rep!=='object')return'';
+  let h='';
+  bilanQuestions.forEach(q=>{
+    if(rep[q.id])h+=`<div class="bilan-entry-q"><div class="bilan-entry-q-label"><i class="fas ${q.icon}"></i> ${q.section}</div><div class="bilan-entry-q-val">${rep[q.id]}</div></div>`;
+  });
+  return h;
+}
 
 function showBilanForm(){
   bilanPhotos=[];
   let h=`<button class="back-btn" onclick="renderBilanList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
-  h+=`<div style="font-size:20px;font-weight:800;margin-bottom:20px">Nouveau bilan</div>`;
+  h+=`<div style="font-size:20px;font-weight:800;margin-bottom:4px">Bilan hebdomadaire</div>`;
+  h+=`<div style="font-size:13px;color:var(--text3);margin-bottom:20px">Prends le temps de faire le point sur ta semaine.</div>`;
+
+  // Date
   h+=`<div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="bilanDate" value="${today()}"></div>`;
-  h+=`<div class="form-group"><label class="form-label">Poids (kg)</label><input type="number" step="0.1" class="form-input" id="bilanPoids" placeholder="Ex: 73.5"></div>`;
-  h+=`<div class="form-group"><label class="form-label">Titre</label><input type="text" class="form-input" id="bilanTitre" placeholder="Ex: Bilan semaine 8"></div>`;
-  h+=`<div class="form-group"><label class="form-label">Notes / Ressenti</label><textarea class="form-input" id="bilanContenu" placeholder="Comment s'est passée ta semaine ?"></textarea></div>`;
-  const qs=[{k:'Énergie',l:'Énergie générale'},{k:'Sommeil',l:'Qualité du sommeil'},{k:'Adhérence diète',l:'Adhérence au plan nutritionnel'},{k:'Adhérence training',l:'Adhérence au programme'},{k:'Motivation',l:'Motivation'}];
-  qs.forEach(q=>{h+=`<div class="form-group"><label class="form-label">${q.l}</label><div class="slider-group"><input type="range" min="1" max="10" value="7" id="bq_${q.k}" oninput="document.getElementById('bqv_${q.k}').textContent=this.value"><div class="slider-val" id="bqv_${q.k}">7</div><span style="font-size:12px;color:var(--text3)">/10</span></div></div>`;});
+
+  // Photos
   h+=`<div class="form-group"><label class="form-label">Photos (max 4)</label><div class="photo-grid" id="photoGrid"><div class="photo-slot" onclick="addBilanPhoto()"><div class="photo-add">+</div></div></div></div>`;
-  h+=`<button class="btn-gold" onclick="submitBilan()" style="margin-top:8px">Envoyer le bilan</button>`;
+
+  // Q1 - Attitude gauge
+  h+=`<div class="bilan-section-title"><i class="fas fa-brain"></i> ATTITUDE</div>`;
+  h+=`<div class="form-group"><div class="bilan-q-label">Ton attitude cette semaine a-t-elle été le reflet de tes objectifs ?</div>`;
+  h+=`<div class="bilan-gauge" id="gaugeAttitude">`;
+  for(let i=1;i<=10;i++)h+=`<div class="bilan-gauge-dot" onclick="setGauge(${i})" data-val="${i}">${i}</div>`;
+  h+=`</div></div>`;
+
+  // Q2-Q10 text questions
+  bilanQuestions.forEach(q=>{
+    h+=`<div class="bilan-section-title"><i class="fas ${q.icon}"></i> ${q.section}</div>`;
+    h+=`<div class="form-group"><div class="bilan-q-label">${q.label}</div>`;
+    h+=`<textarea class="form-input" id="bilan_${q.id}" placeholder="Ta réponse..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="min-height:80px"></textarea></div>`;
+  });
+
+  // Mensurations optionnelles
+  h+=`<div class="bilan-section-title"><i class="fas fa-ruler"></i> MENSURATIONS <span class="bilan-optional-tag">Optionnel</span></div>`;
+  h+=`<div class="form-group"><div class="bilan-q-label">Biceps (cm)</div><input type="number" step="0.1" class="form-input" id="bilanBiceps" placeholder="Ex: 35.5"></div>`;
+  h+=`<div class="form-group"><div class="bilan-q-label">Tour de nombril (cm)</div><input type="number" step="0.1" class="form-input" id="bilanNombril" placeholder="Ex: 82"></div>`;
+  h+=`<div class="form-group"><div class="bilan-q-label">Tour de poitrine (cm)</div><input type="number" step="0.1" class="form-input" id="bilanPoitrine" placeholder="Ex: 98"></div>`;
+
+  h+=`<button class="btn-gold" onclick="submitBilan()" style="margin-top:16px;margin-bottom:40px">Envoyer le bilan</button>`;
   document.getElementById('bilanContent').innerHTML=h;
+}
+let bilanAttitude=0;
+function setGauge(val){
+  bilanAttitude=val;
+  document.querySelectorAll('#gaugeAttitude .bilan-gauge-dot').forEach(d=>{
+    const v=parseInt(d.dataset.val);
+    d.classList.toggle('active',v<=val);
+  });
 }
 function addBilanPhoto(){if(bilanPhotos.length>=4)return;const inp=document.getElementById('photoInput');inp.onchange=function(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{resizeImg(ev.target.result,1200,.7,c=>{bilanPhotos.push(c);renderPhotoGrid();});};r.readAsDataURL(f);inp.value='';};inp.click();}
 function resizeImg(du,mw,q,cb){const img=new Image();img.onload=function(){let w=img.width,h=img.height;if(w>mw){h=h*(mw/w);w=mw;}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);cb(c.toDataURL('image/jpeg',q));};img.src=du;}
 function renderPhotoGrid(){let h='';bilanPhotos.forEach((p,i)=>{h+=`<div class="photo-slot"><img src="${p}"><div class="photo-remove" onclick="event.stopPropagation();bilanPhotos.splice(${i},1);renderPhotoGrid()">✕</div></div>`;});if(bilanPhotos.length<4)h+=`<div class="photo-slot" onclick="addBilanPhoto()"><div class="photo-add">+</div></div>`;document.getElementById('photoGrid').innerHTML=h;}
 async function submitBilan(){
-  const d=document.getElementById('bilanDate').value,po=document.getElementById('bilanPoids').value,ti=document.getElementById('bilanTitre').value,co=document.getElementById('bilanContenu').value;
-  const rep={};['Énergie','Sommeil','Adhérence diète','Adhérence training','Motivation'].forEach(k=>{const e=document.getElementById('bq_'+k);if(e)rep[k]=e.value+'/10';});
-  const{error}=await db.from('bilans').insert({coach_id:clientData.coach_id,client_id:clientData.id,titre:ti||'Bilan du '+fmtDate(d),date:d,poids:po||null,contenu:co||null,photos:bilanPhotos,reponses:rep,read:false});
+  if(!bilanAttitude){toast('Note ton attitude de 1 à 10');return;}
+  const d=document.getElementById('bilanDate').value;
+  const rep={attitude:bilanAttitude};
+  bilanQuestions.forEach(q=>{const e=document.getElementById('bilan_'+q.id);if(e&&e.value.trim())rep[q.id]=e.value.trim();});
+  // Mensurations optionnelles
+  const bic=document.getElementById('bilanBiceps').value;if(bic)rep.biceps=bic;
+  const nom=document.getElementById('bilanNombril').value;if(nom)rep.nombril=nom;
+  const poi=document.getElementById('bilanPoitrine').value;if(poi)rep.poitrine=poi;
+  const{error}=await db.from('bilans').insert({coach_id:clientData.coach_id,client_id:clientData.id,titre:'Bilan du '+fmtDate(d),date:d,photos:bilanPhotos,reponses:rep,read:false});
   if(error){toast('Erreur: '+error.message);return;}
-  toast('Bilan envoyé !');
+  toast('Bilan envoyé !');bilanAttitude=0;
   const{data}=await db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false});bilans=data||[];renderBilanList();
 }
 
