@@ -1979,17 +1979,20 @@ function sRoad(row,field,val){
 /* ===== PROGRESSION TAB (Graphiques données quotidiennes) ===== */
 function renderProgressionTab(){
   const el=document.getElementById('tc-progression');if(!el||!curClient)return;
-  let logs=lsGet('daily_'+curClient.id,[]);
-  // Async load from Supabase
-  if(currentCoach&&!window['_dailyLoaded_'+curClient.id]){
-    window['_dailyLoaded_'+curClient.id]=true;
-    db.from('daily_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).then(({data})=>{
+  // Always load from Supabase (client saves directly there)
+  if(currentCoach){
+    db.from('daily_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).then(({data})=>{
       if(data&&data.length>0){
         const supaLogs=data.map(d=>({...d.data,date:d.date}));
-        if(supaLogs.length>logs.length){lsSave('daily_'+curClient.id,supaLogs);renderProgressionTab();}
+        lsSave('daily_'+curClient.id,supaLogs);
       }
-    }).catch(()=>{});
-  }
+      _renderProgressionContent(el);
+    }).catch(()=>{_renderProgressionContent(el);});
+  } else {_renderProgressionContent(el);}
+}
+function _renderProgressionContent(el){
+  if(!el||!curClient)return;
+  let logs=lsGet('daily_'+curClient.id,[]);
   const metrics=['Poids','Énergie','Faim','Stress','Sommeil (h)','Pas','Alimentation suivie (%)','Note attitude (/10)'];
   const selMetric=window._progMetric||'Poids';
   // Filter data for selected metric
@@ -2066,17 +2069,20 @@ function saveDailyLog(){
 /* ===== TRAINING TAB (Cycles de progression) ===== */
 function renderTrainingTab(){
   const el=document.getElementById('tc-training');if(!el||!curClient)return;
-  let logs=lsGet('trainlog_'+curClient.id,[]);
-  // Async load from Supabase
-  if(currentCoach&&!window['_trainLoaded_'+curClient.id]){
-    window['_trainLoaded_'+curClient.id]=true;
-    db.from('train_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).then(({data})=>{
+  // Always load from Supabase (client saves directly there)
+  if(currentCoach){
+    db.from('train_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).then(({data})=>{
       if(data&&data.length>0){
         const supaLogs=data.map(d=>({session:d.session_name,date:d.date,cycle:parseInt(d.cycle)||1,exercises:d.exercises||[],rpe:d.rpe||null,comment:d.comment||''}));
-        if(supaLogs.length>logs.length){lsSave('trainlog_'+curClient.id,supaLogs);renderTrainingTab();}
+        lsSave('trainlog_'+curClient.id,supaLogs);
       }
-    }).catch(()=>{});
-  }
+      _renderTrainingContent(el);
+    }).catch(()=>{_renderTrainingContent(el);});
+  } else {_renderTrainingContent(el);}
+}
+function _renderTrainingContent(el){
+  if(!el||!curClient)return;
+  const logs=lsGet('trainlog_'+curClient.id,[]);
   const colors={1:'#8b5cf6',2:'#ef4444',3:'#f59e0b',4:'#22c55e'};
   // Group by session name
   const sessions={};logs.forEach(l=>{if(!sessions[l.session])sessions[l.session]=[];sessions[l.session].push(l);});
@@ -2221,17 +2227,20 @@ function saveTrainLog(){
 /* ===== BILAN TAB ===== */
 function renderBilanTab(){
   const el=document.getElementById('tc-bilan');if(!el||!curClient)return;
-  let bilans=lsGet('bilans_'+curClient.id,[]);
-  // Async load from Supabase
-  if(currentCoach&&!window['_bilansLoaded_'+curClient.id]){
-    window['_bilansLoaded_'+curClient.id]=true;
+  // Always load from Supabase (client saves directly there)
+  if(currentCoach){
     db.from('bilans').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:true}).then(({data})=>{
       if(data&&data.length>0){
         const supaBilans=data.map(d=>({titre:d.titre,date:d.date,poids:d.poids,contenu:d.contenu||'',photos:d.photos||[],reponses:d.reponses||null,read:!!d.read,_supa_id:d.id}));
-        if(supaBilans.length>bilans.length){lsSave('bilans_'+curClient.id,supaBilans);renderBilanTab();}
+        lsSave('bilans_'+curClient.id,supaBilans);
       }
-    }).catch(()=>{});
-  }
+      _renderBilanContent(el);
+    }).catch(()=>{_renderBilanContent(el);});
+  } else {_renderBilanContent(el);}
+}
+function _renderBilanContent(el){
+  if(!el||!curClient)return;
+  const bilans=lsGet('bilans_'+curClient.id,[]);
   if(!bilans.length){el.innerHTML=`<div class="empty"><div class="ei">📝</div><div class="et">Aucun bilan</div><div class="es">Les bilans apparaîtront ici quand le client les soumettra</div></div><button class="btn btn-dark btn-sm" style="margin-top:12px" onclick="addBilan()">+ Ajouter un bilan manuellement</button>`;return;}
   el.innerHTML=`<button class="btn btn-dark btn-sm" style="margin-bottom:12px" onclick="addBilan()">+ Ajouter un bilan</button>`+
     bilans.slice().reverse().map((b,bi)=>`<div class="plan-card"><div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
