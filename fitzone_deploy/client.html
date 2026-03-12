@@ -332,7 +332,7 @@ const db=supabase.createClient(SUPA,KEY);
 
 /* ===== STATE ===== */
 let clientData=null;
-let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAlims=[];
+let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAlims=[],coachExos=[];
 let currentDayIdx=0,currentPlanIdx=null;
 let workoutActive=false, workoutData=[], workoutStart=null, workoutTimerInterval=null;
 let restTimerInterval=null;
@@ -361,16 +361,17 @@ function showState(s){
 }
 
 async function loadData(){
-  const[p1,p2,p3,p4,p5,p6,p7]=await Promise.all([
+  const[p1,p2,p3,p4,p5,p6,p7,p8]=await Promise.all([
     db.from('programs').select('*').eq('client_id',clientData.id),
     db.from('plans_full').select('*').eq('client_id',clientData.id),
     db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false}),
     db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90),
     db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30),
     db.from('modules').select('*').eq('coach_id',clientData.coach_id),
-    db.from('aliments').select('*').eq('coach_id',clientData.coach_id)
+    db.from('aliments').select('*').eq('coach_id',clientData.coach_id),
+    db.from('exercises').select('*').eq('coach_id',clientData.coach_id)
   ]);
-  programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];
+  programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
 }
 
 /* ===== TABS ===== */
@@ -685,9 +686,14 @@ function renderActiveWorkout(){
     h+=`<div class="exo-active"><div class="exo-active-top">${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div class="exo-active-actions"><button class="exo-menu-btn" onclick="toggleSwap(${ei})">···</button><div class="exo-letter">${letter}</div></div></div>`;
 
     // Swap menu
-    if(ex.showSwap&&ex.replacements.length){
+    if(ex.showSwap){
       h+=`<div class="swap-menu">`;
-      ex.replacements.forEach((r,ri)=>{h+=`<div class="swap-item" onclick="swapExo(${ei},${ri})"><span style="color:var(--gold)">↔</span> ${r.nom||r}</div>`;});
+      if(ex.replacements.length){
+        h+=`<div style="font-size:10px;font-weight:700;color:var(--text3);padding:4px 12px;text-transform:uppercase">Alternatives du coach</div>`;
+        ex.replacements.forEach((r,ri)=>{h+=`<div class="swap-item" onclick="swapExo(${ei},${ri})"><span style="color:var(--gold)">↔</span> ${r.nom||r}</div>`;});
+        h+=`<div style="height:1px;background:var(--border);margin:6px 0"></div>`;
+      }
+      h+=`<div class="swap-item" onclick="openExoSearch(${ei})" style="color:var(--gold);font-weight:700"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Chercher un autre exercice</div>`;
       h+=`</div>`;
     }
 
@@ -819,6 +825,58 @@ function swapExo(ei,ri){
     renderActiveWorkout();
     toast('Exercice remplacé');
   }
+}
+
+function openExoSearch(ei){
+  workoutData[ei].showSwap=false;
+  const curMuscle=(workoutData[ei].muscle||'').toLowerCase();
+  let ov=document.getElementById('exoSearchOverlay');
+  if(!ov){ov=document.createElement('div');ov.id='exoSearchOverlay';document.body.appendChild(ov);}
+  const renderSearch=(q)=>{
+    const low=(q||'').toLowerCase();
+    // Filter exercises: same muscle group first, then all others
+    let matched=coachExos.filter(e=>(e.nom||e.name||'').toLowerCase()!==workoutData[ei].nom.toLowerCase());
+    if(low)matched=matched.filter(e=>(e.nom||e.name||'').toLowerCase().includes(low)||(e.muscle||'').toLowerCase().includes(low));
+    // Sort: same muscle group first
+    matched.sort((a,b)=>{
+      const aM=(a.muscle||'').toLowerCase()===curMuscle?0:1;
+      const bM=(b.muscle||'').toLowerCase()===curMuscle?0:1;
+      return aM-bM||(a.nom||a.name||'').localeCompare(b.nom||b.name||'');
+    });
+    const list=matched.slice(0,40).map(e=>{
+      const name=e.nom||e.name||'Exercice';
+      const muscle=e.muscle||'';
+      const vid=ytId(e.video);
+      const thumbSrc=vid?`https://img.youtube.com/vi/${vid}/default.jpg`:'';
+      return`<div class="swap-item" style="padding:12px;gap:12px" onclick="pickExoFromSearch(${ei},'${name.replace(/'/g,"\\'")}','${(e.video||'').replace(/'/g,"\\'")}')">
+        ${thumbSrc?`<img src="${thumbSrc}" style="width:48px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`:`<div style="width:48px;height:36px;border-radius:6px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">💪</div>`}
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${name}</div>${muscle?`<div style="font-size:11px;color:var(--text3)">${muscle}</div>`:''}</div>
+        <span style="color:var(--gold);font-size:18px">↔</span>
+      </div>`;
+    }).join('');
+    ov.innerHTML=`<div style="position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column">
+      <div style="padding:16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)">
+        <button onclick="document.getElementById('exoSearchOverlay').innerHTML=''" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text)">←</button>
+        <div style="flex:1;font-weight:800;font-size:16px">Remplacer : ${workoutData[ei].nom}</div>
+      </div>
+      <div style="padding:12px 16px"><input type="text" id="exoSearchInput" placeholder="Rechercher un exercice..." value="${q||''}" oninput="window._exoSearchRender(this.value)" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:14px;font-family:var(--font);background:var(--white);color:var(--text);outline:none"></div>
+      <div style="flex:1;overflow-y:auto;padding:0 16px 80px">
+        ${matched.length?list:`<div style="text-align:center;padding:40px 0;color:var(--text3)"><div style="font-size:32px;margin-bottom:8px">🔍</div><div>${q?'Aucun exercice trouvé':'Aucun exercice dans la bibliothèque'}</div>${!coachExos.length?'<div style="font-size:12px;margin-top:4px">Le coach n\'a pas encore ajouté d\'exercices</div>':''}</div>`}
+      </div>
+    </div>`;
+    const inp=document.getElementById('exoSearchInput');
+    if(inp)setTimeout(()=>inp.focus(),100);
+  };
+  window._exoSearchRender=renderSearch;
+  renderSearch('');
+}
+
+function pickExoFromSearch(ei,name,video){
+  workoutData[ei].nom=name;
+  workoutData[ei].video=video||'';
+  document.getElementById('exoSearchOverlay').innerHTML='';
+  renderActiveWorkout();
+  toast('Exercice remplacé par '+name);
 }
 
 function filmExo(ei){
