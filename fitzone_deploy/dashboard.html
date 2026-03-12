@@ -526,7 +526,8 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <!-- PAGE: NUTRITION — PLANS -->
   <div class="page" id="page-nut-plans">
     <div id="plansPageList"></div>
-    <div id="planBuilderWrap" style="display:none">
+  </div>
+  <div id="planBuilderWrap" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9000;background:var(--bg);overflow-y:auto;padding:20px">
       <div class="sh" style="margin-bottom:14px">
         <div style="display:flex;align-items:center;gap:10px">
           <button class="btn btn-ghost btn-sm" onclick="closePlanBuilder()">← Retour</button>
@@ -624,7 +625,6 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         </div>
       </div>
     </div>
-  </div>
 
   <!-- PAGE: NUTRITION — ALIMENTS -->
   <div class="page" id="page-nut-alim">
@@ -1244,7 +1244,7 @@ function delVidFromDB(id){
 initVidDB().catch(e=>console.warn('IndexedDB vidéos non disponible',e));
 let nutSt={};
 /* Plan complet builder */
-let pfClient=null,pfDays=[],pfDayIdx=0,pfMealIdx=null,pfEditId=null;
+let pfClient=null,pfDays=[],pfDayIdx=0,pfMealIdx=null,pfEditId=null,pfFromClient=false;
 /* Programme builder */
 let progDays=[],progDayIdx=0,progEditId=null,progExoTarget={sec:null,idx:null},progClient=null;
 /* Repas builder */
@@ -1759,11 +1759,9 @@ async function loadPlanDisp(){
 }
 function editClientPlan(id){
   const p=plans.find(x=>x.id===id);
-  if(!p){toast('Plan introuvable dans le cache local — ouvre la section Nutrition > Plans pour le modifier');return;}
-  document.getElementById('detPage').classList.remove('show');
-  showPage('nut-plans',document.getElementById('nav-nut-plans'));
-  openSub('sub-nut','arr-nut');
-  setTimeout(()=>editFullPlan(id),200);
+  if(!p){toast('Plan introuvable — recharge la page');return;}
+  pfFromClient=true;
+  editFullPlan(id);
 }
 async function deleteClientPlan(id){
   if(!confirm('Supprimer ce plan définitivement ?'))return;
@@ -2203,40 +2201,34 @@ function startMacrosPlan(){
 }
 
 function startFullPlan(){
-  pfEditId=null;pfClient=null;pfDays=[{nom:'Jour 1',repas:[{nom:'Petit-déjeuner',alims:[]},{nom:'Déjeuner',alims:[]},{nom:'Dîner',alims:[]}]}];
+  pfEditId=null;pfClient=null;pfFromClient=false;pfDays=[{nom:'Jour 1',repas:[{nom:'Petit-déjeuner',alims:[]},{nom:'Déjeuner',alims:[]},{nom:'Dîner',alims:[]}]}];
   pfDayIdx=0;pfMealIdx=null;
   document.getElementById('pfNom').value='';document.getElementById('pfClIn').value='';document.getElementById('pfClLbl').textContent='Aucun';
   document.getElementById('planBuilderTitle').textContent='Nouveau plan complet';
   pfRenderDays();pfRenderMeals();pfRenderRecent();
-  // Reset side tabs
   const sa=document.getElementById('pfSideAlim'),sr=document.getElementById('pfSideRepas');
   if(sa)sa.style.display='block';if(sr)sr.style.display='none';
   const ta=document.getElementById('pfTabAlim'),tr=document.getElementById('pfTabRepas');
   if(ta)ta.className='tab active';if(tr)tr.className='tab';
-  // Reset client badge
   pfUpdateClientBadge();
-  document.getElementById('plansPageList').style.display='none';
   document.getElementById('planBuilderWrap').style.display='block';
-  document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="closePlanBuilder()">← Retour</button><button class="btn btn-gold btn-sm" onclick="savePlanFull()">💾 Enregistrer</button>`;
 }
 function closePlanBuilder(){
   document.getElementById('planBuilderWrap').style.display='none';
-  document.getElementById('plansPageList').style.display='block';
-  document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`;
-  renderPlansListPage();
+  if(pfFromClient&&curClient){
+    pfFromClient=false;
+    loadPlanDisp();
+  } else {
+    renderPlansListPage();
+  }
 }
 function openPlanBuilderForClient(){
   if(!curClient)return;
   const cl=curClient;
-  document.getElementById('detPage').classList.remove('show');
-  showPage('nut-plans',document.getElementById('nav-nut-plans'));
-  openSub('sub-nut','arr-nut');
-  setTimeout(()=>{
-    startFullPlan();
-    pfClient=cl;
-    document.getElementById('pfClLbl').textContent=cl.first_name+' '+cl.last_name;
-    pfUpdateClientBadge();
-  },200);
+  startFullPlan();
+  pfClient=cl;pfFromClient=true;
+  document.getElementById('pfClLbl').textContent=cl.first_name+' '+cl.last_name;
+  pfUpdateClientBadge();
 }
 
 /* plan macros state */
@@ -2517,8 +2509,8 @@ function editFullPlan(id){
   document.getElementById('pfNom').value=p.nom;document.getElementById('pfClIn').value=pClNom;document.getElementById('pfClLbl').textContent=pClNom||'Aucun';
   document.getElementById('planBuilderTitle').textContent='Modifier: '+p.nom;
   pfRenderDays();pfRenderMeals();pfRenderRecent();
-  document.getElementById('plansPageList').style.display='none';document.getElementById('planBuilderWrap').style.display='block';
-  document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="closePlanBuilder()">← Retour</button><button class="btn btn-gold btn-sm" onclick="savePlanFull()">💾 Enregistrer</button>`;
+  pfUpdateClientBadge();
+  document.getElementById('planBuilderWrap').style.display='block';
 }
 function delPlan(id){if(!confirm('Supprimer ce plan ?'))return;dbDelete('plans_full',id);renderPlansListPage();toast('Plan supprimé');}
 
@@ -4516,10 +4508,8 @@ function saveAIPlanToPlans(){
 function saveAndEditAIPlan(){
   const id=saveAIPlanToPlans();
   if(!id)return;
-  document.getElementById('detPage').classList.remove('show');
-  showPage('nut-plans',document.getElementById('nav-nut-plans'));
-  openSub('sub-nut','arr-nut');
-  setTimeout(()=>editFullPlan(id),200);
+  pfFromClient=true;
+  editFullPlan(id);
 }
 
 /* ===== OPTIMISATION POST-GÉNÉRATION ===== */
