@@ -2102,19 +2102,25 @@ function _renderTrainingContent(el,logs){
       exos.forEach(ex=>{const m=ex.muscle||'Autre';const s=ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0);tVol[m]=(tVol[m]||0)+s;tSets+=s;});
     }));});
     const selDay=window._clientProgDay||0;
-    progHtml=`<div style="background:var(--white);border-radius:12px;box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden">
-      <div style="padding:12px 16px;background:var(--dark);color:white;display:flex;align-items:center;justify-content:space-between">
-        <div><div style="font-size:14px;font-weight:700">Programme : ${latestProg.nom}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${jours.length} séance${jours.length>1?'s':''} · ${tSets} séries total</div></div>
-        <button class="btn btn-ghost btn-xs" style="color:var(--gold);border-color:rgba(255,255,255,.2)" onclick="openProgBuilder(${latestProg.id})">Modifier</button>
+    progHtml=`<div class="plan-card" style="margin-bottom:20px;border:1.5px solid var(--dark)">
+      <div class="plan-hdr" style="background:var(--dark);color:white" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div style="width:36px;height:36px;border-radius:10px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">🏋️</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700">${latestProg.nom}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;display:flex;flex-wrap:wrap;gap:6px">
+            <span>${jours.length} séance${jours.length>1?'s':''} · ${tSets} séries</span>
+            <span style="opacity:.3">·</span>
+            ${Object.entries(tVol).map(([m,s])=>`<span>${m}: ${s}s</span>`).join('<span style="opacity:.3">·</span>')}
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-xs" style="color:var(--gold);border-color:rgba(255,255,255,.2)" onclick="event.stopPropagation();openProgBuilder(${latestProg.id})">Modifier</button>
       </div>
-      <div style="padding:8px 12px;background:var(--bg2);display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--border)">
-        ${Object.entries(tVol).map(([m,s])=>`<span style="padding:2px 8px;background:var(--dark);border-radius:20px;font-size:10px;font-weight:700;color:white">${m}: ${s}s</span>`).join('')}
+      <div class="plan-body">
+        <div style="display:flex;overflow-x:auto;border-bottom:1px solid var(--border);margin:-14px -16px 12px;padding:0 16px">
+          ${jours.map((j,ji)=>`<button onclick="event.stopPropagation();window._clientProgDay=${ji};renderTrainingTab()" style="padding:8px 14px;font-size:12px;font-weight:${ji===selDay?'700':'500'};color:${ji===selDay?'var(--gold)':'var(--text3)'};border:none;border-bottom:${ji===selDay?'2px solid var(--gold)':'2px solid transparent'};background:none;cursor:pointer;white-space:nowrap;font-family:var(--font)">${j.nom}</button>`).join('')}
+        </div>
+        ${_renderClientProgDay(jours[selDay])}
       </div>
-      <div style="display:flex;overflow-x:auto;border-bottom:1px solid var(--border)">
-        ${jours.map((j,ji)=>`<button onclick="window._clientProgDay=${ji};renderTrainingTab()" style="padding:8px 14px;font-size:12px;font-weight:${ji===selDay?'700':'500'};color:${ji===selDay?'var(--gold)':'var(--text3)'};border:none;border-bottom:${ji===selDay?'2px solid var(--gold)':'2px solid transparent'};background:none;cursor:pointer;white-space:nowrap;font-family:var(--font)">${j.nom}</button>`).join('')}
-      </div>
-      <div style="padding:12px 16px">${_renderClientProgDay(jours[selDay])}</div>
     </div>`;
   }
 
