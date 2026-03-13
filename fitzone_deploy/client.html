@@ -1427,7 +1427,7 @@ async function submitMealEstimation(){
   if(!estPhotoBase64&&!desc){toast('Ajoute une photo ou une description');return;}
   const btn=document.getElementById('estSubmitBtn');
   btn.disabled=true;btn.textContent='Analyse en cours...';
-  document.getElementById('estResult').innerHTML='<div style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto 12px"></div><div style="font-size:14px;color:var(--text3)">Claude analyse ton repas...</div></div>';
+  document.getElementById('estResult').innerHTML='<div style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto 12px"></div><div style="font-size:14px;color:var(--text3)">Nous analysons ton repas...</div></div>';
 
   // Get plan macros if available
   let plan_macros=null;
