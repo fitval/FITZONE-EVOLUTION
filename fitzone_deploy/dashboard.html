@@ -227,6 +227,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .road-toolbar .rbtn-paste{background:var(--gold);color:white;border-color:var(--gold)}
 .road-toolbar .rbtn-paste:hover{background:#b8882a}
 .road-toolbar .rcopy-info{font-size:11px;color:var(--text3)}
+.road-table.rcopy-mode td .rsel,.road-table.rcopy-mode td .rin{pointer-events:none}
 
 /* NUTRITION CLIENT */
 .kcal-in{font-size:30px;font-weight:800;color:var(--gold);background:none;border:none;border-bottom:2px solid rgba(255,255,255,.15);outline:none;width:160px;font-family:var(--font);letter-spacing:-1px}
@@ -2005,7 +2006,7 @@ function renderRoadTab(){
   legend+='</div>';
 
   el.innerHTML=`${toolbar}${legend}
-  <div class="road-wrap"><div class="road-table">
+  <div class="road-wrap"><div class="road-table${roadCopy?' rcopy-mode':''}">
     <table><thead>
       <tr>
         <th>SEM</th><th>DATE</th>
@@ -2044,11 +2045,10 @@ function renderRoadTab(){
   });
 }
 function roadCellClick(row,field,e){
-  if(!roadCopy)return; // No copy mode
-  if(roadCopy.field!==field)return; // Only same column
-  if(roadCopy.row===row)return; // Don't select source
-  // Don't interfere with input interaction
-  if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  if(!roadCopy)return;
+  if(roadCopy.field!==field)return;
+  if(roadCopy.row===row)return;
+  e.preventDefault();e.stopPropagation();
   const k=row+'-'+field;
   if(roadSelected.has(k))roadSelected.delete(k);else roadSelected.add(k);
   renderRoadTab();
