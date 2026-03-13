@@ -217,6 +217,16 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .rsel:focus{border-color:var(--gold)}
 .rin{background:var(--bg);border:1.5px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:11px;outline:none;font-family:var(--font);width:100%}
 .rin:focus{border-color:var(--gold)}
+.road-table td.rcopy-src{outline:2px solid var(--gold);outline-offset:-1px;position:relative}
+.road-table td.rcopy-src::after{content:'COPIÉ';position:absolute;top:1px;right:2px;font-size:7px;font-weight:800;color:var(--gold);letter-spacing:.5px}
+.road-table td.rcopy-sel{outline:2px dashed var(--gold);outline-offset:-1px;background:rgba(196,154,42,.12) !important}
+.road-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.road-toolbar .rbtn{font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;border:1.5px solid var(--border2);background:var(--white);cursor:pointer;font-family:var(--font);color:var(--text);transition:all .15s}
+.road-toolbar .rbtn:hover{border-color:var(--gold);color:var(--gold)}
+.road-toolbar .rbtn.active{background:var(--gold);color:white;border-color:var(--gold)}
+.road-toolbar .rbtn-paste{background:var(--gold);color:white;border-color:var(--gold)}
+.road-toolbar .rbtn-paste:hover{background:#b8882a}
+.road-toolbar .rcopy-info{font-size:11px;color:var(--text3)}
 
 /* NUTRITION CLIENT */
 .kcal-in{font-size:30px;font-weight:800;color:var(--gold);background:none;border:none;border-bottom:2px solid rgba(255,255,255,.15);outline:none;width:160px;font-family:var(--font);letter-spacing:-1px}
@@ -1915,6 +1925,24 @@ async function savePlanClient(){
 }
 
 /* ROADMAP */
+// Roadmap phase colors
+const roadPhaseColors={
+  'Improvement Season':'rgba(34,197,94,.10)',
+  'Photoshoot Prep':'rgba(234,179,8,.12)',
+  'Competition Prep':'rgba(239,68,68,.10)',
+  'Dieting Phase':'rgba(74,144,217,.10)',
+  'Gaining Phase':'rgba(168,85,247,.10)',
+  'Maintenance':'rgba(107,100,86,.08)',
+  'Health-Focus':'rgba(16,185,129,.10)',
+  'Diet Break':'rgba(251,146,60,.10)',
+  'Priming':'rgba(236,72,153,.10)',
+  'Reverse Diet':'rgba(6,182,212,.10)'
+};
+// Copy-paste state
+let roadCopy=null; // {row, field, value}
+let roadSelected=new Set(); // 'row-field' keys
+let roadSelectMode=false;
+
 function renderRoadTab(){
   const el=document.getElementById('tc-roadmap');
   const phases=['','Improvement Season','Photoshoot Prep','Competition Prep','Dieting Phase','Gaining Phase','Maintenance','Health-Focus','Diet Break','Priming','Reverse Diet'];
@@ -1922,7 +1950,6 @@ function renderRoadTab(){
   const cardios=['Step','LISS','HIIT','Vélo','Course'];
   const sd=curClient.start_date||new Date().toISOString().slice(0,10);
   let saved=lsGet('road_'+curClient.id,{});
-  // Try loading from Supabase (async, re-render if different)
   if(currentCoach&&!window['_roadLoaded_'+curClient.id]){
     window['_roadLoaded_'+curClient.id]=true;
     db.from('roadmaps').select('weeks').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).limit(1).then(({data})=>{
@@ -1933,6 +1960,7 @@ function renderRoadTab(){
     }).catch(()=>{});
   }
   const now=new Date();
+  const fields=['phase','nut','poids','apports','cardio','pas','depense','training','events','notes'];
   let rows='';
   for(let i=1;i<=52;i++){
     const d=new Date(sd);d.setDate(d.getDate()+(i-1)*7);
@@ -1940,22 +1968,43 @@ function renderRoadTab(){
     const fmt=x=>x.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
     const r=saved[i]||{};
     const isCur=d<=now&&now<=de;
-    rows+=`<tr${isCur?' class="rw-cur"':''}>
+    const phaseColor=r.phase?roadPhaseColors[r.phase]||'':'';
+    const rowBg=isCur?'var(--gold-pale)':phaseColor;
+    rows+=`<tr${isCur?' class="rw-cur"':''} style="${!isCur&&phaseColor?'background:'+phaseColor:''}">
       <td style="font-weight:700;text-align:center;color:var(--dark)">${i}</td>
       <td style="font-size:11px;color:var(--text3);white-space:nowrap">${fmt(d)}</td>
-      <td><select class="rsel" onchange="sRoad(${i},'phase',this.value)">${phases.map(p=>`<option${r.phase===p?' selected':''}>${p}</option>`).join('')}</select></td>
-      <td><select class="rsel" onchange="sRoad(${i},'nut',this.value)">${nuttypes.map(n=>`<option${r.nut===n?' selected':''}>${n}</option>`).join('')}</select></td>
-      <td><input class="rin" type="number" style="width:54px" value="${r.poids||''}" placeholder="—" onchange="sRoad(${i},'poids',this.value)"></td>
-      <td><textarea class="rin" style="min-width:140px;min-height:32px;resize:vertical;white-space:pre-wrap;font-size:10px;line-height:1.4" placeholder="Détails apports…" onchange="sRoad(${i},'apports',this.value)">${r.apports||r.haut&&r.moy?('H:'+r.haut+' M:'+r.moy+(r.bas?' B:'+r.bas:'')):r.apports||''}</textarea></td>
-      <td><select class="rsel" onchange="sRoad(${i},'cardio',this.value)">${cardios.map(c=>`<option${r.cardio===c?' selected':''}>${c}</option>`).join('')}</select></td>
-      <td><input class="rin" type="number" style="width:52px" value="${r.pas||''}" placeholder="—" onchange="sRoad(${i},'pas',this.value)"></td>
-      <td><input class="rin" style="min-width:90px" value="${r.depense||''}" placeholder="—" onchange="sRoad(${i},'depense',this.value)"></td>
-      <td><input class="rin" style="min-width:90px" value="${r.training||''}" placeholder="—" onchange="sRoad(${i},'training',this.value)"></td>
-      <td><input class="rin" style="min-width:80px" value="${r.events||''}" placeholder="—" onchange="sRoad(${i},'events',this.value)"></td>
-      <td><input class="rin" style="min-width:90px" value="${r.notes||''}" placeholder="—" onchange="sRoad(${i},'notes',this.value)"></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='phase'?'rcopy-src':''} ${roadSelected.has(i+'-phase')?'rcopy-sel':''}" onclick="roadCellClick(${i},'phase',event)"><select class="rsel" onchange="sRoad(${i},'phase',this.value);renderRoadTab()">${phases.map(p=>`<option${r.phase===p?' selected':''}>${p}</option>`).join('')}</select></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='nut'?'rcopy-src':''} ${roadSelected.has(i+'-nut')?'rcopy-sel':''}" onclick="roadCellClick(${i},'nut',event)"><select class="rsel" onchange="sRoad(${i},'nut',this.value)">${nuttypes.map(n=>`<option${r.nut===n?' selected':''}>${n}</option>`).join('')}</select></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='poids'?'rcopy-src':''} ${roadSelected.has(i+'-poids')?'rcopy-sel':''}" onclick="roadCellClick(${i},'poids',event)"><input class="rin" type="number" style="width:54px" value="${r.poids||''}" placeholder="—" oninput="sRoad(${i},'poids',this.value)"></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='apports'?'rcopy-src':''} ${roadSelected.has(i+'-apports')?'rcopy-sel':''}" onclick="roadCellClick(${i},'apports',event)"><textarea class="rin" style="min-width:140px;min-height:32px;resize:vertical;white-space:pre-wrap;font-size:10px;line-height:1.4" placeholder="Détails apports…" oninput="sRoad(${i},'apports',this.value)">${r.apports||r.haut&&r.moy?('H:'+r.haut+' M:'+r.moy+(r.bas?' B:'+r.bas:'')):r.apports||''}</textarea></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='cardio'?'rcopy-src':''} ${roadSelected.has(i+'-cardio')?'rcopy-sel':''}" onclick="roadCellClick(${i},'cardio',event)"><select class="rsel" onchange="sRoad(${i},'cardio',this.value)">${cardios.map(c=>`<option${r.cardio===c?' selected':''}>${c}</option>`).join('')}</select></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='pas'?'rcopy-src':''} ${roadSelected.has(i+'-pas')?'rcopy-sel':''}" onclick="roadCellClick(${i},'pas',event)"><input class="rin" type="number" style="width:52px" value="${r.pas||''}" placeholder="—" oninput="sRoad(${i},'pas',this.value)"></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='depense'?'rcopy-src':''} ${roadSelected.has(i+'-depense')?'rcopy-sel':''}" onclick="roadCellClick(${i},'depense',event)"><input class="rin" style="min-width:90px" value="${r.depense||''}" placeholder="—" oninput="sRoad(${i},'depense',this.value)"></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='training'?'rcopy-src':''} ${roadSelected.has(i+'-training')?'rcopy-sel':''}" onclick="roadCellClick(${i},'training',event)"><input class="rin" style="min-width:90px" value="${r.training||''}" placeholder="—" oninput="sRoad(${i},'training',this.value)"></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='events'?'rcopy-src':''} ${roadSelected.has(i+'-events')?'rcopy-sel':''}" onclick="roadCellClick(${i},'events',event)"><input class="rin" style="min-width:80px" value="${r.events||''}" placeholder="—" oninput="sRoad(${i},'events',this.value)"></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='notes'?'rcopy-src':''} ${roadSelected.has(i+'-notes')?'rcopy-sel':''}" onclick="roadCellClick(${i},'notes',event)"><input class="rin" style="min-width:90px" value="${r.notes||''}" placeholder="—" oninput="sRoad(${i},'notes',this.value)"></td>
     </tr>`;
   }
-  el.innerHTML=`<div style="margin-bottom:12px;display:flex;align-items:center;gap:10px"><label class="fl" style="margin:0">Date de départ :</label><input type="date" class="fi" style="width:175px" value="${sd}" onchange="curClient.start_date=this.value;renderRoadTab()"></div>
+  // Toolbar
+  let toolbar=`<div class="road-toolbar">
+    <div style="display:flex;align-items:center;gap:10px"><label class="fl" style="margin:0">Date de départ :</label><input type="date" class="fi" style="width:175px" value="${sd}" onchange="curClient.start_date=this.value;renderRoadTab()"></div>
+    <div style="flex:1"></div>`;
+  if(roadCopy){
+    toolbar+=`<span class="rcopy-info">Copié : <b>${roadCopy.value||'(vide)'}</b> (${roadCopy.field})</span>`;
+    if(roadSelected.size)toolbar+=`<button class="rbtn rbtn-paste" onclick="roadPaste()">Coller sur ${roadSelected.size} cellule${roadSelected.size>1?'s':''}</button>`;
+    toolbar+=`<button class="rbtn" onclick="roadCancelCopy()">Annuler</button>`;
+  } else {
+    toolbar+=`<span class="rcopy-info">Clic droit sur une cellule pour copier</span>`;
+  }
+  toolbar+=`</div>`;
+  // Phase legend
+  let legend='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
+  Object.entries(roadPhaseColors).forEach(([name,color])=>{
+    legend+=`<span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:${color};border:1px solid rgba(0,0,0,.06)">${name}</span>`;
+  });
+  legend+='</div>';
+
+  el.innerHTML=`${toolbar}${legend}
   <div class="road-wrap"><div class="road-table">
     <table><thead>
       <tr>
@@ -1975,11 +2024,59 @@ function renderRoadTab(){
       </tr>
     </thead><tbody>${rows}</tbody></table>
   </div></div>`;
+
+  // Context menu listener for copy
+  el.querySelectorAll('.road-table td').forEach(td=>{
+    td.addEventListener('contextmenu',function(e){
+      const row=parseInt(td.closest('tr').children[0].textContent);
+      if(isNaN(row))return;
+      // Determine field from column index
+      const ci=Array.from(td.closest('tr').children).indexOf(td);
+      const colMap={2:'phase',3:'nut',4:'poids',5:'apports',6:'cardio',7:'pas',8:'depense',9:'training',10:'events',11:'notes'};
+      const field=colMap[ci];if(!field)return;
+      e.preventDefault();
+      const saved=lsGet('road_'+curClient.id,{});
+      const val=(saved[row]&&saved[row][field])||'';
+      roadCopy={row,field,value:val};
+      roadSelected=new Set();
+      renderRoadTab();
+    });
+  });
+}
+function roadCellClick(row,field,e){
+  if(!roadCopy)return; // No copy mode
+  if(roadCopy.field!==field)return; // Only same column
+  if(roadCopy.row===row)return; // Don't select source
+  // Don't interfere with input interaction
+  if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  const k=row+'-'+field;
+  if(roadSelected.has(k))roadSelected.delete(k);else roadSelected.add(k);
+  renderRoadTab();
+}
+function roadPaste(){
+  if(!roadCopy||!roadSelected.size)return;
+  const key='road_'+curClient.id,d=lsGet(key,{});
+  roadSelected.forEach(k=>{
+    const[row,field]=k.split('-');
+    const r=parseInt(row);
+    if(!d[r])d[r]={};
+    d[r][field]=roadCopy.value;
+  });
+  lsSave(key,d);
+  if(currentCoach)db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'}).catch(e=>console.warn('road save:',e));
+  const count=roadSelected.size;
+  roadCopy=null;roadSelected=new Set();
+  renderRoadTab();
+  toast(count+' cellule'+(count>1?'s':'')+' mise'+(count>1?'s':'')+' à jour');
+}
+function roadCancelCopy(){
+  roadCopy=null;roadSelected=new Set();renderRoadTab();
 }
 function sRoad(row,field,val){
   const key='road_'+curClient.id,d=lsGet(key,{});
   if(!d[row])d[row]={};d[row][field]=val;lsSave(key,d);
   if(currentCoach)db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'}).catch(e=>console.warn('road save:',e));
+  if(field==='phase')renderRoadTab();
 }
 
 /* ===== PROGRESSION TAB (Graphiques données quotidiennes) ===== */
