@@ -2103,7 +2103,7 @@ function _renderTrainingContent(el,logs){
     }));});
     const selDay=window._clientProgDay||0;
     progHtml=`<div class="plan-card" style="margin-bottom:20px;border:1.5px solid var(--dark)">
-      <div class="plan-hdr" style="background:var(--dark);color:white" onclick="this.nextElementSibling.classList.toggle('open')">
+      <div class="plan-hdr" style="background:var(--dark);color:white" onclick="window._clientProgOpen=!this.nextElementSibling.classList.contains('open');this.nextElementSibling.classList.toggle('open')">
         <div style="width:36px;height:36px;border-radius:10px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">🏋️</div>
         <div style="flex:1">
           <div style="font-size:14px;font-weight:700">${latestProg.nom}</div>
@@ -2115,9 +2115,9 @@ function _renderTrainingContent(el,logs){
         </div>
         <button class="btn btn-ghost btn-xs" style="color:var(--gold);border-color:rgba(255,255,255,.2)" onclick="event.stopPropagation();openProgBuilder(${latestProg.id})">Modifier</button>
       </div>
-      <div class="plan-body">
+      <div class="plan-body${window._clientProgOpen?' open':''}">
         <div style="display:flex;overflow-x:auto;border-bottom:1px solid var(--border);margin:-14px -16px 12px;padding:0 16px">
-          ${jours.map((j,ji)=>`<button onclick="event.stopPropagation();window._clientProgDay=${ji};renderTrainingTab()" style="padding:8px 14px;font-size:12px;font-weight:${ji===selDay?'700':'500'};color:${ji===selDay?'var(--gold)':'var(--text3)'};border:none;border-bottom:${ji===selDay?'2px solid var(--gold)':'2px solid transparent'};background:none;cursor:pointer;white-space:nowrap;font-family:var(--font)">${j.nom}</button>`).join('')}
+          ${jours.map((j,ji)=>`<button onclick="event.stopPropagation();window._clientProgDay=${ji};window._clientProgOpen=true;renderTrainingTab()" style="padding:8px 14px;font-size:12px;font-weight:${ji===selDay?'700':'500'};color:${ji===selDay?'var(--gold)':'var(--text3)'};border:none;border-bottom:${ji===selDay?'2px solid var(--gold)':'2px solid transparent'};background:none;cursor:pointer;white-space:nowrap;font-family:var(--font)">${j.nom}</button>`).join('')}
         </div>
         ${_renderClientProgDay(jours[selDay])}
       </div>
