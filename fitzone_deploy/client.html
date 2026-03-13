@@ -259,6 +259,32 @@ textarea.form-input { min-height:100px; resize:vertical; }
 @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 .fade-up { animation:fadeUp .4s ease both; }
 @media (min-width:430px) { .scroll-area { max-width:430px; margin:0 auto; } .tab-bar { max-width:430px; left:50%; transform:translateX(-50%); border-radius:20px 20px 0 0; } }
+
+/* === MEAL ESTIMATOR FAB === */
+#mealEstFab { display:none; position:fixed; bottom:calc(var(--tab-h) + var(--safe-b) + 16px); left:50%; transform:translateX(-50%); z-index:99; background:linear-gradient(135deg,var(--dark2),var(--dark)); color:white; border:1.5px solid var(--gold-border); border-radius:50px; padding:12px 24px; font-size:14px; font-weight:700; font-family:var(--font); cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,.25); white-space:nowrap; }
+#mealEstFab:active { transform:translateX(-50%) scale(.96); }
+
+/* === MEAL ESTIMATOR PAGE === */
+.est-page { display:none; position:fixed; inset:0; background:var(--bg); z-index:200; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.est-page.show { display:block; }
+.est-header { display:flex; align-items:center; gap:12px; padding:16px 20px; background:var(--white); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:1; }
+.est-header button { background:none; border:none; cursor:pointer; color:var(--text); }
+.est-header h2 { font-size:18px; font-weight:800; flex:1; }
+.est-body { padding:20px; padding-bottom:120px; }
+.est-photo-zone { width:100%; aspect-ratio:16/10; border-radius:var(--r); border:2px dashed var(--gold-border); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer; background:var(--white); overflow:hidden; position:relative; margin-bottom:16px; }
+.est-photo-zone img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.est-photo-zone .est-photo-label { font-size:14px; color:var(--text3); font-weight:500; z-index:1; }
+.est-photo-zone .est-photo-icon { font-size:36px; opacity:.4; z-index:1; }
+.est-result { margin-top:20px; }
+.est-range-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+.est-range-label { font-size:13px; font-weight:600; color:var(--text2); width:70px; }
+.est-range-bar { flex:1; height:8px; border-radius:4px; background:var(--bg2); position:relative; overflow:hidden; }
+.est-range-fill { height:100%; border-radius:4px; }
+.est-range-val { font-size:14px; font-weight:700; min-width:90px; text-align:right; }
+.est-item { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); }
+.est-item:last-child { border:none; }
+.est-item-name { font-size:14px; font-weight:500; }
+.est-item-detail { font-size:12px; color:var(--text3); }
 </style>
 </head>
 <body>
@@ -294,6 +320,27 @@ textarea.form-input { min-height:100px; resize:vertical; }
     <div id="tabLearn" class="tab-section">
       <div style="padding-top:20px"><div class="card-label" style="color:var(--text3)">APPRENTISSAGE</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Apprentissage</div></div>
       <div id="learnContent"></div>
+    </div>
+  </div>
+
+  <!-- Meal Estimator FAB -->
+  <button id="mealEstFab" onclick="openMealEstimator()">Estimer mon repas</button>
+
+  <!-- Meal Estimator Page -->
+  <div class="est-page" id="estPage">
+    <div class="est-header">
+      <button onclick="closeMealEstimator()"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+      <h2>Estimer mon repas</h2>
+    </div>
+    <div class="est-body">
+      <div class="est-photo-zone" id="estPhotoZone" onclick="document.getElementById('estPhotoInput').click()">
+        <div class="est-photo-icon">📸</div>
+        <div class="est-photo-label">Prendre ou choisir une photo</div>
+      </div>
+      <input type="file" accept="image/*" capture="environment" id="estPhotoInput" style="display:none" onchange="handleEstPhoto(this)">
+      <textarea id="estDesc" placeholder="Décris ton repas... (ex: burger maison avec frites et salade)" style="width:100%;min-height:80px;border-radius:var(--r-sm);border:1px solid var(--border);padding:14px;font-size:14px;font-family:var(--font);resize:vertical;background:var(--white)"></textarea>
+      <button class="btn-gold" id="estSubmitBtn" onclick="submitMealEstimation()" style="width:100%;margin-top:14px;padding:14px;font-size:16px">Estimer mon repas</button>
+      <div id="estResult" class="est-result"></div>
     </div>
   </div>
 
@@ -399,6 +446,7 @@ function switchTab(name){
   else if(name==='Bilan'){renderBilanList();document.getElementById('btnHome').classList.add('active');}
   else if(name==='Suivi')renderSuivi();
   else if(name==='Learn')renderLearn();
+  toggleFab();
 }
 
 /* ===== UTILS ===== */
@@ -1338,6 +1386,161 @@ function openModule(idx){
     });
   }
   document.getElementById('learnContent').innerHTML=h;
+}
+
+/* ===== MEAL ESTIMATOR ===== */
+let estPhotoBase64=null, estMediaType='image/jpeg';
+
+function openMealEstimator(){
+  estPhotoBase64=null;estMediaType='image/jpeg';
+  document.getElementById('estPhotoZone').innerHTML='<div class="est-photo-icon">📸</div><div class="est-photo-label">Prendre ou choisir une photo</div>';
+  document.getElementById('estDesc').value='';
+  document.getElementById('estResult').innerHTML='';
+  document.getElementById('estSubmitBtn').disabled=false;
+  document.getElementById('estSubmitBtn').textContent='Estimer mon repas';
+  document.getElementById('estPage').classList.add('show');
+  document.getElementById('mealEstFab').style.display='none';
+}
+function closeMealEstimator(){
+  document.getElementById('estPage').classList.remove('show');
+  toggleFab();
+}
+function toggleFab(){
+  const active=document.querySelector('.tab-btn.active');
+  const isNutri=active&&active.id==='btnNutri';
+  document.getElementById('mealEstFab').style.display=isNutri?'block':'none';
+}
+function handleEstPhoto(input){
+  const file=input.files[0];if(!file)return;
+  estMediaType=file.type||'image/jpeg';
+  const reader=new FileReader();
+  reader.onload=function(e){
+    resizeImg(e.target.result,800,0.8,function(dataUrl){
+      estPhotoBase64=dataUrl.split(',')[1];
+      document.getElementById('estPhotoZone').innerHTML=`<img src="${dataUrl}">`;
+    });
+  };
+  reader.readAsDataURL(file);input.value='';
+}
+async function submitMealEstimation(){
+  const desc=document.getElementById('estDesc').value.trim();
+  if(!estPhotoBase64&&!desc){toast('Ajoute une photo ou une description');return;}
+  const btn=document.getElementById('estSubmitBtn');
+  btn.disabled=true;btn.textContent='Analyse en cours...';
+  document.getElementById('estResult').innerHTML='<div style="text-align:center;padding:30px"><div class="spinner" style="margin:0 auto 12px"></div><div style="font-size:14px;color:var(--text3)">Claude analyse ton repas...</div></div>';
+
+  // Get plan macros if available
+  let plan_macros=null;
+  if(plans.length){
+    const p=plans[0];
+    const jours=p.jours||[];
+    if(jours.length){
+      let tk=0,tp=0,tc=0,tf=0;
+      jours.forEach(d=>{const m=calcDayMacros(d);tk+=m.kcal;tp+=m.prot;tc+=m.carb;tf+=m.fat;});
+      plan_macros={kcal:Math.round(tk/jours.length),prot:Math.round(tp/jours.length),carb:Math.round(tc/jours.length),fat:Math.round(tf/jours.length)};
+    } else if(p.kcal){
+      plan_macros={kcal:Math.round(p.kcal),prot:Math.round(p.prot||0),carb:Math.round(p.carb||0),fat:Math.round(p.fat||0)};
+    }
+  }
+
+  try{
+    const body={description:desc||undefined,plan_macros:plan_macros||undefined};
+    if(estPhotoBase64){body.image_base64=estPhotoBase64;body.media_type=estMediaType;}
+    const resp=await fetch(SUPA+'/functions/v1/estimate-meal',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      body:JSON.stringify(body)
+    });
+    const json=await resp.json();
+    if(json.error)throw new Error(json.error);
+    const est=json.estimation;
+    renderEstResult(est,plan_macros);
+    btn.textContent='Estimer un autre repas';btn.disabled=false;
+    btn.onclick=()=>openMealEstimator();
+  }catch(err){
+    document.getElementById('estResult').innerHTML=`<div class="card" style="border:2px solid var(--red);text-align:center;padding:20px"><div style="font-size:14px;color:var(--red);font-weight:600">Erreur : ${err.message}</div></div>`;
+    btn.textContent='Réessayer';btn.disabled=false;
+  }
+}
+
+function renderEstResult(est,plan_macros){
+  let h=`<div class="card-gold" style="text-align:center;padding:24px"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">ESTIMATION</div><div style="font-size:22px;font-weight:800;color:white;margin-bottom:12px">${est.nom||'Repas'}</div>`;
+  h+=`<div style="font-size:36px;font-weight:900;color:var(--gold)">${est.kcal_min}-${est.kcal_max}</div><div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:16px">kilocalories</div>`;
+  h+=`<div style="display:flex;justify-content:space-around">`;
+  h+=`<div><div style="font-size:18px;font-weight:800;color:#4a90d9">${est.prot_min}-${est.prot_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Protéines</div></div>`;
+  h+=`<div><div style="font-size:18px;font-weight:800;color:var(--gold)">${est.carb_min}-${est.carb_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Glucides</div></div>`;
+  h+=`<div><div style="font-size:18px;font-weight:800;color:#e07c5a">${est.fat_min}-${est.fat_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Lipides</div></div>`;
+  h+=`</div></div>`;
+
+  // Items detected
+  if(est.items&&est.items.length){
+    h+=`<div class="card" style="margin-top:14px"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">ALIMENTS DETECTES</div>`;
+    est.items.forEach(it=>{
+      h+=`<div class="est-item"><div class="est-item-name">${it.nom}</div><div class="est-item-detail">${it.qte_est||''} ${it.kcal_est?'· '+it.kcal_est+' kcal':''}</div></div>`;
+    });
+    h+=`</div>`;
+  }
+
+  // Remaining macros
+  if(plan_macros&&est.reste){
+    const r=est.reste;
+    h+=`<div class="card" style="margin-top:14px;border:1.5px solid var(--gold-border)"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:12px">CE QU'IL TE RESTE AUJOURD'HUI</div>`;
+    h+=`<div style="display:flex;justify-content:space-around;text-align:center">`;
+    h+=`<div><div style="font-size:22px;font-weight:800;color:var(--gold)">${r.kcal||0}</div><div style="font-size:10px;color:var(--text3)">kcal</div></div>`;
+    h+=`<div><div style="font-size:22px;font-weight:800;color:#4a90d9">${r.prot||0}g</div><div style="font-size:10px;color:var(--text3)">Prot</div></div>`;
+    h+=`<div><div style="font-size:22px;font-weight:800;color:var(--gold)">${r.carb||0}g</div><div style="font-size:10px;color:var(--text3)">Gluc</div></div>`;
+    h+=`<div><div style="font-size:22px;font-weight:800;color:#e07c5a">${r.fat||0}g</div><div style="font-size:10px;color:var(--text3)">Lip</div></div>`;
+    h+=`</div></div>`;
+  }
+
+  // Conseil
+  if(est.conseil){
+    h+=`<div class="card" style="margin-top:14px"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">CONSEIL</div><div style="font-size:14px;color:var(--text2);line-height:1.6">${est.conseil}</div></div>`;
+  }
+
+  // Save button
+  h+=`<button class="btn-gold" id="estSaveBtn" onclick="saveEstToLog()" style="width:100%;margin-top:16px;padding:14px;font-size:15px">Enregistrer dans mon suivi</button>`;
+
+  // Store estimation for saving
+  window._lastEstimation=est;
+  document.getElementById('estResult').innerHTML=h;
+}
+
+async function saveEstToLog(){
+  const est=window._lastEstimation;if(!est)return;
+  const btn=document.getElementById('estSaveBtn');
+  btn.disabled=true;btn.textContent='Enregistrement...';
+
+  const avgKcal=Math.round((est.kcal_min+est.kcal_max)/2);
+  const avgProt=Math.round((est.prot_min+est.prot_max)/2);
+  const avgCarb=Math.round((est.carb_min+est.carb_max)/2);
+  const avgFat=Math.round((est.fat_min+est.fat_max)/2);
+
+  const estEntry={nom:est.nom,kcal:avgKcal,prot:avgProt,carb:avgCarb,fat:avgFat,items:est.items||[],timestamp:new Date().toISOString()};
+  const ctxLine=`[Estimation IA] ${est.nom} : ~${avgKcal} kcal (P${avgProt} G${avgCarb} L${avgFat})`;
+
+  const existing=dailyLogs.find(l=>l.date===today());
+  let data=existing?{...existing.data}:{};
+  // Append to meal_estimations array
+  if(!data.meal_estimations)data.meal_estimations=[];
+  data.meal_estimations.push(estEntry);
+  // Append to Contexte
+  data['Contexte']=data['Contexte']?data['Contexte']+'\n'+ctxLine:ctxLine;
+
+  try{
+    if(existing){
+      await db.from('daily_logs').update({data}).eq('id',existing.id);
+    } else {
+      await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:today(),data});
+    }
+    const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
+    dailyLogs=nl||[];
+    btn.textContent='Enregistre !';
+    toast('Estimation enregistree dans ton suivi');
+    setTimeout(()=>closeMealEstimator(),1200);
+  }catch(err){
+    btn.disabled=false;btn.textContent='Enregistrer dans mon suivi';
+    toast('Erreur: '+err.message);
+  }
 }
 </script>
 </body>
