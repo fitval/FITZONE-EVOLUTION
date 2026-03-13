@@ -2340,16 +2340,120 @@ function saveTrainLog(){
 /* ===== BILAN TAB ===== */
 function renderBilanTab(){
   const el=document.getElementById('tc-bilan');if(!el||!curClient)return;
-  // Always load from Supabase (client saves directly there)
+  if(!window._bilanSubTab)window._bilanSubTab='hebdo';
+  // Load both bilans (hebdo) and daily_logs (quotidien) from Supabase
   if(currentCoach){
-    db.from('bilans').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:true}).then(({data})=>{
-      if(data&&data.length>0){
-        const supaBilans=data.map(d=>({titre:d.titre,date:d.date,poids:d.poids,contenu:d.contenu||'',photos:d.photos||[],reponses:d.reponses||null,read:!!d.read,_supa_id:d.id}));
+    Promise.all([
+      db.from('bilans').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:true}),
+      db.from('daily_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false})
+    ]).then(([bilanRes,dailyRes])=>{
+      if(bilanRes.data&&bilanRes.data.length>0){
+        const supaBilans=bilanRes.data.map(d=>({titre:d.titre,date:d.date,poids:d.poids,contenu:d.contenu||'',photos:d.photos||[],reponses:d.reponses||null,read:!!d.read,_supa_id:d.id}));
         lsSave('bilans_'+curClient.id,supaBilans);
       }
-      _renderBilanContent(el);
-    }).catch(()=>{_renderBilanContent(el);});
-  } else {_renderBilanContent(el);}
+      if(dailyRes.data&&dailyRes.data.length>0){
+        const supaLogs=dailyRes.data.map(d=>({...d.data,date:d.date,_supa_id:d.id}));
+        lsSave('daily_'+curClient.id,supaLogs);
+      }
+      _renderBilanSegmented(el);
+    }).catch(()=>{_renderBilanSegmented(el);});
+  } else {_renderBilanSegmented(el);}
+}
+function _renderBilanSegmented(el){
+  if(!el||!curClient)return;
+  const sub=window._bilanSubTab||'hebdo';
+  let h=`<div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border)">`;
+  h+=`<button style="padding:10px 20px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:none;color:${sub==='hebdo'?'var(--gold)':'var(--text3)'};position:relative;font-family:inherit" onclick="window._bilanSubTab='hebdo';renderBilanTab()">Bilans hebdomadaires${sub==='hebdo'?'<span style=\"position:absolute;bottom:-2px;left:0;right:0;height:2px;background:var(--gold)\"></span>':''}</button>`;
+  h+=`<button style="padding:10px 20px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:none;color:${sub==='quotidien'?'var(--gold)':'var(--text3)'};position:relative;font-family:inherit" onclick="window._bilanSubTab='quotidien';renderBilanTab()">Bilans quotidiens${sub==='quotidien'?'<span style=\"position:absolute;bottom:-2px;left:0;right:0;height:2px;background:var(--gold)\"></span>':''}</button>`;
+  h+=`</div>`;
+  if(sub==='hebdo') h+=_renderHebdoBilans();
+  else h+=_renderQuotidienBilans();
+  el.innerHTML=h;
+}
+function _renderHebdoBilans(){
+  const bilans=lsGet('bilans_'+curClient.id,[]);
+  if(!bilans.length)return`<div class="empty"><div class="ei">📝</div><div class="et">Aucun bilan hebdomadaire</div><div class="es">Les bilans apparaîtront ici quand le client les soumettra</div></div>`;
+  return bilans.slice().reverse().map((b,bi)=>{
+    const rep=b.reponses||{};const ph=b.photos||[];const validated=!!b.read;const realIdx=bilans.length-1-bi;
+    const dt=new Date(b.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+    const answeredCount=dashBilanQuestions.filter(q=>rep[q.id]).length;
+    return _buildBilanCard({rep,ph,validated,realIdx,dt,rawDate:b.date,supaId:b._supa_id,answeredCount,clientId:curClient.id,showValidate:true,showDelete:true});
+  }).join('');
+}
+function _renderQuotidienBilans(){
+  const logs=lsGet('daily_'+curClient.id,[]);
+  if(!logs.length)return`<div class="empty"><div class="ei">📊</div><div class="et">Aucun bilan quotidien</div><div class="es">Les rapports quotidiens apparaîtront ici quand le client les soumettra</div></div>`;
+  // Sort by date descending
+  const sorted=logs.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  return sorted.map(log=>{
+    const dt=new Date(log.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+    const d=log;
+    // Count filled fields
+    const fields=['Poids','Énergie','Faim','Stress','Sommeil (h)','Pas','Alimentation suivie (%)','Note attitude (/10)'];
+    const filled=fields.filter(f=>d[f]!==undefined&&d[f]!=='').length;
+    const hasCtx=!!d['Contexte'];
+    const hasEst=d.meal_estimations&&d.meal_estimations.length>0;
+    // Quick summary for header
+    let summary=[];
+    if(d['Poids'])summary.push(d['Poids']+'kg');
+    if(d['Énergie'])summary.push('Énergie '+d['Énergie']+'/5');
+    if(d['Alimentation suivie (%)'])summary.push('Diet '+d['Alimentation suivie (%)']+' %');
+    if(d['Note attitude (/10)'])summary.push('Attitude '+d['Note attitude (/10)']+'/10');
+    let c=`<div class="plan-card" style="border-left:3px solid #4a90d9">`;
+    c+=`<div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')">`;
+    c+=`<div style="width:32px;height:32px;border-radius:8px;background:rgba(74,144,217,.1);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">📊</div>`;
+    c+=`<div style="flex:1;min-width:0">`;
+    c+=`<div style="font-size:13px;font-weight:700">${dt}</div>`;
+    c+=`<div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px;flex-wrap:wrap">`;
+    c+=`<span>${filled}/${fields.length} champs</span>`;
+    if(hasCtx)c+=`<span style="opacity:.4">·</span><span>Contexte</span>`;
+    if(hasEst)c+=`<span style="opacity:.4">·</span><span>${d.meal_estimations.length} estimation${d.meal_estimations.length>1?'s':''}</span>`;
+    c+=`</div></div>`;
+    if(summary.length)c+=`<div style="font-size:11px;color:var(--gold);font-weight:600;flex-shrink:0;text-align:right;max-width:140px">${summary.slice(0,2).join(' · ')}</div>`;
+    c+=`</div>`;
+    // Body
+    c+=`<div class="plan-body">`;
+    // Metrics grid
+    const metricDefs=[
+      {key:'Poids',label:'Poids',unit:'kg',icon:'fa-weight-hanging',color:'var(--gold)'},
+      {key:'Énergie',label:'Énergie',unit:'/5',icon:'fa-bolt',color:'#f59e0b'},
+      {key:'Faim',label:'Faim',unit:'/5',icon:'fa-utensils',color:'#e07c5a'},
+      {key:'Stress',label:'Stress',unit:'/5',icon:'fa-brain',color:'#ef4444'},
+      {key:'Sommeil (h)',label:'Sommeil',unit:'h',icon:'fa-moon',color:'#8b5cf6'},
+      {key:'Pas',label:'Pas',unit:'',icon:'fa-shoe-prints',color:'#22c55e'},
+      {key:'Alimentation suivie (%)',label:'Alimentation',unit:'%',icon:'fa-apple-whole',color:'#4a90d9'},
+      {key:'Note attitude (/10)',label:'Attitude',unit:'/10',icon:'fa-star',color:'var(--gold)'}
+    ];
+    const filledMetrics=metricDefs.filter(m=>d[m.key]!==undefined&&d[m.key]!=='');
+    if(filledMetrics.length){
+      c+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:14px">`;
+      filledMetrics.forEach(m=>{
+        c+=`<div style="padding:10px 12px;background:var(--white);border-radius:8px;border:1px solid var(--border);text-align:center">`;
+        c+=`<div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;margin-bottom:4px"><i class="fas ${m.icon}" style="color:${m.color};margin-right:4px"></i>${m.label}</div>`;
+        c+=`<div style="font-size:18px;font-weight:800;color:${m.color}">${d[m.key]}${m.unit?'<span style="font-size:11px;font-weight:500;color:var(--text3)"> '+m.unit+'</span>':''}</div>`;
+        c+=`</div>`;
+      });
+      c+=`</div>`;
+    }
+    // Contexte
+    if(d['Contexte']){
+      c+=`<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#4a90d9;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px"><i class="fas fa-comment-dots" style="margin-right:4px"></i>CONTEXTE</div>`;
+      c+=`<div style="font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;padding:8px 12px;background:var(--white);border-radius:6px;border:1px solid var(--border)">${d['Contexte']}</div></div>`;
+    }
+    // Meal estimations
+    if(hasEst){
+      c+=`<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px"><i class="fas fa-camera" style="margin-right:4px"></i>ESTIMATIONS REPAS IA</div>`;
+      d.meal_estimations.forEach(est=>{
+        c+=`<div style="padding:8px 12px;background:var(--white);border-radius:6px;border:1px solid var(--border);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">`;
+        c+=`<div style="font-size:13px;font-weight:600">${est.nom||'Repas'}</div>`;
+        c+=`<div style="font-size:12px;color:var(--text3)">${est.kcal||'?'} kcal · P${est.prot||0} G${est.carb||0} L${est.fat||0}</div>`;
+        c+=`</div>`;
+      });
+      c+=`</div>`;
+    }
+    c+=`</div></div>`;
+    return c;
+  }).join('');
 }
 const dashBilanQuestions=[
   {id:'q2',label:'Pourquoi cette note ?',section:'ATTITUDE',icon:'fa-brain'},
@@ -2362,17 +2466,6 @@ const dashBilanQuestions=[
   {id:'q9',label:'Semaine prochaine',section:'SEMAINE PROCHAINE',icon:'fa-calendar-alt'},
   {id:'q10',label:'Coaching / modifications',section:'COACHING',icon:'fa-clipboard-check'}
 ];
-function _renderBilanContent(el){
-  if(!el||!curClient)return;
-  const bilans=lsGet('bilans_'+curClient.id,[]);
-  if(!bilans.length){el.innerHTML=`<div class="empty"><div class="ei">📝</div><div class="et">Aucun bilan</div><div class="es">Les bilans apparaîtront ici quand le client les soumettra</div></div>`;return;}
-  el.innerHTML=bilans.slice().reverse().map((b,bi)=>{
-    const rep=b.reponses||{};const ph=b.photos||[];const validated=!!b.read;const realIdx=bilans.length-1-bi;
-    const dt=new Date(b.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
-    const answeredCount=dashBilanQuestions.filter(q=>rep[q.id]).length;
-    return _buildBilanCard({rep,ph,validated,realIdx,dt,rawDate:b.date,supaId:b._supa_id,answeredCount,clientId:curClient.id,showValidate:true,showDelete:true});
-  }).join('');
-}
 function _buildBilanCard(o){
   const{rep,ph,validated,realIdx,dt,rawDate,supaId,answeredCount,clientId,clientName,clientColor,clientIdx,showValidate,showDelete}=o;
   const ini=clientName?clientName.split(' ').map(w=>(w[0]||'')).join('').toUpperCase().slice(0,2):'';
