@@ -4833,6 +4833,58 @@ function parseAIJSON(raw){
     }
   }
 }
+async function readSSEPlan(resp,pBar,pText,estTotal){
+  const reader=resp.body.getReader();
+  const decoder=new TextDecoder();
+  let plan=null,charCount=0,sseBuffer='',planChunks=[],lastError=null;
+  while(true){
+    let result;
+    try{result=await reader.read();}catch(netErr){
+      console.warn('Stream read error:',netErr.message);
+      lastError=netErr;break;
+    }
+    if(result.done)break;
+    sseBuffer+=decoder.decode(result.value,{stream:true});
+    const lines=sseBuffer.split('\n');
+    sseBuffer=lines.pop()||'';
+    for(const line of lines){
+      if(!line.startsWith('data: '))continue;
+      let d;
+      try{d=JSON.parse(line.slice(6));}catch(pe){continue;}
+      if(d.error)throw new Error(d.error);
+      if(d.progress){
+        charCount=d.progress;
+        const pct=Math.min(85,Math.round(charCount/estTotal*85));
+        pBar.style.width=pct+'%';
+        const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
+        pText.textContent='Jour '+dayEst+'/7 en cours…';
+      }
+      if(d.pc!==undefined){
+        planChunks.push(d.pc);
+        const pct=85+Math.round((d.ci+1)/d.tc*10);
+        pBar.style.width=pct+'%';
+        pText.textContent='Réception du plan… '+(d.ci+1)+'/'+d.tc;
+      }
+      if(d.done){
+        if(planChunks.length)plan=JSON.parse(planChunks.join(''));
+        console.log('AI Plan done. Model:',d.model,'Chunks:',planChunks.length);
+      }
+    }
+  }
+  // Flush remaining buffer
+  if(sseBuffer.trim()){
+    const lines=sseBuffer.trim().split('\n');
+    for(const line of lines){
+      if(!line.startsWith('data: '))continue;
+      let d;try{d=JSON.parse(line.slice(6));}catch(pe){continue;}
+      if(d.error)throw new Error(d.error);
+      if(d.pc!==undefined)planChunks.push(d.pc);
+      if(d.done&&planChunks.length)plan=JSON.parse(planChunks.join(''));
+    }
+  }
+  if(lastError&&!plan)throw new Error('Connexion perdue pendant la génération. Vérifie ton internet et réessaye.');
+  return plan;
+}
 async function generateAIPlan(){
   if(!nutSt.lastK||!nutSt.lastP){toast('Calcule d\'abord les macros');return;}
   const btn=document.getElementById('gpGenBtn');
@@ -4889,49 +4941,8 @@ async function generateAIPlan(){
 
     // Read SSE stream (server repairs JSON and sends clean plan in final event)
     pBar.style.width='5%';pText.textContent='L\'IA rédige le plan…';
-    const reader=resp.body.getReader();
-    const decoder=new TextDecoder();
-    let plan=null,charCount=0,sseBuffer='',planChunks=[];
-    function processSSELine(line){
-      if(!line.startsWith('data: '))return;
-      let d;
-      try{d=JSON.parse(line.slice(6));}catch(pe){
-        console.warn('SSE parse skip:',line.substring(0,80));
-        return;
-      }
-      if(d.error)throw new Error(d.error);
-      if(d.progress){
-        charCount=d.progress;
-        const pct=Math.min(85,Math.round(charCount/estTotal*85));
-        pBar.style.width=pct+'%';
-        const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
-        pText.textContent='Jour '+dayEst+'/7 en cours…';
-      }
-      if(d.pc!==undefined){
-        // Plan chunk received
-        planChunks.push(d.pc);
-        const pct=85+Math.round((d.ci+1)/d.tc*10);
-        pBar.style.width=pct+'%';
-        pText.textContent='Réception du plan… '+(d.ci+1)+'/'+d.tc;
-      }
-      if(d.done){
-        if(planChunks.length){
-          plan=JSON.parse(planChunks.join(''));
-        }
-        console.log('AI Plan model:',d.model,'usage:',d.usage);
-      }
-    }
-    while(true){
-      const{done,value}=await reader.read();
-      if(done)break;
-      sseBuffer+=decoder.decode(value,{stream:true});
-      const lines=sseBuffer.split('\n');
-      sseBuffer=lines.pop()||'';
-      for(const line of lines)processSSELine(line);
-    }
-    if(sseBuffer.trim())processSSELine(sseBuffer.trim());
-    console.log('SSE stream ended. Progress events:',charCount,'Plan chunks:',planChunks.length,'Plan received:',!!plan,'Buffer remains:',sseBuffer.length);
-    if(!plan||!plan.jours)throw new Error('Pas de plan reçu. Chunks:'+planChunks.length+' Progress:'+charCount+' Buf:'+sseBuffer.length);
+    const plan=await readSSEPlan(resp,pBar,pText,estTotal);
+    if(!plan||!plan.jours)throw new Error('Plan invalide reçu du serveur');
 
     pBar.style.width='95%';pText.textContent='Optimisation des quantités…';
     const optimized=optimizeAIPlan(plan,config);
