@@ -7,6 +7,59 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+function repairAndParseJSON(raw: string): Record<string, unknown> {
+  // Step 1: Fix unescaped chars inside JSON strings (char-by-char walk)
+  let fixed = "", inStr = false, esc = false;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (esc) { fixed += c; esc = false; continue; }
+    if (c === "\\" && inStr) { fixed += c; esc = true; continue; }
+    if (c === '"') {
+      if (!inStr) { inStr = true; fixed += c; continue; }
+      // Inside string: check if this quote ends the string or is embedded
+      let j = i + 1;
+      while (j < raw.length && " \t\r\n".includes(raw[j])) j++;
+      const next = raw[j] || "";
+      if (":,}]".includes(next) || j >= raw.length) {
+        inStr = false; fixed += c;
+      } else if (next === '"') {
+        // Could be end of string followed by start of next key/value
+        // Check if what follows looks like a key or value start
+        inStr = false; fixed += c;
+      } else {
+        // Unescaped quote inside string — escape it
+        fixed += '\\"';
+      }
+      continue;
+    }
+    if (inStr) {
+      if (c === "\n") { fixed += "\\n"; continue; }
+      if (c === "\r") { fixed += "\\r"; continue; }
+      if (c === "\t") { fixed += "\\t"; continue; }
+      const code = c.charCodeAt(0);
+      if (code < 32) { fixed += "\\u" + ("0000" + code.toString(16)).slice(-4); continue; }
+    }
+    fixed += c;
+  }
+
+  // Step 2: trailing commas
+  fixed = fixed.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
+
+  // Step 3: try parse
+  try { return JSON.parse(fixed); } catch (_e1) {
+    // Step 4: truncation repair
+    let s = fixed;
+    const last = Math.max(s.lastIndexOf("}"), s.lastIndexOf("]"));
+    if (last > 0) s = s.substring(0, last + 1);
+    let ob = 0, cb = 0, oa = 0, ca = 0;
+    for (const ch of s) { if (ch === "{") ob++; if (ch === "}") cb++; if (ch === "[") oa++; if (ch === "]") ca++; }
+    while (ca < oa) { s += "]"; ca++; }
+    while (cb < ob) { s += "}"; cb++; }
+    s = s.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
+    return JSON.parse(s);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -228,7 +281,7 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
 
     const client = new Anthropic({ apiKey });
 
-    // Stream response directly to client to avoid Supabase 150s timeout
+    // Stream to keep connection alive, collect text, repair JSON server-side, send clean plan at end
     const stream = await client.messages.stream({
       model: "claude-sonnet-4-20250514",
       max_tokens: 30000,
@@ -238,14 +291,37 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
+        let fullText = "";
         try {
           for await (const event of stream) {
             if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-              controller.enqueue(encoder.encode("data: " + JSON.stringify({ text: event.delta.text }) + "\n\n"));
+              fullText += event.delta.text;
+              // Send progress (char count) to keep connection alive
+              controller.enqueue(encoder.encode("data: " + JSON.stringify({ progress: fullText.length }) + "\n\n"));
             }
           }
           const finalMessage = await stream.finalMessage();
-          controller.enqueue(encoder.encode("data: " + JSON.stringify({ done: true, model: finalMessage.model, usage: finalMessage.usage }) + "\n\n"));
+
+          // Server-side JSON repair
+          let jsonStr = fullText.trim();
+          if (jsonStr.startsWith("```")) {
+            jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+          }
+          const plan = repairAndParseJSON(jsonStr);
+
+          // Normalise field names
+          if (plan.jours) {
+            for (const jour of plan.jours) {
+              for (const repas of (jour.repas || [])) {
+                if (!repas.alims || !Array.isArray(repas.alims) || repas.alims.length === 0) {
+                  repas.alims = repas.aliments || repas.ingredients || repas.foods || repas.items || [];
+                }
+                delete repas.aliments; delete repas.ingredients; delete repas.foods; delete repas.items;
+              }
+            }
+          }
+
+          controller.enqueue(encoder.encode("data: " + JSON.stringify({ done: true, plan, model: finalMessage.model, usage: finalMessage.usage }) + "\n\n"));
           controller.close();
         } catch (err) {
           controller.enqueue(encoder.encode("data: " + JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }) + "\n\n"));

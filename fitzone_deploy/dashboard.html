@@ -4887,48 +4887,37 @@ async function generateAIPlan(){
       try{const j=JSON.parse(err);throw new Error(j.error||'Erreur '+resp.status);}catch(e2){if(e2.message.startsWith('Erreur'))throw e2;throw new Error('Erreur '+resp.status);}
     }
 
-    // Read SSE stream
+    // Read SSE stream (server repairs JSON and sends clean plan in final event)
     pBar.style.width='5%';pText.textContent='L\'IA rédige le plan…';
     const reader=resp.body.getReader();
     const decoder=new TextDecoder();
-    let fullText='';
-    let charCount=0;
+    let plan=null,charCount=0,sseBuffer='';
     while(true){
       const{done,value}=await reader.read();
       if(done)break;
-      const chunk=decoder.decode(value,{stream:true});
-      const lines=chunk.split('\n');
+      sseBuffer+=decoder.decode(value,{stream:true});
+      const lines=sseBuffer.split('\n');
+      sseBuffer=lines.pop()||''; // keep incomplete line in buffer
       for(const line of lines){
         if(!line.startsWith('data: '))continue;
         try{
           const d=JSON.parse(line.slice(6));
           if(d.error)throw new Error(d.error);
-          if(d.text){
-            fullText+=d.text;charCount+=d.text.length;
-            const pct=Math.min(90,Math.round(charCount/estTotal*90));
+          if(d.progress){
+            charCount=d.progress;
+            const pct=Math.min(88,Math.round(charCount/estTotal*88));
             pBar.style.width=pct+'%';
-            // Detect which day is being generated
-            const dayMatch=fullText.match(/"nom"\s*:\s*"(Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche)"/g);
-            const dayCount=dayMatch?dayMatch.length:0;
-            pText.textContent=dayCount?'Jour '+dayCount+'/7 en cours…':'L\'IA rédige le plan…';
+            const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
+            pText.textContent='Jour '+dayEst+'/7 en cours…';
           }
-          if(d.done)console.log('AI Plan model:',d.model,'usage:',d.usage);
+          if(d.done){
+            plan=d.plan;
+            console.log('AI Plan model:',d.model,'usage:',d.usage);
+          }
         }catch(pe){if(pe.message&&!pe.message.includes('JSON'))throw pe;}
       }
     }
-
-    // Parse JSON with repair
-    pBar.style.width='92%';pText.textContent='Traitement du plan…';
-    let jsonStr=fullText.trim();
-    if(jsonStr.startsWith('```'))jsonStr=jsonStr.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'');
-    const plan=parseAIJSON(jsonStr);
-    if(!plan.jours)throw new Error('Réponse invalide — pas de plan');
-
-    // Normaliser champs alims
-    plan.jours.forEach(j=>j.repas.forEach(r=>{
-      if(!r.alims||!r.alims.length){r.alims=r.aliments||r.ingredients||r.foods||r.items||[];}
-      delete r.aliments;delete r.ingredients;delete r.foods;delete r.items;
-    }));
+    if(!plan||!plan.jours)throw new Error('Réponse invalide — pas de plan');
 
     pBar.style.width='95%';pText.textContent='Optimisation des quantités…';
     const optimized=optimizeAIPlan(plan,config);
