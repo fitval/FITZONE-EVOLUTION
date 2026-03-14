@@ -223,47 +223,35 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
 
     const client = new Anthropic({ apiKey });
 
-    // Use streaming to avoid timeout on long generations
+    // Stream response directly to client to avoid Supabase 150s timeout
     const stream = await client.messages.stream({
       model: "claude-sonnet-4-20250514",
       max_tokens: 30000,
       messages: [{ role: "user", content: prompt }],
     });
 
-    // Collect streamed text
-    let fullText = "";
-    for await (const event of stream) {
-      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-        fullText += event.delta.text;
-      }
-    }
-
-    const finalMessage = await stream.finalMessage();
-
-    // Parse JSON from response (handle potential markdown wrapping)
-    let jsonStr = fullText.trim();
-    if (jsonStr.startsWith("```")) {
-      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-    }
-
-    const plan = JSON.parse(jsonStr);
-
-    // Normaliser les noms de champs (Claude peut utiliser "aliments"/"ingredients" au lieu de "alims")
-    if (plan.jours) {
-      for (const jour of plan.jours) {
-        for (const repas of (jour.repas || [])) {
-          if (!repas.alims || !Array.isArray(repas.alims) || repas.alims.length === 0) {
-            repas.alims = repas.aliments || repas.ingredients || repas.foods || repas.items || [];
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const event of stream) {
+            if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+              controller.enqueue(encoder.encode("data: " + JSON.stringify({ text: event.delta.text }) + "\n\n"));
+            }
           }
-          delete repas.aliments; delete repas.ingredients; delete repas.foods; delete repas.items;
+          const finalMessage = await stream.finalMessage();
+          controller.enqueue(encoder.encode("data: " + JSON.stringify({ done: true, model: finalMessage.model, usage: finalMessage.usage }) + "\n\n"));
+          controller.close();
+        } catch (err) {
+          controller.enqueue(encoder.encode("data: " + JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }) + "\n\n"));
+          controller.close();
         }
       }
-    }
+    });
 
-    return new Response(
-      JSON.stringify({ plan, model: finalMessage.model, usage: finalMessage.usage }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(readable, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" }
+    });
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : "Unknown error";
     console.error("generate-meal-plan error:", errMsg);

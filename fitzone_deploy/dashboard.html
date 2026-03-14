@@ -4815,7 +4815,7 @@ async function generateAIPlan(){
   };
 
   try{
-    document.getElementById('gpLoadText').textContent='Génération du plan alimentaire…';
+    document.getElementById('gpLoadText').textContent='Connexion à l\'IA…';
     const resp=await fetch(SUPA+'/functions/v1/generate-meal-plan',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY,'apikey':KEY},
@@ -4823,26 +4823,46 @@ async function generateAIPlan(){
     });
 
     if(!resp.ok){
-      const err=await resp.json().catch(()=>({error:'Erreur serveur'}));
-      throw new Error(err.error||'Erreur '+resp.status);
+      const err=await resp.text().catch(()=>'Erreur serveur');
+      try{const j=JSON.parse(err);throw new Error(j.error||'Erreur '+resp.status);}catch(e2){if(e2.message.startsWith('Erreur'))throw e2;throw new Error('Erreur '+resp.status);}
     }
 
-    const data=await resp.json();
-    if(!data.plan||!data.plan.jours){throw new Error('Réponse invalide — pas de plan');}
-
-    // Debug: voir la structure brute du premier repas
-    console.log('AI Plan raw response (1er repas):', JSON.stringify(data.plan.jours?.[0]?.repas?.[0]).substring(0,500));
-
-    // Normaliser champs alims (Claude peut retourner "aliments"/"ingredients" au lieu de "alims")
-    data.plan.jours.forEach(j=>j.repas.forEach(r=>{
-      if(!r.alims||!r.alims.length){
-        r.alims=r.aliments||r.ingredients||r.foods||r.items||[];
+    // Read SSE stream
+    document.getElementById('gpLoadText').textContent='Génération du plan alimentaire…';
+    const reader=resp.body.getReader();
+    const decoder=new TextDecoder();
+    let fullText='';
+    let charCount=0;
+    while(true){
+      const{done,value}=await reader.read();
+      if(done)break;
+      const chunk=decoder.decode(value,{stream:true});
+      const lines=chunk.split('\n');
+      for(const line of lines){
+        if(!line.startsWith('data: '))continue;
+        try{
+          const d=JSON.parse(line.slice(6));
+          if(d.error)throw new Error(d.error);
+          if(d.text){fullText+=d.text;charCount+=d.text.length;document.getElementById('gpLoadText').textContent='Génération… '+Math.round(charCount/100)+'00 caractères';}
+          if(d.done)console.log('AI Plan model:',d.model,'usage:',d.usage);
+        }catch(pe){if(pe.message&&!pe.message.includes('JSON'))throw pe;}
       }
+    }
+
+    // Parse JSON
+    let jsonStr=fullText.trim();
+    if(jsonStr.startsWith('```'))jsonStr=jsonStr.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'');
+    const plan=JSON.parse(jsonStr);
+    if(!plan.jours)throw new Error('Réponse invalide — pas de plan');
+
+    // Normaliser champs alims
+    plan.jours.forEach(j=>j.repas.forEach(r=>{
+      if(!r.alims||!r.alims.length){r.alims=r.aliments||r.ingredients||r.foods||r.items||[];}
       delete r.aliments;delete r.ingredients;delete r.foods;delete r.items;
     }));
 
     document.getElementById('gpLoadText').textContent='Optimisation des quantités…';
-    const optimized=optimizeAIPlan(data.plan,config);
+    const optimized=optimizeAIPlan(plan,config);
     aiPlanData={...optimized,config};
     closeM('mGenPlan');
     renderAIPlan(aiPlanData,config);
