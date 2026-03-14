@@ -4930,7 +4930,8 @@ async function generateAIPlan(){
       for(const line of lines)processSSELine(line);
     }
     if(sseBuffer.trim())processSSELine(sseBuffer.trim());
-    if(!plan||!plan.jours)throw new Error('Réponse invalide — pas de plan reçu du serveur');
+    console.log('SSE stream ended. Progress events:',charCount,'Plan chunks:',planChunks.length,'Plan received:',!!plan,'Buffer remains:',sseBuffer.length);
+    if(!plan||!plan.jours)throw new Error('Pas de plan reçu. Chunks:'+planChunks.length+' Progress:'+charCount+' Buf:'+sseBuffer.length);
 
     pBar.style.width='95%';pText.textContent='Optimisation des quantités…';
     const optimized=optimizeAIPlan(plan,config);
