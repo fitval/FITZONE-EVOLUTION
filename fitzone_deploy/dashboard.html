@@ -4778,6 +4778,49 @@ function gpSaveRestoDays(){
   }
 }
 
+function parseAIJSON(raw){
+  let s=raw.trim();
+  if(s.startsWith('```'))s=s.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'');
+  // Step 1: Fix unescaped control chars inside JSON strings
+  // Walk through char by char, track if inside a string
+  let fixed='',inStr=false,esc=false;
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    if(esc){fixed+=c;esc=false;continue;}
+    if(c==='\\' && inStr){fixed+=c;esc=true;continue;}
+    if(c==='"' && !esc){inStr=!inStr;fixed+=c;continue;}
+    if(inStr){
+      // Escape control characters that are invalid inside JSON strings
+      if(c==='\n'){fixed+='\\n';continue;}
+      if(c==='\r'){fixed+='\\r';continue;}
+      if(c==='\t'){fixed+='\\t';continue;}
+      const code=c.charCodeAt(0);
+      if(code<32){fixed+='\\u'+('0000'+code.toString(16)).slice(-4);continue;}
+    }
+    fixed+=c;
+  }
+  s=fixed;
+  // Step 2: trailing commas
+  s=s.replace(/,\s*}/g,'}').replace(/,\s*]/g,']');
+  // Step 3: try parse
+  try{return JSON.parse(s);}catch(e1){
+    console.warn('JSON parse failed, attempting bracket repair…',e1.message);
+    // Step 4: truncation repair — find last complete structure
+    let fix=s;
+    const last=Math.max(fix.lastIndexOf('}'),fix.lastIndexOf(']'));
+    if(last>0)fix=fix.substring(0,last+1);
+    // Close open brackets
+    let ob=0,cb=0,oa=0,ca=0;
+    for(const c of fix){if(c==='{')ob++;if(c==='}')cb++;if(c==='[')oa++;if(c===']')ca++;}
+    while(ca<oa){fix+=']';ca++;}
+    while(cb<ob){fix+='}';cb++;}
+    fix=fix.replace(/,\s*}/g,'}').replace(/,\s*]/g,']');
+    try{return JSON.parse(fix);}catch(e2){
+      console.error('JSON repair failed. Raw length:',s.length,'Last 200 chars:',s.slice(-200));
+      throw e2;
+    }
+  }
+}
 async function generateAIPlan(){
   if(!nutSt.lastK||!nutSt.lastP){toast('Calcule d\'abord les macros');return;}
   const btn=document.getElementById('gpGenBtn');
@@ -4866,28 +4909,7 @@ async function generateAIPlan(){
     pBar.style.width='92%';pText.textContent='Traitement du plan…';
     let jsonStr=fullText.trim();
     if(jsonStr.startsWith('```'))jsonStr=jsonStr.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'');
-    // Repair common JSON issues from LLM output
-    jsonStr=jsonStr.replace(/,\s*}/g,'}').replace(/,\s*]/g,']'); // trailing commas
-    jsonStr=jsonStr.replace(/\n/g,' '); // newlines in strings
-    // Try to fix truncated JSON by closing open brackets
-    let plan;
-    try{plan=JSON.parse(jsonStr);}catch(parseErr){
-      console.warn('JSON repair attempt…',parseErr.message);
-      // Count open/close brackets
-      let ob=0,cb=0,oa=0,ca=0;
-      for(const c of jsonStr){if(c==='{')ob++;if(c==='}')cb++;if(c==='[')oa++;if(c===']')ca++;}
-      let fix=jsonStr;
-      // Remove trailing partial values (after last complete object)
-      const lastComplete=Math.max(fix.lastIndexOf('}'),fix.lastIndexOf(']'));
-      if(lastComplete>0)fix=fix.substring(0,lastComplete+1);
-      // Re-count and close
-      ob=0;cb=0;oa=0;ca=0;
-      for(const c of fix){if(c==='{')ob++;if(c==='}')cb++;if(c==='[')oa++;if(c===']')ca++;}
-      while(ca<oa){fix+=']';ca++;}
-      while(cb<ob){fix+='}';cb++;}
-      fix=fix.replace(/,\s*}/g,'}').replace(/,\s*]/g,']');
-      plan=JSON.parse(fix);
-    }
+    const plan=parseAIJSON(jsonStr);
     if(!plan.jours)throw new Error('Réponse invalide — pas de plan');
 
     // Normaliser champs alims
