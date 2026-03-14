@@ -1064,7 +1064,8 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div id="gpLoading" style="display:none;text-align:center;padding:20px 0">
       <div style="font-size:32px;animation:spin 1.5s linear infinite;display:inline-block">🤖</div>
       <div style="font-size:13px;font-weight:600;margin-top:8px;color:var(--dark)" id="gpLoadText">Génération en cours…</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:4px">Cela peut prendre 30-60 secondes</div>
+      <div style="width:100%;max-width:300px;margin:10px auto 0;height:8px;border-radius:4px;background:var(--bg2);overflow:hidden"><div id="gpProgressBar" style="height:100%;width:0%;border-radius:4px;background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width .3s"></div></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px" id="gpProgressText">Connexion…</div>
     </div>
   </div>
   <div class="mf" id="gpFooter">
@@ -4814,8 +4815,12 @@ async function generateAIPlan(){
     diet_type:curQ.diet_type
   };
 
+  const pBar=document.getElementById('gpProgressBar');
+  const pText=document.getElementById('gpProgressText');
+  const estTotal=20000; // ~20k chars for a 7-day plan
   try{
-    document.getElementById('gpLoadText').textContent='Connexion à l\'IA…';
+    document.getElementById('gpLoadText').textContent='Génération du plan alimentaire…';
+    pBar.style.width='2%';pText.textContent='Connexion à l\'IA…';
     const resp=await fetch(SUPA+'/functions/v1/generate-meal-plan',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY,'apikey':KEY},
@@ -4828,7 +4833,7 @@ async function generateAIPlan(){
     }
 
     // Read SSE stream
-    document.getElementById('gpLoadText').textContent='Génération du plan alimentaire…';
+    pBar.style.width='5%';pText.textContent='L\'IA rédige le plan…';
     const reader=resp.body.getReader();
     const decoder=new TextDecoder();
     let fullText='';
@@ -4843,16 +4848,46 @@ async function generateAIPlan(){
         try{
           const d=JSON.parse(line.slice(6));
           if(d.error)throw new Error(d.error);
-          if(d.text){fullText+=d.text;charCount+=d.text.length;document.getElementById('gpLoadText').textContent='Génération… '+Math.round(charCount/100)+'00 caractères';}
+          if(d.text){
+            fullText+=d.text;charCount+=d.text.length;
+            const pct=Math.min(90,Math.round(charCount/estTotal*90));
+            pBar.style.width=pct+'%';
+            // Detect which day is being generated
+            const dayMatch=fullText.match(/"nom"\s*:\s*"(Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche)"/g);
+            const dayCount=dayMatch?dayMatch.length:0;
+            pText.textContent=dayCount?'Jour '+dayCount+'/7 en cours…':'L\'IA rédige le plan…';
+          }
           if(d.done)console.log('AI Plan model:',d.model,'usage:',d.usage);
         }catch(pe){if(pe.message&&!pe.message.includes('JSON'))throw pe;}
       }
     }
 
-    // Parse JSON
+    // Parse JSON with repair
+    pBar.style.width='92%';pText.textContent='Traitement du plan…';
     let jsonStr=fullText.trim();
     if(jsonStr.startsWith('```'))jsonStr=jsonStr.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'');
-    const plan=JSON.parse(jsonStr);
+    // Repair common JSON issues from LLM output
+    jsonStr=jsonStr.replace(/,\s*}/g,'}').replace(/,\s*]/g,']'); // trailing commas
+    jsonStr=jsonStr.replace(/\n/g,' '); // newlines in strings
+    // Try to fix truncated JSON by closing open brackets
+    let plan;
+    try{plan=JSON.parse(jsonStr);}catch(parseErr){
+      console.warn('JSON repair attempt…',parseErr.message);
+      // Count open/close brackets
+      let ob=0,cb=0,oa=0,ca=0;
+      for(const c of jsonStr){if(c==='{')ob++;if(c==='}')cb++;if(c==='[')oa++;if(c===']')ca++;}
+      let fix=jsonStr;
+      // Remove trailing partial values (after last complete object)
+      const lastComplete=Math.max(fix.lastIndexOf('}'),fix.lastIndexOf(']'));
+      if(lastComplete>0)fix=fix.substring(0,lastComplete+1);
+      // Re-count and close
+      ob=0;cb=0;oa=0;ca=0;
+      for(const c of fix){if(c==='{')ob++;if(c==='}')cb++;if(c==='[')oa++;if(c===']')ca++;}
+      while(ca<oa){fix+=']';ca++;}
+      while(cb<ob){fix+='}';cb++;}
+      fix=fix.replace(/,\s*}/g,'}').replace(/,\s*]/g,']');
+      plan=JSON.parse(fix);
+    }
     if(!plan.jours)throw new Error('Réponse invalide — pas de plan');
 
     // Normaliser champs alims
@@ -4861,19 +4896,18 @@ async function generateAIPlan(){
       delete r.aliments;delete r.ingredients;delete r.foods;delete r.items;
     }));
 
-    document.getElementById('gpLoadText').textContent='Optimisation des quantités…';
+    pBar.style.width='95%';pText.textContent='Optimisation des quantités…';
     const optimized=optimizeAIPlan(plan,config);
     aiPlanData={...optimized,config};
-    closeM('mGenPlan');
-    renderAIPlan(aiPlanData,config);
-    toast('Plan IA généré et optimisé');
+    pBar.style.width='100%';pText.textContent='Terminé !';
+    setTimeout(()=>{closeM('mGenPlan');renderAIPlan(aiPlanData,config);toast('Plan IA généré et optimisé');},400);
   }catch(e){
     console.error('AI Plan error:',e);
     toast('Erreur: '+e.message);
     document.getElementById('gpLoadText').textContent='Erreur: '+e.message;
+    pBar.style.width='0%';pBar.style.background='#ef4444';pText.textContent=e.message;
   }finally{
     btn.disabled=false;btn.textContent='🤖 Générer 7 jours';
-    loading.style.display='none';
   }
 }
 
