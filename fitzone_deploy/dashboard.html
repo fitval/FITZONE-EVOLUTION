@@ -4781,16 +4781,29 @@ function gpSaveRestoDays(){
 function parseAIJSON(raw){
   let s=raw.trim();
   if(s.startsWith('```'))s=s.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'');
-  // Step 1: Fix unescaped control chars inside JSON strings
-  // Walk through char by char, track if inside a string
+  // Step 1: Fix unescaped chars inside JSON strings (char-by-char walk)
   let fixed='',inStr=false,esc=false;
   for(let i=0;i<s.length;i++){
     const c=s[i];
     if(esc){fixed+=c;esc=false;continue;}
-    if(c==='\\' && inStr){fixed+=c;esc=true;continue;}
-    if(c==='"' && !esc){inStr=!inStr;fixed+=c;continue;}
+    if(c==='\\'&&inStr){fixed+=c;esc=true;continue;}
+    if(c==='"'){
+      if(!inStr){inStr=true;fixed+=c;continue;}
+      // We're in a string and hit a ". Is this the end of the string or an unescaped quote?
+      // Look ahead: skip whitespace, then check if next meaningful char is : , } ]
+      let j=i+1;
+      while(j<s.length&&(s[j]===' '||s[j]==='\t'||s[j]==='\r'||s[j]==='\n'))j++;
+      const next=s[j]||'';
+      if(next===':'||next===','||next==='}'||next===']'||next==='"'||j>=s.length){
+        // Likely end of string
+        inStr=false;fixed+=c;
+      } else {
+        // Unescaped quote inside string — escape it
+        fixed+='\\"';
+      }
+      continue;
+    }
     if(inStr){
-      // Escape control characters that are invalid inside JSON strings
       if(c==='\n'){fixed+='\\n';continue;}
       if(c==='\r'){fixed+='\\r';continue;}
       if(c==='\t'){fixed+='\\t';continue;}
@@ -4804,19 +4817,18 @@ function parseAIJSON(raw){
   s=s.replace(/,\s*}/g,'}').replace(/,\s*]/g,']');
   // Step 3: try parse
   try{return JSON.parse(s);}catch(e1){
-    console.warn('JSON parse failed, attempting bracket repair…',e1.message);
+    console.warn('JSON repair pass 1 failed:',e1.message);
     // Step 4: truncation repair — find last complete structure
     let fix=s;
     const last=Math.max(fix.lastIndexOf('}'),fix.lastIndexOf(']'));
     if(last>0)fix=fix.substring(0,last+1);
-    // Close open brackets
     let ob=0,cb=0,oa=0,ca=0;
     for(const c of fix){if(c==='{')ob++;if(c==='}')cb++;if(c==='[')oa++;if(c===']')ca++;}
     while(ca<oa){fix+=']';ca++;}
     while(cb<ob){fix+='}';cb++;}
     fix=fix.replace(/,\s*}/g,'}').replace(/,\s*]/g,']');
     try{return JSON.parse(fix);}catch(e2){
-      console.error('JSON repair failed. Raw length:',s.length,'Last 200 chars:',s.slice(-200));
+      console.error('JSON repair failed. Raw length:',s.length,'Around error:',s.substring(13200,13300));
       throw e2;
     }
   }

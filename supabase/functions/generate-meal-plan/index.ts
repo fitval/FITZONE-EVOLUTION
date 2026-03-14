@@ -175,7 +175,12 @@ AVANT de générer le JSON, tu DOIS suivre cette méthode pour CHAQUE repas de C
 12. Les champs actual_kcal, actual_prot, actual_carb, actual_fat de chaque repas DOIVENT être la SOMME EXACTE calculée à partir des aliments (pas une approximation)
 
 === FORMAT JSON REQUIS ===
-Retourne UNIQUEMENT du JSON valide (pas de texte avant ou après, pas de markdown), avec cette structure exacte:
+Retourne UNIQUEMENT du JSON valide (pas de texte avant ou après, pas de markdown).
+RÈGLES JSON STRICTES :
+- N'utilise JAMAIS de guillemets doubles " à l'intérieur des valeurs de texte (utilise des apostrophes ' à la place)
+- Pour les retours à la ligne dans les instructions, utilise \\n (séquence échappée), JAMAIS de vrais retours à la ligne
+- Pas de virgule après le dernier élément d'un tableau ou objet
+Structure exacte :
 
 {
   "jours": [
