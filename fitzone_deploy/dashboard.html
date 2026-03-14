@@ -4892,32 +4892,35 @@ async function generateAIPlan(){
     const reader=resp.body.getReader();
     const decoder=new TextDecoder();
     let plan=null,charCount=0,sseBuffer='';
+    function processSSELine(line){
+      if(!line.startsWith('data: '))return;
+      try{
+        const d=JSON.parse(line.slice(6));
+        if(d.error)throw new Error(d.error);
+        if(d.progress){
+          charCount=d.progress;
+          const pct=Math.min(88,Math.round(charCount/estTotal*88));
+          pBar.style.width=pct+'%';
+          const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
+          pText.textContent='Jour '+dayEst+'/7 en cours…';
+        }
+        if(d.done){
+          plan=d.plan;
+          console.log('AI Plan model:',d.model,'usage:',d.usage);
+        }
+      }catch(pe){if(pe.message&&!pe.message.includes('JSON'))throw pe;}
+    }
     while(true){
       const{done,value}=await reader.read();
       if(done)break;
       sseBuffer+=decoder.decode(value,{stream:true});
       const lines=sseBuffer.split('\n');
-      sseBuffer=lines.pop()||''; // keep incomplete line in buffer
-      for(const line of lines){
-        if(!line.startsWith('data: '))continue;
-        try{
-          const d=JSON.parse(line.slice(6));
-          if(d.error)throw new Error(d.error);
-          if(d.progress){
-            charCount=d.progress;
-            const pct=Math.min(88,Math.round(charCount/estTotal*88));
-            pBar.style.width=pct+'%';
-            const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
-            pText.textContent='Jour '+dayEst+'/7 en cours…';
-          }
-          if(d.done){
-            plan=d.plan;
-            console.log('AI Plan model:',d.model,'usage:',d.usage);
-          }
-        }catch(pe){if(pe.message&&!pe.message.includes('JSON'))throw pe;}
-      }
+      sseBuffer=lines.pop()||'';
+      for(const line of lines)processSSELine(line);
     }
-    if(!plan||!plan.jours)throw new Error('Réponse invalide — pas de plan');
+    // Flush remaining buffer (critical: final event with plan may not end with \n)
+    if(sseBuffer.trim())processSSELine(sseBuffer.trim());
+    if(!plan||!plan.jours)throw new Error('Réponse invalide — pas de plan reçu du serveur');
 
     pBar.style.width='95%';pText.textContent='Optimisation des quantités…';
     const optimized=optimizeAIPlan(plan,config);
