@@ -321,7 +321,15 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
             }
           }
 
-          controller.enqueue(encoder.encode("data: " + JSON.stringify({ done: true, plan, model: finalMessage.model, usage: finalMessage.usage }) + "\n\n"));
+          // Send plan in small chunks to avoid SSE line size issues
+          const planStr = JSON.stringify(plan);
+          const chunkSize = 8000;
+          const totalChunks = Math.ceil(planStr.length / chunkSize);
+          for (let ci = 0; ci < totalChunks; ci++) {
+            const chunk = planStr.substring(ci * chunkSize, (ci + 1) * chunkSize);
+            controller.enqueue(encoder.encode("data: " + JSON.stringify({ pc: chunk, ci, tc: totalChunks }) + "\n\n"));
+          }
+          controller.enqueue(encoder.encode("data: " + JSON.stringify({ done: true, model: finalMessage.model, usage: finalMessage.usage }) + "\n\n"));
           controller.close();
         } catch (err) {
           controller.enqueue(encoder.encode("data: " + JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }) + "\n\n"));

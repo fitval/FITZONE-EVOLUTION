@@ -4891,25 +4891,33 @@ async function generateAIPlan(){
     pBar.style.width='5%';pText.textContent='L\'IA rédige le plan…';
     const reader=resp.body.getReader();
     const decoder=new TextDecoder();
-    let plan=null,charCount=0,sseBuffer='';
+    let plan=null,charCount=0,sseBuffer='',planChunks=[];
     function processSSELine(line){
       if(!line.startsWith('data: '))return;
       let d;
       try{d=JSON.parse(line.slice(6));}catch(pe){
-        // SSE line not valid JSON — skip (could be partial chunk)
-        console.warn('SSE parse skip:',line.substring(0,100));
+        console.warn('SSE parse skip:',line.substring(0,80));
         return;
       }
       if(d.error)throw new Error(d.error);
       if(d.progress){
         charCount=d.progress;
-        const pct=Math.min(88,Math.round(charCount/estTotal*88));
+        const pct=Math.min(85,Math.round(charCount/estTotal*85));
         pBar.style.width=pct+'%';
         const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
         pText.textContent='Jour '+dayEst+'/7 en cours…';
       }
+      if(d.pc!==undefined){
+        // Plan chunk received
+        planChunks.push(d.pc);
+        const pct=85+Math.round((d.ci+1)/d.tc*10);
+        pBar.style.width=pct+'%';
+        pText.textContent='Réception du plan… '+(d.ci+1)+'/'+d.tc;
+      }
       if(d.done){
-        plan=d.plan;
+        if(planChunks.length){
+          plan=JSON.parse(planChunks.join(''));
+        }
         console.log('AI Plan model:',d.model,'usage:',d.usage);
       }
     }
@@ -4921,7 +4929,6 @@ async function generateAIPlan(){
       sseBuffer=lines.pop()||'';
       for(const line of lines)processSSELine(line);
     }
-    // Flush remaining buffer (critical: final event with plan may not end with \n)
     if(sseBuffer.trim())processSSELine(sseBuffer.trim());
     if(!plan||!plan.jours)throw new Error('Réponse invalide — pas de plan reçu du serveur');
 
