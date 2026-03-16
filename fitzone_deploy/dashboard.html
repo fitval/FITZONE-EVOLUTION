@@ -1635,7 +1635,8 @@ function renderDetHero(){
   const pauseBtn=c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,160,0,.15);color:#ffb84a;border:1px solid rgba(255,160,0,.25)" onclick="pauseClient('${c.id}')">⏸️ Pause</button>`
     :c.status==='paused'?`<button class="btn btn-sm" style="background:rgba(0,200,100,.15);color:#40d080;border:1px solid rgba(0,200,100,.25)" onclick="resumeClient('${c.id}')">▶️ Réactiver</button>`:'';
   const delBtn=`<button class="btn btn-sm" style="background:rgba(255,50,50,.12);color:#ff6060;border:1px solid rgba(255,50,50,.2)" onclick="deleteClientStart('${c.id}')">🗑️</button>`;
-  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select></div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:''}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${pauseBtn}${delBtn}</div>`;
+  const inviteBtn=c.email?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="resendClientInvite('${c.id}')">📧 Invitation</button>`:'';
+  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select></div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:''}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${inviteBtn}${pauseBtn}${delBtn}</div>`;
 }
 async function setBilanDay(day){
   const d=parseInt(day);
@@ -5426,7 +5427,7 @@ async function renderAdminCoaches(){
   const roles=['coach','admin','super_admin'];
   ct.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
     <tr style="text-align:left;color:var(--text3);font-size:11px;border-bottom:1px solid var(--border)">
-      <th style="padding:8px">Nom</th><th style="padding:8px">Email</th><th style="padding:8px">Rôle</th><th style="padding:8px">Clients</th><th style="padding:8px">Inscrit le</th>
+      <th style="padding:8px">Nom</th><th style="padding:8px">Email</th><th style="padding:8px">Rôle</th><th style="padding:8px">Clients</th><th style="padding:8px">Inscrit le</th><th style="padding:8px">Actions</th>
     </tr>
     ${adminCoaches.map(c=>`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:8px;font-weight:600">${esc(c.first_name||'')} ${esc(c.last_name||'')}</td>
@@ -5434,6 +5435,7 @@ async function renderAdminCoaches(){
       <td style="padding:8px"><select class="fi" style="padding:4px 8px;font-size:12px;min-width:120px" oninput="updateCoachRole('${c.id}',this.value)" ${c.id===currentCoach.id?'disabled':''}>${roles.map(r=>`<option value="${r}" ${c.role===r?'selected':''}>${r}</option>`).join('')}</select></td>
       <td style="padding:8px;text-align:center">${counts[c.id]||0}</td>
       <td style="padding:8px;color:var(--text3)">${c.created_at?new Date(c.created_at).toLocaleDateString('fr-FR'):'-'}</td>
+      <td style="padding:8px">${c.id!==currentCoach.id?`<button class="btn btn-sm" style="font-size:11px;padding:4px 10px" onclick="resendCoachInvite('${esc(c.email)}')">📧 Renvoyer</button>`:''}</td>
     </tr>`).join('')}
   </table>`;
 }
@@ -5583,6 +5585,36 @@ async function inviteCoachAccount(email,firstName,lastName){
     toast('Email d\'invitation envoyé à '+email);
     return result.user_id;
   }catch(err){toast('Erreur invitation: '+err.message);return null;}
+}
+
+/* ===== RESEND INVITATIONS ===== */
+async function resendClientInvite(clientId){
+  const c=allClients.find(x=>x.id===clientId)||curClient;
+  if(!c||!c.email){toast('Pas d\'email pour ce client');return;}
+  toast('Envoi en cours...');
+  // If client has no auth account yet, create one
+  if(!c.user_id){
+    const uid=await createClientAccount(c.id,c.email,c.first_name,c.last_name);
+    if(uid){c.user_id=uid;toast('Compte créé + invitation envoyée');}
+    else toast('Erreur lors de la création du compte');
+    return;
+  }
+  // Client already has account — send password reset
+  const{error}=await db.auth.resetPasswordForEmail(c.email,{
+    redirectTo:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/client-login.html'
+  });
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Email de réinitialisation envoyé à '+c.email);
+}
+
+async function resendCoachInvite(email){
+  if(!email){toast('Pas d\'email');return;}
+  toast('Envoi en cours...');
+  const{error}=await db.auth.resetPasswordForEmail(email,{
+    redirectTo:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/login.html'
+  });
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Email envoyé à '+email);
 }
 </script>
 </body>
