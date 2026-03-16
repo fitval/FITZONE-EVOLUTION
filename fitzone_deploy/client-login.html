@@ -227,8 +227,26 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Reset password view */
-#view-login, #view-reset, #view-newpw { display: none; }
-#view-login.active, #view-reset.active, #view-newpw.active { display: block; }
+#view-login, #view-reset, #view-newpw, #view-confirmed { display: none; }
+#view-login.active, #view-reset.active, #view-newpw.active, #view-confirmed.active { display: block; }
+
+.confirm-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, #b8882a, var(--gold-light));
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  font-size: 26px; color: var(--white);
+}
+
+.confirm-title {
+  font-size: 17px; font-weight: 800; color: var(--dark);
+  text-align: center; margin-bottom: 6px;
+}
+
+.confirm-sub {
+  font-size: 13px; color: var(--text2);
+  text-align: center; margin-bottom: 20px; line-height: 1.5;
+}
 </style>
 </head>
 <body>
@@ -298,6 +316,14 @@ body {
         </div>
 
         <button class="btn btn-gold" id="btn-newpw" onclick="doNewPassword()">Definir mon mot de passe</button>
+      </div>
+
+      <!-- CONFIRMED VIEW -->
+      <div id="view-confirmed">
+        <div class="confirm-icon">✓</div>
+        <div class="confirm-title">Mot de passe enregistre !</div>
+        <div class="confirm-sub">Ton nouveau mot de passe a bien ete defini.<br>Tu peux maintenant te connecter.</div>
+        <button class="btn btn-gold" onclick="showView('login')">Se connecter</button>
       </div>
     </div>
   </div>
@@ -436,11 +462,12 @@ async function doNewPassword() {
     return;
   }
 
-  const s = document.getElementById('newpw-success');
-  s.textContent = 'Mot de passe defini ! Redirection...';
-  s.classList.add('show');
+  // Sign out so user logs in fresh with new password
+  await db.auth.signOut();
 
-  setTimeout(() => { window.location.href = 'client.html'; }, 1500);
+  // Show confirmation view
+  document.getElementById('view-newpw').classList.remove('active');
+  document.getElementById('view-confirmed').classList.add('active');
 }
 
 // Enter key support
