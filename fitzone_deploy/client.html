@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1a1916">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Fitzone Evolution</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -285,6 +288,35 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .est-item:last-child { border:none; }
 .est-item-name { font-size:14px; font-weight:500; }
 .est-item-detail { font-size:12px; color:var(--text3); }
+
+/* === PWA INSTALL BANNER === */
+.pwa-banner { position:fixed; bottom:calc(var(--tab-h) + var(--safe-b) + 8px); left:12px; right:12px; background:var(--dark); color:white; border-radius:16px; padding:14px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 8px 30px rgba(0,0,0,.25); z-index:200; animation:slideUp .4s ease; }
+.pwa-banner-icon { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#8a6a1a,#c49a2a); display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:900; color:var(--dark); flex-shrink:0; }
+.pwa-banner-text { flex:1; }
+.pwa-banner-title { font-size:14px; font-weight:700; margin-bottom:2px; }
+.pwa-banner-sub { font-size:11px; color:rgba(255,255,255,.6); }
+.pwa-banner-btn { padding:8px 16px; border-radius:10px; border:none; background:linear-gradient(135deg,#b8882a,#e8b84a); color:var(--dark); font-weight:700; font-size:12px; cursor:pointer; font-family:var(--font); white-space:nowrap; }
+.pwa-banner-close { position:absolute; top:6px; right:10px; background:none; border:none; color:rgba(255,255,255,.4); font-size:18px; cursor:pointer; padding:4px; }
+@keyframes slideUp { from{transform:translateY(100px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+/* === PWA INSTALL TUTORIAL OVERLAY === */
+.pwa-overlay { position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:300; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; animation:fadeIn .3s ease; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.pwa-tuto { background:white; border-radius:24px; max-width:380px; width:100%; padding:28px 24px; text-align:center; max-height:90vh; overflow-y:auto; }
+.pwa-tuto-logo { width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg,#8a6a1a,#c49a2a); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:900; color:#1a1916; margin:0 auto 16px; }
+.pwa-tuto h2 { font-size:20px; font-weight:800; color:var(--dark); margin-bottom:4px; }
+.pwa-tuto .sub { font-size:13px; color:var(--text3); margin-bottom:20px; }
+.pwa-step { display:flex; align-items:flex-start; gap:12px; text-align:left; padding:12px 0; border-bottom:1px solid var(--border); }
+.pwa-step:last-child { border:none; }
+.pwa-step-num { width:28px; height:28px; border-radius:50%; background:var(--gold-pale); color:var(--gold); font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.pwa-step-text { font-size:13px; color:var(--text); line-height:1.5; }
+.pwa-step-text strong { color:var(--dark); }
+.pwa-step-icon { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; background:var(--bg); font-size:12px; vertical-align:middle; margin:0 2px; }
+.pwa-tuto-btn { margin-top:18px; width:100%; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg,#b8882a,#e8b84a); color:var(--dark); font-weight:700; font-size:15px; cursor:pointer; font-family:var(--font); }
+.pwa-chrome-warn { background:#fff3e0; border:1px solid #ffe0b2; border-radius:14px; padding:16px; margin-bottom:16px; text-align:center; }
+.pwa-chrome-warn-title { font-size:14px; font-weight:700; color:#e65100; margin-bottom:6px; }
+.pwa-chrome-warn-text { font-size:12px; color:#bf360c; line-height:1.5; margin-bottom:10px; }
+.pwa-chrome-btn { display:inline-block; padding:10px 20px; border-radius:10px; border:none; background:#e65100; color:white; font-weight:700; font-size:13px; cursor:pointer; font-family:var(--font); text-decoration:none; }
 </style>
 </head>
 <body>
@@ -302,6 +334,20 @@ textarea.form-input { min-height:100px; resize:vertical; }
     <div style="font-size:13px;color:#6b6456">Ton programme et tes données sont conservés</div>
   </div>
 </div>
+
+<!-- PWA Install Banner -->
+<div id="pwaBanner" style="display:none" class="pwa-banner">
+  <div class="pwa-banner-icon">F</div>
+  <div class="pwa-banner-text">
+    <div class="pwa-banner-title">Installer Fitzone</div>
+    <div class="pwa-banner-sub">Ajoute l'app sur ton ecran d'accueil</div>
+  </div>
+  <button class="pwa-banner-btn" id="pwaBannerBtn">Installer</button>
+  <button class="pwa-banner-close" onclick="closePwaBanner()">&times;</button>
+</div>
+
+<!-- PWA Tutorial Overlay -->
+<div id="pwaTuto" class="pwa-overlay" style="display:none"></div>
 
 <div id="app">
   <div class="scroll-area" id="scrollArea">
@@ -1584,6 +1630,136 @@ async function saveEstToLog(){
     btn.disabled=false;btn.textContent='Enregistrer dans mon suivi';
     toast('Erreur: '+err.message);
   }
+}
+
+/* ===== PWA INSTALL ===== */
+(function initPWA(){
+  // Register service worker
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+
+  // Detect environment
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isAndroid=/Android/.test(navigator.userAgent);
+  const isSafari=/^((?!CriOS|FxiOS|OPiOS|mercury).)*Safari/i.test(navigator.userAgent);
+  const isChromeIOS=/CriOS/.test(navigator.userAgent);
+  const isStandalone=window.matchMedia('(display-mode:standalone)').matches||navigator.standalone;
+  const dismissed=localStorage.getItem('pwa_dismissed');
+
+  // Don't show if already installed or recently dismissed
+  if(isStandalone||dismissed)return;
+
+  let deferredPrompt=null;
+
+  // Android: capture native install prompt
+  window.addEventListener('beforeinstallprompt',e=>{
+    e.preventDefault();
+    deferredPrompt=e;
+    showPwaBanner('android');
+  });
+
+  // iOS: show after a short delay
+  if(isIOS){
+    setTimeout(()=>{
+      if(isChromeIOS||!isSafari){
+        showPwaBanner('ios-chrome');
+      }else{
+        showPwaBanner('ios-safari');
+      }
+    },2000);
+  }
+})();
+
+function showPwaBanner(mode){
+  const banner=document.getElementById('pwaBanner');
+  banner.style.display='flex';
+  const btn=document.getElementById('pwaBannerBtn');
+  btn.onclick=()=>showPwaTutorial(mode);
+}
+
+function closePwaBanner(){
+  document.getElementById('pwaBanner').style.display='none';
+  localStorage.setItem('pwa_dismissed',Date.now());
+}
+
+function showPwaTutorial(mode){
+  document.getElementById('pwaBanner').style.display='none';
+  const el=document.getElementById('pwaTuto');
+  el.style.display='flex';
+
+  if(mode==='ios-chrome'){
+    // On iOS Chrome — need to redirect to Safari
+    const url=window.location.href;
+    el.innerHTML=`<div class="pwa-tuto">
+      <div class="pwa-tuto-logo">F</div>
+      <div class="pwa-chrome-warn">
+        <div class="pwa-chrome-warn-title">Ouvre dans Safari</div>
+        <div class="pwa-chrome-warn-text">Sur iPhone, l'installation n'est possible que depuis <strong>Safari</strong>.<br>Copie le lien ci-dessous et ouvre-le dans Safari.</div>
+        <button class="pwa-chrome-btn" onclick="navigator.clipboard.writeText('${url}');this.textContent='Lien copie ✓';setTimeout(()=>this.textContent='Copier le lien',2000)">Copier le lien</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.6">
+        <strong>Ensuite dans Safari :</strong><br>
+        1. Colle le lien dans la barre d'adresse<br>
+        2. Tape sur <span class="pwa-step-icon">⬆️</span> (Partager)<br>
+        3. Choisis "Sur l'ecran d'accueil"<br>
+        4. Confirme "Ajouter"
+      </div>
+      <button class="pwa-tuto-btn" onclick="closePwaTuto()">J'ai compris</button>
+    </div>`;
+  } else if(mode==='ios-safari'){
+    el.innerHTML=`<div class="pwa-tuto">
+      <div class="pwa-tuto-logo">F</div>
+      <h2>Installer Fitzone</h2>
+      <div class="sub">Ajoute l'app sur ton ecran d'accueil en 3 etapes</div>
+      <div class="pwa-step">
+        <div class="pwa-step-num">1</div>
+        <div class="pwa-step-text">Tape sur le bouton <strong>Partager</strong> <span class="pwa-step-icon">⬆️</span> en bas de l'ecran</div>
+      </div>
+      <div class="pwa-step">
+        <div class="pwa-step-num">2</div>
+        <div class="pwa-step-text">Scrolle et tape sur <strong>"Sur l'ecran d'accueil"</strong> <span class="pwa-step-icon">➕</span></div>
+      </div>
+      <div class="pwa-step">
+        <div class="pwa-step-num">3</div>
+        <div class="pwa-step-text">Confirme en tapant <strong>"Ajouter"</strong> en haut a droite</div>
+      </div>
+      <button class="pwa-tuto-btn" onclick="closePwaTuto()">J'ai compris</button>
+    </div>`;
+  } else if(mode==='android'){
+    // Android: try native prompt first
+    if(window.deferredPrompt){
+      window.deferredPrompt.prompt();
+      window.deferredPrompt.userChoice.then(r=>{
+        if(r.outcome==='accepted') localStorage.setItem('pwa_dismissed','installed');
+        closePwaTuto();
+      });
+      window.deferredPrompt=null;
+      return;
+    }
+    el.innerHTML=`<div class="pwa-tuto">
+      <div class="pwa-tuto-logo">F</div>
+      <h2>Installer Fitzone</h2>
+      <div class="sub">Ajoute l'app sur ton ecran d'accueil</div>
+      <div class="pwa-step">
+        <div class="pwa-step-num">1</div>
+        <div class="pwa-step-text">Tape sur le menu <strong>⋮</strong> (3 points en haut a droite)</div>
+      </div>
+      <div class="pwa-step">
+        <div class="pwa-step-num">2</div>
+        <div class="pwa-step-text">Choisis <strong>"Ajouter a l'ecran d'accueil"</strong> ou <strong>"Installer l'application"</strong></div>
+      </div>
+      <div class="pwa-step">
+        <div class="pwa-step-num">3</div>
+        <div class="pwa-step-text">Confirme en tapant <strong>"Ajouter"</strong></div>
+      </div>
+      <button class="pwa-tuto-btn" onclick="closePwaTuto()">J'ai compris</button>
+    </div>`;
+  }
+}
+
+function closePwaTuto(){
+  document.getElementById('pwaTuto').style.display='none';
 }
 </script>
 </body>
