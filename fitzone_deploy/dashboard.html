@@ -1573,7 +1573,7 @@ function renderClients(list){
     </tr>`;
   }).join('');
 }
-const stBadge=s=>({questionnaire_pending:`<span class="badge b-pend">⏳ En attente</span>`,questionnaire_done:`<span class="badge b-done">📋 Questionnaire reçu</span>`,active:`<span class="badge b-active">✅ Actif</span>`}[s]||`<span class="badge b-pend">${s}</span>`);
+const stBadge=s=>({questionnaire_pending:`<span class="badge b-pend">⏳ En attente</span>`,questionnaire_done:`<span class="badge b-done">📋 Questionnaire reçu</span>`,active:`<span class="badge b-active">✅ Actif</span>`,paused:`<span class="badge" style="background:rgba(255,160,0,.15);color:#b57800">⏸️ En pause</span>`}[s]||`<span class="badge b-pend">${s}</span>`);
 function filterCl(q){let l=clFilter==='all'?allClients:allClients.filter(c=>c.status===clFilter);if(q){const s=q.toLowerCase();l=l.filter(c=>(c.first_name+' '+c.last_name+' '+c.email).toLowerCase().includes(s));}renderClients(l);}
 function setChip(el,f){clFilter=f;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');filterCl(document.querySelector('.si input')?.value||'');}
 function renderBilans(){
@@ -1632,7 +1632,10 @@ function renderDetHero(){
   const bd=c.bilan_day!=null?parseInt(c.bilan_day):5;
   const jours=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
   const opts=jours.map((j,i)=>`<option value="${i}"${i===bd?' selected':''}>${j}</option>`).join('');
-  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select></div></div><div style="display:flex;gap:7px"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:''}${c.status!=='active'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}</div>`;
+  const pauseBtn=c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,160,0,.15);color:#ffb84a;border:1px solid rgba(255,160,0,.25)" onclick="pauseClient('${c.id}')">⏸️ Pause</button>`
+    :c.status==='paused'?`<button class="btn btn-sm" style="background:rgba(0,200,100,.15);color:#40d080;border:1px solid rgba(0,200,100,.25)" onclick="resumeClient('${c.id}')">▶️ Réactiver</button>`:'';
+  const delBtn=`<button class="btn btn-sm" style="background:rgba(255,50,50,.12);color:#ff6060;border:1px solid rgba(255,50,50,.2)" onclick="deleteClientStart('${c.id}')">🗑️</button>`;
+  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select></div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:''}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${pauseBtn}${delBtn}</div>`;
 }
 async function setBilanDay(day){
   const d=parseInt(day);
@@ -4319,13 +4322,16 @@ function openCoach(idx){
 function renderCoSel(){const el=document.getElementById('coClSel');if(!el)return;el.innerHTML=coClients.map(c=>`<span class="ss-tag">${c.first_name} ${c.last_name}<button onclick="coClients=coClients.filter(x=>x.id!=='${c.id}');renderCoSel()">✕</button></span>`).join('');}
 function coSearchCl(q){const d=document.getElementById('coClDrop');if(!q){d.classList.remove('open');return;}const res=allClients.filter(c=>(c.first_name+' '+c.last_name).toLowerCase().includes(q.toLowerCase())&&!coClients.find(x=>x.id===c.id)).slice(0,6);d.innerHTML=res.map(c=>`<div class="ss-item" onclick="coClients.push(${JSON.stringify({id:c.id,first_name:c.first_name,last_name:c.last_name})});renderCoSel();document.getElementById('coClIn').value='';document.getElementById('coClDrop').classList.remove('open')">${c.first_name} ${c.last_name}</div>`).join('');d.classList.add('open');}
 function selCol(el,col){coColor=col;document.querySelectorAll('#colorWrap .color-dot').forEach(d=>d.classList.remove('sel'));el.classList.add('sel');}
-function saveCoach(){
+async function saveCoach(){
   const first=document.getElementById('coFirst').value.trim(),last=document.getElementById('coLast').value.trim(),email=document.getElementById('coEmail').value.trim();
   if(!first||!email){toast('Prénom et email requis');return;}
   const co={first,last,email,role:document.getElementById('coRole').value,color:coColor,clients:coClients};
   const editIdx=document.getElementById('coEditIdx').value;
-  if(editIdx!==''){const ei=parseInt(editIdx);if(!team[ei].id)team[ei].id=Date.now();co.id=team[ei].id;team[ei]=co;}else{co.id=Date.now();team.push(co);}
+  const isNew=editIdx==='';
+  if(!isNew){const ei=parseInt(editIdx);if(!team[ei].id)team[ei].id=Date.now();co.id=team[ei].id;team[ei]=co;}else{co.id=Date.now();team.push(co);}
   lsSave('fz_team',team);dbSave('team',co);renderTeam();closeM('mNewCoach');toast('Coach enregistré ✓');updateOv();
+  // Send invitation email for new coaches
+  if(isNew&&email){await inviteCoachAccount(email,first,last);}
 }
 function renderTeam(){
   const el=document.getElementById('teamList');if(!el)return;
@@ -5508,6 +5514,75 @@ async function createClientAccount(clientId,email,firstName,lastName){
     await db.from('clients').update({user_id:result.user_id}).eq('id',clientId);
     return result.user_id;
   }catch(err){console.warn('Client account error:',err);return null;}
+}
+
+/* ===== PAUSE / RESUME CLIENT ===== */
+async function pauseClient(id){
+  if(!confirm('Mettre ce client en pause ? Il ne pourra plus accéder à l\'app.'))return;
+  const{error}=await db.from('clients').update({status:'paused'}).eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Client mis en pause');
+  await loadClients();
+  if(curClient&&curClient.id===id){curClient.status='paused';renderDetHero();}
+}
+
+async function resumeClient(id){
+  const{error}=await db.from('clients').update({status:'active'}).eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Client réactivé ✓');
+  await loadClients();
+  if(curClient&&curClient.id===id){curClient.status='active';renderDetHero();}
+}
+
+/* ===== DELETE CLIENT (double confirmation) ===== */
+function deleteClientStart(id){
+  const c=allClients.find(x=>x.id===id)||curClient;
+  if(!c)return;
+  const name=(c.first_name||'')+' '+(c.last_name||'');
+  if(!confirm('Supprimer le client '+name+' ?\n\nToutes ses données seront définitivement effacées (programmes, bilans, logs, plans...).'))return;
+  // Double confirmation
+  const check=prompt('Pour confirmer, tape le prénom du client : '+c.first_name);
+  if(!check||check.trim().toLowerCase()!==c.first_name.toLowerCase()){toast('Suppression annulée');return;}
+  deleteClientConfirmed(id);
+}
+
+async function deleteClientConfirmed(id){
+  toast('Suppression en cours...');
+  // Delete all related data
+  await Promise.all([
+    db.from('daily_logs').delete().eq('client_id',id),
+    db.from('bilans').delete().eq('client_id',id),
+    db.from('train_logs').delete().eq('client_id',id),
+    db.from('plans').delete().eq('client_id',id),
+    db.from('plans_full').delete().eq('client_id',id),
+    db.from('programs').delete().eq('client_id',id),
+    db.from('questionnaires').delete().eq('client_id',id),
+    db.from('seances').delete().eq('client_id',id),
+    db.from('roadmaps').delete().eq('client_id',id)
+  ]);
+  // Delete the client record
+  const{error}=await db.from('clients').delete().eq('id',id);
+  if(error){toast('Erreur suppression: '+error.message);return;}
+  toast('Client supprimé définitivement');
+  await loadClients();
+  // Go back to client list
+  document.getElementById('detPage').classList.remove('show');
+  showPage('clients',document.getElementById('nav-cl'));
+}
+
+/* ===== COACH INVITATION (create auth account) ===== */
+async function inviteCoachAccount(email,firstName,lastName){
+  try{
+    const resp=await fetch(SUPA+'/functions/v1/create-coach-account',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      body:JSON.stringify({email,first_name:firstName,last_name:lastName})
+    });
+    const result=await resp.json();
+    if(result.error){toast('Invitation: '+result.error);return null;}
+    toast('Email d\'invitation envoyé à '+email);
+    return result.user_id;
+  }catch(err){toast('Erreur invitation: '+err.message);return null;}
 }
 </script>
 </body>
