@@ -48,7 +48,9 @@ Deno.serve(async (req: Request) => {
 
     // Build the confirmation URL using the hashed_token
     const props = data.properties;
-    const confirmUrl = `${supabaseUrl}/auth/v1/verify?token=${props.hashed_token}&type=${linkType}&redirect_to=${encodeURIComponent(redirect_to || "")}`;
+    // Add ?mode=reset to redirect_to so the page knows to show reset form
+    const redirectWithMode = redirect_to ? (redirect_to + (redirect_to.includes('?') ? '&' : '?') + 'mode=reset') : '';
+    const confirmUrl = `${supabaseUrl}/auth/v1/verify?token=${props.hashed_token}&type=${linkType}&redirect_to=${encodeURIComponent(redirectWithMode)}`;
 
     // Email templates
     const baseStyle = `

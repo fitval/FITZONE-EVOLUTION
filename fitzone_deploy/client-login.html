@@ -345,7 +345,7 @@ const db = createClient(SUPA, KEY);
 // Check URL for password recovery flow FIRST (before session redirect)
 const hashParams = new URLSearchParams(window.location.hash.substring(1));
 const urlParams = new URLSearchParams(window.location.search);
-const isRecovery = hashParams.get('type') === 'recovery' || urlParams.get('type') === 'recovery';
+const isRecovery = hashParams.get('type') === 'recovery' || urlParams.get('type') === 'recovery' || urlParams.get('mode') === 'reset';
 
 // Supabase also fires an auth event on recovery — listen for it
 db.auth.onAuthStateChange((event, session) => {

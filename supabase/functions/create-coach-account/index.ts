@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
 
     // Send invitation email via Resend
     if (linkData) {
-      const confirmUrl = `${supabaseUrl}/auth/v1/verify?token=${linkData.properties.hashed_token}&type=recovery&redirect_to=${encodeURIComponent(redirectTo)}`;
+      const confirmUrl = `${supabaseUrl}/auth/v1/verify?token=${linkData.properties.hashed_token}&type=recovery&redirect_to=${encodeURIComponent(redirectTo + '?mode=reset')}`;
       await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
