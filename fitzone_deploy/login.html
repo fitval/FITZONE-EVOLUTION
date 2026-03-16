@@ -136,6 +136,38 @@ body {
 .form-panel { display: none; }
 .form-panel.active { display: block; }
 
+.confirm-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, #b8882a, var(--gold-light));
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  font-size: 26px; color: var(--white);
+}
+
+.confirm-title {
+  font-size: 17px; font-weight: 800; color: var(--dark);
+  text-align: center; margin-bottom: 6px;
+}
+
+.confirm-sub {
+  font-size: 13px; color: var(--text2);
+  text-align: center; margin-bottom: 20px; line-height: 1.5;
+}
+
+.link-row {
+  text-align: center;
+  margin-top: 14px;
+}
+
+.link-row a {
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link-row a:hover { text-decoration: underline; }
+
 .fg { margin-bottom: 16px; }
 
 .fl {
@@ -299,6 +331,10 @@ body {
         </div>
 
         <button class="btn btn-gold" id="btn-login" onclick="doLogin()">Se connecter</button>
+
+        <div class="link-row">
+          <a href="#" onclick="showPanel('reset');return false;">Mot de passe oublie ?</a>
+        </div>
       </div>
 
       <!-- REGISTER -->
@@ -334,6 +370,48 @@ body {
 
         <button class="btn btn-gold" id="btn-register" onclick="doRegister()">Creer mon compte Coach</button>
       </div>
+
+      <!-- RESET PASSWORD -->
+      <div class="form-panel" id="panel-reset">
+        <div class="error-msg" id="reset-error"></div>
+        <div class="success-msg" id="reset-success"></div>
+
+        <div class="fg">
+          <label class="fl">Email</label>
+          <input class="fi" type="email" id="reset-email" placeholder="coach@exemple.com" autocomplete="email">
+        </div>
+
+        <button class="btn btn-gold" id="btn-reset" onclick="doReset()">Envoyer le lien</button>
+
+        <div class="link-row">
+          <a href="#" onclick="showPanel('login');return false;">Retour a la connexion</a>
+        </div>
+      </div>
+
+      <!-- NEW PASSWORD (after clicking reset link) -->
+      <div class="form-panel" id="panel-newpw">
+        <div class="error-msg" id="newpw-error"></div>
+
+        <div class="fg">
+          <label class="fl">Nouveau mot de passe</label>
+          <input class="fi" type="password" id="newpw-password" placeholder="Minimum 6 caracteres" autocomplete="new-password">
+        </div>
+
+        <div class="fg">
+          <label class="fl">Confirmer</label>
+          <input class="fi" type="password" id="newpw-confirm" placeholder="Confirmer" autocomplete="new-password">
+        </div>
+
+        <button class="btn btn-gold" id="btn-newpw" onclick="doNewPassword()">Definir mon mot de passe</button>
+      </div>
+
+      <!-- CONFIRMED -->
+      <div class="form-panel" id="panel-confirmed">
+        <div class="confirm-icon">✓</div>
+        <div class="confirm-title">Mot de passe enregistre !</div>
+        <div class="confirm-sub">Ton nouveau mot de passe a bien ete defini.<br>Tu peux maintenant te connecter.</div>
+        <button class="btn btn-gold" onclick="showPanel('login')">Se connecter</button>
+      </div>
     </div>
   </div>
 
@@ -346,20 +424,34 @@ const KEY = 'sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
 const { createClient } = supabase;
 const db = createClient(SUPA, KEY);
 
-// If already logged in, redirect to dashboard
-db.auth.getSession().then(({ data: { session } }) => {
-  if (session) window.location.href = 'dashboard.html';
-});
+// Check URL for password recovery flow
+const hashParams = new URLSearchParams(window.location.hash.substring(1));
+const urlParams = new URLSearchParams(window.location.search);
+if (hashParams.get('type') === 'recovery' || urlParams.get('type') === 'recovery') {
+  showPanel('newpw');
+} else {
+  // If already logged in, redirect to dashboard
+  db.auth.getSession().then(({ data: { session } }) => {
+    if (session) window.location.href = 'dashboard.html';
+  });
+}
 
 function switchTab(tab) {
+  showPanel(tab === 'login' ? 'login' : 'register');
+}
+
+function showPanel(panel) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
-  if (tab === 'login') {
-    document.querySelectorAll('.tab')[0].classList.add('active');
-    document.getElementById('panel-login').classList.add('active');
+  document.querySelectorAll('.error-msg,.success-msg').forEach(el => el.classList.remove('show'));
+  document.getElementById('panel-' + panel).classList.add('active');
+  // Show tabs only for login/register
+  const tabs = document.querySelector('.tabs');
+  if (panel === 'login' || panel === 'register') {
+    tabs.style.display = 'flex';
+    document.querySelectorAll('.tab')[panel === 'login' ? 0 : 1].classList.add('active');
   } else {
-    document.querySelectorAll('.tab')[1].classList.add('active');
-    document.getElementById('panel-register').classList.add('active');
+    tabs.style.display = 'none';
   }
 }
 
@@ -486,15 +578,61 @@ async function doRegister() {
   window.location.href = 'dashboard.html';
 }
 
+async function doReset() {
+  hideErrors();
+  const email = document.getElementById('reset-email').value.trim();
+  if (!email) { showError('reset-error', 'Email requis.'); return; }
+
+  const btn = document.getElementById('btn-reset');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="sp"></span> Envoi...';
+
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Envoyer le lien';
+
+  if (error) { showError('reset-error', error.message); return; }
+
+  const s = document.getElementById('reset-success');
+  s.textContent = 'Si un compte existe avec cet email, tu recevras un lien pour reinitialiser ton mot de passe.';
+  s.classList.add('show');
+}
+
+async function doNewPassword() {
+  hideErrors();
+  const password = document.getElementById('newpw-password').value;
+  const confirm = document.getElementById('newpw-confirm').value;
+
+  if (password.length < 6) { showError('newpw-error', 'Le mot de passe doit faire au moins 6 caracteres.'); return; }
+  if (password !== confirm) { showError('newpw-error', 'Les mots de passe ne correspondent pas.'); return; }
+
+  const btn = document.getElementById('btn-newpw');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="sp"></span> Enregistrement...';
+
+  const { error } = await db.auth.updateUser({ password });
+
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Definir mon mot de passe';
+    showError('newpw-error', error.message);
+    return;
+  }
+
+  await db.auth.signOut();
+  showPanel('confirmed');
+}
+
 // Enter key support
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
-    const loginPanel = document.getElementById('panel-login');
-    if (loginPanel.classList.contains('active')) {
-      doLogin();
-    } else {
-      doRegister();
-    }
+    if (document.getElementById('panel-login').classList.contains('active')) doLogin();
+    else if (document.getElementById('panel-register').classList.contains('active')) doRegister();
+    else if (document.getElementById('panel-reset').classList.contains('active')) doReset();
+    else if (document.getElementById('panel-newpw').classList.contains('active')) doNewPassword();
   }
 });
 </script>
