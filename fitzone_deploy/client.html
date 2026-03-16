@@ -376,6 +376,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
     <div class="form-group"><label class="form-label">Nom</label><input type="text" class="form-input" id="profLastName"></div>
     <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="profEmail"></div>
     <button class="btn-gold" onclick="saveProfile()" style="width:100%;margin-top:12px" id="profSaveBtn">Enregistrer</button>
+    <button id="logoutBtn" onclick="clientLogout()" style="width:100%;margin-top:12px;padding:12px;border:1.5px solid #c03030;border-radius:var(--r-sm);background:none;color:#c03030;font-weight:700;font-size:14px;cursor:pointer;display:none">Se déconnecter</button>
   </div>
 </div>
 <div class="rest-overlay" id="restOverlay"><div class="rest-label">REPOS</div><div class="rest-time" id="restTime">0:00</div><button class="rest-skip" onclick="skipRest()">Passer →</button></div>
@@ -398,13 +399,36 @@ let bilanPhotos=[];
 let suiviDate=null;
 let suiviPeriod='month';
 
+let clientAuthMode='anon'; // 'auth' or 'anon'
+
 /* ===== INIT ===== */
 (async function init(){
+  // Mode 1: Authenticated client (Supabase session)
+  const{data:{session}}=await db.auth.getSession();
+  if(session){
+    const{data:authClient}=await db.from('clients').select('*').eq('user_id',session.user.id).maybeSingle();
+    if(authClient){
+      clientData=authClient;
+      clientAuthMode='auth';
+      if(authClient.status!=='active'){showState('Waiting');return;}
+      await loadData();
+      showState('App');
+      renderHome();
+      return;
+    }
+    // Not a client account — sign out
+    await db.auth.signOut();
+  }
+  // Mode 2: Token-based (legacy/fallback)
   const token=new URLSearchParams(location.search).get('token');
-  if(!token){showState('Blocked');return;}
+  if(!token){
+    window.location.href='client-login.html';
+    return;
+  }
   const{data,error}=await db.from('clients').select('*').eq('token',token).maybeSingle();
   if(error||!data){showState('Blocked');return;}
   clientData=data;
+  clientAuthMode='anon';
   if(data.status!=='active'){showState('Waiting');return;}
   await loadData();
   showState('App');
@@ -469,7 +493,13 @@ function openProfileModal(){
   const prev=document.getElementById('profilePhotoPreview');
   if(profilePhotoData){prev.innerHTML=`<img src="${profilePhotoData}" style="width:100%;height:100%;object-fit:cover">`;prev.style.background='none';}
   else{prev.textContent=(clientData.first_name||'?')[0].toUpperCase();prev.style.background='var(--gold)';}
+  // Show logout button only for authenticated clients
+  document.getElementById('logoutBtn').style.display=clientAuthMode==='auth'?'block':'none';
   document.getElementById('profileModal').classList.add('show');document.body.style.overflow='hidden';
+}
+async function clientLogout(){
+  await db.auth.signOut();
+  window.location.href='client-login.html';
 }
 function closeProfileModal(){document.getElementById('profileModal').classList.remove('show');document.body.style.overflow='';}
 function handleProfilePhoto(input){

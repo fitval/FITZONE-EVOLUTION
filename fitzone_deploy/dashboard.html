@@ -430,6 +430,10 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 
     <div class="sb-item" onclick="showPage('learning',this)" id="nav-lr"><span class="sb-ico">🎓</span>Learning</div>
 
+    <div class="sb-sec" id="admin-sec" style="display:none">Super Admin</div>
+    <div class="sb-item" onclick="showPage('admin-coaches',this)" id="nav-ac" style="display:none"><span class="sb-ico">🛡️</span>Gestion Coachs</div>
+    <div class="sb-item" onclick="showPage('admin-clients',this)" id="nav-acl" style="display:none"><span class="sb-ico">👥</span>Tous les clients</div>
+
     <div class="sb-sec">Administration</div>
     <div class="sb-item" onclick="showPage('equipe',this)" id="nav-eq"><span class="sb-ico">👨‍💼</span>Équipe</div>
     <div class="sb-item" onclick="showPage('settings',this)" id="nav-st"><span class="sb-ico">⚙️</span>Paramètres</div>
@@ -794,6 +798,27 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- PAGE: ADMIN COACHES -->
+  <div class="page" id="page-admin-coaches">
+    <div class="card cp">
+      <div class="cl">Coachs de la plateforme</div>
+      <div id="adminCoachesList" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <!-- PAGE: ADMIN CLIENTS -->
+  <div class="page" id="page-admin-clients">
+    <div style="margin-bottom:12px">
+      <select class="fi" id="adminClientFilter" oninput="renderAdminClients()" style="max-width:300px">
+        <option value="all">Tous les coachs</option>
+      </select>
+    </div>
+    <div class="card cp">
+      <div class="cl">Tous les clients</div>
+      <div id="adminClientsList" style="margin-top:12px"></div>
     </div>
   </div>
 
@@ -1216,6 +1241,7 @@ const db=createClient(SUPA,KEY);
 /* AUTH STATE */
 let currentUser=null;
 let currentCoach=null;
+let isAdmin=false;
 
 /* STATE */
 let allClients=[],clFilter='all',curClient=null,curQ=null,newClientTags=[];
@@ -1449,6 +1475,13 @@ async function checkAuth(){
     const{data:newCoach}=await db.from('coaches').insert([{user_id:currentUser.id,first_name:meta.first_name||'',last_name:meta.last_name||'',email:currentUser.email}]).select();
     currentCoach=newCoach?.[0]||null;
   }
+  // Admin check
+  isAdmin=['admin','super_admin'].includes(currentCoach?.role);
+  if(isAdmin){
+    document.getElementById('admin-sec').style.display='';
+    document.getElementById('nav-ac').style.display='';
+    document.getElementById('nav-acl').style.display='';
+  }
   // Update sidebar with coach info
   const nm=(currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'');
   const ini=((currentCoach?.first_name||'?')[0]+(currentCoach?.last_name||'?')[0]).toUpperCase();
@@ -1493,7 +1526,7 @@ function showPage(name,el){
   const pg=document.getElementById('page-'+name);if(pg){pg.style.display='block';pg.classList.add('active');}
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres'};
+  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients'};
   document.getElementById('tbTitle').textContent=titles[name]||name;
   document.getElementById('backBtn').style.display='none';
   const actMap={overview:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`};
@@ -1505,6 +1538,8 @@ function showPage(name,el){
   if(name==='nut-alim')renderAlims();
   if(name==='nut-repas')renderRepasList();
   if(name==='bilans-all')renderBilansAll();
+  if(name==='admin-coaches')renderAdminCoaches();
+  if(name==='admin-clients')renderAdminClients();
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
@@ -1558,8 +1593,15 @@ async function doCreateClient(){
   const col=colors[Math.floor(Math.random()*colors.length)];
   const tok=crypto.randomUUID();
   const{data,error}=await db.from('clients').insert([{first_name:f,last_name:l,email:e,phone:document.getElementById('nfPhone').value.trim(),token:tok,status:'questionnaire_pending',tags:newClientTags,avatar_color:col,coach_id:currentCoach?.id||null}]).select();
+  if(error){btn.disabled=false;btn.textContent='Créer →';toast('Erreur: '+error.message);return;}
+  // Create auth account for the client
+  const newClient=data?.[0];
+  if(newClient&&e){
+    btn.textContent='Création du compte...';
+    const uid=await createClientAccount(newClient.id,e,f,l);
+    if(uid) toast('Compte client créé — email d\'invitation envoyé');
+  }
   btn.disabled=false;btn.textContent='Créer →';
-  if(error){toast('Erreur: '+error.message);return;}
   const link=QBASE+'?token='+tok;
   document.getElementById('createdLink').textContent=link;
   document.getElementById('createdWrap').style.display='block';
@@ -5355,6 +5397,117 @@ function aiAddToFoodDB(nom,kcal,prot,carb,fat){
   toast(nom+' ajouté à la base');
   // Re-render le plan pour mettre à jour les badges
   if(aiPlanData)renderAIPlan(aiPlanData,aiPlanData.config);
+}
+
+/* ===== ADMIN : GESTION COACHS ===== */
+let adminCoaches=[],adminAllClients=[];
+
+async function loadAdminCoaches(){
+  const{data}=await db.from('coaches').select('*').order('created_at',{ascending:true});
+  adminCoaches=data||[];
+}
+
+async function renderAdminCoaches(){
+  if(!isAdmin)return;
+  await loadAdminCoaches();
+  // Count clients per coach
+  const{data:cls}=await db.from('clients').select('id,coach_id');
+  const counts={};
+  (cls||[]).forEach(c=>{counts[c.coach_id]=(counts[c.coach_id]||0)+1;});
+
+  const ct=document.getElementById('adminCoachesList');
+  if(!adminCoaches.length){ct.innerHTML='<div style="color:var(--text3);padding:12px">Aucun coach</div>';return;}
+  const roles=['coach','admin','super_admin'];
+  ct.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <tr style="text-align:left;color:var(--text3);font-size:11px;border-bottom:1px solid var(--border)">
+      <th style="padding:8px">Nom</th><th style="padding:8px">Email</th><th style="padding:8px">Rôle</th><th style="padding:8px">Clients</th><th style="padding:8px">Inscrit le</th>
+    </tr>
+    ${adminCoaches.map(c=>`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px;font-weight:600">${esc(c.first_name||'')} ${esc(c.last_name||'')}</td>
+      <td style="padding:8px;color:var(--text2)">${esc(c.email||'')}</td>
+      <td style="padding:8px"><select class="fi" style="padding:4px 8px;font-size:12px;min-width:120px" oninput="updateCoachRole('${c.id}',this.value)" ${c.id===currentCoach.id?'disabled':''}>${roles.map(r=>`<option value="${r}" ${c.role===r?'selected':''}>${r}</option>`).join('')}</select></td>
+      <td style="padding:8px;text-align:center">${counts[c.id]||0}</td>
+      <td style="padding:8px;color:var(--text3)">${c.created_at?new Date(c.created_at).toLocaleDateString('fr-FR'):'-'}</td>
+    </tr>`).join('')}
+  </table>`;
+}
+
+async function updateCoachRole(coachId,newRole){
+  if(currentCoach.role!=='super_admin'){toast('Seul le super admin peut changer les rôles');return;}
+  const{error}=await db.from('coaches').update({role:newRole}).eq('id',coachId);
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Rôle mis à jour');
+  await renderAdminCoaches();
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+/* ===== ADMIN : TOUS LES CLIENTS ===== */
+async function renderAdminClients(){
+  if(!isAdmin)return;
+  // Load all coaches for filter
+  if(!adminCoaches.length) await loadAdminCoaches();
+  const sel=document.getElementById('adminClientFilter');
+  if(sel.options.length<=1){
+    adminCoaches.forEach(c=>{
+      const o=document.createElement('option');
+      o.value=c.id;
+      o.textContent=(c.first_name||'')+' '+(c.last_name||'');
+      sel.appendChild(o);
+    });
+  }
+  // Load all clients
+  const{data}=await db.from('clients').select('*').order('created_at',{ascending:false});
+  adminAllClients=data||[];
+
+  const filterCoach=sel.value;
+  const filtered=filterCoach==='all'?adminAllClients:adminAllClients.filter(c=>c.coach_id===filterCoach);
+  const coachMap={};adminCoaches.forEach(c=>{coachMap[c.id]=(c.first_name||'')+' '+(c.last_name||'');});
+
+  const ct=document.getElementById('adminClientsList');
+  if(!filtered.length){ct.innerHTML='<div style="color:var(--text3);padding:12px">Aucun client</div>';return;}
+  ct.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <tr style="text-align:left;color:var(--text3);font-size:11px;border-bottom:1px solid var(--border)">
+      <th style="padding:8px">Client</th><th style="padding:8px">Email</th><th style="padding:8px">Coach</th><th style="padding:8px">Statut</th><th style="padding:8px">Auth</th><th style="padding:8px">Créé le</th>
+    </tr>
+    ${filtered.map(c=>{
+      const statusColor=c.status==='active'?'#1a7040':c.status==='questionnaire_done'?'#b8882a':'var(--text3)';
+      const hasAuth=c.user_id?'<span style="color:#1a7040">Oui</span>':'<span style="color:var(--text3)">Non</span>';
+      return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="adminOpenClient('${c.id}','${c.coach_id}')">
+        <td style="padding:8px;font-weight:600">${esc(c.first_name||'')} ${esc(c.last_name||'')}</td>
+        <td style="padding:8px;color:var(--text2)">${esc(c.email||'')}</td>
+        <td style="padding:8px">${esc(coachMap[c.coach_id]||'—')}</td>
+        <td style="padding:8px"><span style="color:${statusColor};font-weight:600">${c.status||'—'}</span></td>
+        <td style="padding:8px">${hasAuth}</td>
+        <td style="padding:8px;color:var(--text3)">${c.created_at?new Date(c.created_at).toLocaleDateString('fr-FR'):'-'}</td>
+      </tr>`;
+    }).join('')}
+  </table>`;
+}
+
+function adminOpenClient(clientId,coachId){
+  // For admin, open client detail if it's own client, or show info
+  const c=allClients.find(x=>x.id===clientId);
+  if(c){openDet(clientId);return;}
+  // Client belongs to another coach — show basic info
+  const cl=adminAllClients.find(x=>x.id===clientId);
+  if(cl) toast(esc(cl.first_name)+' '+esc(cl.last_name)+' — coach: '+esc(adminCoaches.find(x=>x.id===coachId)?.first_name||'?'));
+}
+
+/* ===== CLIENT ACCOUNT CREATION ===== */
+async function createClientAccount(clientId,email,firstName,lastName){
+  try{
+    const resp=await fetch(SUPA+'/functions/v1/create-client-account',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      body:JSON.stringify({email,first_name:firstName,last_name:lastName})
+    });
+    const result=await resp.json();
+    if(result.error){console.warn('Client account creation:',result.error);return null;}
+    // Update client with user_id
+    await db.from('clients').update({user_id:result.user_id}).eq('id',clientId);
+    return result.user_id;
+  }catch(err){console.warn('Client account error:',err);return null;}
 }
 </script>
 </body>

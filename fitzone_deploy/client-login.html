@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Fitzone Evolution — Espace Client</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #f0ede8;
+  --white: #ffffff;
+  --dark: #1a1916;
+  --dark2: #2c2a26;
+  --gold: #c49a2a;
+  --gold-light: #e8b84a;
+  --gold-pale: rgba(196,154,42,0.10);
+  --gold-border: rgba(196,154,42,0.25);
+  --text: #1a1916;
+  --text2: #6b6456;
+  --text3: #9e9488;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.12);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+  --radius: 20px;
+  --radius-sm: 12px;
+  --font: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-font-smoothing: antialiased;
+}
+
+.login-container {
+  width: 100%;
+  max-width: 420px;
+  padding: 20px;
+}
+
+.logo-block {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.logo-icon {
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(135deg, #8a6a1a, var(--gold));
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--dark);
+  margin-bottom: 14px;
+}
+
+.logo-text {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--dark);
+  letter-spacing: -0.5px;
+}
+
+.logo-text span { color: var(--gold); }
+
+.logo-sub {
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.card {
+  background: var(--white);
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 18px 24px;
+  border-bottom: 1.5px solid var(--border);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--dark);
+  text-align: center;
+}
+
+.form-wrap {
+  padding: 24px;
+}
+
+.fg { margin-bottom: 16px; }
+
+.fl {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 6px;
+}
+
+.fi {
+  width: 100%;
+  background: var(--bg);
+  border: 1.5px solid var(--border2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.fi:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-pale);
+  background: var(--white);
+}
+
+.fi::placeholder { color: var(--text3); }
+
+.btn {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn:active { transform: scale(0.98); }
+
+.btn-gold {
+  background: linear-gradient(135deg, #b8882a, var(--gold-light));
+  color: var(--dark);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-gold:hover { box-shadow: var(--shadow-lg); }
+
+.btn-gold:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error-msg {
+  background: #fff0f0;
+  color: #c03030;
+  border: 1px solid #ffcccc;
+  border-radius: 8px;
+  padding: 10px 13px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 14px;
+  display: none;
+}
+
+.error-msg.show { display: block; }
+
+.success-msg {
+  background: #e8f8f0;
+  color: #1a7040;
+  border: 1px solid #80d4a8;
+  border-radius: 8px;
+  padding: 10px 13px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 14px;
+  display: none;
+}
+
+.success-msg.show { display: block; }
+
+.link-row {
+  text-align: center;
+  margin-top: 14px;
+}
+
+.link-row a {
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link-row a:hover { text-decoration: underline; }
+
+.footer-text {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 20px;
+}
+
+.sp {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid var(--border2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Reset password view */
+#view-login, #view-reset, #view-newpw { display: none; }
+#view-login.active, #view-reset.active, #view-newpw.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="login-container">
+  <div class="logo-block">
+    <div class="logo-icon">F</div>
+    <div class="logo-text">FITZONE <span>EVOLUTION</span></div>
+    <div class="logo-sub">Espace Client</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Connexion</div>
+
+    <div class="form-wrap">
+      <!-- LOGIN VIEW -->
+      <div id="view-login" class="active">
+        <div class="error-msg" id="login-error"></div>
+
+        <div class="fg">
+          <label class="fl">Email</label>
+          <input class="fi" type="email" id="login-email" placeholder="votre@email.com" autocomplete="email">
+        </div>
+
+        <div class="fg">
+          <label class="fl">Mot de passe</label>
+          <input class="fi" type="password" id="login-password" placeholder="Votre mot de passe" autocomplete="current-password">
+        </div>
+
+        <button class="btn btn-gold" id="btn-login" onclick="doLogin()">Se connecter</button>
+
+        <div class="link-row">
+          <a href="#" onclick="showView('reset');return false;">Mot de passe oublie ?</a>
+        </div>
+      </div>
+
+      <!-- RESET PASSWORD VIEW -->
+      <div id="view-reset">
+        <div class="error-msg" id="reset-error"></div>
+        <div class="success-msg" id="reset-success"></div>
+
+        <div class="fg">
+          <label class="fl">Email</label>
+          <input class="fi" type="email" id="reset-email" placeholder="votre@email.com" autocomplete="email">
+        </div>
+
+        <button class="btn btn-gold" id="btn-reset" onclick="doReset()">Envoyer le lien</button>
+
+        <div class="link-row">
+          <a href="#" onclick="showView('login');return false;">Retour a la connexion</a>
+        </div>
+      </div>
+
+      <!-- NEW PASSWORD VIEW (after clicking reset link) -->
+      <div id="view-newpw">
+        <div class="error-msg" id="newpw-error"></div>
+        <div class="success-msg" id="newpw-success"></div>
+
+        <div class="fg">
+          <label class="fl">Nouveau mot de passe</label>
+          <input class="fi" type="password" id="newpw-password" placeholder="Minimum 6 caracteres" autocomplete="new-password">
+        </div>
+
+        <div class="fg">
+          <label class="fl">Confirmer</label>
+          <input class="fi" type="password" id="newpw-confirm" placeholder="Confirmer" autocomplete="new-password">
+        </div>
+
+        <button class="btn btn-gold" id="btn-newpw" onclick="doNewPassword()">Definir mon mot de passe</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-text">Fitzone Evolution &copy; 2025</div>
+</div>
+
+<script>
+const SUPA = 'https://wsrykmutyhjxdnhnyexl.supabase.co';
+const KEY = 'sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
+const { createClient } = supabase;
+const db = createClient(SUPA, KEY);
+
+// Check if already logged in as a client
+db.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) return;
+  // Verify this is a client account
+  const { data } = await db.from('clients').select('id,status').eq('user_id', session.user.id).maybeSingle();
+  if (data && data.status === 'active') {
+    window.location.href = 'client.html';
+  }
+});
+
+// Check URL for password recovery flow
+const hashParams = new URLSearchParams(window.location.hash.substring(1));
+const urlParams = new URLSearchParams(window.location.search);
+if (hashParams.get('type') === 'recovery' || urlParams.get('type') === 'recovery') {
+  // User clicked the password reset link — show new password form
+  showView('newpw');
+}
+
+function showView(view) {
+  document.querySelectorAll('#view-login,#view-reset,#view-newpw').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.querySelectorAll('.error-msg,.success-msg').forEach(el => el.classList.remove('show'));
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+async function doLogin() {
+  document.querySelectorAll('.error-msg').forEach(el => el.classList.remove('show'));
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+
+  if (!email || !password) {
+    showError('login-error', 'Email et mot de passe requis.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="sp"></span> Connexion...';
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Se connecter';
+    showError('login-error', error.message === 'Invalid login credentials'
+      ? 'Email ou mot de passe incorrect.'
+      : error.message);
+    return;
+  }
+
+  // Verify this user is a client
+  const { data: client } = await db.from('clients').select('id,status').eq('user_id', data.user.id).maybeSingle();
+  if (!client) {
+    await db.auth.signOut();
+    btn.disabled = false;
+    btn.textContent = 'Se connecter';
+    showError('login-error', 'Aucun compte client associe a cet email. Contactez votre coach.');
+    return;
+  }
+
+  window.location.href = 'client.html';
+}
+
+async function doReset() {
+  document.querySelectorAll('.error-msg,.success-msg').forEach(el => el.classList.remove('show'));
+  const email = document.getElementById('reset-email').value.trim();
+
+  if (!email) {
+    showError('reset-error', 'Email requis.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-reset');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="sp"></span> Envoi...';
+
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Envoyer le lien';
+
+  if (error) {
+    showError('reset-error', error.message);
+    return;
+  }
+
+  const s = document.getElementById('reset-success');
+  s.textContent = 'Si un compte existe avec cet email, vous recevrez un lien pour reinitialiser votre mot de passe.';
+  s.classList.add('show');
+}
+
+async function doNewPassword() {
+  document.querySelectorAll('.error-msg,.success-msg').forEach(el => el.classList.remove('show'));
+  const password = document.getElementById('newpw-password').value;
+  const confirm = document.getElementById('newpw-confirm').value;
+
+  if (password.length < 6) {
+    showError('newpw-error', 'Le mot de passe doit faire au moins 6 caracteres.');
+    return;
+  }
+  if (password !== confirm) {
+    showError('newpw-error', 'Les mots de passe ne correspondent pas.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-newpw');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="sp"></span> Enregistrement...';
+
+  const { error } = await db.auth.updateUser({ password });
+
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Definir mon mot de passe';
+    showError('newpw-error', error.message);
+    return;
+  }
+
+  const s = document.getElementById('newpw-success');
+  s.textContent = 'Mot de passe defini ! Redirection...';
+  s.classList.add('show');
+
+  setTimeout(() => { window.location.href = 'client.html'; }, 1500);
+}
+
+// Enter key support
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    if (document.getElementById('view-login').classList.contains('active')) doLogin();
+    else if (document.getElementById('view-reset').classList.contains('active')) doReset();
+    else if (document.getElementById('view-newpw').classList.contains('active')) doNewPassword();
+  }
+});
+</script>
+
+</body>
+</html>
