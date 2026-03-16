@@ -347,6 +347,13 @@ const hashParams = new URLSearchParams(window.location.hash.substring(1));
 const urlParams = new URLSearchParams(window.location.search);
 const isRecovery = hashParams.get('type') === 'recovery' || urlParams.get('type') === 'recovery';
 
+// Supabase also fires an auth event on recovery — listen for it
+db.auth.onAuthStateChange((event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    showView('newpw');
+  }
+});
+
 if (isRecovery) {
   showView('newpw');
 } else {
