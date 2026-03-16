@@ -587,14 +587,20 @@ async function doReset() {
   btn.disabled = true;
   btn.innerHTML = '<span class="sp"></span> Envoi...';
 
-  const { error } = await db.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin + window.location.pathname
-  });
+  try {
+    const res = await fetch('https://wsrykmutyhjxdnhnyexl.supabase.co/functions/v1/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, type: 'recovery', redirect_to: window.location.origin + window.location.pathname })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Erreur');
+  } catch (e) {
+    // Silent — don't reveal if email exists
+  }
 
   btn.disabled = false;
   btn.textContent = 'Envoyer le lien';
-
-  if (error) { showError('reset-error', error.message); return; }
 
   const s = document.getElementById('reset-success');
   s.textContent = 'Si un compte existe avec cet email, tu recevras un lien pour reinitialiser ton mot de passe.';

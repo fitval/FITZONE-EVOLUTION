@@ -5619,22 +5619,22 @@ async function resendClientInvite(clientId){
     else toast('Erreur lors de la création du compte');
     return;
   }
-  // Client already has account — send password reset
-  const{error}=await db.auth.resetPasswordForEmail(c.email,{
-    redirectTo:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/client-login.html'
-  });
-  if(error){toast('Erreur: '+error.message);return;}
-  toast('Email de réinitialisation envoyé à '+c.email);
+  // Client already has account — send password reset via Resend
+  try{
+    const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:c.email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/client-login.html'})});
+    if(!res.ok)throw new Error('Erreur envoi');
+    toast('Email envoyé à '+c.email);
+  }catch(e){toast('Erreur: '+e.message);}
 }
 
 async function resendCoachInvite(email){
   if(!email){toast('Pas d\'email');return;}
   toast('Envoi en cours...');
-  const{error}=await db.auth.resetPasswordForEmail(email,{
-    redirectTo:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/login.html'
-  });
-  if(error){toast('Erreur: '+error.message);return;}
-  toast('Email envoyé à '+email);
+  try{
+    const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/login.html'})});
+    if(!res.ok)throw new Error('Erreur envoi');
+    toast('Email envoyé à '+email);
+  }catch(e){toast('Erreur: '+e.message);}
 }
 </script>
 </body>

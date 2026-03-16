@@ -1,6 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
+const SENDER = "Fitzone Evolution <noreply@xn--fitzone-volution-iqb.fr>";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -13,14 +16,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(
-        JSON.stringify({ error: "Missing Supabase config" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     const { email, first_name, last_name } = await req.json();
     if (!email) {
@@ -34,7 +31,7 @@ Deno.serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    // Create auth user with a random password (coach will set their own via reset email)
+    // Create auth user
     const tempPassword = crypto.randomUUID() + "Aa1!";
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -50,7 +47,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Create coach profile in coaches table
+    // Create coach profile
     await supabaseAdmin.from("coaches").insert([{
       user_id: authData.user.id,
       first_name: first_name || "",
@@ -59,16 +56,41 @@ Deno.serve(async (req: Request) => {
       role: "coach"
     }]);
 
-    // Send password reset email so coach can set their own password
-    await supabaseAdmin.auth.resetPasswordForEmail(email, {
-      redirectTo: "https://fitval.github.io/FITZONE-EVOLUTION/fitzone_deploy/login.html"
+    // Generate recovery link
+    const redirectTo = "https://fitval.github.io/FITZONE-EVOLUTION/fitzone_deploy/login.html";
+    const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: { redirectTo }
     });
 
+    // Send invitation email via Resend
+    if (linkData) {
+      const confirmUrl = `${supabaseUrl}/auth/v1/verify?token=${linkData.properties.hashed_token}&type=recovery&redirect_to=${encodeURIComponent(redirectTo)}`;
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: SENDER,
+          to: email,
+          subject: "Bienvenue dans l'equipe Fitzone Evolution !",
+          html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;max-width:480px;margin:0 auto;padding:32px 20px">
+            <div style="text-align:center;margin-bottom:28px">
+              <div style="display:inline-block;width:48px;height:48px;background:linear-gradient(135deg,#8a6a1a,#c49a2a);border-radius:12px;line-height:48px;font-size:22px;font-weight:900;color:#1a1916">F</div>
+              <div style="font-size:20px;font-weight:800;color:#1a1916;margin-top:8px">FITZONE <span style="color:#c49a2a">EVOLUTION</span></div>
+            </div>
+            <h2 style="text-align:center;font-size:18px;color:#1a1916;margin-bottom:8px">Bienvenue dans l'equipe !</h2>
+            <p style="text-align:center;font-size:14px;color:#6b6456;line-height:1.6;margin-bottom:24px">Salut ${first_name || ""} ! Ton compte coach a ete cree. Clique ci-dessous pour definir ton mot de passe et acceder au dashboard.</p>
+            <div style="text-align:center"><a href="${confirmUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#b8882a,#e8b84a);color:#1a1916;font-weight:700;font-size:15px;text-decoration:none;border-radius:10px">Definir mon mot de passe</a></div>
+            <p style="text-align:center;font-size:12px;color:#9e9488;margin-top:20px">Ce lien est valable 24h.</p>
+            <div style="text-align:center;margin-top:28px;font-size:11px;color:#9e9488">Fitzone Evolution &copy; 2025</div>
+          </div>`
+        }),
+      });
+    }
+
     return new Response(
-      JSON.stringify({
-        user_id: authData.user.id,
-        email: authData.user.email,
-      }),
+      JSON.stringify({ user_id: authData.user.id, email: authData.user.email }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
