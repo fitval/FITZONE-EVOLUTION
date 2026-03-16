@@ -1617,6 +1617,7 @@ async function openDet(id){
   curQ=(data&&data.length)?data[0]:null;
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none';});
   document.getElementById('detPage').classList.add('show');
+  if(isAdmin&&!adminCoaches.length) await loadAdminCoaches();
   renderDetHero();renderQTab();renderNutTab();renderRoadTab();
   document.querySelectorAll('#detTabs .tab').forEach(t=>t.classList.remove('active'));
   document.querySelector('#detTabs .tab').classList.add('active');
@@ -1636,7 +1637,13 @@ function renderDetHero(){
     :c.status==='paused'?`<button class="btn btn-sm" style="background:rgba(0,200,100,.15);color:#40d080;border:1px solid rgba(0,200,100,.25)" onclick="resumeClient('${c.id}')">▶️ Réactiver</button>`:'';
   const delBtn=`<button class="btn btn-sm" style="background:rgba(255,50,50,.12);color:#ff6060;border:1px solid rgba(255,50,50,.2)" onclick="deleteClientStart('${c.id}')">🗑️</button>`;
   const inviteBtn=c.email?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="resendClientInvite('${c.id}')">📧 Invitation</button>`:'';
-  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select></div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:''}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${inviteBtn}${pauseBtn}${delBtn}</div>`;
+  // Coach assignment dropdown (admin only)
+  let coachSelect='';
+  if(isAdmin&&adminCoaches.length){
+    const coachOpts=adminCoaches.map(co=>`<option value="${co.id}"${co.id===c.coach_id?' selected':''}>${esc(co.first_name||'')} ${esc(co.last_name||'')}</option>`).join('');
+    coachSelect=`<span style="font-size:11px;color:rgba(255,255,255,.4)">Coach :</span><select onchange="assignClientCoach('${c.id}',this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${coachOpts}</select>`;
+  }
+  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select>${coachSelect}</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:''}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${inviteBtn}${pauseBtn}${delBtn}</div>`;
 }
 async function setBilanDay(day){
   const d=parseInt(day);
@@ -1644,6 +1651,19 @@ async function setBilanDay(day){
   curClient.bilan_day=d;
   const idx=allClients.findIndex(c=>c.id===curClient.id);if(idx>=0)allClients[idx].bilan_day=d;
   toast('Jour de bilan mis à jour ✓');
+}
+async function assignClientCoach(clientId,coachId){
+  const tables=['clients','questionnaires','plans','plans_full','programs','seances','roadmaps','daily_logs','train_logs','bilans'];
+  const{error}=await db.from('clients').update({coach_id:coachId}).eq('id',clientId);
+  if(error){toast('Erreur: '+error.message);return;}
+  // Update related tables too
+  for(const t of tables.slice(1)){
+    await db.from(t).update({coach_id:coachId}).eq('client_id',clientId).catch(()=>{});
+  }
+  curClient.coach_id=coachId;
+  const idx=allClients.findIndex(c=>c.id===clientId);if(idx>=0)allClients[idx].coach_id=coachId;
+  const coach=adminCoaches.find(c=>c.id===coachId);
+  toast(`Client assigné à ${coach?.first_name||''} ${coach?.last_name||''} ✓`);
 }
 function swDet(name,el){
   document.querySelectorAll('#detTabs .tab').forEach(t=>t.classList.remove('active'));
