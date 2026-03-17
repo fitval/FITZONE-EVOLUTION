@@ -1328,9 +1328,27 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 <script>
 const SUPA='https://wsrykmutyhjxdnhnyexl.supabase.co';
 const KEY='sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
+const DRIVE_UPLOAD_URL='REMPLACER_PAR_URL_APPS_SCRIPT';
 const _base=window.location.href.substring(0,window.location.href.lastIndexOf('/')+1);
 const QBASE=_base+'questionnaire.html';
 const CBASE=_base+'client.html';
+
+async function uploadToDrive(base64,fileName){
+  try{
+    const res=await fetch(DRIVE_UPLOAD_URL,{method:'POST',body:JSON.stringify({base64,fileName,mimeType:'image/jpeg'})});
+    const json=await res.json();
+    if(json.success&&json.files&&json.files[0])return json.files[0].url;
+    console.error('[DRIVE]',json.error);return base64;
+  }catch(e){console.error('[DRIVE]',e);return base64;}
+}
+async function uploadPhotosToDrive(photos){
+  const results=[];
+  for(const p of photos){
+    if(p.startsWith('https://'))results.push(p);
+    else{const url=await uploadToDrive(p,'fitzone_'+Date.now()+'_'+Math.random().toString(36).substr(2,4)+'.jpg');results.push(url);}
+  }
+  return results;
+}
 const{createClient}=supabase;
 const db=createClient(SUPA,KEY);
 
@@ -2834,12 +2852,18 @@ function saveBilan(){
   const files=document.getElementById('biPhotos').files;
   if(files.length){
     let loaded=0;
-    Array.from(files).forEach(f=>{const reader=new FileReader();reader.onload=e=>{b.photos.push(e.target.result);loaded++;if(loaded===files.length){const key='bilans_'+curClient.id;const bl=lsGet(key,[]);bl.push(b);lsSave(key,bl);if(currentCoach)db.from('bilans').insert({coach_id:currentCoach.id,client_id:curClient.id,titre:b.titre||'',date:b.date,poids:b.poids?String(b.poids):'',contenu:b.contenu||'',photos:b.photos||[],read:false}).catch(e2=>console.warn('bilan save:',e2));closeM('mAddBilan');renderBilanTab();renderGalerieTab();toast('Bilan enregistré ✓');updateNotifBadge();}};reader.readAsDataURL(f);});
-  }else{
-    const key='bilans_'+curClient.id;const bl=lsGet(key,[]);bl.push(b);lsSave(key,bl);
-    if(currentCoach)db.from('bilans').insert({coach_id:currentCoach.id,client_id:curClient.id,titre:b.titre||'',date:b.date,poids:b.poids?String(b.poids):'',contenu:b.contenu||'',photos:b.photos||[],read:false}).catch(e=>console.warn('bilan save:',e));
-    closeM('mAddBilan');renderBilanTab();toast('Bilan enregistré ✓');updateNotifBadge();
+    Array.from(files).forEach(f=>{const reader=new FileReader();reader.onload=e=>{b.photos.push(e.target.result);loaded++;if(loaded===files.length){finalizeBilanSave(b);}};reader.readAsDataURL(f);});
+  }else{finalizeBilanSave(b);}
+}
+async function finalizeBilanSave(b){
+  // Upload photos to Google Drive if configured
+  if(b.photos.length&&DRIVE_UPLOAD_URL&&!DRIVE_UPLOAD_URL.startsWith('REMPLACER')){
+    toast('Upload des photos vers Drive…');
+    b.photos=await uploadPhotosToDrive(b.photos);
   }
+  const key='bilans_'+curClient.id;const bl=lsGet(key,[]);bl.push(b);lsSave(key,bl);
+  if(currentCoach)db.from('bilans').insert({coach_id:currentCoach.id,client_id:curClient.id,titre:b.titre||'',date:b.date,poids:b.poids?String(b.poids):'',contenu:b.contenu||'',photos:b.photos||[],read:false}).catch(e=>console.warn('bilan save:',e));
+  closeM('mAddBilan');renderBilanTab();renderGalerieTab();toast('Bilan enregistré ✓');updateNotifBadge();
 }
 
 /* ===== GALERIE TAB ===== */

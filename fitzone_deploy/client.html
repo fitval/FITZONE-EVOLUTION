@@ -445,6 +445,27 @@ const SUPA='https://wsrykmutyhjxdnhnyexl.supabase.co';
 const KEY='sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
 const db=supabase.createClient(SUPA,KEY);
 
+/* ===== GOOGLE DRIVE UPLOAD ===== */
+const DRIVE_UPLOAD_URL='REMPLACER_PAR_URL_APPS_SCRIPT';
+
+async function uploadToDrive(base64,fileName){
+  try{
+    const res=await fetch(DRIVE_UPLOAD_URL,{method:'POST',body:JSON.stringify({base64,fileName,mimeType:'image/jpeg'})});
+    const json=await res.json();
+    if(json.success&&json.files&&json.files[0])return json.files[0].url;
+    console.error('[DRIVE]',json.error);return base64;
+  }catch(e){console.error('[DRIVE]',e);return base64;}
+}
+
+async function uploadPhotosToDrive(photos){
+  const results=[];
+  for(const p of photos){
+    if(p.startsWith('https://'))results.push(p);
+    else{const url=await uploadToDrive(p,'bilan_'+Date.now()+'_'+Math.random().toString(36).substr(2,4)+'.jpg');results.push(url);}
+  }
+  return results;
+}
+
 /* ===== STATE ===== */
 let clientData=null;
 let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAlims=[],coachExos=[];
@@ -1323,7 +1344,7 @@ function showBilanForm(){
   h+=`<div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="bilanDate" value="${today()}"></div>`;
 
   // Photos
-  h+=`<div class="form-group"><label class="form-label">Photos (max 4)</label><div class="photo-grid" id="photoGrid"><div class="photo-slot" onclick="addBilanPhoto()"><div class="photo-add">+</div></div></div></div>`;
+  h+=`<div class="form-group"><label class="form-label">Photos (max 8)</label><div class="photo-grid" id="photoGrid"><div class="photo-slot" onclick="addBilanPhoto()"><div class="photo-add">+</div></div></div></div>`;
 
   // Q1 - Attitude gauge
   h+=`<div class="bilan-section-title"><i class="fas fa-brain"></i> ATTITUDE</div>`;
@@ -1356,9 +1377,9 @@ function setGauge(val){
     d.classList.toggle('active',v<=val);
   });
 }
-function addBilanPhoto(){if(bilanPhotos.length>=4)return;const inp=document.getElementById('photoInput');inp.onchange=function(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{resizeImg(ev.target.result,1200,.7,c=>{bilanPhotos.push(c);renderPhotoGrid();});};r.readAsDataURL(f);inp.value='';};inp.click();}
+function addBilanPhoto(){if(bilanPhotos.length>=8)return;const inp=document.getElementById('photoInput');inp.onchange=function(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{resizeImg(ev.target.result,1200,.7,c=>{bilanPhotos.push(c);renderPhotoGrid();});};r.readAsDataURL(f);inp.value='';};inp.click();}
 function resizeImg(du,mw,q,cb){const img=new Image();img.onload=function(){let w=img.width,h=img.height;if(w>mw){h=h*(mw/w);w=mw;}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);cb(c.toDataURL('image/jpeg',q));};img.src=du;}
-function renderPhotoGrid(){let h='';bilanPhotos.forEach((p,i)=>{h+=`<div class="photo-slot"><img src="${p}"><div class="photo-remove" onclick="event.stopPropagation();bilanPhotos.splice(${i},1);renderPhotoGrid()">✕</div></div>`;});if(bilanPhotos.length<4)h+=`<div class="photo-slot" onclick="addBilanPhoto()"><div class="photo-add">+</div></div>`;document.getElementById('photoGrid').innerHTML=h;}
+function renderPhotoGrid(){let h='';bilanPhotos.forEach((p,i)=>{h+=`<div class="photo-slot"><img src="${p}"><div class="photo-remove" onclick="event.stopPropagation();bilanPhotos.splice(${i},1);renderPhotoGrid()">✕</div></div>`;});if(bilanPhotos.length<8)h+=`<div class="photo-slot" onclick="addBilanPhoto()"><div class="photo-add">+</div></div>`;document.getElementById('photoGrid').innerHTML=h;}
 async function submitBilan(){
   if(!bilanAttitude){toast('Note ton attitude de 1 à 10');return;}
   const d=document.getElementById('bilanDate').value;
@@ -1368,12 +1389,18 @@ async function submitBilan(){
   const bic=document.getElementById('bilanBiceps').value;if(bic)rep.biceps=bic;
   const nom=document.getElementById('bilanNombril').value;if(nom)rep.nombril=nom;
   const poi=document.getElementById('bilanPoitrine').value;if(poi)rep.poitrine=poi;
+  // Upload photos to Google Drive (fallback to base64 if Drive unavailable)
+  let uploadedPhotos=bilanPhotos;
+  if(bilanPhotos.length&&DRIVE_UPLOAD_URL&&!DRIVE_UPLOAD_URL.startsWith('REMPLACER')){
+    toast('Upload des photos en cours…');
+    uploadedPhotos=await uploadPhotosToDrive(bilanPhotos);
+  }
   let error;
   if(clientAuthMode==='anon'){
-    const{error:e}=await db.rpc('client_insert_bilan',{p_token:clientData.token,p_titre:'Bilan du '+fmtDate(d),p_date:d,p_photos:bilanPhotos,p_reponses:rep});
+    const{error:e}=await db.rpc('client_insert_bilan',{p_token:clientData.token,p_titre:'Bilan du '+fmtDate(d),p_date:d,p_photos:uploadedPhotos,p_reponses:rep});
     error=e;
   } else {
-    const{error:e}=await db.from('bilans').insert({coach_id:clientData.coach_id,client_id:clientData.id,titre:'Bilan du '+fmtDate(d),date:d,photos:bilanPhotos,reponses:rep,read:false});
+    const{error:e}=await db.from('bilans').insert({coach_id:clientData.coach_id,client_id:clientData.id,titre:'Bilan du '+fmtDate(d),date:d,photos:uploadedPhotos,reponses:rep,read:false});
     error=e;
   }
   if(error){toast('Erreur: '+error.message);return;}
