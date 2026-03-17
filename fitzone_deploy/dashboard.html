@@ -430,6 +430,14 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 
     <div class="sb-item" onclick="showPage('learning',this)" id="nav-lr"><span class="sb-ico">🎓</span>Learning</div>
 
+    <div class="sb-item" onclick="toggleSub('sub-recruit',this,'arr-rec')" id="nav-rec-p">
+      <span class="sb-ico">📝</span>Recrutement<span class="sb-arrow" id="arr-rec">›</span>
+    </div>
+    <div class="sb-submenu" id="sub-recruit">
+      <div class="sb-item sub" onclick="showPage('rec-forms',this)" id="nav-rec-forms"><span class="sb-ico">·</span>Questionnaires</div>
+      <div class="sb-item sub" onclick="showPage('rec-responses',this)" id="nav-rec-resp"><span class="sb-ico">·</span>Candidatures</div>
+    </div>
+
     <div class="sb-sec" id="admin-sec" style="display:none">Super Admin</div>
     <div class="sb-item" onclick="showPage('admin-coaches',this)" id="nav-ac" style="display:none"><span class="sb-ico">🛡️</span>Gestion Coachs</div>
     <div class="sb-item" onclick="showPage('admin-clients',this)" id="nav-acl" style="display:none"><span class="sb-ico">👥</span>Tous les clients</div>
@@ -820,6 +828,29 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
       <div class="cl">Tous les clients</div>
       <div id="adminClientsList" style="margin-top:12px"></div>
     </div>
+  </div>
+
+  <!-- PAGE: RECRUITMENT — FORMS -->
+  <div class="page" id="page-rec-forms">
+    <div id="recFormsList"></div>
+  </div>
+
+  <!-- PAGE: RECRUITMENT — RESPONSES -->
+  <div class="page" id="page-rec-responses">
+    <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select class="fi" id="recRespFormFilter" oninput="renderRecResponses()" style="max-width:300px">
+        <option value="all">Tous les questionnaires</option>
+      </select>
+      <div style="display:flex;gap:4px;flex-wrap:wrap" id="recStatusChips">
+        <button class="chip active" onclick="setRecStatus('all',this)">Tous</button>
+        <button class="chip" onclick="setRecStatus('en_attente',this)">En attente</button>
+        <button class="chip" onclick="setRecStatus('contacte',this)">Contacté</button>
+        <button class="chip" onclick="setRecStatus('reserve',this)">Réservé</button>
+        <button class="chip" onclick="setRecStatus('accepte',this)">Accepté</button>
+        <button class="chip" onclick="setRecStatus('refuse',this)">Refusé</button>
+      </div>
+    </div>
+    <div id="recResponsesList"></div>
   </div>
 
   <!-- PAGE: SETTINGS -->
@@ -1225,7 +1256,72 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .ai-meal-recipe{margin-top:8px;padding:8px 10px;background:var(--bg);border-radius:8px;font-size:11px;color:var(--text2);line-height:1.6;white-space:pre-wrap}
 .ai-warn{background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:10px}
 .ai-resto-badge{background:#f3e8ff;color:#7c3aed;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+
+/* RECRUITMENT */
+.rec-card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:14px}
+.rec-card:hover{box-shadow:var(--shadow-md);border-color:var(--gold-border)}
+.rec-card-ico{width:40px;height:40px;border-radius:10px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.rec-card-title{font-size:14px;font-weight:700;color:var(--dark)}
+.rec-card-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.rec-card-right{margin-left:auto;text-align:right}
+.rec-card-count{font-size:18px;font-weight:800;color:var(--gold)}
+.rec-card-count-lbl{font-size:10px;color:var(--text3)}
+.rec-q-item{background:var(--white);border:1.5px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px}
+.rec-q-drag{cursor:grab;color:var(--text3);font-size:14px;padding-top:2px}
+.rec-q-body{flex:1}
+.rec-q-type{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+.rec-q-acts{display:flex;gap:4px}
+.rec-q-acts button{background:none;border:1px solid var(--border2);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:11px;color:var(--text3);transition:all .12s}
+.rec-q-acts button:hover{border-color:var(--gold);color:var(--gold)}
+.rec-opts{margin-top:6px;display:flex;flex-direction:column;gap:3px}
+.rec-opt{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)}
+.rec-opt input{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;font-size:12px;font-family:var(--font);outline:none}
+.rec-opt input:focus{border-color:var(--gold)}
+.rec-opt button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px}
+.rec-opt button:hover{color:#c03030}
+.b-en_attente{background:#fff8e6;color:#9a6e00;border:1px solid #f0d080}
+.b-contacte{background:#e8f4ff;color:#1a6096;border:1px solid #90c8f0}
+.b-reserve{background:#f3e8ff;color:#7c3aed;border:1px solid #c4b5fd}
+.b-accepte{background:#e8f8f0;color:#1a7040;border:1px solid #80d4a8}
+.b-refuse{background:#fff0f0;color:#c03030;border:1px solid #ffcccc}
 </style>
+
+<!-- MODAL: REC FORM BUILDER -->
+<div class="overlay" id="mRecForm"><div class="modal modal-lg">
+  <div class="mh"><div class="mt" id="recFormMT">Nouveau questionnaire</div><button class="mc" onclick="closeM('mRecForm')">✕</button></div>
+  <div class="mb">
+    <div class="fg"><label class="fl">Titre *</label><input class="fi" id="rfTitle" placeholder="Questionnaire recrutement"></div>
+    <div class="fg"><label class="fl">Description <span class="fl-o">optionnel</span></label><textarea class="fta" id="rfDesc" rows="2" placeholder="Description affichée aux candidats"></textarea></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px">
+      <div class="cl" style="margin:0">Questions</div>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-xs btn-ghost" onclick="addRecQ('short')">+ Court</button>
+        <button class="btn btn-xs btn-ghost" onclick="addRecQ('long')">+ Long</button>
+        <button class="btn btn-xs btn-ghost" onclick="addRecQ('radio')">+ Choix unique</button>
+        <button class="btn btn-xs btn-ghost" onclick="addRecQ('checkbox')">+ Choix multiple</button>
+        <button class="btn btn-xs btn-ghost" onclick="addRecQ('select')">+ Liste</button>
+      </div>
+    </div>
+    <div id="rfQuestions"></div>
+  </div>
+  <div class="mf"><button class="btn btn-ghost" onclick="closeM('mRecForm')">Annuler</button><button class="btn btn-dark" onclick="saveRecForm()">Enregistrer</button></div>
+</div></div>
+
+<!-- MODAL: REC RESPONSE DETAIL -->
+<div class="overlay" id="mRecResp"><div class="modal modal-lg">
+  <div class="mh"><div class="mt">Candidature</div><button class="mc" onclick="closeM('mRecResp')">✕</button></div>
+  <div class="mb" id="recRespDetail"></div>
+  <div class="mf">
+    <select class="fi" id="recRespStatus" oninput="updateRecRespStatus()" style="width:auto">
+      <option value="en_attente">En attente</option>
+      <option value="contacte">Contacté</option>
+      <option value="reserve">Réservé</option>
+      <option value="accepte">Accepté</option>
+      <option value="refuse">Refusé</option>
+    </select>
+    <button class="btn btn-ghost" onclick="closeM('mRecResp')">Fermer</button>
+  </div>
+</div></div>
 
 <div class="toast" id="toast"><span style="color:var(--gold)">✓</span><span id="toastTxt"></span></div>
 
@@ -1526,10 +1622,10 @@ function showPage(name,el){
   const pg=document.getElementById('page-'+name);if(pg){pg.style.display='block';pg.classList.add('active');}
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients'};
+  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures'};
   document.getElementById('tbTitle').textContent=titles[name]||name;
   document.getElementById('backBtn').style.display='none';
-  const actMap={overview:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`};
+  const actMap={overview:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`,'rec-forms':`<button class="btn btn-dark" onclick="openRecFormBuilder()">+ Questionnaire</button>`};
   document.getElementById('tbActs').innerHTML=actMap[name]||'';
   if(name==='bilans')renderBilans();
   if(name==='nut-plans'){closeProgBuilder();closePlanBuilder();renderPlansListPage();}
@@ -1540,6 +1636,8 @@ function showPage(name,el){
   if(name==='bilans-all')renderBilansAll();
   if(name==='admin-coaches')renderAdminCoaches();
   if(name==='admin-clients')renderAdminClients();
+  if(name==='rec-forms')renderRecForms();
+  if(name==='rec-responses')renderRecResponses();
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
@@ -5468,7 +5566,7 @@ async function updateCoachRole(coachId,newRole){
   await renderAdminCoaches();
 }
 
-function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 /* ===== ADMIN : TOUS LES CLIENTS ===== */
 async function renderAdminClients(){
@@ -5635,6 +5733,212 @@ async function resendCoachInvite(email){
     if(!res.ok)throw new Error('Erreur envoi');
     toast('Email envoyé à '+email);
   }catch(e){toast('Erreur: '+e.message);}
+}
+
+/* ===== RECRUITMENT MODULE ===== */
+let recForms=[],recResponses=[],recEditId=null,recQuestions=[],recStatusFilter='all',recCurrentRespId=null;
+
+async function loadRecForms(){
+  const{data}=await db.from('recruitment_forms').select('*').order('created_at',{ascending:false});
+  recForms=data||[];
+}
+
+async function loadRecResponses(){
+  const{data}=await db.from('recruitment_responses').select('*').order('created_at',{ascending:false});
+  recResponses=data||[];
+}
+
+async function renderRecForms(){
+  await loadRecForms();
+  const el=document.getElementById('recFormsList');
+  if(!recForms.length){el.innerHTML='<div class="empty"><div class="ei">📝</div><div class="et">Aucun questionnaire</div><div class="es">Créez votre premier questionnaire de recrutement</div></div>';return;}
+  let h='';
+  for(const f of recForms){
+    const cnt=recResponses.filter(r=>r.form_id===f.id).length||(await db.from('recruitment_responses').select('id',{count:'exact',head:true}).eq('form_id',f.id)).count||0;
+    const d=new Date(f.created_at).toLocaleDateString('fr-FR');
+    const qs=(f.questions||[]).length;
+    h+=`<div class="rec-card" onclick="editRecForm('${f.id}')">
+      <div class="rec-card-ico">📝</div>
+      <div><div class="rec-card-title">${esc(f.title)}</div><div class="rec-card-meta">${qs} question${qs>1?'s':''} · Créé le ${d} · ${f.status==='active'?'🟢 Actif':'⏸️ Archivé'}</div></div>
+      <div class="rec-card-right"><div class="rec-card-count">${cnt}</div><div class="rec-card-count-lbl">réponse${cnt>1?'s':''}</div></div>
+      <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
+        <button class="btn btn-xs btn-ghost" onclick="copyRecLink('${f.id}')" title="Copier le lien">🔗</button>
+        <button class="btn btn-xs btn-danger" onclick="deleteRecForm('${f.id}')" title="Supprimer">🗑</button>
+      </div>
+    </div>`;
+  }
+  el.innerHTML=h;
+}
+
+function openRecFormBuilder(){
+  recEditId=null;recQuestions=[];
+  document.getElementById('recFormMT').textContent='Nouveau questionnaire';
+  document.getElementById('rfTitle').value='';
+  document.getElementById('rfDesc').value='';
+  renderRecQuestions();
+  openM('mRecForm');
+}
+
+async function editRecForm(id){
+  const f=recForms.find(x=>x.id===id);if(!f)return;
+  recEditId=id;
+  recQuestions=JSON.parse(JSON.stringify(f.questions||[]));
+  document.getElementById('recFormMT').textContent='Modifier le questionnaire';
+  document.getElementById('rfTitle').value=f.title;
+  document.getElementById('rfDesc').value=f.description||'';
+  renderRecQuestions();
+  openM('mRecForm');
+}
+
+function addRecQ(type){
+  const labels={short:'Réponse courte',long:'Réponse longue',radio:'Choix unique',checkbox:'Choix multiple',select:'Liste déroulante'};
+  recQuestions.push({id:crypto.randomUUID(),type,label:'',required:false,options:['radio','checkbox','select'].includes(type)?['Option 1','Option 2']:[]});
+  renderRecQuestions();
+}
+
+function renderRecQuestions(){
+  const el=document.getElementById('rfQuestions');
+  if(!recQuestions.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Ajoutez des questions avec les boutons ci-dessus</div>';return;}
+  const typeLabels={short:'Réponse courte',long:'Réponse longue',radio:'Choix unique',checkbox:'Choix multiple',select:'Liste déroulante'};
+  let h='';
+  recQuestions.forEach((q,i)=>{
+    h+=`<div class="rec-q-item">
+      <div class="rec-q-drag" title="Réordonner">⋮⋮</div>
+      <div class="rec-q-body">
+        <div class="rec-q-type">${typeLabels[q.type]||q.type} ${q.required?'<span style="color:#c03030">*</span>':''}</div>
+        <input class="fi" value="${esc(q.label)}" placeholder="Intitulé de la question" oninput="recQuestions[${i}].label=this.value" style="margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" ${q.required?'checked':''} onchange="recQuestions[${i}].required=this.checked"> Obligatoire
+          </label>
+        </div>`;
+    if(['radio','checkbox','select'].includes(q.type)){
+      h+=`<div class="rec-opts" id="recOpts${i}">`;
+      (q.options||[]).forEach((o,j)=>{
+        h+=`<div class="rec-opt">
+          <span style="color:var(--text3)">${q.type==='checkbox'?'☐':'○'}</span>
+          <input value="${esc(o)}" oninput="recQuestions[${i}].options[${j}]=this.value">
+          <button onclick="recQuestions[${i}].options.splice(${j},1);renderRecQuestions()">✕</button>
+        </div>`;
+      });
+      h+=`<button class="btn btn-xs btn-ghost" onclick="recQuestions[${i}].options.push('Option '+(recQuestions[${i}].options.length+1));renderRecQuestions()" style="margin-top:4px">+ Ajouter option</button></div>`;
+    }
+    h+=`</div>
+      <div class="rec-q-acts">
+        ${i>0?`<button onclick="recQMove(${i},-1)">↑</button>`:''}
+        ${i<recQuestions.length-1?`<button onclick="recQMove(${i},1)">↓</button>`:''}
+        <button onclick="recQuestions.splice(${i},1);renderRecQuestions()" style="color:#c03030">✕</button>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=h;
+}
+
+function recQMove(i,dir){const t=recQuestions[i];recQuestions[i]=recQuestions[i+dir];recQuestions[i+dir]=t;renderRecQuestions();}
+
+async function saveRecForm(){
+  const title=document.getElementById('rfTitle').value.trim();
+  if(!title){toast('Titre requis');return;}
+  const desc=document.getElementById('rfDesc').value.trim();
+  const valid=recQuestions.filter(q=>q.label.trim());
+  if(!valid.length){toast('Ajoutez au moins une question');return;}
+  const obj={title,description:desc||null,questions:valid,coach_id:currentCoach.id};
+  if(recEditId){
+    await db.from('recruitment_forms').update(obj).eq('id',recEditId);
+    toast('Questionnaire mis à jour');
+  }else{
+    await db.from('recruitment_forms').insert([obj]);
+    toast('Questionnaire créé');
+  }
+  closeM('mRecForm');
+  renderRecForms();
+}
+
+async function deleteRecForm(id){
+  if(!confirm('Supprimer ce questionnaire et toutes ses réponses ?'))return;
+  await db.from('recruitment_responses').delete().eq('form_id',id);
+  await db.from('recruitment_forms').delete().eq('id',id);
+  toast('Questionnaire supprimé');
+  renderRecForms();
+}
+
+function copyRecLink(formId){
+  const url=_base+'recruitment.html?form='+formId;
+  navigator.clipboard.writeText(url);
+  toast('Lien copié !');
+}
+
+function setRecStatus(s,el){
+  recStatusFilter=s;
+  document.querySelectorAll('#recStatusChips .chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderRecResponses();
+}
+
+async function renderRecResponses(){
+  await loadRecForms();await loadRecResponses();
+  // Populate form filter
+  const sel=document.getElementById('recRespFormFilter');
+  const cur=sel.value;
+  sel.innerHTML='<option value="all">Tous les questionnaires</option>';
+  recForms.forEach(f=>{sel.innerHTML+=`<option value="${f.id}">${esc(f.title)}</option>`;});
+  sel.value=cur;
+  // Filter
+  let filtered=recResponses;
+  if(sel.value!=='all')filtered=filtered.filter(r=>r.form_id===sel.value);
+  if(recStatusFilter!=='all')filtered=filtered.filter(r=>r.status===recStatusFilter);
+  const el=document.getElementById('recResponsesList');
+  if(!filtered.length){el.innerHTML='<div class="empty"><div class="ei">📬</div><div class="et">Aucune candidature</div><div class="es">Les candidatures apparaîtront ici</div></div>';return;}
+  const statusLabels={en_attente:'En attente',contacte:'Contacté',reserve:'Réservé',accepte:'Accepté',refuse:'Refusé'};
+  let h='<div class="tw"><table><thead><tr><th>Candidat</th><th>Email</th><th>Questionnaire</th><th>Statut</th><th>Date</th></tr></thead><tbody>';
+  filtered.forEach(r=>{
+    const form=recForms.find(f=>f.id===r.form_id);
+    const d=new Date(r.created_at).toLocaleDateString('fr-FR');
+    h+=`<tr class="crow" onclick="openRecResp('${r.id}')">
+      <td><div class="c-cell"><div class="c-av" style="background:var(--gold)">${(r.first_name||'?')[0].toUpperCase()}</div><div><div class="c-nm">${esc(r.first_name)} ${esc(r.last_name)}</div>${r.phone?`<div class="c-sb">${esc(r.phone)}</div>`:''}</div></div></td>
+      <td style="font-size:12px">${esc(r.email||'—')}</td>
+      <td style="font-size:12px">${form?esc(form.title):'—'}</td>
+      <td><span class="badge b-${r.status}">${statusLabels[r.status]||r.status}</span></td>
+      <td style="font-size:12px">${d}</td>
+    </tr>`;
+  });
+  h+='</tbody></table></div>';
+  el.innerHTML=h;
+}
+
+async function openRecResp(id){
+  const r=recResponses.find(x=>x.id===id);if(!r)return;
+  recCurrentRespId=id;
+  const form=recForms.find(f=>f.id===r.form_id);
+  const questions=form?form.questions:[];
+  let h=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <div class="c-av" style="width:44px;height:44px;font-size:16px;background:var(--gold)">${(r.first_name||'?')[0].toUpperCase()}</div>
+    <div><div style="font-size:16px;font-weight:800">${esc(r.first_name)} ${esc(r.last_name)}</div>
+    <div style="font-size:12px;color:var(--text3)">${esc(r.email||'')} ${r.phone?' · '+esc(r.phone):''}</div></div>
+  </div>`;
+  if(form)h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Questionnaire : <strong>${esc(form.title)}</strong> · ${new Date(r.created_at).toLocaleDateString('fr-FR')}</div>`;
+  h+='<div class="qgrid">';
+  questions.forEach(q=>{
+    const ans=r.answers[q.id]||'—';
+    const val=Array.isArray(ans)?ans.join(', '):ans;
+    h+=`<div class="qi"><div class="qil">${esc(q.label)}</div><div class="qiv">${esc(val)}</div></div>`;
+  });
+  h+='</div>';
+  h+=`<div class="fg" style="margin-top:16px"><label class="fl">Notes internes</label><textarea class="fta" id="recRespNotes" rows="3" placeholder="Notes privées...">${esc(r.notes||'')}</textarea></div>`;
+  document.getElementById('recRespDetail').innerHTML=h;
+  document.getElementById('recRespStatus').value=r.status;
+  openM('mRecResp');
+}
+
+async function updateRecRespStatus(){
+  if(!recCurrentRespId)return;
+  const status=document.getElementById('recRespStatus').value;
+  const notes=document.getElementById('recRespNotes')?.value||'';
+  await db.from('recruitment_responses').update({status,notes}).eq('id',recCurrentRespId);
+  const r=recResponses.find(x=>x.id===recCurrentRespId);
+  if(r){r.status=status;r.notes=notes;}
+  toast('Statut mis à jour');
+  renderRecResponses();
 }
 </script>
 </body>
