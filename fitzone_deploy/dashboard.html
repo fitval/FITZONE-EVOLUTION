@@ -5750,16 +5750,17 @@ async function loadRecResponses(){
 
 async function renderRecForms(){
   await loadRecForms();
+  await loadRecResponses();
   const el=document.getElementById('recFormsList');
   if(!recForms.length){el.innerHTML='<div class="empty"><div class="ei">📝</div><div class="et">Aucun questionnaire</div><div class="es">Créez votre premier questionnaire de recrutement</div></div>';return;}
   let h='';
   for(const f of recForms){
-    const cnt=recResponses.filter(r=>r.form_id===f.id).length||(await db.from('recruitment_responses').select('id',{count:'exact',head:true}).eq('form_id',f.id)).count||0;
+    const cnt=recResponses.filter(r=>r.form_id===f.id).length;
     const d=new Date(f.created_at).toLocaleDateString('fr-FR');
     const qs=(f.questions||[]).length;
     h+=`<div class="rec-card" onclick="editRecForm('${f.id}')">
       <div class="rec-card-ico">📝</div>
-      <div><div class="rec-card-title">${esc(f.title)}</div><div class="rec-card-meta">${qs} question${qs>1?'s':''} · Créé le ${d} · ${f.status==='active'?'🟢 Actif':'⏸️ Archivé'}</div></div>
+      <div style="flex:1"><div class="rec-card-title">${esc(f.title)}</div><div class="rec-card-meta">${qs} question${qs>1?'s':''} · Créé le ${d} · ${f.status==='active'?'🟢 Actif':'⏸️ Archivé'}</div></div>
       <div class="rec-card-right"><div class="rec-card-count">${cnt}</div><div class="rec-card-count-lbl">réponse${cnt>1?'s':''}</div></div>
       <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
         <button class="btn btn-xs btn-ghost" onclick="copyRecLink('${f.id}')" title="Copier le lien">🔗</button>
@@ -5864,8 +5865,11 @@ async function deleteRecForm(id){
 
 function copyRecLink(formId){
   const url=_base+'recruitment.html?form='+formId;
-  navigator.clipboard.writeText(url);
-  toast('Lien copié !');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(()=>toast('Lien copié !')).catch(()=>{prompt('Copie ce lien :',url);});
+  }else{
+    prompt('Copie ce lien :',url);
+  }
 }
 
 function setRecStatus(s,el){
