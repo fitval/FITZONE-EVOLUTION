@@ -122,6 +122,7 @@ select.fi { -webkit-appearance: none; appearance: none; background-image: url("d
         <div class="success-icon">&#10003;</div>
         <div class="success-title">Candidature envoyée !</div>
         <div class="success-sub">Merci pour votre intérêt.<br>Nous reviendrons vers vous rapidement.</div>
+        <a href="https://valentinbranche.systeme.io/page-remerciement-do-bd373658-1c9b750e-feb9580f" class="btn btn-gold" style="display:inline-flex;margin-top:20px;width:auto;padding:14px 28px;text-decoration:none">Suis les prochaines étapes pour avancer plus vite</a>
       </div>
     </div>
   </div>
@@ -263,7 +264,8 @@ async function submitForm() {
     return;
   }
 
-  window.location.href = 'https://valentinbranche.systeme.io/page-remerciement-do-bd373658-1c9b750e-feb9580f';
+  document.getElementById('formView').style.display = 'none';
+  document.getElementById('successView').style.display = 'block';
 }
 
 function showError() {
