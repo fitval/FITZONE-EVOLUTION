@@ -5856,7 +5856,9 @@ async function saveRecForm(){
 }
 
 async function deleteRecForm(id){
-  if(!confirm('Supprimer ce questionnaire et toutes ses réponses ?'))return;
+  const f=recForms.find(x=>x.id===id);
+  const name=f?f.title:'ce questionnaire';
+  if(!confirm('⚠️ ATTENTION\n\nSupprimer "'+name+'" et toutes ses réponses ?\n\nCette action est irréversible.'))return;
   await db.from('recruitment_responses').delete().eq('form_id',id);
   await db.from('recruitment_forms').delete().eq('id',id);
   toast('Questionnaire supprimé');
