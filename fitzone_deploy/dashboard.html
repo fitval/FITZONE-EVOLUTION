@@ -562,12 +562,12 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <div class="pf-main">
           <div class="fr2" style="margin-bottom:14px">
             <div class="fg"><label class="fl">Nom du plan *</label><input class="fi" id="pfNom" placeholder="Plan semaine 1"></div>
-            <div class="fg"><label class="fl">Client</label>
+            <div class="fg"><label class="fl">Client(s)</label>
               <div class="ss-wrap"><span class="ss-ico">👤</span>
-                <input class="ss-input" id="pfClIn" placeholder="Rechercher…" oninput="ssF('pfClIn','pfClDrop',()=>allClients,v=>{pfClient=v;document.getElementById('pfClLbl').textContent=v?v.first_name+' '+v.last_name:'Aucun'})" onfocus="openDrop('pfClDrop')" autocomplete="off">
+                <input class="ss-input" id="pfClIn" placeholder="Rechercher un client…" oninput="ssF('pfClIn','pfClDrop',()=>allClients,v=>{pfAddClient(v)},pfClients.map(c=>c.id))" onfocus="ssF('pfClIn','pfClDrop',()=>allClients,v=>{pfAddClient(v)},pfClients.map(c=>c.id))" autocomplete="off">
                 <div class="ss-drop" id="pfClDrop"></div>
               </div>
-              <div id="pfClLbl" style="font-size:11px;color:var(--text3);margin-top:3px">Aucun</div>
+              <div id="pfClBadges" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px"></div>
             </div>
           </div>
           <div class="day-tabs-row" id="pfDayTabs"></div>
@@ -637,10 +637,10 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
           </div>
           <!-- Assigner client -->
           <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:7px">👤 Assigner à un client</div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:7px">👤 Assigner à un/des client(s)</div>
             <div class="ss-wrap">
               <span class="ss-ico">👤</span>
-              <input class="ss-input" id="pfClIn2" placeholder="Rechercher…" oninput="ssF('pfClIn2','pfClDrop2',()=>allClients,v=>{pfClient=v;pfUpdateClientBadge()})" onfocus="openDrop('pfClDrop2')" autocomplete="off" style="font-size:12px;padding:7px 10px 7px 30px">
+              <input class="ss-input" id="pfClIn2" placeholder="Rechercher…" oninput="ssF('pfClIn2','pfClDrop2',()=>allClients,v=>{pfAddClient(v)},pfClients.map(c=>c.id))" onfocus="ssF('pfClIn2','pfClDrop2',()=>allClients,v=>{pfAddClient(v)},pfClients.map(c=>c.id))" autocomplete="off" style="font-size:12px;padding:7px 10px 7px 30px">
               <div class="ss-drop" id="pfClDrop2"></div>
             </div>
             <div id="pfClientBadge" style="margin-top:5px;font-size:11px;color:var(--text3)">Aucun client assigné</div>
@@ -682,12 +682,12 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
             <div class="fg"><label class="fl">Tags</label><input class="fi" id="progTags" placeholder="Push Pull, Force…"></div>
           </div>
           <div class="fr2" style="margin-bottom:10px">
-            <div class="fg"><label class="fl">Assigner à un client</label>
+            <div class="fg"><label class="fl">Assigner à un/des client(s)</label>
               <div class="ss-wrap"><span class="ss-ico">👤</span>
-                <input class="ss-input" id="progClIn" placeholder="Rechercher…" oninput="ssF('progClIn','progClDrop',()=>allClients,v=>{progClient=v;document.getElementById('progClLbl').textContent=v?v.first_name+' '+v.last_name:'Aucun'})" onfocus="openDrop('progClDrop')" autocomplete="off">
+                <input class="ss-input" id="progClIn" placeholder="Rechercher un client…" oninput="ssF('progClIn','progClDrop',()=>allClients,v=>{progAddClient(v)},progClients.map(c=>c.id))" onfocus="ssF('progClIn','progClDrop',()=>allClients,v=>{progAddClient(v)},progClients.map(c=>c.id))" autocomplete="off">
                 <div class="ss-drop" id="progClDrop"></div>
               </div>
-              <div id="progClLbl" style="font-size:11px;color:var(--text3);margin-top:3px">Aucun</div>
+              <div id="progClBadges" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px"></div>
             </div>
             <div class="fg"><label class="fl">Importer une séance existante</label>
               <div style="display:flex;gap:6px">
@@ -733,7 +733,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
           <div class="fr2" style="margin-bottom:12px">
             <div class="fg"><label class="fl">Assigner à un client</label>
               <div class="ss-wrap"><span class="ss-ico">👤</span>
-                <input class="ss-input" id="seanceClIn" placeholder="Rechercher…" oninput="ssF('seanceClIn','seanceClDrop',()=>allClients,v=>{seanceClient=v;document.getElementById('seanceClLbl').textContent=v?v.first_name+' '+v.last_name:'Aucun'})" onfocus="openDrop('seanceClDrop')" autocomplete="off">
+                <input class="ss-input" id="seanceClIn" placeholder="Rechercher un client…" oninput="ssF('seanceClIn','seanceClDrop',()=>allClients,v=>{seanceClient=v;document.getElementById('seanceClLbl').textContent=v?v.first_name+' '+v.last_name:'Aucun'})" onfocus="ssF('seanceClIn','seanceClDrop',()=>allClients,v=>{seanceClient=v;document.getElementById('seanceClLbl').textContent=v?v.first_name+' '+v.last_name:'Aucun'})" autocomplete="off">
                 <div class="ss-drop" id="seanceClDrop"></div>
               </div>
               <div id="seanceClLbl" style="font-size:11px;color:var(--text3);margin-top:3px">Aucun</div>
@@ -1383,9 +1383,9 @@ function delVidFromDB(id){
 initVidDB().catch(e=>console.warn('IndexedDB vidéos non disponible',e));
 let nutSt={};
 /* Plan complet builder */
-let pfClient=null,pfDays=[],pfDayIdx=0,pfMealIdx=null,pfEditId=null,pfFromClient=false;
+let pfClients=[],pfDays=[],pfDayIdx=0,pfMealIdx=null,pfEditId=null,pfFromClient=false;
 /* Programme builder */
-let progDays=[],progDayIdx=0,progEditId=null,progExoTarget={sec:null,idx:null},progClient=null;
+let progDays=[],progDayIdx=0,progEditId=null,progExoTarget={sec:null,idx:null},progClients=[];
 let progShowRIR=true,progShowTempo=true,seanceShowRIR=true,seanceShowTempo=true;
 /* Repas builder */
 let rpItems=[];
@@ -1413,6 +1413,8 @@ function dbMapFromDB(rows){
     const o={...r};
     if(o.client_id!==undefined){o.clientId=o.client_id;delete o.client_id;}
     if(o.client_nom!==undefined){o.clientNom=o.client_nom;delete o.client_nom;}
+    if(o.client_ids!==undefined){o.clientIds=o.client_ids;delete o.client_ids;}
+    if(o.client_noms!==undefined){o.clientNoms=o.client_noms;delete o.client_noms;}
     if(o.created_at!==undefined){o.createdAt=o.created_at;delete o.created_at;}
     if(o.prog_id!==undefined){o.progId=o.prog_id;delete o.prog_id;}
     if(o.sets_data!==undefined){o.setsData=o.sets_data;delete o.sets_data;}
@@ -1444,6 +1446,8 @@ async function dbSave(table,item){
   // Common camelCase → snake_case mapping
   if(row.clientId!==undefined){row.client_id=row.clientId;delete row.clientId;}
   if(row.clientNom!==undefined){row.client_nom=row.clientNom;delete row.clientNom;}
+  if(row.clientIds!==undefined){row.client_ids=row.clientIds;delete row.clientIds;}
+  if(row.clientNoms!==undefined){row.client_noms=row.clientNoms;delete row.clientNoms;}
   if(row.createdAt!==undefined){row.created_at=row.createdAt;delete row.createdAt;}
   if(row.progId!==undefined){row.prog_id=row.progId;delete row.progId;}
   if(row.setsData!==undefined){row.sets_data=row.setsData;delete row.setsData;}
@@ -2909,14 +2913,14 @@ function markBilanRead(clientId,date,el){
 
 /* ===== PLANS ALIMENTAIRES ===== */
 function startMacrosPlan(){
-  document.getElementById('pmNom').value='';document.getElementById('pmKcal').value='';document.getElementById('pmProt').value='';document.getElementById('pmCarb').value='';document.getElementById('pmFat').value='';document.getElementById('pmNotes').value='';document.getElementById('pmClIn').value='';document.getElementById('pmClLbl').textContent='Aucun';pmClient=null;
+  document.getElementById('pmNom').value='';document.getElementById('pmKcal').value='';document.getElementById('pmProt').value='';document.getElementById('pmCarb').value='';document.getElementById('pmFat').value='';document.getElementById('pmNotes').value='';document.getElementById('pmClIn').value='';pmClients=[];renderClientBadges(pmClients,'pmClBadges','pmRemoveClient');
   openM('mMacrosPlan');
 }
 
 function startFullPlan(){
-  pfEditId=null;pfClient=null;pfFromClient=false;pfDays=[{nom:'Jour 1',repas:[{nom:'Petit-déjeuner',alims:[]},{nom:'Déjeuner',alims:[]},{nom:'Dîner',alims:[]}]}];
+  pfEditId=null;pfClients=[];pfFromClient=false;pfDays=[{nom:'Jour 1',repas:[{nom:'Petit-déjeuner',alims:[]},{nom:'Déjeuner',alims:[]},{nom:'Dîner',alims:[]}]}];
   pfDayIdx=0;pfMealIdx=null;
-  document.getElementById('pfNom').value='';document.getElementById('pfClIn').value='';document.getElementById('pfClLbl').textContent='Aucun';
+  document.getElementById('pfNom').value='';document.getElementById('pfClIn').value='';
   document.getElementById('planBuilderTitle').textContent='Nouveau plan complet';
   pfRenderDays();pfRenderMeals();pfRenderRecent();
   const sa=document.getElementById('pfSideAlim'),sr=document.getElementById('pfSideRepas');
@@ -2939,16 +2943,16 @@ function openPlanBuilderForClient(){
   if(!curClient)return;
   const cl=curClient;
   startFullPlan();
-  pfClient=cl;pfFromClient=true;
-  document.getElementById('pfClLbl').textContent=cl.first_name+' '+cl.last_name;
+  pfClients=[cl];pfFromClient=true;
   pfUpdateClientBadge();
 }
 
 /* plan macros state */
-let pmClient=null;
+let pmClients=[];
 function saveMacrosPlan(){
   const nom=document.getElementById('pmNom')?.value.trim();if(!nom){toast('Nom requis');return;}
-  const plan={id:Date.now(),type:'macros',nom,clientId:pmClient?.id||null,clientNom:pmClient?pmClient.first_name+' '+pmClient.last_name:null,kcal:parseInt(document.getElementById('pmKcal')?.value)||0,prot:parseInt(document.getElementById('pmProt')?.value)||0,carb:parseInt(document.getElementById('pmCarb')?.value)||0,fat:parseInt(document.getElementById('pmFat')?.value)||0,notes:document.getElementById('pmNotes')?.value||'',createdAt:new Date().toISOString()};
+  const firstCl=pmClients[0]||null;
+  const plan={id:Date.now(),type:'macros',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pmClients.map(c=>c.id),clientNoms:pmClients.map(c=>c.first_name+' '+c.last_name),kcal:parseInt(document.getElementById('pmKcal')?.value)||0,prot:parseInt(document.getElementById('pmProt')?.value)||0,carb:parseInt(document.getElementById('pmCarb')?.value)||0,fat:parseInt(document.getElementById('pmFat')?.value)||0,notes:document.getElementById('pmNotes')?.value||'',createdAt:new Date().toISOString()};
   plans.push(plan);lsSave('fz_plans',plans);dbSave('plans_full',plan);closeM('mMacrosPlan');renderPlansListPage();toast('Plan macros créé ✓');
 }
 
@@ -3062,13 +3066,21 @@ function pfSideTab(tab){
   document.getElementById('pfTabRepas').className='tab'+(tab==='repas'?' active':'');
   if(tab==='repas')pfRenderRepasList();
 }
-function pfUpdateClientBadge(){
-  const el=document.getElementById('pfClientBadge');if(!el)return;
-  const el2=document.getElementById('pfClLbl');
-  const nm=pfClient?(pfClient.first_name+' '+pfClient.last_name):'Aucun client assigné';
-  if(el)el.innerHTML=pfClient?`<span style="padding:3px 9px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:20px;font-size:11px;font-weight:600;color:#8a6010">✓ ${nm}</span>`:'<span style="color:var(--text3)">Aucun client assigné</span>';
-  if(el2)el2.textContent=nm;
+function renderClientBadges(clients,containerId,removeFunc){
+  const el=document.getElementById(containerId);if(!el)return;
+  if(!clients.length){el.innerHTML='<span style="color:var(--text3);font-size:11px">Aucun client assigné</span>';return;}
+  el.innerHTML=clients.map((c,i)=>`<span style="padding:3px 9px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:20px;font-size:11px;font-weight:600;color:#8a6010;display:inline-flex;align-items:center;gap:4px">✓ ${c.first_name} ${c.last_name}<span onclick="${removeFunc}(${i})" style="cursor:pointer;font-size:13px;color:#a07020;margin-left:2px">✕</span></span>`).join('');
 }
+function pfAddClient(c){if(!c||pfClients.find(x=>x.id===c.id))return;pfClients.push(c);pfUpdateClientBadge();}
+function pfRemoveClient(i){pfClients.splice(i,1);pfUpdateClientBadge();}
+function pfUpdateClientBadge(){
+  renderClientBadges(pfClients,'pfClBadges','pfRemoveClient');
+  renderClientBadges(pfClients,'pfClientBadge','pfRemoveClient');
+}
+function progAddClient(c){if(!c||progClients.find(x=>x.id===c.id))return;progClients.push(c);renderClientBadges(progClients,'progClBadges','progRemoveClient');}
+function progRemoveClient(i){progClients.splice(i,1);renderClientBadges(progClients,'progClBadges','progRemoveClient');}
+function pmAddClient(c){if(!c||pmClients.find(x=>x.id===c.id))return;pmClients.push(c);renderClientBadges(pmClients,'pmClBadges','pmRemoveClient');}
+function pmRemoveClient(i){pmClients.splice(i,1);renderClientBadges(pmClients,'pmClBadges','pmRemoveClient');}
 function pfSearchRepas(q){
   pfRenderRepasList(q);
 }
@@ -3175,7 +3187,8 @@ function pfSaveInlineRepas(){
 function savePlanFull(){
   const nom=document.getElementById('pfNom')?.value.trim();if(!nom){toast('Nom du plan requis');return;}
   const t=pfCalcTotal();
-  const plan={id:pfEditId||Date.now(),type:'full',nom,clientId:pfClient?.id||null,clientNom:pfClient?pfClient.first_name+' '+pfClient.last_name:null,kcal:Math.round(t.k),prot:Math.round(t.p),carb:Math.round(t.g),fat:Math.round(t.l),jours:JSON.parse(JSON.stringify(pfDays)),createdAt:new Date().toISOString()};
+  const firstCl=pfClients[0]||null;
+  const plan={id:pfEditId||Date.now(),type:'full',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pfClients.map(c=>c.id),clientNoms:pfClients.map(c=>c.first_name+' '+c.last_name),kcal:Math.round(t.k),prot:Math.round(t.p),carb:Math.round(t.g),fat:Math.round(t.l),jours:JSON.parse(JSON.stringify(pfDays)),createdAt:new Date().toISOString()};
   if(pfEditId){const i=plans.findIndex(p=>p.id===pfEditId);if(i>=0)plans[i]=plan;else plans.push(plan);}else plans.push(plan);
   lsSave('fz_plans',plans);dbSave('plans_full',plan);closePlanBuilder();renderPlansListPage();toast('Plan enregistré ✓');
 }
@@ -3187,7 +3200,7 @@ function renderPlansListPage(){
       <div style="width:38px;height:38px;border-radius:10px;background:${p.type==='full'?'var(--dark)':'var(--gold-pale)'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${p.type==='full'?'🍽️':'📊'}</div>
       <div style="flex:1">
         <div style="font-size:14px;font-weight:700;color:var(--dark)">${p.nom}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.clientNom||'Sans client'} · ${p.kcal||'?'} kcal · P:${p.prot}g G:${p.carb}g L:${p.fat}g</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${(p.clientNoms||p.client_noms||[]).length?(p.clientNoms||p.client_noms).join(', '):(p.clientNom||p.client_nom||'Sans client')} · ${p.kcal||'?'} kcal · P:${p.prot}g G:${p.carb}g L:${p.fat}g</div>
       </div>
       <div style="display:flex;gap:5px" onclick="event.stopPropagation()">
         ${p.type==='full'?`<button class="btn btn-ghost btn-xs" onclick="editFullPlan(${p.id})">✏️</button>`:``}
@@ -3216,10 +3229,10 @@ function renderPlansListPage(){
 function editFullPlan(id){
   const p=plans.find(x=>x.id===id);if(!p)return;
   pfEditId=id;pfDays=JSON.parse(JSON.stringify(p.jours||[{nom:'Jour 1',repas:[]}]));pfDayIdx=0;pfMealIdx=null;
-  const pClId=p.clientId||p.client_id;
-  const pClNom=p.clientNom||p.client_nom||'';
-  pfClient=pClId?allClients.find(c=>c.id===pClId)||null:null;
-  document.getElementById('pfNom').value=p.nom;document.getElementById('pfClIn').value=pClNom;document.getElementById('pfClLbl').textContent=pClNom||'Aucun';
+  pfClients=[];
+  const ids=p.clientIds||p.client_ids||(p.clientId||p.client_id?[p.clientId||p.client_id]:[]);
+  ids.forEach(cid=>{const c=allClients.find(x=>x.id===cid);if(c)pfClients.push(c);});
+  document.getElementById('pfNom').value=p.nom;document.getElementById('pfClIn').value='';
   document.getElementById('planBuilderTitle').textContent='Modifier: '+p.nom;
   pfRenderDays();pfRenderMeals();pfRenderRecent();
   pfUpdateClientBadge();
@@ -3599,10 +3612,14 @@ function toggleSeanceCol(col){
   seanceRenderAll();
 }
 function openProgBuilder(id){
-  if(id){const p=progs.find(x=>x.id===id);if(!p)return;progEditId=id;progDays=JSON.parse(JSON.stringify(p.jours||[]));progDayIdx=0;document.getElementById('progNom').value=p.nom;document.getElementById('progTags').value=(p.tags||[]).join(', ');document.getElementById('progDesc').value=p.desc||'';document.getElementById('progBuilderTitle').textContent='Modifier: '+p.nom;}
-  else{progEditId=null;progDays=[{nom:'Jour 1',warmup:[],workout:[],cooldown:[]}];progDayIdx=0;document.getElementById('progNom').value='';document.getElementById('progTags').value='';document.getElementById('progDesc').value='';document.getElementById('progBuilderTitle').textContent='Nouveau programme';}
-  progClient=null;
-  document.getElementById('progClIn').value='';document.getElementById('progClLbl').textContent='Aucun';
+  if(id){const p=progs.find(x=>x.id===id);if(!p)return;progEditId=id;progDays=JSON.parse(JSON.stringify(p.jours||[]));progDayIdx=0;document.getElementById('progNom').value=p.nom;document.getElementById('progTags').value=(p.tags||[]).join(', ');document.getElementById('progDesc').value=p.desc||p.description||'';document.getElementById('progBuilderTitle').textContent='Modifier: '+p.nom;
+    // Restore assigned clients
+    progClients=[];
+    const ids=p.clientIds||p.client_ids||(p.clientId||p.client_id?[p.clientId||p.client_id]:[]);
+    ids.forEach(cid=>{const c=allClients.find(x=>x.id===cid);if(c)progClients.push(c);});
+  }
+  else{progEditId=null;progDays=[{nom:'Jour 1',warmup:[],workout:[],cooldown:[]}];progDayIdx=0;document.getElementById('progNom').value='';document.getElementById('progTags').value='';document.getElementById('progDesc').value='';document.getElementById('progBuilderTitle').textContent='Nouveau programme';progClients=[];}
+  document.getElementById('progClIn').value='';renderClientBadges(progClients,'progClBadges','progRemoveClient');
   const importSel=document.getElementById('progImportSel');
   if(importSel)importSel.innerHTML='<option value="">— Choisir une séance —</option>'+seances.map(s=>`<option value="${s.id}">${s.nom}</option>`).join('');
   progRenderDays();filterLib('');
@@ -3622,9 +3639,9 @@ function openProgBuilderForClient(){
   openSub('sub-train','arr-tr');
   setTimeout(()=>{
     openProgBuilder();
-    progClient=cl;
-    document.getElementById('progClIn').value=cl.first_name+' '+cl.last_name;
-    document.getElementById('progClLbl').textContent=cl.first_name+' '+cl.last_name;
+    progClients=[cl];
+    document.getElementById('progClIn').value='';
+    renderClientBadges(progClients,'progClBadges','progRemoveClient');
   },200);
 }
 function progRenderDays(){
@@ -3987,7 +4004,8 @@ function libAddExo(idx){
 function saveProg(){
   const nom=document.getElementById('progNom')?.value.trim();if(!nom){toast('Titre requis');return;}
   const tags=document.getElementById('progTags')?.value.split(',').map(t=>t.trim()).filter(Boolean);
-  const prog={id:progEditId||Date.now(),nom,tags,desc:document.getElementById('progDesc')?.value||'',jours:JSON.parse(JSON.stringify(progDays)),clientId:progClient?.id||null,clientNom:progClient?(progClient.first_name+' '+progClient.last_name):null,createdAt:new Date().toISOString()};
+  const firstCl=progClients[0]||null;
+  const prog={id:progEditId||Date.now(),nom,tags,desc:document.getElementById('progDesc')?.value||'',jours:JSON.parse(JSON.stringify(progDays)),clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:progClients.map(c=>c.id),clientNoms:progClients.map(c=>c.first_name+' '+c.last_name),createdAt:new Date().toISOString()};
   if(progEditId){const i=progs.findIndex(p=>p.id===progEditId);if(i>=0)progs[i]=prog;else progs.push(prog);}else progs.push(prog);
   lsSave('fz_progs',progs);dbSave('programs',prog);closeProgBuilder();toast('Programme enregistré ✓');
 }
@@ -4011,7 +4029,7 @@ function renderProgList(){
         <div style="width:38px;height:38px;border-radius:10px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">💪</div>
         <div style="flex:1">
           <div style="font-size:14px;font-weight:700;color:var(--dark)">${p.nom}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">${(p.jours||[]).length} jours · ${totalSets} séries/semaine · ${new Date(p.createdAt).toLocaleDateString('fr-FR')}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${(p.clientNoms||p.client_noms||[]).length?(p.clientNoms||p.client_noms).join(', ')+' · ':''}${(p.jours||[]).length} jours · ${totalSets} séries/semaine · ${new Date(p.createdAt).toLocaleDateString('fr-FR')}</div>
           <div style="margin-top:5px">${(p.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
         </div>
         <div style="display:flex;gap:5px" onclick="event.stopPropagation()">
@@ -4474,10 +4492,11 @@ function saveSettings(){
 function updateOv(){txt('ov-mod',modules.length+' module'+(modules.length!==1?'s':''));txt('ov-team',team.length+' coach'+(team.length!==1?'s':''));}
 
 /* ===== SEARCH SELECT ===== */
-function ssF(inId,dropId,getList,onSel){
+function ssF(inId,dropId,getList,onSel,excludeIds){
   const q=document.getElementById(inId)?.value||'',d=document.getElementById(dropId);if(!d)return;
-  const list=getList();
-  const res=q?list.filter(c=>(c.first_name+' '+c.last_name+' '+(c.email||'')).toLowerCase().includes(q.toLowerCase())).slice(0,8):list.slice(0,8);
+  let list=getList();
+  if(excludeIds&&excludeIds.length)list=list.filter(c=>!excludeIds.includes(c.id));
+  const res=q?list.filter(c=>(c.first_name+' '+c.last_name+' '+(c.email||'')).toLowerCase().includes(q.toLowerCase())).slice(0,12):list.slice(0,12);
   window['_ssRes_'+dropId]=res;window['_ssOnSel_'+dropId]=onSel;
   d.innerHTML=res.length
     ? res.map((c,i)=>`<div class="ss-item" onmousedown="ssSelect('${inId}','${dropId}',${i})"><div style="font-weight:600">${c.first_name||''} ${c.last_name||''}</div><div class="ss-item-sub">${c.email||''}</div></div>`).join('')
@@ -4487,7 +4506,7 @@ function ssF(inId,dropId,getList,onSel){
 function ssSelect(inId,dropId,idx){
   const res=window['_ssRes_'+dropId]||[];
   const c=res[idx];if(!c)return;
-  const el=document.getElementById(inId);if(el)el.value=(c.first_name||'')+' '+(c.last_name||'');
+  const el=document.getElementById(inId);if(el)el.value='';
   document.getElementById(dropId)?.classList.remove('open');
   const cb=window['_ssOnSel_'+dropId];if(cb)cb(c);
 }
@@ -4506,7 +4525,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const st=document.getElementById('sFirst');if(st){const saved=lsGet('fz_settings',{});if(saved.first)st.value=saved.first;if(saved.last)document.getElementById('sLast').value=saved.last;if(saved.gym)document.getElementById('sGym').value=saved.gym;if(saved.first||saved.last){txt('sbNm',(saved.first||'')+(saved.last?' '+(saved.last[0]||'').toLowerCase()+'.':''));txt('ovNm',(saved.first||'')+' '+(saved.last||''));txt('sbAv',((saved.first||'?')[0]+((saved.last||'?')[0]||'?')).toUpperCase());txt('ovAv',((saved.first||'?')[0]+((saved.last||'?')[0]||'?')).toUpperCase());}if(saved.gym){txt('ovGym',saved.gym);}}
   // Injecter modal plan macros dynamiquement
   const mDiv=document.createElement('div');mDiv.className='overlay';mDiv.id='mMacrosPlan';
-  mDiv.innerHTML=`<div class="modal"><div class="mh"><div class="mt">Nouveau plan macros</div><button class="mc" onclick="closeM('mMacrosPlan')">✕</button></div><div class="mb"><div class="fg"><label class="fl">Nom du plan *</label><input class="fi" id="pmNom" placeholder="Plan déficit — Semaine 1"></div><div class="fg"><label class="fl">Client <span class="fl-o">— assigner plus tard</span></label><div class="ss-wrap"><span class="ss-ico">👤</span><input class="ss-input" id="pmClIn" placeholder="Rechercher…" oninput="ssF('pmClIn','pmClDrop',()=>allClients,v=>{pmClient=v;document.getElementById('pmClLbl').textContent=v?v.first_name+' '+v.last_name:'Aucun'})" onfocus="openDrop('pmClDrop')" autocomplete="off"><div class="ss-drop" id="pmClDrop"></div></div><div id="pmClLbl" style="font-size:11px;color:var(--text3);margin-top:3px">Aucun</div></div><div class="fr2"><div class="fg"><label class="fl">Calories</label><input class="fi" type="number" id="pmKcal" placeholder="2000"></div><div class="fg"><label class="fl">Protéines (g)</label><input class="fi" type="number" id="pmProt" placeholder="160"></div></div><div class="fr2"><div class="fg"><label class="fl">Glucides (g)</label><input class="fi" type="number" id="pmCarb" placeholder="200"></div><div class="fg"><label class="fl">Lipides (g)</label><input class="fi" type="number" id="pmFat" placeholder="70"></div></div><div class="fg"><label class="fl">Notes</label><textarea class="fta" id="pmNotes" style="min-height:55px" placeholder="Contexte…"></textarea></div></div><div class="mf"><button class="btn btn-ghost" onclick="closeM('mMacrosPlan')">Annuler</button><button class="btn btn-dark" onclick="saveMacrosPlan()">Créer</button></div></div>`;
+  mDiv.innerHTML=`<div class="modal"><div class="mh"><div class="mt">Nouveau plan macros</div><button class="mc" onclick="closeM('mMacrosPlan')">✕</button></div><div class="mb"><div class="fg"><label class="fl">Nom du plan *</label><input class="fi" id="pmNom" placeholder="Plan déficit — Semaine 1"></div><div class="fg"><label class="fl">Client(s) <span class="fl-o">— assigner plus tard</span></label><div class="ss-wrap"><span class="ss-ico">👤</span><input class="ss-input" id="pmClIn" placeholder="Rechercher un client…" oninput="ssF('pmClIn','pmClDrop',()=>allClients,v=>{pmAddClient(v)},pmClients.map(c=>c.id))" onfocus="ssF('pmClIn','pmClDrop',()=>allClients,v=>{pmAddClient(v)},pmClients.map(c=>c.id))" autocomplete="off"><div class="ss-drop" id="pmClDrop"></div></div><div id="pmClBadges" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px"></div></div><div class="fr2"><div class="fg"><label class="fl">Calories</label><input class="fi" type="number" id="pmKcal" placeholder="2000"></div><div class="fg"><label class="fl">Protéines (g)</label><input class="fi" type="number" id="pmProt" placeholder="160"></div></div><div class="fr2"><div class="fg"><label class="fl">Glucides (g)</label><input class="fi" type="number" id="pmCarb" placeholder="200"></div><div class="fg"><label class="fl">Lipides (g)</label><input class="fi" type="number" id="pmFat" placeholder="70"></div></div><div class="fg"><label class="fl">Notes</label><textarea class="fta" id="pmNotes" style="min-height:55px" placeholder="Contexte…"></textarea></div></div><div class="mf"><button class="btn btn-ghost" onclick="closeM('mMacrosPlan')">Annuler</button><button class="btn btn-dark" onclick="saveMacrosPlan()">Créer</button></div></div>`;
   document.body.appendChild(mDiv);
   document.getElementById('sQUrl').textContent=QBASE;
 });
