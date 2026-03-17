@@ -430,7 +430,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 
     <div class="sb-item" onclick="showPage('learning',this)" id="nav-lr"><span class="sb-ico">🎓</span>Learning</div>
 
-    <div class="sb-item" onclick="toggleSub('sub-recruit',this,'arr-rec')" id="nav-rec-p">
+    <div class="sb-item" onclick="toggleSub('sub-recruit',this,'arr-rec')" id="nav-rec-p" style="display:none">
       <span class="sb-ico">📝</span>Recrutement<span class="sb-arrow" id="arr-rec">›</span>
     </div>
     <div class="sb-submenu" id="sub-recruit">
@@ -1577,6 +1577,7 @@ async function checkAuth(){
     document.getElementById('admin-sec').style.display='';
     document.getElementById('nav-ac').style.display='';
     document.getElementById('nav-acl').style.display='';
+    document.getElementById('nav-rec-p').style.display='';
   }
   // Update sidebar with coach info
   const nm=(currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'');
