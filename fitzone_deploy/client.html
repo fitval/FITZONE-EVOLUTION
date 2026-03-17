@@ -25,8 +25,8 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html { height:100%; overflow:hidden; }
-body { background:var(--bg); color:var(--text); font-family:var(--font); height:100%; -webkit-font-smoothing:antialiased; overflow:hidden; position:fixed; width:100%; }
+html,body { height:100%; overflow:hidden; margin:0; position:fixed; width:100%; }
+body { background:var(--bg); color:var(--text); font-family:var(--font); -webkit-font-smoothing:antialiased; }
 
 /* === FULLSCREEN STATES === */
 .fs { min-height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 24px; background:var(--bg); }
@@ -39,7 +39,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 /* === APP SHELL === */
 #app { display:none; }
 .scroll-area { padding:0 20px 100px 20px; overflow-y:auto; -webkit-overflow-scrolling:touch; height:calc(100% - var(--tab-h) - var(--safe-b)); position:fixed; top:0; left:0; right:0; overscroll-behavior:none; }
-.tab-bar { position:fixed; bottom:0; left:0; right:0; background:var(--white); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-around; height:var(--tab-h); min-height:var(--tab-h); padding-bottom:var(--safe-b); z-index:100; transform:translateZ(0); -webkit-transform:translateZ(0); }
+.tab-bar { position:fixed; bottom:0; left:0; right:0; background:var(--white); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-around; height:calc(var(--tab-h) + var(--safe-b)); padding-bottom:var(--safe-b); z-index:100; transform:translate3d(0,0,0); will-change:transform; }
 .tab-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; height:100%; border:none; background:none; color:var(--text3); font-size:10px; font-weight:500; cursor:pointer; transition:color .2s; gap:3px; }
 .tab-btn svg { width:24px; height:24px; transition:all .2s; }
 .tab-btn.active { color:var(--dark); }
@@ -728,7 +728,7 @@ function renderTrainPreview(){
     });
   });
 
-  h+=`<div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:20px;right:20px;z-index:150"><button class="btn-gold" style="margin:0;box-shadow:0 4px 20px rgba(196,154,42,.4)" onclick="startWorkout()">Lancer la séance</button></div>`;
+  h+=`<div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(196,154,42,.4);font-size:15px" onclick="startWorkout()">Lancer la séance</button></div>`;
   document.getElementById('trainContent').innerHTML=h;
 }
 
