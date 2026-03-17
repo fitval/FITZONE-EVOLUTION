@@ -25,8 +25,8 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html,body { height:100%; overflow:hidden; margin:0; position:fixed; width:100%; }
-body { background:var(--bg); color:var(--text); font-family:var(--font); -webkit-font-smoothing:antialiased; }
+html { height:100%; }
+body { background:var(--bg); color:var(--text); font-family:var(--font); height:100dvh; margin:0; overflow:hidden; -webkit-font-smoothing:antialiased; }
 
 /* === FULLSCREEN STATES === */
 .fs { min-height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 24px; background:var(--bg); }
@@ -37,9 +37,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); -webkit
 @keyframes spin { to { transform:rotate(360deg); } }
 
 /* === APP SHELL === */
-#app { display:none; }
-.scroll-area { padding:0 20px 100px 20px; overflow-y:auto; -webkit-overflow-scrolling:touch; height:calc(100% - var(--tab-h) - var(--safe-b)); position:fixed; top:0; left:0; right:0; overscroll-behavior:none; }
-.tab-bar { position:fixed; bottom:0; left:0; right:0; background:var(--white); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-around; height:calc(var(--tab-h) + var(--safe-b)); padding-bottom:var(--safe-b); z-index:100; transform:translate3d(0,0,0); will-change:transform; }
+.scroll-area { padding:0 20px 20px 20px; padding-bottom:calc(var(--tab-h) + var(--safe-b) + 20px); overflow-y:auto; -webkit-overflow-scrolling:touch; height:100dvh; overscroll-behavior-y:none; }
+.tab-bar { position:fixed; bottom:0; left:0; right:0; background:var(--white); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-around; height:calc(var(--tab-h) + var(--safe-b)); padding-bottom:var(--safe-b); z-index:100; transform:translate3d(0,0,0); -webkit-backface-visibility:hidden; backface-visibility:hidden; }
 .tab-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; height:100%; border:none; background:none; color:var(--text3); font-size:10px; font-weight:500; cursor:pointer; transition:color .2s; gap:3px; }
 .tab-btn svg { width:24px; height:24px; transition:all .2s; }
 .tab-btn.active { color:var(--dark); }
@@ -937,21 +936,43 @@ function validateSet(ei,si){
   renderActiveWorkout();
 }
 
+let restEndTime=0;
 function startRestTimer(sec){
   clearInterval(restTimerInterval);
-  let remaining=sec;
+  restEndTime=Date.now()+sec*1000;
   const ov=document.getElementById('restOverlay');
   const rt=document.getElementById('restTime');
   ov.classList.add('show');
-  rt.textContent=fmtTimer(remaining);
+  rt.textContent=fmtTimer(sec);
   restTimerInterval=setInterval(()=>{
-    remaining--;
-    if(remaining<=0){skipRest();return;}
+    const remaining=Math.ceil((restEndTime-Date.now())/1000);
+    if(remaining<=0){
+      clearInterval(restTimerInterval);
+      ov.classList.remove('show');
+      // Vibrate when done
+      if(navigator.vibrate)navigator.vibrate([200,100,200,100,300]);
+      return;
+    }
     rt.textContent=fmtTimer(remaining);
-  },1000);
+  },250);
 }
+// Resume timer when app comes back from background
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&restEndTime>0&&document.getElementById('restOverlay').classList.contains('show')){
+    const remaining=Math.ceil((restEndTime-Date.now())/1000);
+    if(remaining<=0){
+      clearInterval(restTimerInterval);
+      document.getElementById('restOverlay').classList.remove('show');
+      if(navigator.vibrate)navigator.vibrate([200,100,200,100,300]);
+      restEndTime=0;
+    }else{
+      document.getElementById('restTime').textContent=fmtTimer(remaining);
+    }
+  }
+});
 function skipRest(){
   clearInterval(restTimerInterval);
+  restEndTime=0;
   document.getElementById('restOverlay').classList.remove('show');
 }
 

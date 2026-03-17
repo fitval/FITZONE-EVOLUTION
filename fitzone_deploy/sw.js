@@ -1,4 +1,4 @@
-const CACHE='fitzone-v2';
+const CACHE='fitzone-v3';
 const ASSETS=[
   './client.html',
   './client-login.html',
