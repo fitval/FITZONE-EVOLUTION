@@ -587,7 +587,14 @@ async function saveProfile(){
   const upd={first_name:fn,last_name:ln,email:em};
   if(profilePhotoData)upd.photo=profilePhotoData;
   else if(clientData.photo&&!profilePhotoData)upd.photo=null;
-  const{error}=await db.from('clients').update(upd).eq('id',clientData.id);
+  let error;
+  if(clientAuthMode==='anon'){
+    const{error:e}=await db.rpc('client_update_profile',{p_token:clientData.token,p_first_name:fn,p_last_name:ln,p_email:em,p_photo:upd.photo||null});
+    error=e;
+  } else {
+    const{error:e}=await db.from('clients').update(upd).eq('id',clientData.id);
+    error=e;
+  }
   btn.disabled=false;btn.textContent='Enregistrer';
   if(error){toast('Erreur: '+error.message);return;}
   clientData.first_name=fn;clientData.last_name=ln;clientData.email=em;
@@ -904,18 +911,27 @@ async function finalizeWorkout(){
       sets:ex.sets.filter(s=>s.done||s.kg||s.repsActual||s.rirActual).map(s=>({kg:s.kg||'',reps:s.repsActual||'',rir:s.rirActual||'',load:s.kg||''}))
     }));
     console.log('[WORKOUT SAVE]',JSON.stringify(exercises));
-    const logData={coach_id:clientData.coach_id,client_id:clientData.id,session_name:sessionName,date:today(),exercises};
-    if(rpe)logData.cycle=rpe;
-    if(comment)logData.comment=comment;
-    const{error}=await db.from('train_logs').insert(logData);
-    if(error)console.error('[WORKOUT SAVE ERROR]',error);
-    // Save RPE + comment as daily log note
-    if(rpe||comment){
-      const existing=dailyLogs.find(l=>l.date===today());
-      const extra={'RPE séance':rpe};
-      if(comment)extra['Commentaire séance']=comment;
-      if(existing){await db.from('daily_logs').update({data:{...existing.data,...extra}}).eq('id',existing.id);}
-      else{await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:today(),data:extra});}
+    if(clientAuthMode==='anon'){
+      const{error}=await db.rpc('client_insert_train_log',{p_token:clientData.token,p_session_name:sessionName,p_date:today(),p_exercises:exercises,p_cycle:rpe||null,p_comment:comment||null});
+      if(error)console.error('[WORKOUT SAVE ERROR]',error);
+      if(rpe||comment){
+        const existing=dailyLogs.find(l=>l.date===today());
+        const extra={'RPE séance':rpe};if(comment)extra['Commentaire séance']=comment;
+        const mergedData=existing?{...existing.data,...extra}:extra;
+        await db.rpc('client_upsert_daily_log',{p_token:clientData.token,p_date:today(),p_data:mergedData,p_existing_id:existing?existing.id:null});
+      }
+    } else {
+      const logData={coach_id:clientData.coach_id,client_id:clientData.id,session_name:sessionName,date:today(),exercises};
+      if(rpe)logData.cycle=rpe;
+      if(comment)logData.comment=comment;
+      const{error}=await db.from('train_logs').insert(logData);
+      if(error)console.error('[WORKOUT SAVE ERROR]',error);
+      if(rpe||comment){
+        const existing=dailyLogs.find(l=>l.date===today());
+        const extra={'RPE séance':rpe};if(comment)extra['Commentaire séance']=comment;
+        if(existing){await db.from('daily_logs').update({data:{...existing.data,...extra}}).eq('id',existing.id);}
+        else{await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:today(),data:extra});}
+      }
     }
     toast('Séance enregistrée !');
     const{data}=await db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30);
@@ -1352,7 +1368,14 @@ async function submitBilan(){
   const bic=document.getElementById('bilanBiceps').value;if(bic)rep.biceps=bic;
   const nom=document.getElementById('bilanNombril').value;if(nom)rep.nombril=nom;
   const poi=document.getElementById('bilanPoitrine').value;if(poi)rep.poitrine=poi;
-  const{error}=await db.from('bilans').insert({coach_id:clientData.coach_id,client_id:clientData.id,titre:'Bilan du '+fmtDate(d),date:d,photos:bilanPhotos,reponses:rep,read:false});
+  let error;
+  if(clientAuthMode==='anon'){
+    const{error:e}=await db.rpc('client_insert_bilan',{p_token:clientData.token,p_titre:'Bilan du '+fmtDate(d),p_date:d,p_photos:bilanPhotos,p_reponses:rep});
+    error=e;
+  } else {
+    const{error:e}=await db.from('bilans').insert({coach_id:clientData.coach_id,client_id:clientData.id,titre:'Bilan du '+fmtDate(d),date:d,photos:bilanPhotos,reponses:rep,read:false});
+    error=e;
+  }
   if(error){toast('Erreur: '+error.message);return;}
   toast('Bilan envoyé !');bilanAttitude=0;
   const{data}=await db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false});bilans=data||[];renderBilanList();
@@ -1418,11 +1441,16 @@ async function saveSuivi(){
   if(ctx&&ctx.value.trim())data['Contexte']=ctx.value.trim();
 
   const existing=dailyLogs.find(l=>l.date===suiviDate);
-  if(existing){
-    const merged={...existing.data,...data};
-    await db.from('daily_logs').update({data:merged}).eq('id',existing.id);
+  if(clientAuthMode==='anon'){
+    const mergedData=existing?{...existing.data,...data}:data;
+    await db.rpc('client_upsert_daily_log',{p_token:clientData.token,p_date:suiviDate,p_data:mergedData,p_existing_id:existing?existing.id:null});
   } else {
-    await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:suiviDate,data});
+    if(existing){
+      const merged={...existing.data,...data};
+      await db.from('daily_logs').update({data:merged}).eq('id',existing.id);
+    } else {
+      await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:suiviDate,data});
+    }
   }
   toast('Données enregistrées !');
   const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
@@ -1640,10 +1668,14 @@ async function saveEstToLog(){
   data['Contexte']=data['Contexte']?data['Contexte']+'\n'+ctxLine:ctxLine;
 
   try{
-    if(existing){
-      await db.from('daily_logs').update({data}).eq('id',existing.id);
+    if(clientAuthMode==='anon'){
+      await db.rpc('client_upsert_daily_log',{p_token:clientData.token,p_date:today(),p_data:data,p_existing_id:existing?existing.id:null});
     } else {
-      await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:today(),data});
+      if(existing){
+        await db.from('daily_logs').update({data}).eq('id',existing.id);
+      } else {
+        await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:today(),data});
+      }
     }
     const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
     dailyLogs=nl||[];
