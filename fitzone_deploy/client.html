@@ -1453,6 +1453,9 @@ async function submitBilan(){
     // Update existing bilan
     const{error:e}=await db.from('bilans').update({titre:'Bilan du '+fmtDate(d),date:d,photos:uploadedPhotos,reponses:rep,read:false}).eq('id',bilanEditId);
     error=e;
+  } else if(clientAuthMode==='anon'){
+    const{error:e}=await db.rpc('client_insert_bilan',{p_token:clientData.token,p_titre:'Bilan du '+fmtDate(d),p_date:d,p_photos:uploadedPhotos,p_reponses:rep});
+    error=e;
   } else {
     const{error:e}=await db.from('bilans').insert({coach_id:clientData.coach_id,client_id:clientData.id,titre:'Bilan du '+fmtDate(d),date:d,photos:uploadedPhotos,reponses:rep,read:false});
     error=e;
