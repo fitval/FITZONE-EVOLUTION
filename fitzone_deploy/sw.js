@@ -1,4 +1,4 @@
-const CACHE='fitzone-v3';
+const CACHE='fitzone-v4';
 const ASSETS=[
   './client.html',
   './client-login.html',
@@ -20,7 +20,11 @@ self.addEventListener('activate',e=>{
 });
 
 self.addEventListener('fetch',e=>{
-  // Network first, cache fallback
+  // Skip caching for API calls and non-GET requests
+  if(e.request.method!=='GET'||e.request.url.includes('supabase.co')||e.request.url.includes('googleapis.com')||e.request.url.includes('script.google.com')){
+    return;
+  }
+  // Network first, cache fallback (static assets only)
   e.respondWith(
     fetch(e.request).then(res=>{
       if(res.ok){
