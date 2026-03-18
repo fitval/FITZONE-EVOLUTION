@@ -1717,9 +1717,17 @@ async function saveEstToLog(){
 
 /* ===== PWA INSTALL ===== */
 (function initPWA(){
-  // Register service worker
+  // Register service worker + force update
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      reg.update();
+      if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'});
+      reg.addEventListener('updatefound',()=>{
+        const nw=reg.installing;
+        if(nw)nw.addEventListener('statechange',()=>{if(nw.state==='installed'&&navigator.serviceWorker.controller)nw.postMessage({type:'SKIP_WAITING'});});
+      });
+    }).catch(()=>{});
+    navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload());
   }
 
   // Detect environment

@@ -1,4 +1,4 @@
-const CACHE='fitzone-v4';
+const CACHE='fitzone-v5';
 const ASSETS=[
   './client.html',
   './client-login.html',
@@ -8,6 +8,10 @@ const ASSETS=[
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));
   self.skipWaiting();
+});
+
+self.addEventListener('message',e=>{
+  if(e.data&&e.data.type==='SKIP_WAITING')self.skipWaiting();
 });
 
 self.addEventListener('activate',e=>{
