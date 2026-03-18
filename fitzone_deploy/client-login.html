@@ -477,12 +477,9 @@ async function doNewPassword() {
     return;
   }
 
-  // Sign out so user logs in fresh with new password
-  await db.auth.signOut();
-
-  // Show confirmation view
-  document.getElementById('view-newpw').classList.remove('active');
-  document.getElementById('view-confirmed').classList.add('active');
+  // Password set — redirect directly to client app (shows waiting page if not yet active)
+  btn.innerHTML = '<span class="sp"></span> Redirection...';
+  window.location.href = 'client.html';
 }
 
 // Enter key support
