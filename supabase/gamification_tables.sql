@@ -151,9 +151,7 @@ CREATE POLICY "client_insert_own_reward_requests" ON public.reward_requests FOR 
 CREATE POLICY "client_read_coach_rewards" ON public.coach_rewards FOR SELECT TO authenticated
   USING (coach_id IN (SELECT coach_id FROM public.clients WHERE user_id = auth.uid()));
 
--- Anon reads for leaderboard (via RPC only, but allow select for client_points with leaderboard)
-CREATE POLICY "anon_read_leaderboard" ON public.client_points FOR SELECT TO anon
-  USING (leaderboard_opt_in = true);
+-- Anon leaderboard access via RPC only (no direct SELECT for anon)
 
 -- ============================================================
 -- RPC: client_award_points (SECURITY DEFINER — anon safe)
@@ -178,6 +176,11 @@ BEGIN
   SELECT id, coach_id INTO v_client FROM public.clients WHERE token = p_token::uuid;
   IF v_client.id IS NULL THEN
     RAISE EXCEPTION 'Token invalide';
+  END IF;
+
+  -- Validate metadata size (max 1KB)
+  IF length(p_metadata::text) > 1024 THEN
+    RETURN json_build_object('success', false, 'reason', 'metadata_too_large');
   END IF;
 
   -- Daily cap check per action
@@ -212,9 +215,9 @@ BEGIN
     END;
   END IF;
 
-  -- Get or create client_points
+  -- Get or create client_points (FOR UPDATE to prevent race conditions)
   v_current_month := to_char(now(), 'YYYY-MM');
-  SELECT * INTO v_cp FROM public.client_points WHERE client_id = v_client.id;
+  SELECT * INTO v_cp FROM public.client_points WHERE client_id = v_client.id FOR UPDATE;
   IF v_cp.id IS NULL THEN
     INSERT INTO public.client_points (client_id, coach_id, total_points, monthly_points, usable_balance, level, current_month)
     VALUES (v_client.id, v_client.coach_id, 0, 0, 0, 'bronze', v_current_month)
@@ -282,6 +285,11 @@ BEGIN
     RAISE EXCEPTION 'Token invalide';
   END IF;
 
+  -- Validate badge key against whitelist
+  IF p_badge_key NOT IN ('first_workout','finisher','centurion','workout_10','workout_50','first_nutrition','week_perfect_nutrition','month_perfect_nutrition','first_report','streak_8','streak_30','photos_10','level_silver','level_gold','level_platinum','level_elite','rocket_start','bilan_5','steps_champion','champion') THEN
+    RETURN json_build_object('success', false, 'reason', 'invalid_badge');
+  END IF;
+
   INSERT INTO public.client_badges (client_id, badge_key)
   VALUES (v_client.id, p_badge_key)
   ON CONFLICT (client_id, badge_key) DO NOTHING;
@@ -315,7 +323,7 @@ BEGIN
     RAISE EXCEPTION 'Récompense introuvable';
   END IF;
 
-  SELECT * INTO v_cp FROM public.client_points WHERE client_id = v_client.id;
+  SELECT * INTO v_cp FROM public.client_points WHERE client_id = v_client.id FOR UPDATE;
   IF v_cp.id IS NULL OR v_cp.usable_balance < v_reward.cost THEN
     RETURN json_build_object('success', false, 'reason', 'insufficient_balance');
   END IF;

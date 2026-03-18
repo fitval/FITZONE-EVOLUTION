@@ -6083,7 +6083,7 @@ function renderRewardsSettings(){
 }
 
 async function toggleRewardActive(id,active){
-  await db.from('coach_rewards').update({active}).eq('id',id);
+  await db.from('coach_rewards').update({active}).eq('id',id).eq('coach_id',currentCoach.id);
   const r=allCoachRewards.find(x=>x.id===id);if(r)r.active=active;
   toast(active?'Récompense activée':'Récompense désactivée');
 }
@@ -6127,7 +6127,7 @@ async function updateReward(id){
   const desc=document.getElementById('rwDesc').value.trim();
   const cost=parseInt(document.getElementById('rwCost').value)||500;
   if(!name){toast('Nom requis');return;}
-  await db.from('coach_rewards').update({name,description:desc,cost}).eq('id',id);
+  await db.from('coach_rewards').update({name,description:desc,cost}).eq('id',id).eq('coach_id',currentCoach.id);
   const r=allCoachRewards.find(x=>x.id===id);
   if(r){r.name=name;r.description=desc;r.cost=cost;}
   closeM('mNewClient');
@@ -6137,7 +6137,7 @@ async function updateReward(id){
 
 async function deleteReward(id){
   if(!confirm('Supprimer cette récompense ?'))return;
-  await db.from('coach_rewards').delete().eq('id',id);
+  await db.from('coach_rewards').delete().eq('id',id).eq('coach_id',currentCoach.id);
   allCoachRewards=allCoachRewards.filter(x=>x.id!==id);
   renderRewardsSettings();
   toast('Récompense supprimée');
@@ -6160,7 +6160,7 @@ function renderRewardRequestsPage(){
       const name=cl?(cl.first_name+' '+(cl.last_name||'')):r.client_id;
       return`<div class="card cp" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:12px">
         <div style="flex:1"><div style="font-weight:700">${esc(name)}</div><div style="font-size:13px;color:var(--text2)">${esc(r.reward_name)} · ${r.cost} pts</div><div style="font-size:11px;color:var(--text3)">${new Date(r.created_at).toLocaleDateString('fr-FR')}</div></div>
-        <button class="btn btn-gold btn-sm" onclick="approveReward('${r.id}','${r.client_id}',${r.cost})">✅ Approuver</button>
+        <button class="btn btn-gold btn-sm" onclick="approveReward('${r.id}')">✅ Approuver</button>
         <button class="btn btn-danger btn-sm" onclick="denyReward('${r.id}')">❌ Refuser</button>
       </div></div>`;
     }).join('');
@@ -6179,30 +6179,34 @@ function renderRewardRequestsPage(){
   el.innerHTML=h;
 }
 
-async function approveReward(reqId,clientId,cost){
+async function approveReward(reqId){
+  // Read request from local data — verify ownership
+  const rr=allRewardRequests.find(r=>r.id===reqId);
+  if(!rr||rr.coach_id!==currentCoach.id){toast('Non autorisé');return;}
+  const clientId=rr.client_id;
+  const cost=rr.cost; // Use DB cost, not parameter
   // Deduct points from client
   const cp=allClientPoints[clientId];
   if(cp){
     const newBalance=Math.max(0,cp.usable_balance-cost);
-    await db.from('client_points').update({usable_balance:newBalance}).eq('client_id',clientId);
+    await db.from('client_points').update({usable_balance:newBalance}).eq('client_id',clientId).eq('coach_id',currentCoach.id);
     cp.usable_balance=newBalance;
   }
-  await db.from('reward_requests').update({status:'approved',resolved_at:new Date().toISOString()}).eq('id',reqId);
-  // Send notification to client
-  const rr=allRewardRequests.find(r=>r.id===reqId);
-  await db.from('notifications').insert({client_id:clientId,type:'reward',title:'Récompense approuvée !',body:`Ta demande "${rr?rr.reward_name:''}" a été approuvée par ton coach.`});
-  const r=allRewardRequests.find(x=>x.id===reqId);if(r)r.status='approved';
+  await db.from('reward_requests').update({status:'approved',resolved_at:new Date().toISOString()}).eq('id',reqId).eq('coach_id',currentCoach.id);
+  await db.from('notifications').insert({client_id:clientId,type:'reward',title:'Récompense approuvée !',body:'Ta demande "'+esc(rr.reward_name)+'" a été approuvée par ton coach.'});
+  rr.status='approved';
   toast('Récompense approuvée ✓');
   renderRewardRequestsPage();
   updateRRBadge();
 }
 
 async function denyReward(reqId){
-  const note=prompt('Raison du refus (optionnel):');
-  await db.from('reward_requests').update({status:'denied',coach_note:note||null,resolved_at:new Date().toISOString()}).eq('id',reqId);
   const rr=allRewardRequests.find(r=>r.id===reqId);
-  await db.from('notifications').insert({client_id:rr?.client_id,type:'reward',title:'Demande refusée',body:`Ta demande "${rr?rr.reward_name:''}" a été refusée.${note?' Raison: '+note:''}`});
-  const r=allRewardRequests.find(x=>x.id===reqId);if(r){r.status='denied';r.coach_note=note;}
+  if(!rr||rr.coach_id!==currentCoach.id){toast('Non autorisé');return;}
+  const note=(prompt('Raison du refus (optionnel):')||'').replace(/[<>]/g,'');
+  await db.from('reward_requests').update({status:'denied',coach_note:note||null,resolved_at:new Date().toISOString()}).eq('id',reqId).eq('coach_id',currentCoach.id);
+  await db.from('notifications').insert({client_id:rr.client_id,type:'reward',title:'Demande refusée',body:'Ta demande "'+esc(rr.reward_name)+'" a été refusée.'+(note?' Raison: '+esc(note):'')});
+  rr.status='denied';rr.coach_note=note;
   toast('Demande refusée');
   renderRewardRequestsPage();
   updateRRBadge();

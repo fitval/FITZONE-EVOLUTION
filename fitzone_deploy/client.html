@@ -704,9 +704,7 @@ async function loadData(){
   ]);
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   // Load gamification data
-  console.log('[INIT] loadData done, calling loadGamification, authMode='+clientAuthMode+', token='+(clientData.token?'yes':'no'));
   await loadGamification();
-  console.log('[INIT] loadGamification done, clientPoints=',clientPoints);
 }
 
 /* ===== TABS ===== */
@@ -1964,9 +1962,7 @@ async function loadGamification(){
   try{
     if(clientAuthMode==='anon'){
       const{data,error}=await db.rpc('client_get_gamification',{p_token:clientData.token});
-      if(error){console.error('[GAMIF RPC ERROR]',error.message,error);return;}
-      if(!data){console.error('[GAMIF] No data returned');return;}
-      console.log('[GAMIF] Loaded OK',data);
+      if(error||!data)return;
       clientPoints=data.points||clientPoints;
       clientBadges=data.badges||[];
       pointTransactions=data.transactions||[];
@@ -2019,15 +2015,12 @@ function getNextLevel(pts){
 }
 
 async function awardPoints(action,points,metadata){
-  if(!clientPoints){console.warn('[AWARD] No clientPoints, skip');return;}
-  console.log('[AWARD] Start',action,points,clientAuthMode,'token='+(clientData.token?'yes':'no'));
+  if(!clientPoints)return;
   try{
     if(clientAuthMode==='anon'){
-      if(!clientData.token){console.error('[AWARD] No token for anon client!');return;}
+      if(!clientData.token)return;
       const{data,error}=await db.rpc('client_award_points',{p_token:clientData.token,p_action:action,p_points:points,p_metadata:metadata||{}});
-      console.log('[AWARD] RPC response',data,error);
-      if(error){console.error('[AWARD] RPC error',error);return;}
-      if(!data||!data.success){console.log('[AWARD] Capped or failed',data);return;}
+      if(error||!data||!data.success)return;
       clientPoints.total_points=data.total_points;
       clientPoints.monthly_points=data.monthly_points;
       clientPoints.usable_balance=data.usable_balance;
@@ -2038,12 +2031,12 @@ async function awardPoints(action,points,metadata){
       // Auth: check daily cap locally
       const todayTx=pointTransactions.filter(t=>t.action===action&&t.created_at&&t.created_at.startsWith(today()));
       const dailyCapped=['daily_report','weight_logged','steps_goal','hydration_goal','nutrition_validation'];
-      if(dailyCapped.includes(action)&&todayTx.length>=1){console.log('[AWARD] Daily capped',action);return;}
-      if(action==='exercise_progression'&&todayTx.length>=10){console.log('[AWARD] Daily capped exo');return;}
-      if(action==='complementary_activity'&&todayTx.length>=2){console.log('[AWARD] Daily capped activity');return;}
+      if(dailyCapped.includes(action)&&todayTx.length>=1)return;
+      if(action==='exercise_progression'&&todayTx.length>=10)return;
+      if(action==='complementary_activity'&&todayTx.length>=2)return;
       // Insert transaction
       const{error:txErr}=await db.from('point_transactions').insert({client_id:clientData.id,coach_id:clientData.coach_id,action,points,metadata:metadata||{}});
-      if(txErr){console.error('[AWARD] Insert tx error',txErr);return;}
+      if(txErr)return;
       const oldLevel=clientPoints.level;
       clientPoints.total_points+=points;
       clientPoints.monthly_points+=points;
@@ -2051,9 +2044,7 @@ async function awardPoints(action,points,metadata){
       const newLv=getLevel(clientPoints.total_points);
       clientPoints.level=newLv.key;
       const{error:cpErr}=await db.from('client_points').update({total_points:clientPoints.total_points,monthly_points:clientPoints.monthly_points,usable_balance:clientPoints.usable_balance,level:newLv.key,updated_at:new Date().toISOString()}).eq('client_id',clientData.id);
-      if(cpErr)console.error('[AWARD] Update points error',cpErr);
       pointTransactions.unshift({action,points,metadata:metadata||{},created_at:new Date().toISOString()});
-      console.log('[AWARD] OK auth',action,'+'+points,'total='+clientPoints.total_points);
       showPointsToast(points,actionLabel(action));
       if(oldLevel!==newLv.key)showLevelUpAnimation(newLv.key);
     }
