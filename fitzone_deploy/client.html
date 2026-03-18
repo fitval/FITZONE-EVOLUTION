@@ -2066,14 +2066,21 @@ function actionLabel(a){
   return map[a]||a;
 }
 
-/* Points toast */
-let ptsToastTimer=null;
+/* Points toast queue */
+let toastQueue=[];
+let toastBusy=false;
 function showPointsToast(pts,label){
+  toastQueue.push({pts,label});
+  if(!toastBusy)processToastQueue();
+}
+function processToastQueue(){
+  if(!toastQueue.length){toastBusy=false;return;}
+  toastBusy=true;
+  const{pts,label}=toastQueue.shift();
   const el=document.getElementById('pointsToast');
   document.getElementById('pointsToastText').textContent=`+${pts} pts · ${label}`;
   el.classList.add('show');
-  clearTimeout(ptsToastTimer);
-  ptsToastTimer=setTimeout(()=>el.classList.remove('show'),2500);
+  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>processToastQueue(),300);},2000);
 }
 
 /* Level-up animation */
@@ -2162,7 +2169,16 @@ function buildBadgeContext(){
   };
 }
 
+let badgeQueue=[];
+let badgeBusy=false;
 function showBadgeAnimation(badge){
+  badgeQueue.push(badge);
+  if(!badgeBusy)processNextBadge();
+}
+function processNextBadge(){
+  if(!badgeQueue.length){badgeBusy=false;return;}
+  badgeBusy=true;
+  const badge=badgeQueue.shift();
   const ov=document.getElementById('badgeOverlay');
   ov.innerHTML=`<div class="badge-overlay" onclick="closeBadgeAnim()">
     <div class="badge-card" onclick="event.stopPropagation()">
@@ -2174,9 +2190,11 @@ function showBadgeAnimation(badge){
       <button class="badge-card-btn" onclick="closeBadgeAnim()">Super ! 🎉</button>
     </div>
   </div>`;
-  setTimeout(()=>closeBadgeAnim(),5000);
 }
-function closeBadgeAnim(){document.getElementById('badgeOverlay').innerHTML='';}
+function closeBadgeAnim(){
+  document.getElementById('badgeOverlay').innerHTML='';
+  setTimeout(()=>processNextBadge(),400);
+}
 
 /* Notifications */
 function updateNotifBadge(){
