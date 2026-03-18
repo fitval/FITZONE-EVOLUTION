@@ -1768,9 +1768,11 @@ function renderDetHero(){
 }
 async function setBilanDay(day){
   const d=parseInt(day);
-  console.log('[SET BILAN DAY] value:',d,'client:',curClient.id);
-  const{data,error}=await db.from('clients').update({bilan_day:d}).eq('id',curClient.id).select();
-  console.log('[SET BILAN DAY] result:',data,'error:',error);
+  const cid=curClient?.id;
+  console.log('[SET BILAN DAY] value:',d,'client:',cid,'curClient:',curClient?.first_name);
+  if(!cid){toast('Erreur: pas de client sélectionné');return;}
+  const{data,error}=await db.from('clients').update({bilan_day:d}).eq('id',cid).select();
+  console.log('[SET BILAN DAY] result:',data,'error:',error,'rows:',data?.length);
   if(error){toast('Erreur: '+error.message);console.error('setBilanDay error:',error);return;}
   curClient.bilan_day=d;
   const idx=allClients.findIndex(c=>c.id===curClient.id);if(idx>=0)allClients[idx].bilan_day=d;
