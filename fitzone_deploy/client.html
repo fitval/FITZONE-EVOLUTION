@@ -2220,23 +2220,7 @@ function renderBonus(){
 
   let h='';
 
-  // 1. Mon Niveau
-  h+=`<div class="level-card">
-    <div class="level-emoji">${lv.emoji}</div>
-    <div class="level-name">${lv.label}</div>
-    <div class="level-pts">${cp.total_points.toLocaleString()} pts au total</div>
-    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-    <div class="progress-label"><span>${lv.label}</span>${next?`<span>${next.label} · ${next.min.toLocaleString()} pts</span>`:'<span>Niveau max !</span>'}</div>
-  </div>`;
-
-  // 2. Mes Points
-  h+=`<div class="pts-summary">
-    <div class="pts-box"><div class="pts-box-val">${cp.total_points.toLocaleString()}</div><div class="pts-box-label">Total</div></div>
-    <div class="pts-box"><div class="pts-box-val">${cp.monthly_points.toLocaleString()}</div><div class="pts-box-label">Ce mois</div></div>
-    <div class="pts-box"><div class="pts-box-val">${cp.usable_balance.toLocaleString()}</div><div class="pts-box-label">Solde</div></div>
-  </div>`;
-
-  // 3. Learning modules inline — ALWAYS show if modules exist
+  // 1. Learning modules — en premier
   if(modules.length){
     h+=`<div class="card" style="padding:16px;margin-bottom:14px">
       <div class="card-label">🎓 APPRENTISSAGE</div>`;
@@ -2254,7 +2238,23 @@ function renderBonus(){
     h+=`</div>`;
   }
 
-  // 4. Classement mensuel
+  // 2. Mon Niveau
+  h+=`<div class="level-card">
+    <div class="level-emoji">${lv.emoji}</div>
+    <div class="level-name">${lv.label}</div>
+    <div class="level-pts">${cp.total_points.toLocaleString()} pts au total</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div class="progress-label"><span>${lv.label}</span>${next?`<span>${next.label} · ${next.min.toLocaleString()} pts</span>`:'<span>Niveau max !</span>'}</div>
+  </div>`;
+
+  // 2. Mes Points
+  h+=`<div class="pts-summary">
+    <div class="pts-box"><div class="pts-box-val">${cp.total_points.toLocaleString()}</div><div class="pts-box-label">Total</div></div>
+    <div class="pts-box"><div class="pts-box-val">${cp.monthly_points.toLocaleString()}</div><div class="pts-box-label">Ce mois</div></div>
+    <div class="pts-box"><div class="pts-box-val">${cp.usable_balance.toLocaleString()}</div><div class="pts-box-label">Solde</div></div>
+  </div>`;
+
+  // 3. Classement mensuel
   h+=`<div class="card" style="padding:16px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div class="card-label" style="margin-bottom:0">CLASSEMENT MENSUEL</div>
