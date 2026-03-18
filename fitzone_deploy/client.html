@@ -317,6 +317,102 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .pwa-chrome-warn-title { font-size:14px; font-weight:700; color:#e65100; margin-bottom:6px; }
 .pwa-chrome-warn-text { font-size:12px; color:#bf360c; line-height:1.5; margin-bottom:10px; }
 .pwa-chrome-btn { display:inline-block; padding:10px 20px; border-radius:10px; border:none; background:#e65100; color:white; font-weight:700; font-size:13px; cursor:pointer; font-family:var(--font); text-decoration:none; }
+
+/* === GAMIFICATION === */
+/* Points toast */
+#pointsToast { position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-80px); background:linear-gradient(135deg,#2c2a26,#1a1916); color:white; padding:10px 22px; border-radius:30px; font-size:14px; font-weight:700; z-index:310; opacity:0; transition:all .4s cubic-bezier(.4,0,.2,1); pointer-events:none; border:1.5px solid var(--gold-border); white-space:nowrap; }
+#pointsToast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+#pointsToast .pts-icon { color:var(--gold); margin-right:4px; }
+
+/* Level-up overlay */
+.levelup-overlay { position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:400; display:flex; align-items:center; justify-content:center; animation:fadeIn .3s ease; }
+.levelup-card { text-align:center; padding:40px 32px; background:var(--white); border-radius:28px; max-width:320px; width:90%; position:relative; overflow:hidden; }
+.levelup-emoji { font-size:72px; margin-bottom:12px; animation:levelBounce .6s ease; }
+@keyframes levelBounce { 0%{transform:scale(0)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
+.levelup-title { font-size:12px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+.levelup-name { font-size:28px; font-weight:900; color:var(--dark); margin-bottom:6px; }
+.levelup-sub { font-size:14px; color:var(--text2); }
+.levelup-confetti { position:absolute; width:8px; height:8px; border-radius:2px; animation:confettiFall 2.5s ease-out forwards; }
+@keyframes confettiFall { 0%{transform:translateY(-100px) rotate(0deg);opacity:1} 100%{transform:translateY(400px) rotate(720deg);opacity:0} }
+
+/* Badge overlay */
+.badge-overlay { position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:400; display:flex; align-items:center; justify-content:center; animation:fadeIn .3s ease; }
+.badge-card { text-align:center; padding:36px 28px; background:var(--white); border-radius:24px; max-width:320px; width:90%; }
+.badge-card-emoji { font-size:64px; margin-bottom:8px; animation:levelBounce .6s ease; }
+.badge-card-label { font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+.badge-card-name { font-size:22px; font-weight:800; color:var(--dark); margin-bottom:6px; }
+.badge-card-desc { font-size:13px; color:var(--text2); line-height:1.4; margin-bottom:8px; }
+.badge-card-bonus { font-size:14px; font-weight:700; color:var(--gold); }
+.badge-card-btn { margin-top:16px; padding:12px 32px; border:none; border-radius:12px; background:var(--gold); color:white; font-size:15px; font-weight:700; cursor:pointer; font-family:var(--font); }
+
+/* Notification bell */
+.notif-bell { position:relative; width:36px; height:36px; border-radius:50%; background:var(--white); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+.notif-bell svg { width:18px; height:18px; color:var(--text2); }
+.notif-badge { position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; border-radius:8px; background:var(--red); color:white; font-size:9px; font-weight:800; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+
+/* Bonus tab */
+.level-card { background:linear-gradient(135deg,var(--dark2),var(--dark)); border-radius:var(--r); padding:24px; color:white; margin-bottom:14px; text-align:center; }
+.level-emoji { font-size:48px; margin-bottom:8px; }
+.level-name { font-size:22px; font-weight:800; margin-bottom:4px; }
+.level-pts { font-size:14px; color:rgba(255,255,255,.5); }
+.progress-bar { height:8px; border-radius:4px; background:rgba(255,255,255,.12); margin-top:14px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--gold),var(--gold-light)); transition:width .6s ease; }
+.progress-label { display:flex; justify-content:space-between; font-size:11px; color:rgba(255,255,255,.4); margin-top:6px; }
+
+.pts-summary { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px; }
+.pts-box { background:var(--white); border-radius:var(--r-sm); padding:14px 10px; text-align:center; border:1px solid var(--border); }
+.pts-box-val { font-size:22px; font-weight:800; color:var(--dark); }
+.pts-box-label { font-size:10px; color:var(--text3); margin-top:2px; font-weight:600; letter-spacing:.5px; }
+
+.badge-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+.badge-item { background:var(--white); border-radius:var(--r-sm); padding:14px 8px; text-align:center; border:1px solid var(--border); transition:all .2s; }
+.badge-item.locked { opacity:.35; filter:grayscale(1); }
+.badge-item-emoji { font-size:32px; margin-bottom:4px; }
+.badge-item-name { font-size:11px; font-weight:700; color:var(--dark); }
+.badge-item-desc { font-size:9px; color:var(--text3); margin-top:2px; }
+
+.lb-row { display:flex; align-items:center; gap:12px; padding:12px 14px; border-bottom:1px solid var(--border); }
+.lb-row:last-child { border:none; }
+.lb-row.me { background:var(--gold-pale); border-radius:var(--r-xs); }
+.lb-rank { font-size:16px; font-weight:800; color:var(--text3); width:28px; text-align:center; }
+.lb-row.me .lb-rank { color:var(--gold); }
+.lb-name { flex:1; font-size:14px; font-weight:600; }
+.lb-pts { font-size:14px; font-weight:700; color:var(--gold); }
+.lb-level { font-size:16px; }
+
+.reward-card { display:flex; align-items:center; gap:14px; padding:14px; background:var(--white); border-radius:var(--r-sm); border:1px solid var(--border); margin-bottom:10px; }
+.reward-info { flex:1; }
+.reward-name { font-size:15px; font-weight:700; }
+.reward-desc { font-size:12px; color:var(--text3); margin-top:2px; }
+.reward-cost { font-size:13px; font-weight:700; color:var(--gold); }
+.reward-btn { padding:8px 16px; border:none; border-radius:var(--r-xs); background:var(--gold); color:white; font-weight:700; font-size:12px; cursor:pointer; font-family:var(--font); white-space:nowrap; }
+.reward-btn:disabled { background:var(--bg2); color:var(--text3); cursor:default; }
+
+.req-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.req-status { padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+.req-status.pending { background:#fff3e0; color:#e65100; }
+.req-status.approved { background:#e8f5e9; color:#2e7d32; }
+.req-status.denied { background:#ffebee; color:#c62828; }
+
+/* Notification modal */
+.notif-page { display:none; position:fixed; inset:0; background:var(--bg); z-index:200; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.notif-page.show { display:block; }
+.notif-item { display:flex; gap:12px; padding:14px 20px; border-bottom:1px solid var(--border); background:var(--white); }
+.notif-item.unread { background:var(--gold-pale); }
+.notif-icon { width:36px; height:36px; border-radius:50%; background:var(--gold-pale); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+.notif-body { flex:1; }
+.notif-title { font-size:14px; font-weight:700; }
+.notif-text { font-size:12px; color:var(--text2); margin-top:2px; }
+.notif-date { font-size:10px; color:var(--text3); margin-top:4px; }
+
+/* Home level card */
+.home-level-strip { display:flex; align-items:center; gap:12px; background:linear-gradient(135deg,var(--dark2),var(--dark)); border-radius:var(--r-sm); padding:12px 16px; margin-bottom:14px; color:white; cursor:pointer; }
+.home-level-emoji { font-size:28px; }
+.home-level-info { flex:1; }
+.home-level-name { font-size:14px; font-weight:700; }
+.home-level-bar { height:6px; border-radius:3px; background:rgba(255,255,255,.12); margin-top:6px; overflow:hidden; }
+.home-level-fill { height:100%; border-radius:3px; background:var(--gold); }
+.home-level-pts { font-size:16px; font-weight:800; color:var(--gold); }
 </style>
 </head>
 <body>
@@ -352,7 +448,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
 <div id="app">
   <div class="scroll-area" id="scrollArea">
     <div id="tabHome" class="tab-section active">
-      <div class="home-header"><div class="home-date" id="homeDate"></div><div class="home-avatar" id="homeAvatar" onclick="openProfileModal()" style="cursor:pointer;overflow:hidden"></div></div>
+      <div class="home-header"><div class="home-date" id="homeDate"></div><div style="display:flex;align-items:center;gap:10px"><div class="notif-bell" onclick="openNotifPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><div class="notif-badge" id="notifBadge" style="display:none">0</div></div><div class="home-avatar" id="homeAvatar" onclick="openProfileModal()" style="cursor:pointer;overflow:hidden"></div></div></div>
       <div class="home-phase" id="homePhase"></div>
       <div class="home-greet"><div class="home-greet-line1">Bonjour,</div><div class="home-greet-line2" id="homeName"></div></div>
       <div id="homeCards"></div>
@@ -376,6 +472,10 @@ textarea.form-input { min-height:100px; resize:vertical; }
     <div id="tabLearn" class="tab-section">
       <div style="padding-top:20px"><div class="card-label" style="color:var(--text3)">APPRENTISSAGE</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Apprentissage</div></div>
       <div id="learnContent"></div>
+    </div>
+    <div id="tabBonus" class="tab-section">
+      <div style="padding-top:20px"><div class="card-label" style="color:var(--gold)">BONUS</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Mes récompenses</div></div>
+      <div id="bonusContent"></div>
     </div>
   </div>
 
@@ -410,10 +510,23 @@ textarea.form-input { min-height:100px; resize:vertical; }
     <button class="tab-btn" onclick="switchTab('Nutri')" id="btnNutri">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg><span>Nutrition</span>
     </button>
-    <button class="tab-btn" onclick="switchTab('Learn')" id="btnLearn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Apprentissage</span>
+    <button class="tab-btn" onclick="switchTab('Bonus')" id="btnBonus">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Bonus</span>
     </button>
   </div>
+</div>
+
+<!-- Gamification Overlays -->
+<div id="pointsToast"><span class="pts-icon">⚡</span> <span id="pointsToastText"></span></div>
+<div id="levelUpOverlay"></div>
+<div id="badgeOverlay"></div>
+<div class="notif-page" id="notifPage">
+  <div class="est-header">
+    <button onclick="closeNotifPage()"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+    <h2>Notifications</h2>
+    <button onclick="markAllNotifsRead()" style="background:none;border:none;color:var(--gold);font-weight:700;font-size:13px;cursor:pointer;font-family:var(--font)">Tout lire</button>
+  </div>
+  <div id="notifList"></div>
 </div>
 
 <div class="modal-overlay" id="modal" onclick="closeModal()"><button class="modal-close" onclick="closeModal()">✕</button><div id="modalContent" onclick="event.stopPropagation()"></div></div>
@@ -487,6 +600,53 @@ let suiviPeriod='month';
 
 let clientAuthMode='anon'; // 'auth' or 'anon'
 
+/* ===== GAMIFICATION STATE ===== */
+let clientPoints=null; // {total_points, monthly_points, usable_balance, level, leaderboard_opt_in}
+let pointTransactions=[];
+let clientBadges=[];
+let gamifNotifications=[];
+let unreadNotifs=0;
+let gamifLeaderboard=[];
+let coachRewards=[];
+let myRewardRequests=[];
+let bonusOnboarded=false;
+
+const LEVELS=[
+  {key:'bronze',label:'Bronze',min:0,emoji:'🥉'},
+  {key:'silver',label:'Argent',min:1000,emoji:'🥈'},
+  {key:'gold',label:'Or',min:5000,emoji:'🥇'},
+  {key:'platinum',label:'Platine',min:15000,emoji:'💎'},
+  {key:'elite',label:'Élite',min:30000,emoji:'👑'}
+];
+
+const BADGES=[
+  // Training
+  {key:'first_workout',label:'Première séance',desc:'Termine ta première séance',emoji:'🏋️',bonus:25,check:ctx=>ctx.totalWorkouts>=1},
+  {key:'finisher',label:'Finisher',desc:'Termine ton premier programme complet',emoji:'🏆',bonus:300,check:ctx=>ctx.programsCompleted>=1},
+  {key:'centurion',label:'Centurion',desc:'100 séances terminées',emoji:'💯',bonus:500,check:ctx=>ctx.totalWorkouts>=100},
+  {key:'workout_10',label:'Régulier',desc:'10 séances terminées',emoji:'💪',bonus:100,check:ctx=>ctx.totalWorkouts>=10},
+  {key:'workout_50',label:'Machine',desc:'50 séances terminées',emoji:'⚙️',bonus:250,check:ctx=>ctx.totalWorkouts>=50},
+  // Nutrition
+  {key:'first_nutrition',label:'Premier suivi nutrition',desc:'Valide ton alimentation pour la première fois',emoji:'🥗',bonus:25,check:ctx=>ctx.nutritionDays>=1},
+  {key:'week_perfect_nutrition',label:'Semaine parfaite',desc:'7 jours consécutifs >80% alimentation',emoji:'🌟',bonus:200,check:ctx=>ctx.nutritionStreak>=7},
+  {key:'month_perfect_nutrition',label:'Mois parfait',desc:'30 jours de suivi nutrition',emoji:'🏅',bonus:750,check:ctx=>ctx.nutritionDays>=30},
+  // Suivi
+  {key:'first_report',label:'Transparent',desc:'Remplis ton premier rapport quotidien',emoji:'📋',bonus:25,check:ctx=>ctx.totalReports>=1},
+  {key:'streak_8',label:'Discipliné',desc:'8 check-ins consécutifs',emoji:'🔥',bonus:300,check:ctx=>ctx.reportStreak>=8},
+  {key:'streak_30',label:'Imbattable',desc:'30 jours de pesée consécutifs',emoji:'⚡',bonus:400,check:ctx=>ctx.weightStreak>=30},
+  {key:'photos_10',label:'Progressiste',desc:'10 photos de progression',emoji:'📸',bonus:250,check:ctx=>ctx.totalPhotos>=10},
+  // Level badges
+  {key:'level_silver',label:'Rang Argent',desc:'Atteins le niveau Argent',emoji:'🥈',bonus:0,check:ctx=>ctx.level==='silver'||ctx.level==='gold'||ctx.level==='platinum'||ctx.level==='elite'},
+  {key:'level_gold',label:'Rang Or',desc:'Atteins le niveau Or',emoji:'🥇',bonus:0,check:ctx=>ctx.level==='gold'||ctx.level==='platinum'||ctx.level==='elite'},
+  {key:'level_platinum',label:'Rang Platine',desc:'Atteins le niveau Platine',emoji:'💎',bonus:0,check:ctx=>ctx.level==='platinum'||ctx.level==='elite'},
+  {key:'level_elite',label:'Rang Élite',desc:'Atteins le niveau Élite',emoji:'👑',bonus:0,check:ctx=>ctx.level==='elite'},
+  // Rare
+  {key:'rocket_start',label:'Rocket Start',desc:'500 pts en 7 jours',emoji:'🚀',bonus:500,check:ctx=>ctx.ptsLast7Days>=500},
+  {key:'bilan_5',label:'Assidu',desc:'5 bilans envoyés',emoji:'📊',bonus:200,check:ctx=>ctx.totalBilans>=5},
+  {key:'steps_champion',label:'Marcheur',desc:'Objectif pas atteint 14 jours',emoji:'🚶',bonus:100,check:ctx=>ctx.stepsDays>=14},
+  {key:'champion',label:'Champion mensuel',desc:'#1 du classement mensuel',emoji:'🏆',bonus:0,check:()=>false}
+];
+
 /* ===== INIT ===== */
 (async function init(){
   // Mode 1: Authenticated client (Supabase session)
@@ -543,6 +703,8 @@ async function loadData(){
     db.from('exercises').select('*').eq('coach_id',clientData.coach_id)
   ]);
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
+  // Load gamification data
+  await loadGamification();
 }
 
 /* ===== TABS ===== */
@@ -560,6 +722,7 @@ function switchTab(name){
   else if(name==='Bilan'){renderBilanList();document.getElementById('btnHome').classList.add('active');}
   else if(name==='Suivi')renderSuivi();
   else if(name==='Learn')renderLearn();
+  else if(name==='Bonus')renderBonus();
   toggleFab();
 }
 
@@ -649,6 +812,9 @@ function renderHome(){
   const todayLog=dailyLogs.find(l=>l.date===today());
   const notFilled=!todayLog;
   let html='';
+
+  // Gamification level strip
+  html+=renderHomeLevelStrip();
 
   // Rapport quotidien - red border if not filled
   html+=`<div class="card-dark rapport-card${notFilled?' card-red-border':''} fade-up" onclick="showSuiviInline()" style="animation-delay:.05s">
@@ -977,6 +1143,8 @@ async function finalizeWorkout(){
     trainLogs=data||[];
     const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
     dailyLogs=nl||[];
+    // Gamification: award points for workout
+    await awardPoints('workout_complete',50,{session:sessionName});
   }
   renderTrainPreview();
 }
@@ -1461,7 +1629,13 @@ async function submitBilan(){
   const wasEdit=bilanEditMode;
   bilanEditMode=false;bilanEditId=null;bilanAttitude=0;bilanPhotos=[];
   toast(wasEdit?'Bilan mis à jour ✓':'Bilan envoyé ✓');
-  const{data}=await db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false});bilans=data||[];renderBilanList();
+  const{data}=await db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false});bilans=data||[];
+  // Gamification: award bilan points
+  if(!wasEdit){
+    await awardPoints('bilan_submit',75,{date:d});
+    if(uploadedPhotos.length>0) await awardPoints('bilan_photo',50,{photos:uploadedPhotos.length});
+  }
+  renderBilanList();
 }
 
 /* ===== SUIVI ===== */
@@ -1538,6 +1712,16 @@ async function saveSuivi(){
   toast('Données enregistrées !');
   const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
   dailyLogs=nl||[];
+  // Gamification: award points for daily report
+  await awardPoints('daily_report',25,{date:suiviDate});
+  if(data['Poids']) await awardPoints('weight_logged',15,{weight:data['Poids']});
+  const pasVal=data['Pas'];if(pasVal&&pasVal>=8000) await awardPoints('steps_goal',30,{steps:pasVal});
+  const dietVal=data['Alimentation suivie (%)'];
+  if(dietVal){
+    let nutrPts=0;
+    if(dietVal>=90)nutrPts=75;else if(dietVal>=70)nutrPts=50;else if(dietVal>=50)nutrPts=25;else if(dietVal>=30)nutrPts=10;
+    if(nutrPts>0)await awardPoints('nutrition_validation',nutrPts,{pct:dietVal});
+  }
   renderSuivi();
 }
 
@@ -1769,6 +1953,413 @@ async function saveEstToLog(){
     btn.disabled=false;btn.textContent='Enregistrer dans mon suivi';
     toast('Erreur: '+err.message);
   }
+}
+
+/* ===== GAMIFICATION ENGINE ===== */
+async function loadGamification(){
+  try{
+    if(clientAuthMode==='anon'){
+      const{data,error}=await db.rpc('client_get_gamification',{p_token:clientData.token});
+      if(error){console.error('[GAMIF]',error);return;}
+      clientPoints=data.points||{total_points:0,monthly_points:0,usable_balance:0,level:'bronze',leaderboard_opt_in:true};
+      clientBadges=data.badges||[];
+      pointTransactions=data.transactions||[];
+      gamifNotifications=data.notifications||[];
+      unreadNotifs=data.unread_notifs||0;
+      gamifLeaderboard=data.leaderboard||[];
+      coachRewards=data.rewards||[];
+      myRewardRequests=data.requests||[];
+    } else {
+      // Auth mode: direct queries
+      const[r1,r2,r3,r4]=await Promise.all([
+        db.from('client_points').select('*').eq('client_id',clientData.id).maybeSingle(),
+        db.from('client_badges').select('*').eq('client_id',clientData.id),
+        db.from('point_transactions').select('*').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(50),
+        db.from('notifications').select('*').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(30)
+      ]);
+      if(r1.data){
+        clientPoints={total_points:r1.data.total_points,monthly_points:r1.data.monthly_points,usable_balance:r1.data.usable_balance,level:r1.data.level,leaderboard_opt_in:r1.data.leaderboard_opt_in};
+      } else {
+        // Create initial row
+        await db.from('client_points').insert({client_id:clientData.id,coach_id:clientData.coach_id,total_points:0,monthly_points:0,usable_balance:0,level:'bronze'});
+        clientPoints={total_points:0,monthly_points:0,usable_balance:0,level:'bronze',leaderboard_opt_in:true};
+      }
+      clientBadges=r2.data||[];
+      pointTransactions=r3.data||[];
+      gamifNotifications=r4.data||[];
+      unreadNotifs=(r4.data||[]).filter(n=>!n.read).length;
+      // Leaderboard + rewards
+      const[r5,r6,r7]=await Promise.all([
+        db.from('client_points').select('client_id,monthly_points,level,clients(first_name)').eq('coach_id',clientData.coach_id).eq('leaderboard_opt_in',true).order('monthly_points',{ascending:false}).limit(10),
+        db.from('coach_rewards').select('*').eq('coach_id',clientData.coach_id).eq('active',true).order('cost'),
+        db.from('reward_requests').select('*').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(20)
+      ]);
+      gamifLeaderboard=(r5.data||[]).map(r=>({client_id:r.client_id,first_name:r.clients?.first_name||'?',monthly_points:r.monthly_points,level:r.level}));
+      coachRewards=r6.data||[];
+      myRewardRequests=r7.data||[];
+    }
+  }catch(e){console.error('[GAMIF LOAD]',e);}
+  updateNotifBadge();
+}
+
+function getLevel(pts){
+  let lv=LEVELS[0];
+  for(const l of LEVELS)if(pts>=l.min)lv=l;
+  return lv;
+}
+function getNextLevel(pts){
+  for(let i=0;i<LEVELS.length;i++)if(pts<LEVELS[i].min)return LEVELS[i];
+  return null;
+}
+
+async function awardPoints(action,points,metadata){
+  if(!clientPoints)return;
+  try{
+    if(clientAuthMode==='anon'){
+      const{data,error}=await db.rpc('client_award_points',{p_token:clientData.token,p_action:action,p_points:points,p_metadata:metadata||{}});
+      if(error){console.error('[AWARD]',error);return;}
+      if(!data.success)return; // capped
+      clientPoints.total_points=data.total_points;
+      clientPoints.monthly_points=data.monthly_points;
+      clientPoints.usable_balance=data.usable_balance;
+      clientPoints.level=data.level;
+      showPointsToast(points,actionLabel(action));
+      if(data.level_changed)showLevelUpAnimation(data.level);
+    } else {
+      // Auth: check daily cap locally
+      const todayTx=pointTransactions.filter(t=>t.action===action&&t.created_at&&t.created_at.startsWith(today()));
+      const dailyCapped=['daily_report','weight_logged','steps_goal','hydration_goal','nutrition_validation'];
+      if(dailyCapped.includes(action)&&todayTx.length>=1)return;
+      if(action==='exercise_progression'&&todayTx.length>=10)return;
+      if(action==='complementary_activity'&&todayTx.length>=2)return;
+      // Insert transaction
+      await db.from('point_transactions').insert({client_id:clientData.id,coach_id:clientData.coach_id,action,points,metadata:metadata||{}});
+      const oldLevel=clientPoints.level;
+      clientPoints.total_points+=points;
+      clientPoints.monthly_points+=points;
+      clientPoints.usable_balance+=points;
+      const newLv=getLevel(clientPoints.total_points);
+      clientPoints.level=newLv.key;
+      await db.from('client_points').update({total_points:clientPoints.total_points,monthly_points:clientPoints.monthly_points,usable_balance:clientPoints.usable_balance,level:newLv.key,updated_at:new Date().toISOString()}).eq('client_id',clientData.id);
+      pointTransactions.unshift({action,points,metadata:metadata||{},created_at:new Date().toISOString()});
+      showPointsToast(points,actionLabel(action));
+      if(oldLevel!==newLv.key)showLevelUpAnimation(newLv.key);
+    }
+    await checkBadges();
+  }catch(e){console.error('[AWARD ERR]',e);}
+}
+
+function actionLabel(a){
+  const map={workout_complete:'Séance complétée',daily_report:'Rapport quotidien',weight_logged:'Poids enregistré',steps_goal:'Objectif pas',nutrition_validation:'Nutrition validée',bilan_submit:'Bilan envoyé',bilan_photo:'Photo bilan',exercise_progression:'Progression',complementary_activity:'Activité bonus',weekly_sessions_bonus:'Bonus semaine',hydration_goal:'Hydratation',program_complete:'Programme terminé',badge_bonus:'Badge bonus',manual:'Points coach'};
+  return map[a]||a;
+}
+
+/* Points toast */
+let ptsToastTimer=null;
+function showPointsToast(pts,label){
+  const el=document.getElementById('pointsToast');
+  document.getElementById('pointsToastText').textContent=`+${pts} pts · ${label}`;
+  el.classList.add('show');
+  clearTimeout(ptsToastTimer);
+  ptsToastTimer=setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+/* Level-up animation */
+function showLevelUpAnimation(levelKey){
+  const lv=LEVELS.find(l=>l.key===levelKey);if(!lv)return;
+  const ov=document.getElementById('levelUpOverlay');
+  const colors=['#c49a2a','#e8b84a','#22c55e','#ef4444','#3b82f6','#8b5cf6','#ec4899'];
+  let confetti='';
+  for(let i=0;i<30;i++){
+    const c=colors[Math.floor(Math.random()*colors.length)];
+    const left=Math.random()*100;
+    const delay=Math.random()*1.5;
+    const size=6+Math.random()*6;
+    confetti+=`<div class="levelup-confetti" style="background:${c};left:${left}%;top:-10px;width:${size}px;height:${size}px;animation-delay:${delay}s"></div>`;
+  }
+  ov.innerHTML=`<div class="levelup-overlay" onclick="closeLevelUp()">
+    ${confetti}
+    <div class="levelup-card" onclick="event.stopPropagation()">
+      <div class="levelup-emoji">${lv.emoji}</div>
+      <div class="levelup-title">NIVEAU SUPÉRIEUR !</div>
+      <div class="levelup-name">${lv.label}</div>
+      <div class="levelup-sub">Tu as atteint le niveau ${lv.label} !</div>
+    </div>
+  </div>`;
+  setTimeout(()=>closeLevelUp(),4000);
+}
+function closeLevelUp(){document.getElementById('levelUpOverlay').innerHTML='';}
+
+/* Badge animation */
+async function checkBadges(){
+  if(!clientPoints)return;
+  const ctx=buildBadgeContext();
+  for(const b of BADGES){
+    if(clientBadges.find(cb=>cb.badge_key===b.key))continue;
+    if(!b.check(ctx))continue;
+    // Unlock badge
+    let inserted=false;
+    if(clientAuthMode==='anon'){
+      const{data}=await db.rpc('client_unlock_badge',{p_token:clientData.token,p_badge_key:b.key});
+      inserted=data&&data.inserted;
+    } else {
+      const{error}=await db.from('client_badges').insert({client_id:clientData.id,badge_key:b.key}).select();
+      inserted=!error;
+    }
+    if(inserted){
+      clientBadges.push({badge_key:b.key,unlocked_at:new Date().toISOString()});
+      showBadgeAnimation(b);
+      if(b.bonus>0)await awardPoints('badge_bonus',b.bonus,{badge:b.key});
+    }
+  }
+}
+
+function buildBadgeContext(){
+  const workoutTx=pointTransactions.filter(t=>t.action==='workout_complete');
+  const nutrTx=pointTransactions.filter(t=>t.action==='nutrition_validation');
+  const reportTx=pointTransactions.filter(t=>t.action==='daily_report');
+  // Calculate streaks from dailyLogs
+  let reportStreak=0,weightStreak=0,nutritionStreak=0,stepsDays=0;
+  const sorted=[...dailyLogs].sort((a,b)=>b.date.localeCompare(a.date));
+  let prevDate=today();
+  for(const l of sorted){
+    const diff=Math.round((new Date(prevDate)-new Date(l.date))/86400000);
+    if(diff>1)break;
+    reportStreak++;
+    if(l.data&&l.data['Poids'])weightStreak++;else if(reportStreak>0&&!l.data?.['Poids']){weightStreak=0;}
+    if(l.data&&parseFloat(l.data['Alimentation suivie (%)'])>=80)nutritionStreak++;else nutritionStreak=0;
+    if(l.data&&parseFloat(l.data['Pas'])>=8000)stepsDays++;
+    prevDate=l.date;
+  }
+  // Points in last 7 days
+  const weekAgo=new Date();weekAgo.setDate(weekAgo.getDate()-7);
+  const ptsLast7Days=pointTransactions.filter(t=>new Date(t.created_at)>=weekAgo).reduce((s,t)=>s+t.points,0);
+  return{
+    totalWorkouts:trainLogs.length,
+    programsCompleted:0, // TODO: detect program completion
+    nutritionDays:dailyLogs.filter(l=>l.data&&l.data['Alimentation suivie (%)']).length,
+    nutritionStreak,
+    totalReports:dailyLogs.length,
+    reportStreak,
+    weightStreak,
+    totalPhotos:bilans.reduce((s,b)=>s+(b.photos?b.photos.length:0),0),
+    totalBilans:bilans.length,
+    level:clientPoints.level,
+    ptsLast7Days,
+    stepsDays
+  };
+}
+
+function showBadgeAnimation(badge){
+  const ov=document.getElementById('badgeOverlay');
+  ov.innerHTML=`<div class="badge-overlay" onclick="closeBadgeAnim()">
+    <div class="badge-card" onclick="event.stopPropagation()">
+      <div class="badge-card-emoji">${badge.emoji}</div>
+      <div class="badge-card-label">BADGE DÉBLOQUÉ !</div>
+      <div class="badge-card-name">${badge.label}</div>
+      <div class="badge-card-desc">${badge.desc}</div>
+      ${badge.bonus>0?`<div class="badge-card-bonus">+${badge.bonus} pts bonus</div>`:''}
+      <button class="badge-card-btn" onclick="closeBadgeAnim()">Super ! 🎉</button>
+    </div>
+  </div>`;
+  setTimeout(()=>closeBadgeAnim(),5000);
+}
+function closeBadgeAnim(){document.getElementById('badgeOverlay').innerHTML='';}
+
+/* Notifications */
+function updateNotifBadge(){
+  const el=document.getElementById('notifBadge');
+  if(unreadNotifs>0){el.style.display='flex';el.textContent=unreadNotifs>9?'9+':unreadNotifs;}
+  else el.style.display='none';
+}
+function openNotifPage(){
+  document.getElementById('notifPage').classList.add('show');
+  let h='';
+  if(!gamifNotifications.length){
+    h='<div class="empty" style="padding:60px 20px"><div class="empty-icon">🔔</div><div class="empty-text">Aucune notification pour le moment.</div></div>';
+  } else {
+    gamifNotifications.forEach(n=>{
+      const icon=n.type==='badge'?'🏅':n.type==='level'?'⬆️':n.type==='reward'?'🎁':'💬';
+      h+=`<div class="notif-item${!n.read?' unread':''}">
+        <div class="notif-icon">${icon}</div>
+        <div class="notif-body">
+          <div class="notif-title">${n.title}</div>
+          ${n.body?`<div class="notif-text">${n.body}</div>`:''}
+          <div class="notif-date">${fmtDate(n.created_at)}</div>
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('notifList').innerHTML=h;
+}
+function closeNotifPage(){document.getElementById('notifPage').classList.remove('show');}
+async function markAllNotifsRead(){
+  if(clientAuthMode==='anon'){
+    await db.rpc('client_mark_notifications_read',{p_token:clientData.token});
+  } else {
+    await db.from('notifications').update({read:true}).eq('client_id',clientData.id).eq('read',false);
+  }
+  gamifNotifications.forEach(n=>n.read=true);
+  unreadNotifs=0;
+  updateNotifBadge();
+  openNotifPage(); // re-render
+}
+
+/* ===== BONUS TAB ===== */
+function renderBonus(){
+  if(!clientPoints){document.getElementById('bonusContent').innerHTML='<div class="empty"><div class="empty-icon">⭐</div><div class="empty-text">Chargement...</div></div>';return;}
+  // Onboarding
+  if(!bonusOnboarded&&!localStorage.getItem('fz_bonus_onboarded')){
+    bonusOnboarded=true;
+    localStorage.setItem('fz_bonus_onboarded','1');
+  }
+
+  const lv=getLevel(clientPoints.total_points);
+  const next=getNextLevel(clientPoints.total_points);
+  const pct=next?Math.min(100,Math.round((clientPoints.total_points-lv.min)/(next.min-lv.min)*100)):100;
+
+  let h='';
+
+  // 1. Mon Niveau
+  h+=`<div class="level-card">
+    <div class="level-emoji">${lv.emoji}</div>
+    <div class="level-name">${lv.label}</div>
+    <div class="level-pts">${clientPoints.total_points.toLocaleString()} pts au total</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div class="progress-label"><span>${lv.label}</span>${next?`<span>${next.label} · ${next.min.toLocaleString()} pts</span>`:'<span>Niveau max !</span>'}</div>
+  </div>`;
+
+  // 2. Mes Points
+  h+=`<div class="pts-summary">
+    <div class="pts-box"><div class="pts-box-val">${clientPoints.total_points.toLocaleString()}</div><div class="pts-box-label">Total</div></div>
+    <div class="pts-box"><div class="pts-box-val">${clientPoints.monthly_points.toLocaleString()}</div><div class="pts-box-label">Ce mois</div></div>
+    <div class="pts-box"><div class="pts-box-val">${clientPoints.usable_balance.toLocaleString()}</div><div class="pts-box-label">Solde</div></div>
+  </div>`;
+
+  // 3. Classement mensuel
+  h+=`<div class="card" style="padding:16px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-label" style="margin-bottom:0">CLASSEMENT MENSUEL</div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+        <input type="checkbox" ${clientPoints.leaderboard_opt_in?'checked':''} onchange="toggleLeaderboard(this.checked)" style="accent-color:var(--gold)"> Participer
+      </label>
+    </div>`;
+  if(gamifLeaderboard.length){
+    gamifLeaderboard.forEach((r,i)=>{
+      const isMe=r.client_id===clientData.id;
+      const rlv=getLevel(0);// use level from data
+      const rlvObj=LEVELS.find(l=>l.key===r.level)||LEVELS[0];
+      h+=`<div class="lb-row${isMe?' me':''}">
+        <div class="lb-rank">${i+1}</div>
+        <div class="lb-level">${rlvObj.emoji}</div>
+        <div class="lb-name">${isMe?'Moi':(r.first_name||'?')}</div>
+        <div class="lb-pts">${r.monthly_points} pts</div>
+      </div>`;
+    });
+  } else {
+    h+=`<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Aucun participant ce mois-ci</div>`;
+  }
+  h+=`</div>`;
+
+  // 4. Mes Badges
+  const unlockedKeys=clientBadges.map(b=>b.badge_key);
+  h+=`<div class="card" style="padding:16px;margin-bottom:14px">
+    <div class="card-label">MES BADGES <span style="font-weight:400;color:var(--text3)">${unlockedKeys.length}/${BADGES.length}</span></div>
+    <div class="badge-grid">`;
+  BADGES.forEach(b=>{
+    const unlocked=unlockedKeys.includes(b.key);
+    h+=`<div class="badge-item${unlocked?'':' locked'}">
+      <div class="badge-item-emoji">${b.emoji}</div>
+      <div class="badge-item-name">${b.label}</div>
+      <div class="badge-item-desc">${unlocked?'✓ Débloqué':b.desc}</div>
+    </div>`;
+  });
+  h+=`</div></div>`;
+
+  // 5. Récompenses
+  h+=`<div class="card" style="padding:16px;margin-bottom:14px">
+    <div class="card-label">RÉCOMPENSES</div>`;
+  if(lv.key==='bronze'){
+    h+=`<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:8px">🔒</div><div style="font-size:14px;color:var(--text2);font-weight:600">Atteins le niveau Argent pour débloquer les récompenses</div><div style="font-size:12px;color:var(--text3);margin-top:4px">Plus que ${Math.max(0,1000-clientPoints.total_points)} pts !</div></div>`;
+  } else if(!coachRewards.length){
+    h+=`<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Ton coach n'a pas encore ajouté de récompenses.</div>`;
+  } else {
+    coachRewards.forEach(r=>{
+      const canAfford=clientPoints.usable_balance>=r.cost;
+      h+=`<div class="reward-card">
+        <div class="reward-info">
+          <div class="reward-name">${r.name}</div>
+          ${r.description?`<div class="reward-desc">${r.description}</div>`:''}
+          <div class="reward-cost">🪙 ${r.cost} pts</div>
+        </div>
+        <button class="reward-btn" ${canAfford?`onclick="requestReward('${r.id}','${r.name}',${r.cost})"`:'disabled'}>${canAfford?'Échanger':'Solde insuffisant'}</button>
+      </div>`;
+    });
+  }
+  h+=`</div>`;
+
+  // My requests
+  if(myRewardRequests.length){
+    h+=`<div class="card" style="padding:16px;margin-bottom:14px">
+      <div class="card-label">MES DEMANDES</div>`;
+    myRewardRequests.forEach(rr=>{
+      h+=`<div class="req-row">
+        <div style="flex:1"><div style="font-weight:600">${rr.reward_name}</div><div style="font-size:11px;color:var(--text3)">${fmtDate(rr.created_at)} · ${rr.cost} pts</div></div>
+        <span class="req-status ${rr.status}">${rr.status==='pending'?'En attente':rr.status==='approved'?'Approuvée':'Refusée'}</span>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+
+  // Learning link
+  if(modules.length){
+    h+=`<div class="card" style="padding:16px;cursor:pointer" onclick="switchTab('Learn')">
+      <div style="display:flex;align-items:center;gap:12px"><div style="font-size:24px">🎓</div><div><div style="font-size:15px;font-weight:700">Apprentissage</div><div style="font-size:12px;color:var(--text3)">${modules.length} module${modules.length>1?'s':''} disponible${modules.length>1?'s':''}</div></div></div>
+    </div>`;
+  }
+
+  document.getElementById('bonusContent').innerHTML=h;
+}
+
+async function toggleLeaderboard(optIn){
+  if(clientAuthMode==='anon'){
+    await db.rpc('client_toggle_leaderboard',{p_token:clientData.token,p_opt_in:optIn});
+  } else {
+    await db.from('client_points').update({leaderboard_opt_in:optIn}).eq('client_id',clientData.id);
+  }
+  clientPoints.leaderboard_opt_in=optIn;
+}
+
+async function requestReward(rewardId,rewardName,cost){
+  if(!confirm(`Échanger ${cost} pts contre "${rewardName}" ?`))return;
+  try{
+    if(clientAuthMode==='anon'){
+      const{data,error}=await db.rpc('client_request_reward',{p_token:clientData.token,p_reward_id:rewardId});
+      if(error){toast('Erreur: '+error.message);return;}
+      if(!data.success){toast(data.reason==='insufficient_balance'?'Solde insuffisant':'Niveau trop bas');return;}
+    } else {
+      await db.from('reward_requests').insert({client_id:clientData.id,coach_id:clientData.coach_id,reward_id:rewardId,reward_name:rewardName,cost,status:'pending'});
+    }
+    myRewardRequests.unshift({reward_name:rewardName,cost,status:'pending',created_at:new Date().toISOString()});
+    toast('Demande envoyée !');
+    renderBonus();
+  }catch(e){toast('Erreur: '+e.message);}
+}
+
+/* Home level strip */
+function renderHomeLevelStrip(){
+  if(!clientPoints)return'';
+  const lv=getLevel(clientPoints.total_points);
+  const next=getNextLevel(clientPoints.total_points);
+  const pct=next?Math.min(100,Math.round((clientPoints.total_points-lv.min)/(next.min-lv.min)*100)):100;
+  return`<div class="home-level-strip fade-up" onclick="switchTab('Bonus')" style="animation-delay:.02s">
+    <div class="home-level-emoji">${lv.emoji}</div>
+    <div class="home-level-info">
+      <div class="home-level-name">Niveau ${lv.label}</div>
+      <div class="home-level-bar"><div class="home-level-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div class="home-level-pts">${clientPoints.total_points}</div>
+  </div>`;
 }
 
 /* ===== PWA INSTALL ===== */

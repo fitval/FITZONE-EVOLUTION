@@ -443,6 +443,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div class="sb-item" onclick="showPage('admin-clients',this)" id="nav-acl" style="display:none"><span class="sb-ico">👥</span>Tous les clients</div>
 
     <div class="sb-sec">Administration</div>
+    <div class="sb-item" onclick="showPage('reward-requests',this);renderRewardRequestsPage()" id="nav-rr"><span class="sb-ico">🎁</span>Demandes récompenses<span class="sb-badge" id="rrBadge" style="display:none">0</span></div>
     <div class="sb-item" onclick="showPage('equipe',this)" id="nav-eq"><span class="sb-ico">👨‍💼</span>Équipe</div>
     <div class="sb-item" onclick="showPage('settings',this)" id="nav-st"><span class="sb-ico">⚙️</span>Paramètres</div>
   </nav>
@@ -529,8 +530,8 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <div class="chip" onclick="setChip(this,'questionnaire_pending')">En attente</div>
         <div class="chip" onclick="setChip(this,'active')">Actifs</div>
       </div>
-      <table><thead><tr><th>Client</th><th>Statut</th><th>Ajouté</th><th>Tags</th><th>Actions</th></tr></thead>
-      <tbody id="clBody"><tr><td colspan="5"><div class="sp"></div></td></tr></tbody></table>
+      <table><thead><tr><th>Client</th><th>Statut</th><th>Pts</th><th>Niveau</th><th>Ajouté</th><th>Tags</th><th>Actions</th></tr></thead>
+      <tbody id="clBody"><tr><td colspan="7"><div class="sp"></div></td></tr></tbody></table>
     </div>
   </div>
 
@@ -863,7 +864,17 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <div class="fg"><label class="fl">Lien questionnaire</label><div class="lbox"><div class="lurl" id="sQUrl">—</div><button class="cbtn" onclick="copyT(document.getElementById('sQUrl').textContent)">Copier</button></div></div>
         <button class="btn btn-dark" onclick="saveSettings()">Enregistrer</button>
       </div>
+      <div class="card cp" style="margin-top:16px">
+        <div class="cl cl-gold">🏆 Récompenses gamification</div>
+        <div id="rewardsListSettings"></div>
+        <button class="btn btn-dark" style="margin-top:12px" onclick="openAddReward()">+ Ajouter une récompense</button>
+      </div>
     </div>
+  </div>
+
+  <!-- PAGE: REWARD REQUESTS -->
+  <div class="page" id="page-reward-requests">
+    <div id="rewardRequestsList"></div>
   </div>
 
   <!-- DETAIL CLIENT -->
@@ -877,6 +888,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
       <div class="tab" onclick="swDet('training',this);renderTrainingTab()">💪 Training</div>
       <div class="tab" onclick="swDet('bilan',this);renderBilanTab()">📝 Bilans</div>
       <div class="tab" onclick="swDet('galerie',this);renderGalerieTab()">📸 Galerie</div>
+      <div class="tab" onclick="swDet('gamification',this);renderGamifTab()">🏆 Gamification</div>
     </div>
     <div class="tc active" id="tc-questionnaire"></div>
     <div class="tc" id="tc-nutrition"></div>
@@ -885,6 +897,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div class="tc" id="tc-training"></div>
     <div class="tc" id="tc-bilan"></div>
     <div class="tc" id="tc-galerie"></div>
+    <div class="tc" id="tc-gamification"></div>
   </div>
 </main>
 
@@ -1559,6 +1572,8 @@ async function loadAllData(){
   modules=await dbLoad('modules');
   team=await dbLoad('team');
   seances=await dbLoad('seances');
+  // Load gamification data for all clients
+  await loadCoachGamification();
   // Load settings
   try{
     const{data}=await db.from('settings').select('*').eq('coach_id',currentCoach.id).limit(1);
@@ -1645,7 +1660,7 @@ function showPage(name,el){
   const pg=document.getElementById('page-'+name);if(pg){pg.style.display='block';pg.classList.add('active');}
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures'};
+  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Demandes de récompenses'};
   document.getElementById('tbTitle').textContent=titles[name]||name;
   document.getElementById('backBtn').style.display='none';
   const actMap={overview:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`,'rec-forms':`<button class="btn btn-dark" onclick="openRecFormBuilder()">+ Questionnaire</button>`};
@@ -1661,6 +1676,8 @@ function showPage(name,el){
   if(name==='admin-clients')renderAdminClients();
   if(name==='rec-forms')renderRecForms();
   if(name==='rec-responses')renderRecResponses();
+  if(name==='settings')renderRewardsSettings();
+  if(name==='reward-requests')renderRewardRequestsPage();
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
@@ -1681,14 +1698,21 @@ function renderStats(){
 }
 function renderClients(list){
   const tb=document.getElementById('clBody');
-  if(!list.length){tb.innerHTML=`<tr><td colspan="5"><div class="empty"><div class="ei">👥</div><div class="et">Aucun client</div></div></td></tr>`;return;}
+  if(!list.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">👥</div><div class="et">Aucun client</div></div></td></tr>`;return;}
+  const lvEmoji={bronze:'🥉',silver:'🥈',gold:'🥇',platinum:'💎',elite:'👑'};
   tb.innerHTML=list.map(c=>{
     const ini=((c.first_name||'?')[0]+(c.last_name||'?')[0]).toUpperCase();
     const col=c.avatar_color||'#c49a2a';
     const dt=new Date(c.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+    const cp=allClientPoints[c.id];
+    const pts=cp?cp.monthly_points:0;
+    const lv=cp?cp.level:'bronze';
     return`<tr class="crow" onclick="openDet('${c.id}')">
       <td><div class="c-cell"><div class="c-av" style="background:${col}">${ini}</div><div><div class="c-nm">${c.first_name||''} ${c.last_name||''}</div><div class="c-sb">${c.email||''}</div></div></div></td>
-      <td>${stBadge(c.status)}</td><td style="color:var(--text3);font-size:12px">${dt}</td>
+      <td>${stBadge(c.status)}</td>
+      <td style="font-size:13px;font-weight:600;color:var(--gold)">${pts}</td>
+      <td style="font-size:16px">${lvEmoji[lv]||'🥉'}</td>
+      <td style="color:var(--text3);font-size:12px">${dt}</td>
       <td>${(c.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')||'—'}</td>
       <td onclick="event.stopPropagation()"><button class="btn btn-ghost btn-xs" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button></td>
     </tr>`;
@@ -5991,6 +6015,334 @@ async function updateRecRespStatus(){
   if(r){r.status=status;r.notes=notes;}
   toast('Statut mis à jour');
   renderRecResponses();
+}
+
+/* ===== GAMIFICATION (DASHBOARD) ===== */
+let allClientPoints={};
+let allCoachRewards=[];
+let allRewardRequests=[];
+
+const GAMIF_LEVELS=[
+  {key:'bronze',label:'Bronze',min:0,emoji:'🥉'},
+  {key:'silver',label:'Argent',min:1000,emoji:'🥈'},
+  {key:'gold',label:'Or',min:5000,emoji:'🥇'},
+  {key:'platinum',label:'Platine',min:15000,emoji:'💎'},
+  {key:'elite',label:'Élite',min:30000,emoji:'👑'}
+];
+
+async function loadCoachGamification(){
+  if(!currentCoach)return;
+  try{
+    const[r1,r2,r3]=await Promise.all([
+      db.from('client_points').select('*').eq('coach_id',currentCoach.id),
+      db.from('coach_rewards').select('*').eq('coach_id',currentCoach.id).order('created_at'),
+      db.from('reward_requests').select('*').eq('coach_id',currentCoach.id).order('created_at',{ascending:false}).limit(50)
+    ]);
+    allClientPoints={};
+    (r1.data||[]).forEach(cp=>{allClientPoints[cp.client_id]=cp;});
+    allCoachRewards=r2.data||[];
+    allRewardRequests=r3.data||[];
+    // Update pending badge
+    const pending=allRewardRequests.filter(r=>r.status==='pending').length;
+    const badge=document.getElementById('rrBadge');
+    if(badge){
+      if(pending>0){badge.style.display='';badge.textContent=pending;}
+      else badge.style.display='none';
+    }
+    // Init default rewards if none exist
+    if(!allCoachRewards.length){
+      await initDefaultRewards();
+    }
+    renderRewardsSettings();
+  }catch(e){console.warn('[GAMIF]',e);}
+}
+
+async function initDefaultRewards(){
+  const defaults=[
+    {name:'Séance offerte',description:'1 séance de coaching gratuite',cost:500},
+    {name:'Plan nutrition personnalisé',description:'Plan nutrition sur mesure offert',cost:1000},
+    {name:'Goodies Fitzone',description:'T-shirt ou accessoire Fitzone',cost:750},
+    {name:'Réduction -20%',description:'20% de réduction sur le mois suivant',cost:1500}
+  ];
+  for(const d of defaults){
+    const{data}=await db.from('coach_rewards').insert({coach_id:currentCoach.id,...d,active:true}).select();
+    if(data)allCoachRewards.push(data[0]);
+  }
+}
+
+function renderRewardsSettings(){
+  const el=document.getElementById('rewardsListSettings');
+  if(!el)return;
+  if(!allCoachRewards.length){el.innerHTML='<div style="color:var(--text3);font-size:13px">Aucune récompense.</div>';return;}
+  el.innerHTML=allCoachRewards.map(r=>`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+    <div style="flex:1"><div style="font-weight:600;font-size:14px">${esc(r.name)}</div><div style="font-size:12px;color:var(--text3)">${esc(r.description||'')} · ${r.cost} pts</div></div>
+    <label style="font-size:11px;display:flex;align-items:center;gap:4px"><input type="checkbox" ${r.active?'checked':''} onchange="toggleRewardActive('${r.id}',this.checked)" style="accent-color:var(--gold)"> Actif</label>
+    <button class="btn btn-xs btn-ghost" onclick="editReward('${r.id}')">✏️</button>
+    <button class="btn btn-xs btn-danger" onclick="deleteReward('${r.id}')">🗑️</button>
+  </div>`).join('');
+}
+
+async function toggleRewardActive(id,active){
+  await db.from('coach_rewards').update({active}).eq('id',id);
+  const r=allCoachRewards.find(x=>x.id===id);if(r)r.active=active;
+  toast(active?'Récompense activée':'Récompense désactivée');
+}
+
+function openAddReward(){
+  const h=`<div class="fg"><label class="fl">Nom</label><input class="fi" id="rwName" placeholder="Ex: Séance offerte"></div>
+    <div class="fg"><label class="fl">Description</label><input class="fi" id="rwDesc" placeholder="Ex: 1 séance gratuite"></div>
+    <div class="fg"><label class="fl">Coût (points)</label><input class="fi" type="number" id="rwCost" value="500"></div>
+    <button class="btn btn-dark" onclick="saveNewReward()">Ajouter</button>`;
+  openM('mNewClient');// reuse modal
+  document.querySelector('#mNewClient .mt').textContent='Nouvelle récompense';
+  document.querySelector('#mNewClient .mb').innerHTML=h;
+}
+
+async function saveNewReward(){
+  const name=document.getElementById('rwName').value.trim();
+  const desc=document.getElementById('rwDesc').value.trim();
+  const cost=parseInt(document.getElementById('rwCost').value)||500;
+  if(!name){toast('Nom requis');return;}
+  const{data,error}=await db.from('coach_rewards').insert({coach_id:currentCoach.id,name,description:desc,cost,active:true}).select();
+  if(error){toast('Erreur: '+error.message);return;}
+  if(data)allCoachRewards.push(data[0]);
+  closeM('mNewClient');
+  renderRewardsSettings();
+  toast('Récompense ajoutée ✓');
+}
+
+function editReward(id){
+  const r=allCoachRewards.find(x=>x.id===id);if(!r)return;
+  const h=`<div class="fg"><label class="fl">Nom</label><input class="fi" id="rwName" value="${esc(r.name)}"></div>
+    <div class="fg"><label class="fl">Description</label><input class="fi" id="rwDesc" value="${esc(r.description||'')}"></div>
+    <div class="fg"><label class="fl">Coût (points)</label><input class="fi" type="number" id="rwCost" value="${r.cost}"></div>
+    <button class="btn btn-dark" onclick="updateReward('${id}')">Enregistrer</button>`;
+  openM('mNewClient');
+  document.querySelector('#mNewClient .mt').textContent='Modifier récompense';
+  document.querySelector('#mNewClient .mb').innerHTML=h;
+}
+
+async function updateReward(id){
+  const name=document.getElementById('rwName').value.trim();
+  const desc=document.getElementById('rwDesc').value.trim();
+  const cost=parseInt(document.getElementById('rwCost').value)||500;
+  if(!name){toast('Nom requis');return;}
+  await db.from('coach_rewards').update({name,description:desc,cost}).eq('id',id);
+  const r=allCoachRewards.find(x=>x.id===id);
+  if(r){r.name=name;r.description=desc;r.cost=cost;}
+  closeM('mNewClient');
+  renderRewardsSettings();
+  toast('Récompense mise à jour ✓');
+}
+
+async function deleteReward(id){
+  if(!confirm('Supprimer cette récompense ?'))return;
+  await db.from('coach_rewards').delete().eq('id',id);
+  allCoachRewards=allCoachRewards.filter(x=>x.id!==id);
+  renderRewardsSettings();
+  toast('Récompense supprimée');
+}
+
+/* Reward Requests Page */
+function renderRewardRequestsPage(){
+  const el=document.getElementById('rewardRequestsList');
+  const pending=allRewardRequests.filter(r=>r.status==='pending');
+  const resolved=allRewardRequests.filter(r=>r.status!=='pending');
+  let h='';
+  if(!allRewardRequests.length){
+    h='<div class="card cp" style="text-align:center"><div style="font-size:48px;margin-bottom:12px;opacity:.4">🎁</div><div style="color:var(--text3)">Aucune demande de récompense</div></div>';
+    el.innerHTML=h;return;
+  }
+  if(pending.length){
+    h+=`<div class="cl" style="margin-bottom:12px">EN ATTENTE (${pending.length})</div>`;
+    h+=pending.map(r=>{
+      const cl=allClients.find(c=>c.id===r.client_id);
+      const name=cl?(cl.first_name+' '+(cl.last_name||'')):r.client_id;
+      return`<div class="card cp" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:12px">
+        <div style="flex:1"><div style="font-weight:700">${esc(name)}</div><div style="font-size:13px;color:var(--text2)">${esc(r.reward_name)} · ${r.cost} pts</div><div style="font-size:11px;color:var(--text3)">${new Date(r.created_at).toLocaleDateString('fr-FR')}</div></div>
+        <button class="btn btn-gold btn-sm" onclick="approveReward('${r.id}','${r.client_id}',${r.cost})">✅ Approuver</button>
+        <button class="btn btn-danger btn-sm" onclick="denyReward('${r.id}')">❌ Refuser</button>
+      </div></div>`;
+    }).join('');
+  }
+  if(resolved.length){
+    h+=`<div class="cl" style="margin:16px 0 12px">HISTORIQUE</div>`;
+    h+=`<div class="tw"><table><thead><tr><th>Client</th><th>Récompense</th><th>Coût</th><th>Statut</th><th>Date</th></tr></thead><tbody>`;
+    h+=resolved.map(r=>{
+      const cl=allClients.find(c=>c.id===r.client_id);
+      const name=cl?(cl.first_name+' '+(cl.last_name||'')):'-';
+      const st=r.status==='approved'?'<span style="color:#2e7d32;font-weight:600">Approuvée</span>':'<span style="color:#c62828;font-weight:600">Refusée</span>';
+      return`<tr><td style="font-size:13px">${esc(name)}</td><td style="font-size:13px">${esc(r.reward_name)}</td><td style="font-size:13px;color:var(--gold)">${r.cost}</td><td>${st}</td><td style="font-size:12px;color:var(--text3)">${new Date(r.created_at).toLocaleDateString('fr-FR')}</td></tr>`;
+    }).join('');
+    h+=`</tbody></table></div>`;
+  }
+  el.innerHTML=h;
+}
+
+async function approveReward(reqId,clientId,cost){
+  // Deduct points from client
+  const cp=allClientPoints[clientId];
+  if(cp){
+    const newBalance=Math.max(0,cp.usable_balance-cost);
+    await db.from('client_points').update({usable_balance:newBalance}).eq('client_id',clientId);
+    cp.usable_balance=newBalance;
+  }
+  await db.from('reward_requests').update({status:'approved',resolved_at:new Date().toISOString()}).eq('id',reqId);
+  // Send notification to client
+  const rr=allRewardRequests.find(r=>r.id===reqId);
+  await db.from('notifications').insert({client_id:clientId,type:'reward',title:'Récompense approuvée !',body:`Ta demande "${rr?rr.reward_name:''}" a été approuvée par ton coach.`});
+  const r=allRewardRequests.find(x=>x.id===reqId);if(r)r.status='approved';
+  toast('Récompense approuvée ✓');
+  renderRewardRequestsPage();
+  updateRRBadge();
+}
+
+async function denyReward(reqId){
+  const note=prompt('Raison du refus (optionnel):');
+  await db.from('reward_requests').update({status:'denied',coach_note:note||null,resolved_at:new Date().toISOString()}).eq('id',reqId);
+  const rr=allRewardRequests.find(r=>r.id===reqId);
+  await db.from('notifications').insert({client_id:rr?.client_id,type:'reward',title:'Demande refusée',body:`Ta demande "${rr?rr.reward_name:''}" a été refusée.${note?' Raison: '+note:''}`});
+  const r=allRewardRequests.find(x=>x.id===reqId);if(r){r.status='denied';r.coach_note=note;}
+  toast('Demande refusée');
+  renderRewardRequestsPage();
+  updateRRBadge();
+}
+
+function updateRRBadge(){
+  const pending=allRewardRequests.filter(r=>r.status==='pending').length;
+  const badge=document.getElementById('rrBadge');
+  if(badge){badge.style.display=pending>0?'':'none';badge.textContent=pending;}
+}
+
+/* Gamification tab in client detail */
+async function renderGamifTab(){
+  const el=document.getElementById('tc-gamification');
+  if(!curClient){el.innerHTML='';return;}
+  const cp=allClientPoints[curClient.id];
+  const lvEmoji={bronze:'🥉',silver:'🥈',gold:'🥇',platinum:'💎',elite:'👑'};
+  const lvLabel={bronze:'Bronze',silver:'Argent',gold:'Or',platinum:'Platine',elite:'Élite'};
+
+  // Load detailed data
+  const[r1,r2,r3]=await Promise.all([
+    db.from('client_badges').select('*').eq('client_id',curClient.id).order('unlocked_at'),
+    db.from('point_transactions').select('*').eq('client_id',curClient.id).order('created_at',{ascending:false}).limit(20),
+    db.from('reward_requests').select('*').eq('client_id',curClient.id).order('created_at',{ascending:false}).limit(10)
+  ]);
+  const badges=r1.data||[];
+  const txs=r2.data||[];
+
+  let h='';
+
+  // Level + Progress
+  const level=cp?cp.level:'bronze';
+  const total=cp?cp.total_points:0;
+  const lv=GAMIF_LEVELS.find(l=>l.key===level)||GAMIF_LEVELS[0];
+  const next=GAMIF_LEVELS.find(l=>l.min>total);
+  const pct=next?Math.min(100,Math.round((total-lv.min)/(next.min-lv.min)*100)):100;
+
+  h+=`<div style="display:flex;align-items:center;gap:16px;padding:20px;background:var(--dark);border-radius:var(--radius);color:white;margin-bottom:16px">
+    <div style="font-size:48px">${lv.emoji}</div>
+    <div style="flex:1">
+      <div style="font-size:20px;font-weight:800">${lvLabel[level]||'Bronze'}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.5);margin-top:2px">${total.toLocaleString()} pts au total</div>
+      <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.12);margin-top:8px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--gold);border-radius:3px"></div></div>
+      ${next?`<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:4px">Prochain: ${lvLabel[next.key]} (${next.min} pts)</div>`:''}
+    </div>
+  </div>`;
+
+  // 3 counters
+  h+=`<div class="g3" style="margin-bottom:16px">
+    <div class="card cp" style="text-align:center"><div style="font-size:24px;font-weight:800;color:var(--gold)">${cp?cp.total_points.toLocaleString():0}</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">TOTAL</div></div>
+    <div class="card cp" style="text-align:center"><div style="font-size:24px;font-weight:800;color:var(--gold)">${cp?cp.monthly_points.toLocaleString():0}</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">CE MOIS</div></div>
+    <div class="card cp" style="text-align:center"><div style="font-size:24px;font-weight:800;color:var(--gold)">${cp?cp.usable_balance.toLocaleString():0}</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">SOLDE</div></div>
+  </div>`;
+
+  // Badges
+  h+=`<div class="card cp" style="margin-bottom:16px"><div class="cl">BADGES DÉBLOQUÉS (${badges.length})</div>`;
+  if(badges.length){
+    const allBadges=[
+      {key:'first_workout',emoji:'🏋️',label:'Première séance'},
+      {key:'finisher',emoji:'🏆',label:'Finisher'},
+      {key:'centurion',emoji:'💯',label:'Centurion'},
+      {key:'workout_10',emoji:'💪',label:'Régulier'},
+      {key:'workout_50',emoji:'⚙️',label:'Machine'},
+      {key:'first_nutrition',emoji:'🥗',label:'Premier suivi'},
+      {key:'week_perfect_nutrition',emoji:'🌟',label:'Semaine parfaite'},
+      {key:'month_perfect_nutrition',emoji:'🏅',label:'Mois parfait'},
+      {key:'first_report',emoji:'📋',label:'Transparent'},
+      {key:'streak_8',emoji:'🔥',label:'Discipliné'},
+      {key:'streak_30',emoji:'⚡',label:'Imbattable'},
+      {key:'photos_10',emoji:'📸',label:'Progressiste'},
+      {key:'rocket_start',emoji:'🚀',label:'Rocket Start'},
+      {key:'bilan_5',emoji:'📊',label:'Assidu'},
+      {key:'steps_champion',emoji:'🚶',label:'Marcheur'},
+      {key:'champion',emoji:'🏆',label:'Champion'}
+    ];
+    h+=`<div style="display:flex;flex-wrap:wrap;gap:8px">`;
+    badges.forEach(b=>{
+      const def=allBadges.find(x=>x.key===b.badge_key);
+      h+=`<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:20px;font-size:12px;font-weight:600"><span style="font-size:16px">${def?def.emoji:'🏅'}</span> ${def?def.label:b.badge_key}<span style="color:var(--text3);font-size:10px;margin-left:4px">${new Date(b.unlocked_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span></div>`;
+    });
+    h+=`</div>`;
+  } else {
+    h+=`<div style="color:var(--text3);font-size:13px">Aucun badge débloqué</div>`;
+  }
+  h+=`</div>`;
+
+  // Recent transactions
+  h+=`<div class="card cp" style="margin-bottom:16px"><div class="cl">DERNIÈRES TRANSACTIONS</div>`;
+  if(txs.length){
+    const actLabels={workout_complete:'Séance',daily_report:'Rapport',weight_logged:'Poids',steps_goal:'Pas',nutrition_validation:'Nutrition',bilan_submit:'Bilan',bilan_photo:'Photo bilan',exercise_progression:'Progression',complementary_activity:'Activité',weekly_sessions_bonus:'Bonus semaine',badge_bonus:'Badge',manual:'Manuel'};
+    h+=`<table style="width:100%"><tbody>`;
+    txs.forEach(t=>{
+      h+=`<tr><td style="font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)">${actLabels[t.action]||t.action}</td><td style="font-size:12px;font-weight:700;color:var(--gold);text-align:right;padding:6px 0;border-bottom:1px solid var(--border)">+${t.points}</td><td style="font-size:11px;color:var(--text3);text-align:right;padding:6px 0;border-bottom:1px solid var(--border)">${new Date(t.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</td></tr>`;
+    });
+    h+=`</tbody></table>`;
+  } else {
+    h+=`<div style="color:var(--text3);font-size:13px">Aucune transaction</div>`;
+  }
+  h+=`</div>`;
+
+  // Manual points
+  h+=`<div class="card cp"><div class="cl">ATTRIBUER DES POINTS</div>
+    <div class="fr2"><div class="fg"><label class="fl">Points</label><input class="fi" type="number" id="manualPts" value="100"></div><div class="fg"><label class="fl">Motif</label><input class="fi" id="manualMotif" placeholder="Ex: Bonus challenge"></div></div>
+    <button class="btn btn-gold btn-sm" onclick="awardManualPoints()">Attribuer</button>
+  </div>`;
+
+  el.innerHTML=h;
+}
+
+async function awardManualPoints(){
+  const pts=parseInt(document.getElementById('manualPts').value);
+  const motif=document.getElementById('manualMotif').value.trim()||'Points manuels';
+  if(!pts||pts<=0){toast('Nombre de points invalide');return;}
+  if(!curClient)return;
+
+  // Insert transaction
+  await db.from('point_transactions').insert({client_id:curClient.id,coach_id:currentCoach.id,action:'manual',points:pts,metadata:{motif}});
+
+  // Update client_points
+  let cp=allClientPoints[curClient.id];
+  if(!cp){
+    const{data}=await db.from('client_points').insert({client_id:curClient.id,coach_id:currentCoach.id,total_points:pts,monthly_points:pts,usable_balance:pts,level:'bronze'}).select();
+    if(data)cp=data[0];
+    allClientPoints[curClient.id]=cp;
+  } else {
+    const newTotal=cp.total_points+pts;
+    let newLevel='bronze';
+    if(newTotal>=30000)newLevel='elite';
+    else if(newTotal>=15000)newLevel='platinum';
+    else if(newTotal>=5000)newLevel='gold';
+    else if(newTotal>=1000)newLevel='silver';
+    await db.from('client_points').update({total_points:newTotal,monthly_points:cp.monthly_points+pts,usable_balance:cp.usable_balance+pts,level:newLevel}).eq('id',cp.id);
+    cp.total_points=newTotal;cp.monthly_points+=pts;cp.usable_balance+=pts;cp.level=newLevel;
+  }
+
+  // Notify client
+  await db.from('notifications').insert({client_id:curClient.id,type:'info',title:`+${pts} points !`,body:motif});
+
+  toast(`+${pts} pts attribués à ${curClient.first_name} ✓`);
+  renderGamifTab();
 }
 </script>
 </body>
