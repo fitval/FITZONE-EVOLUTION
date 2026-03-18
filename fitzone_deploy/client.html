@@ -706,27 +706,31 @@ function renderMiniChart(pts){
 function getBilanCountdown(){
   const bilanDay=clientData.bilan_day!=null?parseInt(clientData.bilan_day):5; // 0=dim..6=sam, défaut vendredi
   const now=new Date();
+  const todayStr=now.toISOString().slice(0,10);
   const todayDay=now.getDay();
   const isBilanDay=todayDay===bilanDay;
-  // Calculer le prochain jour de bilan (prochain bilanDay à venir)
-  let diff=(bilanDay-todayDay+7)%7;
-  if(diff===0)diff=7; // si c'est aujourd'hui, prochain = dans 7j
-  const nd=new Date(now);
-  nd.setDate(now.getDate()+diff);
-  // Vérifier si un bilan a déjà été fait cette semaine
+  // Vérifier si un bilan a été fait aujourd'hui
   let bilanDoneThisWeek=false;
   if(bilans[0]&&bilans[0].date){
-    const last=new Date(bilans[0].date);
+    const lastDate=bilans[0].date.slice(0,10);
+    const last=new Date(lastDate);
     const daysSince=Math.floor((now-last)/(864e5));
+    // Considéré comme fait si soumis aujourd'hui (jour du bilan) ou dans les 7 derniers jours
     if(daysSince<7)bilanDoneThisWeek=true;
   }
-  // Si c'est le jour du bilan et qu'il est déjà fait, prochain = dans 7j
-  if(isBilanDay&&bilanDoneThisWeek){
-    nd.setDate(now.getDate()+7);
+  // Calculer le prochain jour de bilan
+  const nd=new Date(now);
+  if(isBilanDay&&!bilanDoneThisWeek){
+    // C'est aujourd'hui et pas encore fait → prochain = aujourd'hui (0 jours)
+    // nd reste à aujourd'hui
+  } else {
+    let diff=(bilanDay-todayDay+7)%7;
+    if(diff===0)diff=7; // déjà fait aujourd'hui → prochain dans 7j
+    nd.setDate(now.getDate()+diff);
   }
   const daysLeft=Math.max(0,Math.ceil((nd-now)/(864e5)));
   const l=nd.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-  return{days:daysLeft,label:l.charAt(0).toUpperCase()+l.slice(1),isBilanDay,bilanDoneThisWeek};
+  return{days:daysLeft,label:l.charAt(0).toUpperCase()+l.slice(1),isBilanDay:isBilanDay&&!bilanDoneThisWeek,bilanDoneThisWeek};
 }
 function getStepsData(){
   const t=new Date(),labels=['J-3','J-2','J-1','Auj.'],bars=[];let ts=0,mx=1;
