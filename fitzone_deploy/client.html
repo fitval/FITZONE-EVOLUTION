@@ -2019,12 +2019,15 @@ function getNextLevel(pts){
 }
 
 async function awardPoints(action,points,metadata){
-  if(!clientPoints)return;
+  if(!clientPoints){console.warn('[AWARD] No clientPoints, skip');return;}
+  console.log('[AWARD] Start',action,points,clientAuthMode,'token='+(clientData.token?'yes':'no'));
   try{
     if(clientAuthMode==='anon'){
+      if(!clientData.token){console.error('[AWARD] No token for anon client!');return;}
       const{data,error}=await db.rpc('client_award_points',{p_token:clientData.token,p_action:action,p_points:points,p_metadata:metadata||{}});
-      if(error){console.error('[AWARD]',error);return;}
-      if(!data.success)return; // capped
+      console.log('[AWARD] RPC response',data,error);
+      if(error){console.error('[AWARD] RPC error',error);return;}
+      if(!data||!data.success){console.log('[AWARD] Capped or failed',data);return;}
       clientPoints.total_points=data.total_points;
       clientPoints.monthly_points=data.monthly_points;
       clientPoints.usable_balance=data.usable_balance;
@@ -2035,19 +2038,22 @@ async function awardPoints(action,points,metadata){
       // Auth: check daily cap locally
       const todayTx=pointTransactions.filter(t=>t.action===action&&t.created_at&&t.created_at.startsWith(today()));
       const dailyCapped=['daily_report','weight_logged','steps_goal','hydration_goal','nutrition_validation'];
-      if(dailyCapped.includes(action)&&todayTx.length>=1)return;
-      if(action==='exercise_progression'&&todayTx.length>=10)return;
-      if(action==='complementary_activity'&&todayTx.length>=2)return;
+      if(dailyCapped.includes(action)&&todayTx.length>=1){console.log('[AWARD] Daily capped',action);return;}
+      if(action==='exercise_progression'&&todayTx.length>=10){console.log('[AWARD] Daily capped exo');return;}
+      if(action==='complementary_activity'&&todayTx.length>=2){console.log('[AWARD] Daily capped activity');return;}
       // Insert transaction
-      await db.from('point_transactions').insert({client_id:clientData.id,coach_id:clientData.coach_id,action,points,metadata:metadata||{}});
+      const{error:txErr}=await db.from('point_transactions').insert({client_id:clientData.id,coach_id:clientData.coach_id,action,points,metadata:metadata||{}});
+      if(txErr){console.error('[AWARD] Insert tx error',txErr);return;}
       const oldLevel=clientPoints.level;
       clientPoints.total_points+=points;
       clientPoints.monthly_points+=points;
       clientPoints.usable_balance+=points;
       const newLv=getLevel(clientPoints.total_points);
       clientPoints.level=newLv.key;
-      await db.from('client_points').update({total_points:clientPoints.total_points,monthly_points:clientPoints.monthly_points,usable_balance:clientPoints.usable_balance,level:newLv.key,updated_at:new Date().toISOString()}).eq('client_id',clientData.id);
+      const{error:cpErr}=await db.from('client_points').update({total_points:clientPoints.total_points,monthly_points:clientPoints.monthly_points,usable_balance:clientPoints.usable_balance,level:newLv.key,updated_at:new Date().toISOString()}).eq('client_id',clientData.id);
+      if(cpErr)console.error('[AWARD] Update points error',cpErr);
       pointTransactions.unshift({action,points,metadata:metadata||{},created_at:new Date().toISOString()});
+      console.log('[AWARD] OK auth',action,'+'+points,'total='+clientPoints.total_points);
       showPointsToast(points,actionLabel(action));
       if(oldLevel!==newLv.key)showLevelUpAnimation(newLv.key);
     }
