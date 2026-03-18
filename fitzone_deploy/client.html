@@ -465,7 +465,7 @@ async function uploadToDrive(base64,fileName){
 
 async function uploadPhotosToDrive(photos){
   const results=[];
-  const nom=(clientData&&(clientData.prenom||clientData.nom))?((clientData.prenom||'')+'_'+(clientData.nom||'')).replace(/\s+/g,'_').replace(/_+$/,''):'client';
+  const nom=(clientData&&(clientData.first_name||clientData.last_name))?((clientData.first_name||'')+'_'+(clientData.last_name||'')).replace(/\s+/g,'_').replace(/_+$/,''):'client';
   const d=document.getElementById('bilanDate')?document.getElementById('bilanDate').value.replace(/-/g,''):'';
   for(let i=0;i<photos.length;i++){
     const p=photos[i];
