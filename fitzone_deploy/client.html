@@ -704,7 +704,9 @@ async function loadData(){
   ]);
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   // Load gamification data
+  console.log('[INIT] loadData done, calling loadGamification, authMode='+clientAuthMode+', token='+(clientData.token?'yes':'no'));
   await loadGamification();
+  console.log('[INIT] loadGamification done, clientPoints=',clientPoints);
 }
 
 /* ===== TABS ===== */
@@ -2211,16 +2213,10 @@ async function markAllNotifsRead(){
 
 /* ===== BONUS TAB ===== */
 function renderBonus(){
-  if(!clientPoints){document.getElementById('bonusContent').innerHTML='<div class="empty"><div class="empty-icon">⭐</div><div class="empty-text">Chargement...</div></div>';return;}
-  // Onboarding
-  if(!bonusOnboarded&&!localStorage.getItem('fz_bonus_onboarded')){
-    bonusOnboarded=true;
-    localStorage.setItem('fz_bonus_onboarded','1');
-  }
-
-  const lv=getLevel(clientPoints.total_points);
-  const next=getNextLevel(clientPoints.total_points);
-  const pct=next?Math.min(100,Math.round((clientPoints.total_points-lv.min)/(next.min-lv.min)*100)):100;
+  const cp=clientPoints||{total_points:0,monthly_points:0,usable_balance:0,level:'bronze',leaderboard_opt_in:true};
+  const lv=getLevel(cp.total_points);
+  const next=getNextLevel(cp.total_points);
+  const pct=next?Math.min(100,Math.round((cp.total_points-lv.min)/(next.min-lv.min)*100)):100;
 
   let h='';
 
@@ -2228,30 +2224,47 @@ function renderBonus(){
   h+=`<div class="level-card">
     <div class="level-emoji">${lv.emoji}</div>
     <div class="level-name">${lv.label}</div>
-    <div class="level-pts">${clientPoints.total_points.toLocaleString()} pts au total</div>
+    <div class="level-pts">${cp.total_points.toLocaleString()} pts au total</div>
     <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
     <div class="progress-label"><span>${lv.label}</span>${next?`<span>${next.label} · ${next.min.toLocaleString()} pts</span>`:'<span>Niveau max !</span>'}</div>
   </div>`;
 
   // 2. Mes Points
   h+=`<div class="pts-summary">
-    <div class="pts-box"><div class="pts-box-val">${clientPoints.total_points.toLocaleString()}</div><div class="pts-box-label">Total</div></div>
-    <div class="pts-box"><div class="pts-box-val">${clientPoints.monthly_points.toLocaleString()}</div><div class="pts-box-label">Ce mois</div></div>
-    <div class="pts-box"><div class="pts-box-val">${clientPoints.usable_balance.toLocaleString()}</div><div class="pts-box-label">Solde</div></div>
+    <div class="pts-box"><div class="pts-box-val">${cp.total_points.toLocaleString()}</div><div class="pts-box-label">Total</div></div>
+    <div class="pts-box"><div class="pts-box-val">${cp.monthly_points.toLocaleString()}</div><div class="pts-box-label">Ce mois</div></div>
+    <div class="pts-box"><div class="pts-box-val">${cp.usable_balance.toLocaleString()}</div><div class="pts-box-label">Solde</div></div>
   </div>`;
 
-  // 3. Classement mensuel
+  // 3. Learning modules inline — ALWAYS show if modules exist
+  if(modules.length){
+    h+=`<div class="card" style="padding:16px;margin-bottom:14px">
+      <div class="card-label">🎓 APPRENTISSAGE</div>`;
+    modules.forEach((mod,i)=>{
+      const chaps=mod.chapitres||[];
+      h+=`<div style="display:flex;align-items:center;gap:12px;padding:12px 0;${i<modules.length-1?'border-bottom:1px solid var(--border)':''};cursor:pointer" onclick="openBonusModule(${i})">
+        ${mod.img?`<img src="${mod.img}" style="width:56px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:`<div style="width:56px;height:40px;border-radius:8px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🎓</div>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${mod.title||'Module'}</div>
+          <div style="font-size:11px;color:var(--text3)">${chaps.length} chapitre${chaps.length>1?'s':''}</div>
+        </div>
+        <div style="color:var(--text3);font-size:16px">›</div>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+
+  // 4. Classement mensuel
   h+=`<div class="card" style="padding:16px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div class="card-label" style="margin-bottom:0">CLASSEMENT MENSUEL</div>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
-        <input type="checkbox" ${clientPoints.leaderboard_opt_in?'checked':''} onchange="toggleLeaderboard(this.checked)" style="accent-color:var(--gold)"> Participer
+        <input type="checkbox" ${cp.leaderboard_opt_in?'checked':''} onchange="toggleLeaderboard(this.checked)" style="accent-color:var(--gold)"> Participer
       </label>
     </div>`;
   if(gamifLeaderboard.length){
     gamifLeaderboard.forEach((r,i)=>{
       const isMe=r.client_id===clientData.id;
-      const rlv=getLevel(0);// use level from data
       const rlvObj=LEVELS.find(l=>l.key===r.level)||LEVELS[0];
       h+=`<div class="lb-row${isMe?' me':''}">
         <div class="lb-rank">${i+1}</div>
@@ -2265,7 +2278,7 @@ function renderBonus(){
   }
   h+=`</div>`;
 
-  // 4. Mes Badges
+  // 5. Mes Badges
   const unlockedKeys=clientBadges.map(b=>b.badge_key);
   h+=`<div class="card" style="padding:16px;margin-bottom:14px">
     <div class="card-label">MES BADGES <span style="font-weight:400;color:var(--text3)">${unlockedKeys.length}/${BADGES.length}</span></div>
@@ -2280,16 +2293,16 @@ function renderBonus(){
   });
   h+=`</div></div>`;
 
-  // 5. Récompenses
+  // 6. Récompenses
   h+=`<div class="card" style="padding:16px;margin-bottom:14px">
     <div class="card-label">RÉCOMPENSES</div>`;
   if(lv.key==='bronze'){
-    h+=`<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:8px">🔒</div><div style="font-size:14px;color:var(--text2);font-weight:600">Atteins le niveau Argent pour débloquer les récompenses</div><div style="font-size:12px;color:var(--text3);margin-top:4px">Plus que ${Math.max(0,1000-clientPoints.total_points)} pts !</div></div>`;
+    h+=`<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:8px">🔒</div><div style="font-size:14px;color:var(--text2);font-weight:600">Atteins le niveau Argent pour débloquer les récompenses</div><div style="font-size:12px;color:var(--text3);margin-top:4px">Plus que ${Math.max(0,1000-cp.total_points)} pts !</div></div>`;
   } else if(!coachRewards.length){
     h+=`<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Ton coach n'a pas encore ajouté de récompenses.</div>`;
   } else {
     coachRewards.forEach(r=>{
-      const canAfford=clientPoints.usable_balance>=r.cost;
+      const canAfford=cp.usable_balance>=r.cost;
       h+=`<div class="reward-card">
         <div class="reward-info">
           <div class="reward-name">${r.name}</div>
@@ -2315,24 +2328,44 @@ function renderBonus(){
     h+=`</div>`;
   }
 
-  // Learning modules inline
-  if(modules.length){
-    h+=`<div class="card" style="padding:16px;margin-bottom:14px">
-      <div class="card-label">🎓 APPRENTISSAGE</div>`;
-    modules.forEach((mod,i)=>{
-      const chaps=mod.chapitres||[];
-      h+=`<div style="display:flex;align-items:center;gap:12px;padding:12px 0;${i<modules.length-1?'border-bottom:1px solid var(--border)':''};cursor:pointer" onclick="switchTab('Learn');setTimeout(()=>openModule(${i}),100)">
-        ${mod.img?`<img src="${mod.img}" style="width:56px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:`<div style="width:56px;height:40px;border-radius:8px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🎓</div>`}
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${mod.title||'Module'}</div>
-          <div style="font-size:11px;color:var(--text3)">${chaps.length} chapitre${chaps.length>1?'s':''}</div>
-        </div>
-      </div>`;
-    });
-    h+=`</div>`;
-  }
-
   document.getElementById('bonusContent').innerHTML=h;
+}
+
+function openBonusModule(idx){
+  const mod=modules[idx];if(!mod)return;
+  const chaps=mod.chapitres||[];
+  let h=`<button class="back-btn" onclick="renderBonus()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
+  h+=`<div style="font-size:20px;font-weight:800;margin-bottom:16px">${mod.title||'Module'}</div>`;
+  if(mod.description||mod.desc) h+=`<div style="font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:20px">${mod.description||mod.desc}</div>`;
+  if(!chaps.length){
+    h+=`<div class="empty"><div class="empty-text">Aucun chapitre dans ce module.</div></div>`;
+  } else {
+    chaps.forEach((ch,ci)=>{
+      h+=`<div class="card" style="margin-bottom:12px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:8px">${ch.title||ch.titre||'Chapitre '+(ci+1)}</div>
+        ${ch.contenu?`<div style="font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:12px">${ch.contenu}</div>`:''}`;
+      const vids=ch.videos||[];
+      if(vids.length){
+        vids.forEach(v=>{
+          const vUrl=typeof v==='string'?v:v.url;
+          const vid=ytId(vUrl);
+          if(vid){
+            h+=`<div style="margin-bottom:12px">
+              ${v.title?`<div style="font-size:13px;font-weight:600;margin-bottom:6px">${v.title}${v.dur?' <span style="font-size:11px;color:var(--text3);font-weight:400">'+v.dur+'</span>':''}</div>`:''}
+              <div class="exo-thumb" style="width:100%;height:auto;aspect-ratio:16/9;border-radius:var(--r-xs)" onclick="openModal('<iframe src=\\'https://www.youtube-nocookie.com/embed/${vid}?autoplay=1\\' allowfullscreen style=\\'width:100%;aspect-ratio:16/9;border:none\\'></iframe>')">
+                <img src="https://img.youtube.com/vi/${vid}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover" loading="lazy">
+                <div class="play-icon"><svg viewBox="0 0 24 24" fill="white" style="width:40px;height:40px"><polygon points="8,5 19,12 8,19"/></svg></div>
+              </div>
+              ${v.desc?`<div style="font-size:12px;color:var(--text3);margin-top:4px;line-height:1.4">${v.desc}</div>`:''}
+            </div>`;
+          }
+        });
+      }
+      h+=`</div>`;
+    });
+  }
+  document.getElementById('bonusContent').innerHTML=h;
+  document.getElementById('scrollArea').scrollTop=0;
 }
 
 async function toggleLeaderboard(optIn){
