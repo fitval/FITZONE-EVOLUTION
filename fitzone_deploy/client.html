@@ -465,9 +465,12 @@ async function uploadToDrive(base64,fileName){
 
 async function uploadPhotosToDrive(photos){
   const results=[];
-  for(const p of photos){
+  const nom=(clientData&&(clientData.prenom||clientData.nom))?((clientData.prenom||'')+'_'+(clientData.nom||'')).replace(/\s+/g,'_').replace(/_+$/,''):'client';
+  const d=document.getElementById('bilanDate')?document.getElementById('bilanDate').value.replace(/-/g,''):'';
+  for(let i=0;i<photos.length;i++){
+    const p=photos[i];
     if(p.startsWith('https://'))results.push(p);
-    else{const url=await uploadToDrive(p,'bilan_'+Date.now()+'_'+Math.random().toString(36).substr(2,4)+'.jpg');results.push(url);}
+    else{const fileName='Bilan_'+nom+'_'+d+(photos.length>1?'_'+(i+1):'')+'.jpg';const url=await uploadToDrive(p,fileName);results.push(url);}
   }
   return results;
 }
