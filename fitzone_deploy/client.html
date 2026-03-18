@@ -1461,8 +1461,9 @@ async function submitBilan(){
     error=e;
   }
   if(error){toast('Erreur: '+error.message);return;}
-  bilanEditMode=false;bilanEditId=null;
-  toast(bilanEditMode?'Bilan mis à jour !':'Bilan envoyé !');bilanAttitude=0;
+  const wasEdit=bilanEditMode;
+  bilanEditMode=false;bilanEditId=null;bilanAttitude=0;bilanPhotos=[];
+  toast(wasEdit?'Bilan mis à jour ✓':'Bilan envoyé ✓');
   const{data}=await db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false});bilans=data||[];renderBilanList();
 }
 
