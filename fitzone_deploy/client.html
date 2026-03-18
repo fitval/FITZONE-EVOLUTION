@@ -450,11 +450,17 @@ const DRIVE_UPLOAD_URL='https://script.google.com/macros/s/AKfycbxxPRwXc7AgNyRyD
 
 async function uploadToDrive(base64,fileName){
   try{
-    const res=await fetch(DRIVE_UPLOAD_URL,{method:'POST',body:JSON.stringify({base64,fileName,mimeType:'image/jpeg'})});
-    const json=await res.json();
-    if(json.success&&json.files&&json.files[0])return json.files[0].url;
-    console.error('[DRIVE]',json.error);return base64;
-  }catch(e){console.error('[DRIVE]',e);return base64;}
+    console.log('[DRIVE] Uploading',fileName,'size:',Math.round(base64.length/1024)+'KB');
+    const res=await fetch(DRIVE_UPLOAD_URL,{method:'POST',redirect:'follow',body:JSON.stringify({base64,fileName,mimeType:'image/jpeg'})});
+    console.log('[DRIVE] Response status:',res.status,res.type);
+    const text=await res.text();
+    console.log('[DRIVE] Response body:',text.substring(0,200));
+    try{
+      const json=JSON.parse(text);
+      if(json.success&&json.files&&json.files[0]){console.log('[DRIVE] OK:',json.files[0].url);return json.files[0].url;}
+      console.error('[DRIVE] Error:',json.error);return base64;
+    }catch(pe){console.error('[DRIVE] Parse error:',pe,text.substring(0,200));return base64;}
+  }catch(e){console.error('[DRIVE] Fetch error:',e);return base64;}
 }
 
 async function uploadPhotosToDrive(photos){
