@@ -1957,11 +1957,15 @@ async function saveEstToLog(){
 
 /* ===== GAMIFICATION ENGINE ===== */
 async function loadGamification(){
+  // Always set defaults first so UI works even if RPC fails
+  if(!clientPoints) clientPoints={total_points:0,monthly_points:0,usable_balance:0,level:'bronze',leaderboard_opt_in:true};
   try{
     if(clientAuthMode==='anon'){
       const{data,error}=await db.rpc('client_get_gamification',{p_token:clientData.token});
-      if(error){console.error('[GAMIF]',error);return;}
-      clientPoints=data.points||{total_points:0,monthly_points:0,usable_balance:0,level:'bronze',leaderboard_opt_in:true};
+      if(error){console.error('[GAMIF RPC ERROR]',error.message,error);return;}
+      if(!data){console.error('[GAMIF] No data returned');return;}
+      console.log('[GAMIF] Loaded OK',data);
+      clientPoints=data.points||clientPoints;
       clientBadges=data.badges||[];
       pointTransactions=data.transactions||[];
       gamifNotifications=data.notifications||[];
@@ -2311,11 +2315,21 @@ function renderBonus(){
     h+=`</div>`;
   }
 
-  // Learning link
+  // Learning modules inline
   if(modules.length){
-    h+=`<div class="card" style="padding:16px;cursor:pointer" onclick="switchTab('Learn')">
-      <div style="display:flex;align-items:center;gap:12px"><div style="font-size:24px">🎓</div><div><div style="font-size:15px;font-weight:700">Apprentissage</div><div style="font-size:12px;color:var(--text3)">${modules.length} module${modules.length>1?'s':''} disponible${modules.length>1?'s':''}</div></div></div>
-    </div>`;
+    h+=`<div class="card" style="padding:16px;margin-bottom:14px">
+      <div class="card-label">🎓 APPRENTISSAGE</div>`;
+    modules.forEach((mod,i)=>{
+      const chaps=mod.chapitres||[];
+      h+=`<div style="display:flex;align-items:center;gap:12px;padding:12px 0;${i<modules.length-1?'border-bottom:1px solid var(--border)':''};cursor:pointer" onclick="switchTab('Learn');setTimeout(()=>openModule(${i}),100)">
+        ${mod.img?`<img src="${mod.img}" style="width:56px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0">`:`<div style="width:56px;height:40px;border-radius:8px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🎓</div>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${mod.title||'Module'}</div>
+          <div style="font-size:11px;color:var(--text3)">${chaps.length} chapitre${chaps.length>1?'s':''}</div>
+        </div>
+      </div>`;
+    });
+    h+=`</div>`;
   }
 
   document.getElementById('bonusContent').innerHTML=h;
