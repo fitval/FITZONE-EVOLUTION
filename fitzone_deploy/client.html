@@ -2236,13 +2236,14 @@ function renderBonus(){
     });
   }
 
-  // 2. Mon Niveau — compact
-  h+=`<div style="display:flex;align-items:center;gap:14px;background:var(--dark);border-radius:var(--r-sm);padding:14px 16px;margin-bottom:14px;color:white">
-    <div style="font-size:32px">${lv.emoji}</div>
+  // 2. Mon Niveau
+  h+=`<div style="display:flex;align-items:center;gap:16px;background:var(--dark);border-radius:var(--r);padding:20px;margin-bottom:14px;color:white">
+    <div style="font-size:44px">${lv.emoji}</div>
     <div style="flex:1">
-      <div style="font-size:15px;font-weight:700">${lv.label} · <span style="color:var(--gold)">${cp.total_points.toLocaleString()} pts</span></div>
-      <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.12);margin-top:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--gold);border-radius:3px"></div></div>
-      ${next?`<div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:4px">${next.label} · ${next.min.toLocaleString()} pts</div>`:''}
+      <div style="font-size:18px;font-weight:800">${lv.label}</div>
+      <div style="font-size:13px;color:var(--gold);font-weight:700;margin-top:2px">${cp.total_points.toLocaleString()} pts</div>
+      <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.12);margin-top:8px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--gold);border-radius:3px"></div></div>
+      ${next?`<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:5px">Prochain : ${next.label} · ${next.min.toLocaleString()} pts</div>`:''}
     </div>
   </div>`;
 
