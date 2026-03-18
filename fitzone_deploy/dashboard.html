@@ -1768,7 +1768,8 @@ function renderDetHero(){
 }
 async function setBilanDay(day){
   const d=parseInt(day);
-  await db.from('clients').update({bilan_day:d}).eq('id',curClient.id);
+  const{error}=await db.from('clients').update({bilan_day:d}).eq('id',curClient.id);
+  if(error){toast('Erreur: '+error.message);console.error('setBilanDay error:',error);return;}
   curClient.bilan_day=d;
   const idx=allClients.findIndex(c=>c.id===curClient.id);if(idx>=0)allClients[idx].bilan_day=d;
   toast('Jour de bilan mis à jour ✓');

@@ -705,6 +705,7 @@ function renderMiniChart(pts){
 }
 function getBilanCountdown(){
   const bilanDay=clientData.bilan_day!=null?parseInt(clientData.bilan_day):5; // 0=dim..6=sam, défaut vendredi
+  console.log('[BILAN DAY]',bilanDay,'raw:',clientData.bilan_day);
   const now=new Date();
   const isBilanDay=now.getDay()===bilanDay;
   const nd=new Date(now);
