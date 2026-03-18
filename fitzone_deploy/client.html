@@ -706,18 +706,23 @@ function renderMiniChart(pts){
 function getBilanCountdown(){
   const bilanDay=clientData.bilan_day!=null?parseInt(clientData.bilan_day):5; // 0=dim..6=sam, défaut vendredi
   const now=new Date();
-  const isBilanDay=now.getDay()===bilanDay;
-  const nd=new Date(now);
-  // Calculer le prochain jour de bilan
-  let diff=(bilanDay+7-now.getDay())%7;
+  const todayDay=now.getDay();
+  const isBilanDay=todayDay===bilanDay;
+  // Calculer le prochain jour de bilan (prochain bilanDay à venir)
+  let diff=(bilanDay-todayDay+7)%7;
   if(diff===0)diff=7; // si c'est aujourd'hui, prochain = dans 7j
+  const nd=new Date(now);
   nd.setDate(now.getDate()+diff);
-  // Si dernier bilan fait il y a moins de 7j sur le bon jour, pousser à +7
+  // Vérifier si un bilan a déjà été fait cette semaine
   let bilanDoneThisWeek=false;
   if(bilans[0]&&bilans[0].date){
     const last=new Date(bilans[0].date);
     const daysSince=Math.floor((now-last)/(864e5));
-    if(daysSince<7){nd.setDate(last.getDate()+7);while(nd<=now)nd.setDate(nd.getDate()+7);bilanDoneThisWeek=true;}
+    if(daysSince<7)bilanDoneThisWeek=true;
+  }
+  // Si c'est le jour du bilan et qu'il est déjà fait, prochain = dans 7j
+  if(isBilanDay&&bilanDoneThisWeek){
+    nd.setDate(now.getDate()+7);
   }
   const daysLeft=Math.max(0,Math.ceil((nd-now)/(864e5)));
   const l=nd.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
