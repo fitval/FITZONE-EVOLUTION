@@ -175,7 +175,7 @@ DECLARE
   v_day_count INTEGER;
 BEGIN
   -- Validate token
-  SELECT id, coach_id INTO v_client FROM public.clients WHERE token = p_token;
+  SELECT id, coach_id INTO v_client FROM public.clients WHERE token = p_token::uuid;
   IF v_client.id IS NULL THEN
     RAISE EXCEPTION 'Token invalide';
   END IF;
@@ -277,7 +277,7 @@ DECLARE
   v_client RECORD;
   v_inserted BOOLEAN := false;
 BEGIN
-  SELECT id, coach_id INTO v_client FROM public.clients WHERE token = p_token;
+  SELECT id, coach_id INTO v_client FROM public.clients WHERE token = p_token::uuid;
   IF v_client.id IS NULL THEN
     RAISE EXCEPTION 'Token invalide';
   END IF;
@@ -305,7 +305,7 @@ DECLARE
   v_cp RECORD;
   v_reward RECORD;
 BEGIN
-  SELECT id, coach_id INTO v_client FROM public.clients WHERE token = p_token;
+  SELECT id, coach_id INTO v_client FROM public.clients WHERE token = p_token::uuid;
   IF v_client.id IS NULL THEN
     RAISE EXCEPTION 'Token invalide';
   END IF;
@@ -349,7 +349,7 @@ DECLARE
   v_requests JSON;
   v_unread_notifs INTEGER;
 BEGIN
-  SELECT id, coach_id INTO v_client FROM public.clients WHERE token = p_token;
+  SELECT id, coach_id INTO v_client FROM public.clients WHERE token = p_token::uuid;
   IF v_client.id IS NULL THEN
     RAISE EXCEPTION 'Token invalide';
   END IF;
@@ -429,7 +429,7 @@ RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
   v_client RECORD;
 BEGIN
-  SELECT id INTO v_client FROM public.clients WHERE token = p_token;
+  SELECT id INTO v_client FROM public.clients WHERE token = p_token::uuid;
   IF v_client.id IS NULL THEN
     RAISE EXCEPTION 'Token invalide';
   END IF;
@@ -450,7 +450,7 @@ RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
   v_client RECORD;
 BEGIN
-  SELECT id INTO v_client FROM public.clients WHERE token = p_token;
+  SELECT id INTO v_client FROM public.clients WHERE token = p_token::uuid;
   IF v_client.id IS NULL THEN
     RAISE EXCEPTION 'Token invalide';
   END IF;
