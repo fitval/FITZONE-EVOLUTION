@@ -6096,6 +6096,7 @@ const GAMIF_LEVELS=[
 
 async function loadCoachGamification(){
   if(!currentCoach)return;
+  await loadCoachLevels();
   try{
     const[r1,r2,r3]=await Promise.all([
       db.from('client_points').select('*').eq('coach_id',currentCoach.id),
@@ -6244,13 +6245,23 @@ const DEFAULT_LEVELS=[
   {key:'elite',label:'Élite',min:30000,emoji:'👑'}
 ];
 
+let coachLevelsCache=null;
 function getCoachLevels(){
-  const saved=localStorage.getItem('fz_gamif_levels_'+(currentCoach?currentCoach.id:''));
-  if(saved)try{return JSON.parse(saved);}catch(e){}
+  if(coachLevelsCache)return coachLevelsCache;
   return DEFAULT_LEVELS.slice();
 }
-function saveCoachLevels(levels){
-  localStorage.setItem('fz_gamif_levels_'+(currentCoach?currentCoach.id:''),JSON.stringify(levels));
+async function loadCoachLevels(){
+  if(!currentCoach)return;
+  try{
+    const{data}=await db.from('settings').select('gamif_levels').eq('coach_id',currentCoach.id).limit(1);
+    if(data&&data[0]&&data[0].gamif_levels){coachLevelsCache=data[0].gamif_levels;}
+  }catch(e){}
+}
+async function saveCoachLevels(levels){
+  coachLevelsCache=levels;
+  if(currentCoach){
+    await db.from('settings').upsert({coach_id:currentCoach.id,gamif_levels:levels},{onConflict:'coach_id'}).catch(e=>console.warn('levels save:',e));
+  }
 }
 
 function renderLevelsSettings(){
@@ -6289,7 +6300,7 @@ function closeLevelForm(){
   document.getElementById('lvAddBtn').style.display='';
   editingLevelIdx=null;
 }
-function saveLevel(){
+async function saveLevel(){
   const name=document.getElementById('lvName').value.trim();
   const emoji=document.getElementById('lvEmoji').value.trim();
   const min=parseInt(document.getElementById('lvMin').value);
@@ -6303,19 +6314,18 @@ function saveLevel(){
   } else {
     levels.push({key:name.toLowerCase().replace(/\s+/g,'_'),label:name,min,emoji});
   }
-  saveCoachLevels(levels);
+  await saveCoachLevels(levels);
   closeLevelForm();
   renderLevelsSettings();
-  // Update the level select in reward form
   updateLevelSelects(levels);
   toast(editingLevelIdx!==null?'Niveau modifié ✓':'Niveau ajouté ✓');
 }
-function deleteLevel(idx){
+async function deleteLevel(idx){
   const levels=getCoachLevels().sort((a,b)=>a.min-b.min);
   if(levels[idx].key==='bronze'){toast('Impossible de supprimer Bronze');return;}
   if(!confirm('Supprimer le niveau "'+levels[idx].label+'" ?'))return;
   levels.splice(idx,1);
-  saveCoachLevels(levels);
+  await saveCoachLevels(levels);
   renderLevelsSettings();
   toast('Niveau supprimé');
 }

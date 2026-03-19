@@ -630,13 +630,14 @@ let coachRewards=[];
 let myRewardRequests=[];
 let bonusOnboarded=false;
 
-const LEVELS=[
+const DEFAULT_LEVELS=[
   {key:'bronze',label:'Bronze',min:0,emoji:'🥉'},
   {key:'silver',label:'Argent',min:1000,emoji:'🥈'},
   {key:'gold',label:'Or',min:5000,emoji:'🥇'},
   {key:'platinum',label:'Platine',min:15000,emoji:'💎'},
   {key:'elite',label:'Élite',min:30000,emoji:'👑'}
 ];
+let LEVELS=DEFAULT_LEVELS.slice();
 
 const BADGES=[
   // Training
@@ -724,6 +725,11 @@ async function loadData(){
   ]);
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   clientQuest=(p9.data&&p9.data[0])||null;
+  // Load coach levels
+  try{
+    const{data:sData}=await db.from('settings').select('gamif_levels').eq('coach_id',clientData.coach_id).limit(1);
+    if(sData&&sData[0]&&sData[0].gamif_levels&&sData[0].gamif_levels.length){LEVELS=sData[0].gamif_levels;}
+  }catch(e){}
   // Load gamification data
   await loadGamification();
 }
