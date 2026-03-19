@@ -318,6 +318,25 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .pwa-chrome-warn-text { font-size:12px; color:#bf360c; line-height:1.5; margin-bottom:10px; }
 .pwa-chrome-btn { display:inline-block; padding:10px 20px; border-radius:10px; border:none; background:#e65100; color:white; font-weight:700; font-size:13px; cursor:pointer; font-family:var(--font); text-decoration:none; }
 
+/* === VISUAL ROADMAP === */
+.roadmap-visual { background:var(--white); border-radius:var(--r); padding:20px; margin-bottom:14px; box-shadow:var(--shadow); overflow:hidden; }
+.roadmap-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.roadmap-title { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--text3); }
+.roadmap-pct { font-size:18px; font-weight:800; color:var(--gold); }
+.roadmap-path { position:relative; height:60px; margin:20px 0 12px; }
+.roadmap-track { position:absolute; top:50%; left:0; right:0; height:6px; border-radius:3px; background:var(--bg2); transform:translateY(-50%); }
+.roadmap-fill { position:absolute; top:50%; left:0; height:6px; border-radius:3px; background:linear-gradient(90deg,var(--gold),var(--gold-light)); transform:translateY(-50%); transition:width 1s ease; }
+.roadmap-avatar { position:absolute; top:50%; transform:translate(-50%,-50%); width:36px; height:36px; border-radius:50%; background:var(--gold); border:3px solid var(--white); box-shadow:0 2px 8px rgba(0,0,0,.15); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:var(--dark); transition:left 1s ease; z-index:2; }
+.roadmap-start,.roadmap-end { position:absolute; top:50%; transform:translateY(-50%); width:14px; height:14px; border-radius:50%; border:2px solid var(--border); background:var(--white); z-index:1; }
+.roadmap-start { left:0; }
+.roadmap-end { right:0; background:var(--gold); border-color:var(--gold); }
+.roadmap-labels { display:flex; justify-content:space-between; font-size:11px; color:var(--text3); margin-top:4px; }
+.roadmap-milestones { display:flex; justify-content:space-between; margin-top:16px; gap:6px; }
+.roadmap-ms { flex:1; text-align:center; padding:8px 4px; border-radius:var(--r-xs); background:var(--bg); font-size:10px; color:var(--text3); }
+.roadmap-ms.done { background:var(--gold-pale); color:var(--gold); font-weight:700; }
+.roadmap-ms-val { font-size:16px; font-weight:800; color:var(--dark); margin-bottom:2px; }
+.roadmap-ms.done .roadmap-ms-val { color:var(--gold); }
+
 /* === GAMIFICATION === */
 /* Points toast */
 #pointsToast { position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-80px); background:linear-gradient(135deg,#2c2a26,#1a1916); color:white; padding:10px 22px; border-radius:30px; font-size:14px; font-weight:700; z-index:310; opacity:0; transition:all .4s cubic-bezier(.4,0,.2,1); pointer-events:none; border:1.5px solid var(--gold-border); white-space:nowrap; }
@@ -590,7 +609,7 @@ async function uploadPhotosToDrive(photos){
 
 /* ===== STATE ===== */
 let clientData=null;
-let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAlims=[],coachExos=[];
+let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAlims=[],coachExos=[],clientQuest=null;
 let currentDayIdx=0,currentPlanIdx=null;
 let workoutActive=false, workoutData=[], workoutStart=null, workoutTimerInterval=null;
 let restTimerInterval=null;
@@ -692,7 +711,7 @@ function showState(s){
 }
 
 async function loadData(){
-  const[p1,p2,p3,p4,p5,p6,p7,p8]=await Promise.all([
+  const[p1,p2,p3,p4,p5,p6,p7,p8,p9]=await Promise.all([
     db.from('programs').select('*').eq('client_id',clientData.id),
     db.from('plans_full').select('*').eq('client_id',clientData.id),
     db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false}),
@@ -700,9 +719,11 @@ async function loadData(){
     db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30),
     db.from('modules').select('*').eq('coach_id',clientData.coach_id),
     db.from('aliments').select('*').eq('coach_id',clientData.coach_id),
-    db.from('exercises').select('*').eq('coach_id',clientData.coach_id)
+    db.from('exercises').select('*').eq('coach_id',clientData.coach_id),
+    db.from('questionnaires').select('weight_kg,weight_goal,goal').eq('client_id',clientData.id).order('submitted_at',{ascending:false}).limit(1)
   ]);
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
+  clientQuest=(p9.data&&p9.data[0])||null;
   // Load gamification data
   await loadGamification();
 }
@@ -863,6 +884,9 @@ function renderHome(){
       </div>`;
     }
   }
+  // Visual roadmap at the bottom
+  html+=renderRoadmapVisual();
+
   document.getElementById('homeCards').innerHTML=html;
 }
 
@@ -2417,6 +2441,73 @@ async function requestReward(rewardId,rewardName,cost){
     toast('Demande envoyée !');
     renderBonus();
   }catch(e){toast('Erreur: '+e.message);}
+}
+
+/* Visual Roadmap */
+function renderRoadmapVisual(){
+  // Need start weight + goal weight
+  const startWeight=clientQuest?parseFloat(clientQuest.weight_kg):null;
+  const goalWeight=clientQuest?parseFloat(clientQuest.weight_goal):null;
+  if(!startWeight||!goalWeight||startWeight===goalWeight)return'';
+
+  // Current weight from latest daily log
+  const wLogs=dailyLogs.filter(l=>l.data&&l.data['Poids']);
+  const currentWeight=wLogs.length?parseFloat(wLogs[0].data['Poids']):startWeight;
+
+  // Calculate weight progress (0-100%)
+  const totalDiff=Math.abs(goalWeight-startWeight);
+  const currentDiff=Math.abs(currentWeight-startWeight);
+  const losing=goalWeight<startWeight;
+  const goingRight=losing?(currentWeight<=startWeight):(currentWeight>=startWeight);
+  let weightPct=goingRight?Math.min(100,Math.round(currentDiff/totalDiff*100)):0;
+  // If going wrong direction, clamp to 0
+  if(losing&&currentWeight>startWeight)weightPct=0;
+  if(!losing&&currentWeight<startWeight)weightPct=0;
+
+  // Activity score (workouts, reports, bilans) — max 100%
+  const totalWorkouts=trainLogs.length;
+  const totalReports=dailyLogs.length;
+  const totalBilans=bilans.length;
+  const activityScore=Math.min(100,Math.round(
+    (Math.min(totalWorkouts,30)/30*40)+ // 40% from workouts (max 30)
+    (Math.min(totalReports,30)/30*40)+  // 40% from daily reports (max 30)
+    (Math.min(totalBilans,8)/8*20)      // 20% from bilans (max 8)
+  ));
+
+  // Combined progress: 60% weight + 40% activity
+  const overallPct=Math.min(100,Math.round(weightPct*0.6+activityScore*0.4));
+  const avatarLeft=Math.max(5,Math.min(95,overallPct));
+
+  // Milestones
+  const ms=[
+    {label:'Séances',val:totalWorkouts,icon:'🏋️',done:totalWorkouts>=1},
+    {label:'Rapports',val:totalReports,icon:'📋',done:totalReports>=7},
+    {label:'Bilans',val:totalBilans,icon:'📊',done:totalBilans>=1},
+    {label:'Poids',val:(losing?'↓':'↑')+Math.abs(currentWeight-startWeight).toFixed(1)+'kg',icon:'⚖️',done:weightPct>=25}
+  ];
+
+  const ini=(clientData.first_name||'?')[0].toUpperCase();
+
+  return`<div class="roadmap-visual fade-up" style="animation-delay:.25s">
+    <div class="roadmap-header">
+      <div class="roadmap-title">MON PARCOURS</div>
+      <div class="roadmap-pct">${overallPct}%</div>
+    </div>
+    <div class="roadmap-path">
+      <div class="roadmap-track"></div>
+      <div class="roadmap-fill" style="width:${overallPct}%"></div>
+      <div class="roadmap-start"></div>
+      <div class="roadmap-end"></div>
+      <div class="roadmap-avatar" style="left:${avatarLeft}%">${ini}</div>
+    </div>
+    <div class="roadmap-labels">
+      <span>${startWeight} kg</span>
+      <span style="color:var(--gold);font-weight:700">${goalWeight} kg</span>
+    </div>
+    <div class="roadmap-milestones">
+      ${ms.map(m=>`<div class="roadmap-ms${m.done?' done':''}"><div class="roadmap-ms-val">${m.icon}</div><div>${m.val}</div><div>${m.label}</div></div>`).join('')}
+    </div>
+  </div>`;
 }
 
 /* Home level strip */
