@@ -1660,14 +1660,31 @@ async function checkAuth(){
     const{data:newCoach}=await db.from('coaches').insert([{user_id:currentUser.id,first_name:meta.first_name||'',last_name:meta.last_name||'',email:currentUser.email}]).select();
     currentCoach=newCoach?.[0]||null;
   }
-  // Admin check
-  isAdmin=['admin','super_admin'].includes(currentCoach?.role);
+  // Role & permissions
+  const role=currentCoach?.role||'coach';
+  isAdmin=['admin','super_admin'].includes(role);
+  const canNutrition=['super_admin','admin','coach','nutrition'].includes(role);
+  const canTraining=['super_admin','admin','coach','training'].includes(role);
+  const canDelete=['super_admin','admin'].includes(role);
+  const canManageTeam=['super_admin','admin'].includes(role);
+  // Store globally for use in other functions
+  window._perms={canNutrition,canTraining,canDelete,canManageTeam,isAdmin,role};
+
+  // Show/hide sidebar sections based on role
   if(isAdmin){
     document.getElementById('admin-sec').style.display='';
     document.getElementById('nav-ac').style.display='';
     document.getElementById('nav-acl').style.display='';
     document.getElementById('nav-rec-p').style.display='';
   }
+  // Nutrition section
+  if(!canNutrition){document.getElementById('nav-nut-p').style.display='none';document.getElementById('sub-nut').style.display='none';}
+  // Training section
+  if(!canTraining){document.getElementById('nav-tr-p').style.display='none';document.getElementById('sub-train').style.display='none';}
+  // Team & settings: admin only for team
+  if(!canManageTeam){document.getElementById('nav-eq').style.display='none';}
+  // Rewards: visible to all
+  // Learning: visible to all
   // Update sidebar with coach info
   const nm=(currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'');
   const ini=((currentCoach?.first_name||'?')[0]+(currentCoach?.last_name||'?')[0]).toUpperCase();
@@ -1754,9 +1771,8 @@ function goBack(){
 
 /* ===== CLIENTS SUPABASE ===== */
 async function loadClients(){
-  let q=db.from('clients').select('*').order('created_at',{ascending:false});
-  if(currentCoach&&!isAdmin)q=q.eq('coach_id',currentCoach.id);
-  const{data}=await q;
+  // All coaches see all clients (shared client list)
+  const{data}=await db.from('clients').select('*').order('created_at',{ascending:false});
   allClients=data||[];renderStats();renderClients(allClients);updateNotifBadge();
 }
 function renderStats(){
@@ -3356,7 +3372,7 @@ function editFullPlan(id){
   pfUpdateClientBadge();
   document.getElementById('planBuilderWrap').style.display='block';
 }
-function delPlan(id){if(!confirm('Supprimer ce plan ?'))return;dbDelete('plans_full',id);renderPlansListPage();toast('Plan supprimé');}
+function delPlan(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ce plan ?'))return;dbDelete('plans_full',id);renderPlansListPage();toast('Plan supprimé');}
 
 /* ===== ALIMENTS ===== */
 function openAlim(id){
@@ -3380,7 +3396,7 @@ function renderAlims(){
   const srcBadge=s=>{const c={proteines:'#c49a2a',glucides:'#f59e0b',lipides:'#c49a2a'};const l={proteines:'P',glucides:'G',lipides:'L'};return`<span style="display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:800;background:${c[s]||'#999'}22;color:${c[s]||'#999'}">${l[s]||'—'}</span>`;};
   tb.innerHTML=alims.map(a=>`<tr><td style="font-weight:600">${a.nom} ${srcBadge(a.source)}</td><td><span class="tag">${a.cat}</span></td><td>${a.kcal}</td><td>${a.prot}g</td><td>${a.carb}g</td><td>${a.fat}g</td><td style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openAlim(${a.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delAlim(${a.id})">✕</button></td></tr>`).join('');
 }
-function delAlim(id){if(!confirm('Supprimer ?'))return;dbDelete('aliments',id);renderAlims();toast('Supprimé');}
+function delAlim(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ?'))return;dbDelete('aliments',id);renderAlims();toast('Supprimé');}
 function importAlimsFile(input){
   const file=input.files[0];if(!file)return;
   const ext=file.name.split('.').pop().toLowerCase();
@@ -3716,7 +3732,7 @@ function renderRepasList(){
       <div style="display:flex;gap:12px;font-size:11px;color:var(--text3);padding-top:6px;border-top:1px solid var(--border)"><span>Total : <strong>${r.kcal||0} kcal</strong></span><span class="macro-p">P: ${r.prot||0}g</span><span class="macro-g">G: ${r.carb||0}g</span><span class="macro-l">L: ${r.fat||0}g</span></div>
     </div></div>`).join('');
 }
-function delRepas(id){if(!confirm('Supprimer ?'))return;dbDelete('repas',id);renderRepasList();toast('Supprimé');}
+function delRepas(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ?'))return;dbDelete('repas',id);renderRepasList();toast('Supprimé');}
 
 /* ===== PROGRAMME BUILDER ===== */
 function setsGrid(showRIR,showTempo){const n=2+(showRIR?1:0)+(showTempo?1:0);return`32px repeat(${n},1fr)`;}
@@ -4159,7 +4175,7 @@ function renderProgList(){
     </div>`;
   }).join('');
 }
-function delProg(id){if(!confirm('Supprimer ?'))return;dbDelete('programs',id);renderProgList();toast('Supprimé');}
+function delProg(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ?'))return;dbDelete('programs',id);renderProgList();toast('Supprimé');}
 
 /* ===== SEANCES ===== */
 let seances=lsGet('fz_seances',[]);
@@ -4346,7 +4362,7 @@ function renderSeanceList(){
     </div>`;
   }).join('');
 }
-function delSeance(id){if(!confirm('Supprimer ?'))return;dbDelete('seances',id);renderSeanceList();toast('Séance supprimée');}
+function delSeance(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ?'))return;dbDelete('seances',id);renderSeanceList();toast('Séance supprimée');}
 
 /* ===== EXERCICES ===== */
 function openExo(id){
@@ -4411,7 +4427,7 @@ function renderExoPage(){
     <div style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openExo(${e.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delExo(${e.id})">✕</button></div>
   </div>`).join('');
 }
-function delExo(id){if(!confirm('Supprimer ?'))return;dbDelete('exercises',id);renderExoPage();toast('Supprimé');}
+function delExo(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ?'))return;dbDelete('exercises',id);renderExoPage();toast('Supprimé');}
 const ytId=url=>{if(!url)return'';const m=url.match(/(?:v=|\/embed\/|youtu\.be\/)([^&?/]+)/);return m?m[1]:'';}
 
 /* ===== LEARNING ===== */
@@ -4595,7 +4611,7 @@ function renderTeam(){
   if(!team.length){el.innerHTML=`<div class="empty"><div class="ei">👨‍💼</div><div class="et">Aucun coach</div><div class="es">Ajoute ton premier collaborateur</div></div>`;return;}
   el.innerHTML=team.map((co,i)=>{const r=roleMap[co.role]||{label:co.role,cls:'role-coach'};return`<div class="coach-card"><div class="co-av" style="background:${co.color||'#c49a2a'}">${((co.first||'?')[0]+(co.last||'?')[0]).toUpperCase()}</div><div style="flex:1"><div style="font-size:13px;font-weight:700">${co.first} ${co.last}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${co.email}</div></div><span class="role-badge ${r.cls}">${r.label}</span>${co.email?`<button class="btn btn-ghost btn-xs" onclick="resendCoachInvite('${co.email.replace(/'/g,"\\'")}')">📧</button>`:''}<button class="btn btn-ghost btn-xs" onclick="openCoach(${i})">✏️</button><button class="btn btn-danger btn-xs" onclick="delCoach(${i})">✕</button></div>`;}).join('');
 }
-function delCoach(i){if(!confirm('Supprimer ?'))return;const co=team[i];if(co&&co.id)dbDelete('team',co.id);else{team.splice(i,1);lsSave('fz_team',team);}renderTeam();toast('Supprimé');}
+function delCoach(i){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ?'))return;const co=team[i];if(co&&co.id)dbDelete('team',co.id);else{team.splice(i,1);lsSave('fz_team',team);}renderTeam();toast('Supprimé');}
 
 /* ===== SETTINGS ===== */
 function saveSettings(){
@@ -5794,6 +5810,7 @@ async function resumeClient(id){
 
 /* ===== DELETE CLIENT (double confirmation) ===== */
 function deleteClientStart(id){
+  if(!window._perms?.canDelete){toast('Permission refusée');return;}
   const c=allClients.find(x=>x.id===id)||curClient;
   if(!c)return;
   const name=(c.first_name||'')+' '+(c.last_name||'');
@@ -6110,10 +6127,10 @@ async function loadCoachGamification(){
   if(!currentCoach)return;
   await loadCoachLevels();
   try{
+    // All coaches see all gamification data (shared team)
     let cpQuery=db.from('client_points').select('*');
     let rwQuery=db.from('coach_rewards').select('*');
     let rrQuery=db.from('reward_requests').select('*');
-    if(!isAdmin){cpQuery=cpQuery.eq('coach_id',currentCoach.id);rwQuery=rwQuery.eq('coach_id',currentCoach.id);rrQuery=rrQuery.eq('coach_id',currentCoach.id);}
     const[r1,r2,r3]=await Promise.all([
       cpQuery,
       rwQuery.order('created_at'),
