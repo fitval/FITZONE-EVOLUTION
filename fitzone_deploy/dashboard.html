@@ -22,11 +22,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 
 /* SIDEBAR */
 .sb{width:var(--sidebar);background:var(--dark);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow:hidden;transition:transform .25s ease}
-.sb.collapsed{transform:translateX(-100%)}
-.sb-toggle{display:none;position:fixed;top:12px;left:12px;z-index:55;width:40px;height:40px;border-radius:10px;background:var(--dark);border:none;color:white;font-size:20px;cursor:pointer;align-items:center;justify-content:center;box-shadow:var(--shadow-md)}
+.sb.hidden{transform:translateX(-100%)}
+.sb-toggle{position:fixed;top:10px;left:10px;z-index:55;width:38px;height:38px;border-radius:10px;background:var(--dark);border:none;color:white;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md);transition:left .25s ease}
+.sb-toggle.shifted{left:calc(var(--sidebar) + 10px)}
 .sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:45}
 .sb-overlay.show{display:block}
-@media(max-width:900px){.sb-toggle{display:flex}.sb{transform:translateX(-100%)}.sb.open{transform:translateX(0)}.main{margin-left:0}}
+.main.full{margin-left:0}
 .sb-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
 .sb-mark{display:flex;align-items:center;gap:9px;margin-bottom:3px}
 .sb-icon{width:28px;height:28px;background:linear-gradient(135deg,#8a6a1a,var(--gold));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:var(--dark)}
@@ -386,8 +387,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 </style>
 </head>
 <body>
-<button class="sb-toggle" onclick="toggleSidebar()">☰</button>
-<div class="sb-overlay" id="sbOverlay" onclick="toggleSidebar()"></div>
+<button class="sb-toggle shifted" onclick="toggleSidebar()">✕</button>
 
 <!-- SIDEBAR -->
 <aside class="sb">
@@ -450,7 +450,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div class="sb-item" onclick="showPage('admin-clients',this)" id="nav-acl" style="display:none"><span class="sb-ico">👥</span>Tous les clients</div>
 
     <div class="sb-sec">Administration</div>
-    <div class="sb-item" onclick="showPage('reward-requests',this);renderRewardRequestsPage()" id="nav-rr"><span class="sb-ico">🎁</span>Demandes récompenses<span class="sb-badge" id="rrBadge" style="display:none">0</span></div>
+    <div class="sb-item" onclick="showPage('reward-requests',this)" id="nav-rr"><span class="sb-ico">🎁</span>Récompenses<span class="sb-badge" id="rrBadge" style="display:none">0</span></div>
     <div class="sb-item" onclick="showPage('equipe',this)" id="nav-eq"><span class="sb-ico">👨‍💼</span>Équipe</div>
     <div class="sb-item" onclick="showPage('settings',this)" id="nav-st"><span class="sb-ico">⚙️</span>Paramètres</div>
   </nav>
@@ -871,17 +871,25 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <div class="fg"><label class="fl">Lien questionnaire</label><div class="lbox"><div class="lurl" id="sQUrl">—</div><button class="cbtn" onclick="copyT(document.getElementById('sQUrl').textContent)">Copier</button></div></div>
         <button class="btn btn-dark" onclick="saveSettings()">Enregistrer</button>
       </div>
-      <div class="card cp" style="margin-top:16px">
-        <div class="cl cl-gold">🏆 Récompenses gamification</div>
-        <div id="rewardsListSettings"></div>
-        <button class="btn btn-dark" style="margin-top:12px" onclick="openAddReward()">+ Ajouter une récompense</button>
-      </div>
     </div>
   </div>
 
   <!-- PAGE: REWARD REQUESTS -->
   <div class="page" id="page-reward-requests">
-    <div id="rewardRequestsList"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+      <div>
+        <div class="card cp">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <div class="cl cl-gold" style="margin:0">🏆 MES RÉCOMPENSES</div>
+            <button class="btn btn-dark btn-sm" onclick="openAddReward()">+ Créer</button>
+          </div>
+          <div id="rewardsListSettings"></div>
+        </div>
+      </div>
+      <div>
+        <div id="rewardRequestsList"></div>
+      </div>
+    </div>
   </div>
 
   <!-- DETAIL CLIENT -->
@@ -1652,9 +1660,20 @@ window.addEventListener('DOMContentLoaded',async()=>{
 /* ===== SIDEBAR ===== */
 function toggleSidebar(){
   const sb=document.querySelector('.sb');
-  const ov=document.getElementById('sbOverlay');
-  sb.classList.toggle('open');
-  ov.classList.toggle('show',sb.classList.contains('open'));
+  const main=document.querySelector('.main');
+  const btn=document.querySelector('.sb-toggle');
+  const isHidden=sb.classList.contains('hidden');
+  if(isHidden){
+    sb.classList.remove('hidden');
+    main.classList.remove('full');
+    btn.classList.add('shifted');
+    btn.innerHTML='✕';
+  } else {
+    sb.classList.add('hidden');
+    main.classList.add('full');
+    btn.classList.remove('shifted');
+    btn.innerHTML='☰';
+  }
 }
 function toggleSub(subId,el,arrId){
   const sub=document.getElementById(subId);const arr=document.getElementById(arrId);
@@ -1673,7 +1692,7 @@ function showPage(name,el){
   const pg=document.getElementById('page-'+name);if(pg){pg.style.display='block';pg.classList.add('active');}
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Demandes de récompenses'};
+  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses'};
   document.getElementById('tbTitle').textContent=titles[name]||name;
   document.getElementById('backBtn').style.display='none';
   const actMap={overview:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`,'rec-forms':`<button class="btn btn-dark" onclick="openRecFormBuilder()">+ Questionnaire</button>`};
@@ -1689,8 +1708,7 @@ function showPage(name,el){
   if(name==='admin-clients')renderAdminClients();
   if(name==='rec-forms')renderRecForms();
   if(name==='rec-responses')renderRecResponses();
-  if(name==='settings')renderRewardsSettings();
-  if(name==='reward-requests')renderRewardRequestsPage();
+  if(name==='reward-requests'){renderRewardsSettings();renderRewardRequestsPage();}
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
@@ -6165,21 +6183,22 @@ function renderRewardRequestsPage(){
   const el=document.getElementById('rewardRequestsList');
   const pending=allRewardRequests.filter(r=>r.status==='pending');
   const resolved=allRewardRequests.filter(r=>r.status!=='pending');
-  let h='';
+  let h='<div class="card cp" style="margin-bottom:16px"><div class="cl" style="margin-bottom:14px">📨 DEMANDES CLIENTS</div>';
   if(!allRewardRequests.length){
-    h='<div class="card cp" style="text-align:center"><div style="font-size:48px;margin-bottom:12px;opacity:.4">🎁</div><div style="color:var(--text3)">Aucune demande de récompense</div></div>';
+    h+='<div style="text-align:center;padding:24px"><div style="font-size:40px;margin-bottom:8px;opacity:.4">🎁</div><div style="color:var(--text3);font-size:13px">Aucune demande de récompense pour le moment</div></div>';
+    h+='</div>';
     el.innerHTML=h;return;
   }
   if(pending.length){
-    h+=`<div class="cl" style="margin-bottom:12px">EN ATTENTE (${pending.length})</div>`;
+    h+=`<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:10px">EN ATTENTE (${pending.length})</div>`;
     h+=pending.map(r=>{
       const cl=allClients.find(c=>c.id===r.client_id);
       const name=cl?(cl.first_name+' '+(cl.last_name||'')):r.client_id;
-      return`<div class="card cp" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:12px">
-        <div style="flex:1"><div style="font-weight:700">${esc(name)}</div><div style="font-size:13px;color:var(--text2)">${esc(r.reward_name)} · ${r.cost} pts</div><div style="font-size:11px;color:var(--text3)">${new Date(r.created_at).toLocaleDateString('fr-FR')}</div></div>
-        <button class="btn btn-gold btn-sm" onclick="approveReward('${r.id}')">✅ Approuver</button>
-        <button class="btn btn-danger btn-sm" onclick="denyReward('${r.id}')">❌ Refuser</button>
-      </div></div>`;
+      return`<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1"><div style="font-weight:700;font-size:14px">${esc(name)}</div><div style="font-size:13px;color:var(--text2)">${esc(r.reward_name)} · <span style="color:var(--gold);font-weight:600">${r.cost} pts</span></div><div style="font-size:11px;color:var(--text3)">${new Date(r.created_at).toLocaleDateString('fr-FR')}</div></div>
+        <button class="btn btn-gold btn-sm" onclick="approveReward('${r.id}')">✅</button>
+        <button class="btn btn-danger btn-sm" onclick="denyReward('${r.id}')">❌</button>
+      </div>`;
     }).join('');
   }
   if(resolved.length){
@@ -6193,6 +6212,7 @@ function renderRewardRequestsPage(){
     }).join('');
     h+=`</tbody></table></div>`;
   }
+  h+=`</div>`;
   el.innerHTML=h;
 }
 
