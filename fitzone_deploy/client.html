@@ -1009,7 +1009,8 @@ function startWorkout(){
         done:false
       });
     }
-    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,sets:setsArr,showSwap:false,videoFile:null});
+    const prevNote=prev&&prev.note?prev.note:'';
+    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,sets:setsArr,showSwap:false,videoFile:null,note:'',prevNote});
   });
 
   // Start elapsed timer
@@ -1077,6 +1078,10 @@ function renderActiveWorkout(){
     // Camera button
     h+=`<button class="cam-btn" onclick="filmExo(${ei})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> Filmer</button>`;
 
+    // Notes / feedback exercice
+    if(ex.prevNote){h+=`<div style="background:var(--bg2);border-radius:var(--r-xs);padding:10px 12px;margin-top:8px;font-size:12px;color:var(--text2);line-height:1.4"><span style="font-weight:700;color:var(--text3);font-size:10px;letter-spacing:.5px">NOTE PRÉCÉDENTE</span><br>${ex.prevNote}</div>`;}
+    h+=`<textarea placeholder="Notes, réglages, feedback..." style="width:100%;margin-top:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-xs);font-size:13px;font-family:var(--font);background:var(--white);color:var(--text);min-height:44px;resize:vertical;outline:none" oninput="workoutData[${ei}].note=this.value">${ex.note||''}</textarea>`;
+
     h+=`</div>`;
   });
 
@@ -1111,10 +1116,11 @@ async function finalizeWorkout(){
   if(workoutData.length){
     const day=(programs[0].jours||[])[currentDayIdx];
     const sessionName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
-    const exercises=workoutData.map(ex=>({
-      nom:ex.nom,
-      sets:ex.sets.filter(s=>s.done||s.kg||s.repsActual||s.rirActual).map(s=>({kg:s.kg||'',reps:s.repsActual||'',rir:s.rirActual||'',load:s.kg||''}))
-    }));
+    const exercises=workoutData.map(ex=>{
+      const o={nom:ex.nom,sets:ex.sets.filter(s=>s.done||s.kg||s.repsActual||s.rirActual).map(s=>({kg:s.kg||'',reps:s.repsActual||'',rir:s.rirActual||'',load:s.kg||''}))};
+      if(ex.note)o.note=ex.note;
+      return o;
+    });
     console.log('[WORKOUT SAVE]',JSON.stringify(exercises));
     if(clientAuthMode==='anon'){
       const{error}=await db.rpc('client_insert_train_log',{p_token:clientData.token,p_session_name:sessionName,p_date:today(),p_exercises:exercises,p_cycle:rpe||null,p_comment:comment||null});
@@ -2309,6 +2315,7 @@ function renderBonus(){
   h+=`</div></div>`;
 
   // 6. Récompenses
+  const lvIdx=LEVELS.findIndex(l=>l.key===lv.key);
   h+=`<div class="card" style="padding:16px;margin-bottom:14px">
     <div class="card-label">RÉCOMPENSES</div>`;
   if(lv.key==='bronze'){
@@ -2317,14 +2324,18 @@ function renderBonus(){
     h+=`<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Ton coach n'a pas encore ajouté de récompenses.</div>`;
   } else {
     coachRewards.forEach(r=>{
-      const canAfford=cp.usable_balance>=r.cost;
-      h+=`<div class="reward-card">
+      const minLv=r.min_level||'silver';
+      const minLvIdx=LEVELS.findIndex(l=>l.key===minLv);
+      const levelOk=lvIdx>=minLvIdx;
+      const canAfford=levelOk&&cp.usable_balance>=r.cost;
+      const minLvLabel=LEVELS.find(l=>l.key===minLv);
+      h+=`<div class="reward-card"${!levelOk?' style="opacity:.5"':''}>
         <div class="reward-info">
           <div class="reward-name">${r.name}</div>
           ${r.description?`<div class="reward-desc">${r.description}</div>`:''}
-          <div class="reward-cost">🪙 ${r.cost} pts</div>
+          <div class="reward-cost">🪙 ${r.cost} pts${!levelOk?' · '+minLvLabel.emoji+' '+minLvLabel.label+' requis':''}</div>
         </div>
-        <button class="reward-btn" ${canAfford?`onclick="requestReward('${r.id}','${r.name}',${r.cost})"`:'disabled'}>${canAfford?'Échanger':'Solde insuffisant'}</button>
+        <button class="reward-btn" ${canAfford?`onclick="requestReward('${r.id}','${r.name}',${r.cost})"`:'disabled'}>${!levelOk?'Niveau insuffisant':canAfford?'Échanger':'Solde insuffisant'}</button>
       </div>`;
     });
   }

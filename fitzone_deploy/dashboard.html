@@ -21,7 +21,12 @@
 body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;display:flex;-webkit-font-smoothing:antialiased}
 
 /* SIDEBAR */
-.sb{width:var(--sidebar);background:var(--dark);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow:hidden}
+.sb{width:var(--sidebar);background:var(--dark);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow:hidden;transition:transform .25s ease}
+.sb.collapsed{transform:translateX(-100%)}
+.sb-toggle{display:none;position:fixed;top:12px;left:12px;z-index:55;width:40px;height:40px;border-radius:10px;background:var(--dark);border:none;color:white;font-size:20px;cursor:pointer;align-items:center;justify-content:center;box-shadow:var(--shadow-md)}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:45}
+.sb-overlay.show{display:block}
+@media(max-width:900px){.sb-toggle{display:flex}.sb{transform:translateX(-100%)}.sb.open{transform:translateX(0)}.main{margin-left:0}}
 .sb-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
 .sb-mark{display:flex;align-items:center;gap:9px;margin-bottom:3px}
 .sb-icon{width:28px;height:28px;background:linear-gradient(135deg,#8a6a1a,var(--gold));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:var(--dark)}
@@ -215,8 +220,8 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .road-table tr.rw-cur td{background:var(--gold-pale)}
 .rsel{background:var(--bg);border:1.5px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:11px;outline:none;color:var(--text);font-family:var(--font);cursor:pointer;width:100%;min-width:90px}
 .rsel:focus{border-color:var(--gold)}
-.rin{background:var(--bg);border:1.5px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:11px;outline:none;font-family:var(--font);width:100%}
-.rin:focus{border-color:var(--gold)}
+.rin{background:var(--bg);border:1.5px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;outline:none;font-family:var(--font);width:100%;color:var(--text)}
+.rin:focus{border-color:var(--gold);background:var(--white);box-shadow:0 0 0 3px var(--gold-pale)}
 .road-table td.rcopy-src{outline:2px solid var(--gold);outline-offset:-1px;position:relative}
 .road-table td.rcopy-src::after{content:'COPIÉ';position:absolute;top:1px;right:2px;font-size:7px;font-weight:800;color:var(--gold);letter-spacing:.5px}
 .road-table td.rcopy-sel{outline:2px dashed var(--gold);outline-offset:-1px;background:rgba(196,154,42,.12) !important}
@@ -381,6 +386,8 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 </style>
 </head>
 <body>
+<button class="sb-toggle" onclick="toggleSidebar()">☰</button>
+<div class="sb-overlay" id="sbOverlay" onclick="toggleSidebar()"></div>
 
 <!-- SIDEBAR -->
 <aside class="sb">
@@ -1643,6 +1650,12 @@ window.addEventListener('DOMContentLoaded',async()=>{
 });
 
 /* ===== SIDEBAR ===== */
+function toggleSidebar(){
+  const sb=document.querySelector('.sb');
+  const ov=document.getElementById('sbOverlay');
+  sb.classList.toggle('open');
+  ov.classList.toggle('show',sb.classList.contains('open'));
+}
 function toggleSub(subId,el,arrId){
   const sub=document.getElementById(subId);const arr=document.getElementById(arrId);
   const open=sub.classList.toggle('open');arr.classList.toggle('open',open);
@@ -2191,7 +2204,7 @@ function renderRoadTab(){
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='phase'?'rcopy-src':''} ${roadSelected.has(i+'-phase')?'rcopy-sel':''}" onclick="roadCellClick(${i},'phase',event)"><select class="rsel" onchange="sRoad(${i},'phase',this.value);renderRoadTab()">${phases.map(p=>`<option${r.phase===p?' selected':''}>${p}</option>`).join('')}</select></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='nut'?'rcopy-src':''} ${roadSelected.has(i+'-nut')?'rcopy-sel':''}" onclick="roadCellClick(${i},'nut',event)"><select class="rsel" onchange="sRoad(${i},'nut',this.value)">${nuttypes.map(n=>`<option${r.nut===n?' selected':''}>${n}</option>`).join('')}</select></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='poids'?'rcopy-src':''} ${roadSelected.has(i+'-poids')?'rcopy-sel':''}" onclick="roadCellClick(${i},'poids',event)"><input class="rin" type="number" style="width:54px" value="${r.poids||''}" placeholder="—" oninput="sRoad(${i},'poids',this.value)"></td>
-      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='apports'?'rcopy-src':''} ${roadSelected.has(i+'-apports')?'rcopy-sel':''}" onclick="roadCellClick(${i},'apports',event)"><textarea class="rin" style="min-width:140px;min-height:32px;resize:vertical;white-space:pre-wrap;font-size:10px;line-height:1.4" placeholder="Détails apports…" oninput="sRoad(${i},'apports',this.value)">${r.apports||r.haut&&r.moy?('H:'+r.haut+' M:'+r.moy+(r.bas?' B:'+r.bas:'')):r.apports||''}</textarea></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='apports'?'rcopy-src':''} ${roadSelected.has(i+'-apports')?'rcopy-sel':''}" onclick="roadCellClick(${i},'apports',event)"><textarea class="rin" style="min-width:160px;min-height:40px;resize:vertical;white-space:pre-wrap;font-size:12px;line-height:1.5" placeholder="Détails apports…" oninput="sRoad(${i},'apports',this.value)">${r.apports||r.haut&&r.moy?('H:'+r.haut+' M:'+r.moy+(r.bas?' B:'+r.bas:'')):r.apports||''}</textarea></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='cardio'?'rcopy-src':''} ${roadSelected.has(i+'-cardio')?'rcopy-sel':''}" onclick="roadCellClick(${i},'cardio',event)"><select class="rsel" onchange="sRoad(${i},'cardio',this.value)">${cardios.map(c=>`<option${r.cardio===c?' selected':''}>${c}</option>`).join('')}</select></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='pas'?'rcopy-src':''} ${roadSelected.has(i+'-pas')?'rcopy-sel':''}" onclick="roadCellClick(${i},'pas',event)"><input class="rin" type="number" style="width:52px" value="${r.pas||''}" placeholder="—" oninput="sRoad(${i},'pas',this.value)"></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='depense'?'rcopy-src':''} ${roadSelected.has(i+'-depense')?'rcopy-sel':''}" onclick="roadCellClick(${i},'depense',event)"><input class="rin" style="min-width:90px" value="${r.depense||''}" placeholder="—" oninput="sRoad(${i},'depense',this.value)"></td>
@@ -6059,10 +6072,8 @@ async function loadCoachGamification(){
 
 async function initDefaultRewards(){
   const defaults=[
-    {name:'Séance offerte',description:'1 séance de coaching gratuite',cost:500},
-    {name:'Plan nutrition personnalisé',description:'Plan nutrition sur mesure offert',cost:1000},
-    {name:'Goodies Fitzone',description:'T-shirt ou accessoire Fitzone',cost:750},
-    {name:'Réduction -20%',description:'20% de réduction sur le mois suivant',cost:1500}
+    {name:'Goodies Fitzone',description:'T-shirt ou accessoire Fitzone',cost:750,min_level:'silver'},
+    {name:'Réduction -20%',description:'20% de réduction sur le mois suivant',cost:1500,min_level:'gold'}
   ];
   for(const d of defaults){
     const{data}=await db.from('coach_rewards').insert({coach_id:currentCoach.id,...d,active:true}).select();
@@ -6073,9 +6084,10 @@ async function initDefaultRewards(){
 function renderRewardsSettings(){
   const el=document.getElementById('rewardsListSettings');
   if(!el)return;
+  const lvLabels={bronze:'🥉 Bronze',silver:'🥈 Argent',gold:'🥇 Or',platinum:'💎 Platine',elite:'👑 Élite'};
   if(!allCoachRewards.length){el.innerHTML='<div style="color:var(--text3);font-size:13px">Aucune récompense.</div>';return;}
-  el.innerHTML=allCoachRewards.map(r=>`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
-    <div style="flex:1"><div style="font-weight:600;font-size:14px">${esc(r.name)}</div><div style="font-size:12px;color:var(--text3)">${esc(r.description||'')} · ${r.cost} pts</div></div>
+  el.innerHTML=allCoachRewards.map(r=>`<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+    <div style="flex:1"><div style="font-weight:600;font-size:14px">${esc(r.name)}</div><div style="font-size:12px;color:var(--text3)">${esc(r.description||'')}</div><div style="font-size:11px;margin-top:3px"><span style="color:var(--gold);font-weight:700">${r.cost} pts</span> · Dès ${lvLabels[r.min_level||'silver']||'🥈 Argent'}</div></div>
     <label style="font-size:11px;display:flex;align-items:center;gap:4px"><input type="checkbox" ${r.active?'checked':''} onchange="toggleRewardActive('${r.id}',this.checked)" style="accent-color:var(--gold)"> Actif</label>
     <button class="btn btn-xs btn-ghost" onclick="editReward('${r.id}')">✏️</button>
     <button class="btn btn-xs btn-danger" onclick="deleteReward('${r.id}')">🗑️</button>
@@ -6089,11 +6101,12 @@ async function toggleRewardActive(id,active){
 }
 
 function openAddReward(){
-  const h=`<div class="fg"><label class="fl">Nom</label><input class="fi" id="rwName" placeholder="Ex: Séance offerte"></div>
-    <div class="fg"><label class="fl">Description</label><input class="fi" id="rwDesc" placeholder="Ex: 1 séance gratuite"></div>
-    <div class="fg"><label class="fl">Coût (points)</label><input class="fi" type="number" id="rwCost" value="500"></div>
+  const h=`<div class="fg"><label class="fl">Nom</label><input class="fi" id="rwName" placeholder="Ex: Goodies Fitzone"></div>
+    <div class="fg"><label class="fl">Description</label><input class="fi" id="rwDesc" placeholder="Ex: T-shirt ou accessoire"></div>
+    <div class="fr2"><div class="fg"><label class="fl">Coût (points)</label><input class="fi" type="number" id="rwCost" value="750"></div>
+    <div class="fg"><label class="fl">Niveau minimum</label><select class="fi" id="rwLevel"><option value="silver">🥈 Argent (1000 pts)</option><option value="gold">🥇 Or (5000 pts)</option><option value="platinum">💎 Platine (15000 pts)</option><option value="elite">👑 Élite (30000 pts)</option></select></div></div>
     <button class="btn btn-dark" onclick="saveNewReward()">Ajouter</button>`;
-  openM('mNewClient');// reuse modal
+  openM('mNewClient');
   document.querySelector('#mNewClient .mt').textContent='Nouvelle récompense';
   document.querySelector('#mNewClient .mb').innerHTML=h;
 }
@@ -6101,9 +6114,10 @@ function openAddReward(){
 async function saveNewReward(){
   const name=document.getElementById('rwName').value.trim();
   const desc=document.getElementById('rwDesc').value.trim();
-  const cost=parseInt(document.getElementById('rwCost').value)||500;
+  const cost=parseInt(document.getElementById('rwCost').value)||750;
+  const min_level=document.getElementById('rwLevel').value||'silver';
   if(!name){toast('Nom requis');return;}
-  const{data,error}=await db.from('coach_rewards').insert({coach_id:currentCoach.id,name,description:desc,cost,active:true}).select();
+  const{data,error}=await db.from('coach_rewards').insert({coach_id:currentCoach.id,name,description:desc,cost,min_level,active:true}).select();
   if(error){toast('Erreur: '+error.message);return;}
   if(data)allCoachRewards.push(data[0]);
   closeM('mNewClient');
@@ -6113,9 +6127,11 @@ async function saveNewReward(){
 
 function editReward(id){
   const r=allCoachRewards.find(x=>x.id===id);if(!r)return;
+  const ml=r.min_level||'silver';
   const h=`<div class="fg"><label class="fl">Nom</label><input class="fi" id="rwName" value="${esc(r.name)}"></div>
     <div class="fg"><label class="fl">Description</label><input class="fi" id="rwDesc" value="${esc(r.description||'')}"></div>
-    <div class="fg"><label class="fl">Coût (points)</label><input class="fi" type="number" id="rwCost" value="${r.cost}"></div>
+    <div class="fr2"><div class="fg"><label class="fl">Coût (points)</label><input class="fi" type="number" id="rwCost" value="${r.cost}"></div>
+    <div class="fg"><label class="fl">Niveau minimum</label><select class="fi" id="rwLevel"><option value="silver"${ml==='silver'?' selected':''}>🥈 Argent</option><option value="gold"${ml==='gold'?' selected':''}>🥇 Or</option><option value="platinum"${ml==='platinum'?' selected':''}>💎 Platine</option><option value="elite"${ml==='elite'?' selected':''}>👑 Élite</option></select></div></div>
     <button class="btn btn-dark" onclick="updateReward('${id}')">Enregistrer</button>`;
   openM('mNewClient');
   document.querySelector('#mNewClient .mt').textContent='Modifier récompense';
@@ -6127,9 +6143,10 @@ async function updateReward(id){
   const desc=document.getElementById('rwDesc').value.trim();
   const cost=parseInt(document.getElementById('rwCost').value)||500;
   if(!name){toast('Nom requis');return;}
-  await db.from('coach_rewards').update({name,description:desc,cost}).eq('id',id).eq('coach_id',currentCoach.id);
+  const min_level=document.getElementById('rwLevel').value||'silver';
+  await db.from('coach_rewards').update({name,description:desc,cost,min_level}).eq('id',id).eq('coach_id',currentCoach.id);
   const r=allCoachRewards.find(x=>x.id===id);
-  if(r){r.name=name;r.description=desc;r.cost=cost;}
+  if(r){r.name=name;r.description=desc;r.cost=cost;r.min_level=min_level;}
   closeM('mNewClient');
   renderRewardsSettings();
   toast('Récompense mise à jour ✓');

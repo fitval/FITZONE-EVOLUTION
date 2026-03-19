@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS public.coach_rewards (
   name TEXT NOT NULL,
   description TEXT,
   cost INTEGER NOT NULL DEFAULT 500,
+  min_level TEXT NOT NULL DEFAULT 'silver',
   active BOOLEAN NOT NULL DEFAULT true,
   stock INTEGER DEFAULT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
