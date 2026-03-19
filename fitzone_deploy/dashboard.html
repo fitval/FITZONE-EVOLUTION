@@ -1504,10 +1504,14 @@ function dbMapFromDB(rows){
     return o;
   });
 }
+// Shared tables: all coaches see all data. Per-coach tables: filtered.
+const SHARED_TABLES=['exercises','aliments','repas','seances','modules'];
 async function dbLoad(table){
   const m=DB_MAP[table];if(!m)return[];
   try{
-    const{data,error}=await db.from(table).select('*').eq('coach_id',currentCoach.id);
+    let q=db.from(table).select('*');
+    if(!SHARED_TABLES.includes(table))q=q.eq('coach_id',currentCoach.id);
+    const{data,error}=await q;
     if(error)throw error;
     if(data&&data.length>0)return dbMapFromDB(data);
     return lsGet(m.ls,[]);
@@ -1751,7 +1755,7 @@ function goBack(){
 /* ===== CLIENTS SUPABASE ===== */
 async function loadClients(){
   let q=db.from('clients').select('*').order('created_at',{ascending:false});
-  if(currentCoach)q=q.eq('coach_id',currentCoach.id);
+  if(currentCoach&&!isAdmin)q=q.eq('coach_id',currentCoach.id);
   const{data}=await q;
   allClients=data||[];renderStats();renderClients(allClients);updateNotifBadge();
 }
@@ -6098,10 +6102,14 @@ async function loadCoachGamification(){
   if(!currentCoach)return;
   await loadCoachLevels();
   try{
+    let cpQuery=db.from('client_points').select('*');
+    let rwQuery=db.from('coach_rewards').select('*');
+    let rrQuery=db.from('reward_requests').select('*');
+    if(!isAdmin){cpQuery=cpQuery.eq('coach_id',currentCoach.id);rwQuery=rwQuery.eq('coach_id',currentCoach.id);rrQuery=rrQuery.eq('coach_id',currentCoach.id);}
     const[r1,r2,r3]=await Promise.all([
-      db.from('client_points').select('*').eq('coach_id',currentCoach.id),
-      db.from('coach_rewards').select('*').eq('coach_id',currentCoach.id).order('created_at'),
-      db.from('reward_requests').select('*').eq('coach_id',currentCoach.id).order('created_at',{ascending:false}).limit(50)
+      cpQuery,
+      rwQuery.order('created_at'),
+      rrQuery.order('created_at',{ascending:false}).limit(50)
     ]);
     allClientPoints={};
     (r1.data||[]).forEach(cp=>{allClientPoints[cp.client_id]=cp;});

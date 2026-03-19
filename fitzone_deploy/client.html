@@ -677,6 +677,11 @@ const BADGES=[
       clientData=authClient;
       clientAuthMode='auth';
       if(authClient.status==='paused'){showState('Paused');return;}
+      // If questionnaire not yet filled, redirect to questionnaire
+      if(authClient.status==='questionnaire_pending'&&authClient.token){
+        window.location.href='questionnaire.html?token='+authClient.token;
+        return;
+      }
       if(authClient.status!=='active'){showState('Waiting');return;}
       await loadData();
       showState('App');
@@ -697,6 +702,7 @@ const BADGES=[
   clientData=data;
   clientAuthMode='anon';
   if(data.status==='paused'){showState('Paused');return;}
+  if(data.status==='questionnaire_pending'){window.location.href='questionnaire.html?token='+data.token;return;}
   if(data.status!=='active'){showState('Waiting');return;}
   await loadData();
   showState('App');

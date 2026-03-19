@@ -405,7 +405,7 @@ async function doLogin() {
   }
 
   // Verify this user is a client
-  const { data: client } = await db.from('clients').select('id,status').eq('user_id', data.user.id).maybeSingle();
+  const { data: client } = await db.from('clients').select('id,status,token').eq('user_id', data.user.id).maybeSingle();
   if (!client) {
     await db.auth.signOut();
     btn.disabled = false;
@@ -414,6 +414,11 @@ async function doLogin() {
     return;
   }
 
+  // If questionnaire not filled, redirect there first
+  if (client.status === 'questionnaire_pending' && client.token) {
+    window.location.href = 'questionnaire.html?token=' + client.token;
+    return;
+  }
   window.location.href = 'client.html';
 }
 
@@ -477,8 +482,16 @@ async function doNewPassword() {
     return;
   }
 
-  // Password set — redirect directly to client app (shows waiting page if not yet active)
+  // Password set — check if questionnaire needs to be filled first
   btn.innerHTML = '<span class="sp"></span> Redirection...';
+  const { data: { session: newSession } } = await db.auth.getSession();
+  if (newSession) {
+    const { data: cl } = await db.from('clients').select('status,token').eq('user_id', newSession.user.id).maybeSingle();
+    if (cl && cl.status === 'questionnaire_pending' && cl.token) {
+      window.location.href = 'questionnaire.html?token=' + cl.token;
+      return;
+    }
+  }
   window.location.href = 'client.html';
 }
 
