@@ -878,12 +878,45 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <div class="page" id="page-reward-requests">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
       <div>
-        <div class="card cp">
+        <!-- Récompenses CRUD -->
+        <div class="card cp" style="margin-bottom:16px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
             <div class="cl cl-gold" style="margin:0">🏆 MES RÉCOMPENSES</div>
-            <button class="btn btn-dark btn-sm" onclick="openAddReward()">+ Créer</button>
           </div>
           <div id="rewardsListSettings"></div>
+          <!-- Formulaire inline création/édition -->
+          <div id="rewardForm" style="display:none;margin-top:14px;padding-top:14px;border-top:1.5px solid var(--border)">
+            <div class="cl" id="rewardFormTitle" style="margin-bottom:10px">NOUVELLE RÉCOMPENSE</div>
+            <div class="fg"><label class="fl">Nom</label><input class="fi" id="rwName" placeholder="Ex: Goodies Fitzone"></div>
+            <div class="fg"><label class="fl">Description</label><input class="fi" id="rwDesc" placeholder="Ex: T-shirt ou accessoire"></div>
+            <div class="fr2">
+              <div class="fg"><label class="fl">Coût (points)</label><input class="fi" type="number" id="rwCost" value="750"></div>
+              <div class="fg"><label class="fl">Niveau minimum</label><select class="fi" id="rwLevel"><option value="bronze">🥉 Bronze</option><option value="silver" selected>🥈 Argent</option><option value="gold">🥇 Or</option><option value="platinum">💎 Platine</option><option value="elite">👑 Élite</option></select></div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-gold btn-sm" id="rwSaveBtn" onclick="saveNewReward()">Créer</button>
+              <button class="btn btn-ghost btn-sm" onclick="closeRewardForm()">Annuler</button>
+            </div>
+          </div>
+          <button class="btn btn-dark" style="margin-top:14px" id="rwAddBtn" onclick="openAddReward()">+ Créer une récompense</button>
+        </div>
+        <!-- Niveaux CRUD -->
+        <div class="card cp">
+          <div class="cl cl-gold" style="margin-bottom:14px">⭐ NIVEAUX / GRADES</div>
+          <div id="levelsListSettings"></div>
+          <div id="levelForm" style="display:none;margin-top:14px;padding-top:14px;border-top:1.5px solid var(--border)">
+            <div class="cl" style="margin-bottom:10px">NOUVEAU NIVEAU</div>
+            <div class="fr2">
+              <div class="fg"><label class="fl">Nom</label><input class="fi" id="lvName" placeholder="Ex: Diamant"></div>
+              <div class="fg"><label class="fl">Emoji</label><input class="fi" id="lvEmoji" placeholder="Ex: 💎" style="width:60px"></div>
+            </div>
+            <div class="fg"><label class="fl">Points minimum</label><input class="fi" type="number" id="lvMin" placeholder="Ex: 5000"></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-gold btn-sm" onclick="saveLevel()">Enregistrer</button>
+              <button class="btn btn-ghost btn-sm" onclick="closeLevelForm()">Annuler</button>
+            </div>
+          </div>
+          <button class="btn btn-dark" style="margin-top:14px" id="lvAddBtn" onclick="openAddLevel()">+ Ajouter un niveau</button>
         </div>
       </div>
       <div>
@@ -1708,7 +1741,7 @@ function showPage(name,el){
   if(name==='admin-clients')renderAdminClients();
   if(name==='rec-forms')renderRecForms();
   if(name==='rec-responses')renderRecResponses();
-  if(name==='reward-requests'){renderRewardsSettings();renderRewardRequestsPage();}
+  if(name==='reward-requests'){renderRewardsSettings();renderLevelsSettings();renderRewardRequestsPage();}
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
@@ -6102,8 +6135,9 @@ async function initDefaultRewards(){
 function renderRewardsSettings(){
   const el=document.getElementById('rewardsListSettings');
   if(!el)return;
-  const lvLabels={bronze:'🥉 Bronze',silver:'🥈 Argent',gold:'🥇 Or',platinum:'💎 Platine',elite:'👑 Élite'};
-  if(!allCoachRewards.length){el.innerHTML='<div style="color:var(--text3);font-size:13px">Aucune récompense.</div>';return;}
+  const levels=getCoachLevels();
+  const lvLabels={};levels.forEach(l=>{lvLabels[l.key]=l.emoji+' '+l.label;});
+  if(!allCoachRewards.length){el.innerHTML='<div style="color:var(--text3);font-size:13px">Aucune récompense. Crée ta première récompense ci-dessous.</div>';return;}
   el.innerHTML=allCoachRewards.map(r=>`<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
     <div style="flex:1"><div style="font-weight:600;font-size:14px">${esc(r.name)}</div><div style="font-size:12px;color:var(--text3)">${esc(r.description||'')}</div><div style="font-size:11px;margin-top:3px"><span style="color:var(--gold);font-weight:700">${r.cost} pts</span> · Dès ${lvLabels[r.min_level||'silver']||'🥈 Argent'}</div></div>
     <label style="font-size:11px;display:flex;align-items:center;gap:4px"><input type="checkbox" ${r.active?'checked':''} onchange="toggleRewardActive('${r.id}',this.checked)" style="accent-color:var(--gold)"> Actif</label>
@@ -6118,15 +6152,44 @@ async function toggleRewardActive(id,active){
   toast(active?'Récompense activée':'Récompense désactivée');
 }
 
+let editingRewardId=null;
+
 function openAddReward(){
-  const h=`<div class="fg"><label class="fl">Nom</label><input class="fi" id="rwName" placeholder="Ex: Goodies Fitzone"></div>
-    <div class="fg"><label class="fl">Description</label><input class="fi" id="rwDesc" placeholder="Ex: T-shirt ou accessoire"></div>
-    <div class="fr2"><div class="fg"><label class="fl">Coût (points)</label><input class="fi" type="number" id="rwCost" value="750"></div>
-    <div class="fg"><label class="fl">Niveau minimum</label><select class="fi" id="rwLevel"><option value="silver">🥈 Argent (1000 pts)</option><option value="gold">🥇 Or (5000 pts)</option><option value="platinum">💎 Platine (15000 pts)</option><option value="elite">👑 Élite (30000 pts)</option></select></div></div>
-    <button class="btn btn-dark" onclick="saveNewReward()">Ajouter</button>`;
-  openM('mNewClient');
-  document.querySelector('#mNewClient .mt').textContent='Nouvelle récompense';
-  document.querySelector('#mNewClient .mb').innerHTML=h;
+  editingRewardId=null;
+  document.getElementById('rewardFormTitle').textContent='NOUVELLE RÉCOMPENSE';
+  document.getElementById('rwName').value='';
+  document.getElementById('rwDesc').value='';
+  document.getElementById('rwCost').value='750';
+  document.getElementById('rwLevel').value='silver';
+  document.getElementById('rwSaveBtn').textContent='Créer';
+  document.getElementById('rwSaveBtn').setAttribute('onclick','saveNewReward()');
+  updateLevelSelects(getCoachLevels());
+  document.getElementById('rewardForm').style.display='block';
+  document.getElementById('rwAddBtn').style.display='none';
+  document.getElementById('rwName').focus();
+}
+
+function editReward(id){
+  const r=allCoachRewards.find(x=>x.id===id);if(!r)return;
+  editingRewardId=id;
+  document.getElementById('rewardFormTitle').textContent='MODIFIER RÉCOMPENSE';
+  document.getElementById('rwName').value=r.name;
+  document.getElementById('rwDesc').value=r.description||'';
+  document.getElementById('rwCost').value=r.cost;
+  document.getElementById('rwLevel').value=r.min_level||'silver';
+  document.getElementById('rwSaveBtn').textContent='Enregistrer';
+  document.getElementById('rwSaveBtn').setAttribute('onclick',"updateReward('"+id+"')");
+  updateLevelSelects(getCoachLevels());
+  document.getElementById('rwLevel').value=r.min_level||'silver';
+  document.getElementById('rewardForm').style.display='block';
+  document.getElementById('rwAddBtn').style.display='none';
+  document.getElementById('rwName').focus();
+}
+
+function closeRewardForm(){
+  document.getElementById('rewardForm').style.display='none';
+  document.getElementById('rwAddBtn').style.display='';
+  editingRewardId=null;
 }
 
 async function saveNewReward(){
@@ -6135,37 +6198,31 @@ async function saveNewReward(){
   const cost=parseInt(document.getElementById('rwCost').value)||750;
   const min_level=document.getElementById('rwLevel').value||'silver';
   if(!name){toast('Nom requis');return;}
+  const btn=document.getElementById('rwSaveBtn');
+  btn.disabled=true;btn.textContent='Création...';
   const{data,error}=await db.from('coach_rewards').insert({coach_id:currentCoach.id,name,description:desc,cost,min_level,active:true}).select();
-  if(error){toast('Erreur: '+error.message);return;}
+  btn.disabled=false;
+  if(error){toast('Erreur: '+error.message);btn.textContent='Créer';return;}
   if(data)allCoachRewards.push(data[0]);
-  closeM('mNewClient');
+  closeRewardForm();
   renderRewardsSettings();
-  toast('Récompense ajoutée ✓');
-}
-
-function editReward(id){
-  const r=allCoachRewards.find(x=>x.id===id);if(!r)return;
-  const ml=r.min_level||'silver';
-  const h=`<div class="fg"><label class="fl">Nom</label><input class="fi" id="rwName" value="${esc(r.name)}"></div>
-    <div class="fg"><label class="fl">Description</label><input class="fi" id="rwDesc" value="${esc(r.description||'')}"></div>
-    <div class="fr2"><div class="fg"><label class="fl">Coût (points)</label><input class="fi" type="number" id="rwCost" value="${r.cost}"></div>
-    <div class="fg"><label class="fl">Niveau minimum</label><select class="fi" id="rwLevel"><option value="silver"${ml==='silver'?' selected':''}>🥈 Argent</option><option value="gold"${ml==='gold'?' selected':''}>🥇 Or</option><option value="platinum"${ml==='platinum'?' selected':''}>💎 Platine</option><option value="elite"${ml==='elite'?' selected':''}>👑 Élite</option></select></div></div>
-    <button class="btn btn-dark" onclick="updateReward('${id}')">Enregistrer</button>`;
-  openM('mNewClient');
-  document.querySelector('#mNewClient .mt').textContent='Modifier récompense';
-  document.querySelector('#mNewClient .mb').innerHTML=h;
+  toast('Récompense créée ✓');
 }
 
 async function updateReward(id){
   const name=document.getElementById('rwName').value.trim();
   const desc=document.getElementById('rwDesc').value.trim();
-  const cost=parseInt(document.getElementById('rwCost').value)||500;
-  if(!name){toast('Nom requis');return;}
+  const cost=parseInt(document.getElementById('rwCost').value)||750;
   const min_level=document.getElementById('rwLevel').value||'silver';
-  await db.from('coach_rewards').update({name,description:desc,cost,min_level}).eq('id',id).eq('coach_id',currentCoach.id);
+  if(!name){toast('Nom requis');return;}
+  const btn=document.getElementById('rwSaveBtn');
+  btn.disabled=true;btn.textContent='Enregistrement...';
+  const{error}=await db.from('coach_rewards').update({name,description:desc,cost,min_level}).eq('id',id).eq('coach_id',currentCoach.id);
+  btn.disabled=false;
+  if(error){toast('Erreur: '+error.message);btn.textContent='Enregistrer';return;}
   const r=allCoachRewards.find(x=>x.id===id);
   if(r){r.name=name;r.description=desc;r.cost=cost;r.min_level=min_level;}
-  closeM('mNewClient');
+  closeRewardForm();
   renderRewardsSettings();
   toast('Récompense mise à jour ✓');
 }
@@ -6176,6 +6233,96 @@ async function deleteReward(id){
   allCoachRewards=allCoachRewards.filter(x=>x.id!==id);
   renderRewardsSettings();
   toast('Récompense supprimée');
+}
+
+/* Levels CRUD */
+const DEFAULT_LEVELS=[
+  {key:'bronze',label:'Bronze',min:0,emoji:'🥉'},
+  {key:'silver',label:'Argent',min:1000,emoji:'🥈'},
+  {key:'gold',label:'Or',min:5000,emoji:'🥇'},
+  {key:'platinum',label:'Platine',min:15000,emoji:'💎'},
+  {key:'elite',label:'Élite',min:30000,emoji:'👑'}
+];
+
+function getCoachLevels(){
+  const saved=localStorage.getItem('fz_gamif_levels_'+(currentCoach?currentCoach.id:''));
+  if(saved)try{return JSON.parse(saved);}catch(e){}
+  return DEFAULT_LEVELS.slice();
+}
+function saveCoachLevels(levels){
+  localStorage.setItem('fz_gamif_levels_'+(currentCoach?currentCoach.id:''),JSON.stringify(levels));
+}
+
+function renderLevelsSettings(){
+  const el=document.getElementById('levelsListSettings');if(!el)return;
+  const levels=getCoachLevels();
+  if(!levels.length){el.innerHTML='<div style="color:var(--text3);font-size:13px">Aucun niveau.</div>';return;}
+  el.innerHTML=levels.sort((a,b)=>a.min-b.min).map((lv,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+    <div style="font-size:24px">${lv.emoji}</div>
+    <div style="flex:1"><div style="font-weight:700;font-size:14px">${esc(lv.label)}</div><div style="font-size:12px;color:var(--text3)">${lv.min.toLocaleString()} pts minimum</div></div>
+    ${lv.key==='bronze'?'':`<button class="btn btn-xs btn-ghost" onclick="editLevel(${i})">✏️</button><button class="btn btn-xs btn-danger" onclick="deleteLevel(${i})">🗑️</button>`}
+  </div>`).join('');
+}
+
+let editingLevelIdx=null;
+function openAddLevel(){
+  editingLevelIdx=null;
+  document.getElementById('lvName').value='';
+  document.getElementById('lvEmoji').value='';
+  document.getElementById('lvMin').value='';
+  document.getElementById('levelForm').style.display='block';
+  document.getElementById('lvAddBtn').style.display='none';
+  document.getElementById('lvName').focus();
+}
+function editLevel(idx){
+  const levels=getCoachLevels().sort((a,b)=>a.min-b.min);
+  const lv=levels[idx];if(!lv||lv.key==='bronze')return;
+  editingLevelIdx=idx;
+  document.getElementById('lvName').value=lv.label;
+  document.getElementById('lvEmoji').value=lv.emoji;
+  document.getElementById('lvMin').value=lv.min;
+  document.getElementById('levelForm').style.display='block';
+  document.getElementById('lvAddBtn').style.display='none';
+}
+function closeLevelForm(){
+  document.getElementById('levelForm').style.display='none';
+  document.getElementById('lvAddBtn').style.display='';
+  editingLevelIdx=null;
+}
+function saveLevel(){
+  const name=document.getElementById('lvName').value.trim();
+  const emoji=document.getElementById('lvEmoji').value.trim();
+  const min=parseInt(document.getElementById('lvMin').value);
+  if(!name||!emoji||isNaN(min)){toast('Tous les champs sont requis');return;}
+  const levels=getCoachLevels().sort((a,b)=>a.min-b.min);
+  if(editingLevelIdx!==null){
+    levels[editingLevelIdx].label=name;
+    levels[editingLevelIdx].emoji=emoji;
+    levels[editingLevelIdx].min=min;
+    levels[editingLevelIdx].key=name.toLowerCase().replace(/\s+/g,'_');
+  } else {
+    levels.push({key:name.toLowerCase().replace(/\s+/g,'_'),label:name,min,emoji});
+  }
+  saveCoachLevels(levels);
+  closeLevelForm();
+  renderLevelsSettings();
+  // Update the level select in reward form
+  updateLevelSelects(levels);
+  toast(editingLevelIdx!==null?'Niveau modifié ✓':'Niveau ajouté ✓');
+}
+function deleteLevel(idx){
+  const levels=getCoachLevels().sort((a,b)=>a.min-b.min);
+  if(levels[idx].key==='bronze'){toast('Impossible de supprimer Bronze');return;}
+  if(!confirm('Supprimer le niveau "'+levels[idx].label+'" ?'))return;
+  levels.splice(idx,1);
+  saveCoachLevels(levels);
+  renderLevelsSettings();
+  toast('Niveau supprimé');
+}
+function updateLevelSelects(levels){
+  const sel=document.getElementById('rwLevel');if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML=levels.filter(l=>l.key!=='bronze').sort((a,b)=>a.min-b.min).map(l=>`<option value="${l.key}"${l.key===cur?' selected':''}>${l.emoji} ${l.label} (${l.min.toLocaleString()} pts)</option>`).join('');
 }
 
 /* Reward Requests Page */
