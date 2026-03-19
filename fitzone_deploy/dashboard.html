@@ -532,6 +532,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div class="tw">
       <div class="tf">
         <div class="si"><span class="si-ico">🔍</span><input placeholder="Rechercher…" oninput="filterCl(this.value)"></div>
+        <select class="chip" id="coachFilter" onchange="filterCl(document.querySelector('.si input')?.value||'')" style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid var(--border2);background:var(--white);color:var(--text);cursor:pointer;font-family:var(--font)"><option value="all">Tous les coachs</option></select>
         <div class="chip active" onclick="setChip(this,'all')">Tous</div>
         <div class="chip" onclick="setChip(this,'questionnaire_done')">Questionnaire reçu</div>
         <div class="chip" onclick="setChip(this,'questionnaire_pending')">En attente</div>
@@ -1505,7 +1506,7 @@ function dbMapFromDB(rows){
   });
 }
 // Shared tables: all coaches see all data. Per-coach tables: filtered.
-const SHARED_TABLES=['exercises','aliments','repas','seances','modules'];
+const SHARED_TABLES=['exercises','aliments','repas','seances','modules','programs','plans_full','team'];
 async function dbLoad(table){
   const m=DB_MAP[table];if(!m)return[];
   try{
@@ -1773,7 +1774,15 @@ function goBack(){
 async function loadClients(){
   // All coaches see all clients (shared client list)
   const{data}=await db.from('clients').select('*').order('created_at',{ascending:false});
-  allClients=data||[];renderStats();renderClients(allClients);updateNotifBadge();
+  allClients=data||[];
+  renderStats();renderClients(allClients);updateNotifBadge();
+  // Populate coach filter dropdown
+  populateCoachFilter();
+}
+async function populateCoachFilter(){
+  const sel=document.getElementById('coachFilter');if(!sel||sel.options.length>1)return;
+  const{data}=await db.from('coaches').select('id,first_name,last_name');
+  if(data){data.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=(c.first_name||'')+' '+(c.last_name||'');sel.appendChild(o);});}
 }
 function renderStats(){
   const tot=allClients.length,act=allClients.filter(c=>c.status==='active').length,q=allClients.filter(c=>c.status==='questionnaire_done').length,p=allClients.filter(c=>c.status==='questionnaire_pending').length;
@@ -1803,7 +1812,14 @@ function renderClients(list){
   }).join('');
 }
 const stBadge=s=>({questionnaire_pending:`<span class="badge b-pend">⏳ En attente</span>`,questionnaire_done:`<span class="badge b-done">📋 Questionnaire reçu</span>`,active:`<span class="badge b-active">✅ Actif</span>`,paused:`<span class="badge" style="background:rgba(255,160,0,.15);color:#b57800">⏸️ En pause</span>`}[s]||`<span class="badge b-pend">${s}</span>`);
-function filterCl(q){let l=clFilter==='all'?allClients:allClients.filter(c=>c.status===clFilter);if(q){const s=q.toLowerCase();l=l.filter(c=>(c.first_name+' '+c.last_name+' '+c.email).toLowerCase().includes(s));}renderClients(l);}
+function filterCl(q){
+  let l=clFilter==='all'?allClients:allClients.filter(c=>c.status===clFilter);
+  // Coach filter
+  const cf=document.getElementById('coachFilter');
+  if(cf&&cf.value!=='all')l=l.filter(c=>c.coach_id===cf.value);
+  if(q){const s=q.toLowerCase();l=l.filter(c=>(c.first_name+' '+c.last_name+' '+c.email).toLowerCase().includes(s));}
+  renderClients(l);
+}
 function setChip(el,f){clFilter=f;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');filterCl(document.querySelector('.si input')?.value||'');}
 function renderBilans(){
   const done=allClients.filter(c=>c.status==='questionnaire_done'||c.status==='active');
@@ -1840,8 +1856,11 @@ async function doCreateClient(){
 async function valCl(id){await db.from('clients').update({status:'active'}).eq('id',id);toast('Client activé ✓');await loadClients();if(curClient&&curClient.id===id){curClient.status='active';renderDetHero();}}
 
 /* ===== DETAIL CLIENT ===== */
+let canEditClient=true;
 async function openDet(id){
   curClient=allClients.find(c=>c.id===id);if(!curClient)return;
+  // Permission: non-admin coaches can only edit their own clients
+  canEditClient=isAdmin||curClient.coach_id===currentCoach.id;
   const{data}=await db.from('questionnaires').select('*').eq('client_id',id).order('submitted_at',{ascending:false}).limit(1);
   curQ=(data&&data.length)?data[0]:null;
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none';});
