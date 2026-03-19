@@ -4593,7 +4593,7 @@ function renderTeam(){
   const el=document.getElementById('teamList');if(!el)return;
   const roleMap={admin:{label:'👑 Admin',cls:'role-admin'},coach:{label:'🔄 Complet',cls:'role-coach'},nutrition:{label:'🥗 Nutrition',cls:'role-nut'},training:{label:'💪 Training',cls:'role-train'}};
   if(!team.length){el.innerHTML=`<div class="empty"><div class="ei">👨‍💼</div><div class="et">Aucun coach</div><div class="es">Ajoute ton premier collaborateur</div></div>`;return;}
-  el.innerHTML=team.map((co,i)=>{const r=roleMap[co.role]||{label:co.role,cls:'role-coach'};return`<div class="coach-card"><div class="co-av" style="background:${co.color||'#c49a2a'}">${((co.first||'?')[0]+(co.last||'?')[0]).toUpperCase()}</div><div style="flex:1"><div style="font-size:13px;font-weight:700">${co.first} ${co.last}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${co.email}</div></div><span class="role-badge ${r.cls}">${r.label}</span><button class="btn btn-ghost btn-xs" onclick="openCoach(${i})">✏️</button><button class="btn btn-danger btn-xs" onclick="delCoach(${i})">✕</button></div>`;}).join('');
+  el.innerHTML=team.map((co,i)=>{const r=roleMap[co.role]||{label:co.role,cls:'role-coach'};return`<div class="coach-card"><div class="co-av" style="background:${co.color||'#c49a2a'}">${((co.first||'?')[0]+(co.last||'?')[0]).toUpperCase()}</div><div style="flex:1"><div style="font-size:13px;font-weight:700">${co.first} ${co.last}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${co.email}</div></div><span class="role-badge ${r.cls}">${r.label}</span>${co.email?`<button class="btn btn-ghost btn-xs" onclick="resendCoachInvite('${co.email.replace(/'/g,"\\'")}')">📧</button>`:''}<button class="btn btn-ghost btn-xs" onclick="openCoach(${i})">✏️</button><button class="btn btn-danger btn-xs" onclick="delCoach(${i})">✕</button></div>`;}).join('');
 }
 function delCoach(i){if(!confirm('Supprimer ?'))return;const co=team[i];if(co&&co.id)dbDelete('team',co.id);else{team.splice(i,1);lsSave('fz_team',team);}renderTeam();toast('Supprimé');}
 
@@ -5867,9 +5867,17 @@ async function resendCoachInvite(email){
   if(!email){toast('Pas d\'email');return;}
   toast('Envoi en cours...');
   try{
+    // Try creating account first (if it doesn't exist yet)
+    const co=team.find(c=>c.email===email);
+    await fetch(SUPA+'/functions/v1/create-coach-account',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      body:JSON.stringify({email,first_name:co?co.first:'',last_name:co?co.last:''})
+    }).catch(()=>{});
+    // Then send recovery email (works whether account is new or existing)
     const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/login.html'})});
     if(!res.ok)throw new Error('Erreur envoi');
-    toast('Email envoyé à '+email);
+    toast('Invitation renvoyée à '+email+' ✓');
   }catch(e){toast('Erreur: '+e.message);}
 }
 
