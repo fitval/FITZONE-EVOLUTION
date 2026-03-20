@@ -1,12 +1,7 @@
-const CACHE='fitzone-v5';
-const ASSETS=[
-  './client.html',
-  './client-login.html',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
-];
+const CACHE='fitzone-v7';
 
 self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));
+  // Skip waiting immediately — new SW takes over right away
   self.skipWaiting();
 });
 
@@ -15,6 +10,7 @@ self.addEventListener('message',e=>{
 });
 
 self.addEventListener('activate',e=>{
+  // Delete all old caches
   e.waitUntil(
     caches.keys().then(keys=>Promise.all(
       keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))
@@ -24,13 +20,13 @@ self.addEventListener('activate',e=>{
 });
 
 self.addEventListener('fetch',e=>{
-  // Skip caching for API calls and non-GET requests
-  if(e.request.method!=='GET'||e.request.url.includes('supabase.co')||e.request.url.includes('googleapis.com')||e.request.url.includes('script.google.com')){
+  // Skip caching for API calls, non-GET, and chrome-extension
+  if(e.request.method!=='GET'||e.request.url.includes('supabase.co')||e.request.url.includes('googleapis.com')||e.request.url.includes('script.google.com')||e.request.url.startsWith('chrome-extension')){
     return;
   }
-  // Network first, cache fallback (static assets only)
+  // Network first with no-cache header, fallback to cache (offline support)
   e.respondWith(
-    fetch(e.request).then(res=>{
+    fetch(e.request,{cache:'no-store'}).then(res=>{
       if(res.ok){
         const clone=res.clone();
         caches.open(CACHE).then(c=>c.put(e.request,clone));
