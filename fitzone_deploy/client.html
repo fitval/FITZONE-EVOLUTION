@@ -1188,7 +1188,7 @@ async function finalizeWorkout(){
     // Gamification: award points for workout
     await awardPoints('workout_complete',50,{session:sessionName});
   }
-  renderTrainPreview();
+  switchTab('Home');
 }
 
 function validateSet(ei,si){
@@ -1677,7 +1677,7 @@ async function submitBilan(){
     await awardPoints('bilan_submit',75,{date:d});
     if(uploadedPhotos.length>0) await awardPoints('bilan_photo',50,{photos:uploadedPhotos.length});
   }
-  renderBilanList();
+  switchTab('Home');
 }
 
 /* ===== SUIVI ===== */
@@ -1764,7 +1764,7 @@ async function saveSuivi(){
     if(dietVal>=90)nutrPts=75;else if(dietVal>=70)nutrPts=50;else if(dietVal>=50)nutrPts=25;else if(dietVal>=30)nutrPts=10;
     if(nutrPts>0)await awardPoints('nutrition_validation',nutrPts,{pct:dietVal});
   }
-  renderSuivi();
+  switchTab('Home');
 }
 
 /* ===== SUIVI INLINE (from Home) ===== */
