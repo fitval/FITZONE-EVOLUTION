@@ -1721,6 +1721,12 @@ window.addEventListener('DOMContentLoaded',async()=>{
   await loadAllData();
   renderExoPage();renderProgList();renderSeanceList();renderAlims();renderRepasList();renderMods();renderTeam();
   updateOv();renderPlansListPage();
+  // Restore last page
+  const lastPage=sessionStorage.getItem('fz_current_page');
+  if(lastPage&&lastPage!=='overview'){
+    const navEl=document.getElementById('nav-'+{clients:'cl','bilans':'bi','bilans-all':'bi-all','nut-plans':'nut-plans','nut-alim':'nut-alim','nut-repas':'nut-repas','tr-progs':'tr-progs','tr-seances':'tr-seances','tr-exos':'tr-exos',learning:'lr',equipe:'eq',settings:'st','reward-requests':'rr','admin-coaches':'ac','admin-clients':'acl'}[lastPage]);
+    showPage(lastPage,navEl||null);
+  }
   document.addEventListener('click',e=>{if(!e.target.closest('.ss-wrap'))document.querySelectorAll('.ss-drop').forEach(d=>d.classList.remove('open'));});
 });
 
@@ -1757,6 +1763,7 @@ function showPage(name,el){
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none';});
   document.getElementById('detPage').classList.remove('show');
   const pg=document.getElementById('page-'+name);if(pg){pg.style.display='block';pg.classList.add('active');}
+  sessionStorage.setItem('fz_current_page',name);
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
   const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses'};
