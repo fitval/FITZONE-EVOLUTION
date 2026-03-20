@@ -997,16 +997,28 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <div class="mf"><button class="btn btn-ghost" onclick="closeM('mNewRepas')">Annuler</button><button class="btn btn-dark" onclick="saveRepas()">Enregistrer</button></div>
 </div></div>
 
-<div class="overlay" id="mNewExo"><div class="modal">
+<div class="overlay" id="mNewExo"><div class="modal modal-lg">
   <div class="mh"><div class="mt" id="exoMT">Ajouter un exercice</div><button class="mc" onclick="closeM('mNewExo')">✕</button></div>
   <div class="mb">
+    <!-- Video preview -->
+    <div id="exoVideoPreview" style="display:none;margin-bottom:14px;border-radius:10px;overflow:hidden;background:var(--dark);aspect-ratio:16/9;position:relative;cursor:pointer" onclick="const v=document.getElementById('exoVideo').value;if(v){const vid=ytId(v);if(vid)window.open('https://youtube.com/watch?v='+vid,'_blank')}">
+      <img id="exoVideoThumb" style="width:100%;height:100%;object-fit:cover">
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><div style="width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" fill="white" width="24" height="24"><polygon points="8,5 19,12 8,19"/></svg></div></div>
+    </div>
+    <div class="fg"><label class="fl">Vidéo YouTube <span class="fl-o">optionnel</span></label><input class="fi" id="exoVideo" placeholder="https://youtube.com/..." oninput="previewExoVideo(this.value)"></div>
     <div class="fg"><label class="fl">Nom *</label><input class="fi" id="exoNom" placeholder="Développé couché barre"></div>
     <div class="fr2">
       <div class="fg"><label class="fl">Muscle</label><select class="fs" id="exoMuscle"><option>Poitrine</option><option>Grand dorsal</option><option>Trapèzes</option><option>Deltoïde antérieur</option><option>Deltoïde postérieur</option><option>Deltoïde moyen</option><option>Biceps</option><option>Triceps</option><option>Quadriceps</option><option>Ischio-jambiers</option><option>Mollets</option><option>Fessiers</option><option>Abdominaux</option></select></div>
       <div class="fg"><label class="fl">Équipement</label><select class="fs" id="exoEquip"><option>Barre</option><option>Haltères</option><option>Machine</option><option>Poulie</option><option>Poids de corps</option><option>Élastique</option></select></div>
     </div>
-    <div class="fr3"><div class="fg"><label class="fl">Séries</label><input class="fi" id="exoSeries" placeholder="3-4"></div><div class="fg"><label class="fl">Reps</label><input class="fi" id="exoReps" placeholder="8-12"></div><div class="fg"><label class="fl">Repos (s)</label><input class="fi" id="exoRest" placeholder="90"></div></div>
-    <div class="fg"><label class="fl">Vidéo YouTube <span class="fl-o">optionnel</span></label><input class="fi" id="exoVideo" placeholder="https://youtube.com/..."></div>
+    <!-- Per-series editor -->
+    <div class="fg">
+      <label class="fl">Séries <button class="btn btn-xs btn-ghost" style="margin-left:8px" onclick="addExoSet()">+ Ajouter série</button></label>
+      <div id="exoSetsEditor"></div>
+    </div>
+    <input type="hidden" id="exoSeries">
+    <input type="hidden" id="exoReps">
+    <input type="hidden" id="exoRest">
     <div class="fg"><label class="fl">Notes</label><textarea class="fta" id="exoNotes" placeholder="Points de vigilance…" style="min-height:56px"></textarea></div>
     <div class="fg">
       <label class="fl">Exercices de remplacement <span class="fl-o">optionnel</span></label>
@@ -4384,17 +4396,68 @@ function renderSeanceList(){
 function delSeance(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ?'))return;dbDelete('seances',id);renderSeanceList();toast('Séance supprimée');}
 
 /* ===== EXERCICES ===== */
+/* Video preview */
+function previewExoVideo(url){
+  const prev=document.getElementById('exoVideoPreview');
+  const thumb=document.getElementById('exoVideoThumb');
+  const vid=ytId(url);
+  if(vid){thumb.src='https://img.youtube.com/vi/'+vid+'/hqdefault.jpg';thumb.onerror=function(){prev.style.display='none';};prev.style.display='block';}
+  else prev.style.display='none';
+}
+
+/* Per-series editor */
+let exoSetsData=[];
+function renderExoSets(){
+  const el=document.getElementById('exoSetsEditor');if(!el)return;
+  if(!exoSetsData.length)exoSetsData=[{reps:'8-12',rest:'90',rir:'',tempo:''}];
+  el.innerHTML=exoSetsData.map((s,i)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding:8px 10px;background:var(--bg);border-radius:8px">
+    <div style="font-size:12px;font-weight:800;color:var(--text3);width:28px">S${i+1}</div>
+    <input class="fi" style="flex:1;padding:6px 8px;font-size:12px" placeholder="Reps" value="${s.reps||''}" oninput="exoSetsData[${i}].reps=this.value">
+    <input class="fi" style="width:60px;padding:6px 8px;font-size:12px" placeholder="Repos" value="${s.rest||''}" oninput="exoSetsData[${i}].rest=this.value">
+    <input class="fi" style="width:50px;padding:6px 8px;font-size:12px" placeholder="RIR" value="${s.rir||''}" oninput="exoSetsData[${i}].rir=this.value">
+    <input class="fi" style="width:60px;padding:6px 8px;font-size:12px" placeholder="Tempo" value="${s.tempo||''}" oninput="exoSetsData[${i}].tempo=this.value">
+    ${exoSetsData.length>1?`<button class="btn btn-xs btn-danger" style="padding:4px 6px" onclick="exoSetsData.splice(${i},1);renderExoSets()">✕</button>`:''}
+  </div>`).join('')+`<div style="display:flex;gap:6px;font-size:10px;color:var(--text3);padding:0 10px"><div style="width:28px"></div><div style="flex:1">Reps</div><div style="width:60px">Repos (s)</div><div style="width:50px">RIR</div><div style="width:60px">Tempo</div></div>`;
+}
+function addExoSet(){
+  const last=exoSetsData.length?{...exoSetsData[exoSetsData.length-1]}:{reps:'8-12',rest:'90',rir:'',tempo:''};
+  exoSetsData.push(last);
+  renderExoSets();
+}
+
 function openExo(id){
   document.getElementById('exoMT').textContent=id?'Modifier exercice':'Ajouter un exercice';
-  if(id){const e=exos.find(x=>x.id===id);if(!e)return;document.getElementById('exoNom').value=e.nom;document.getElementById('exoMuscle').value=e.muscle||'Poitrine';document.getElementById('exoEquip').value=e.equip||'Barre';document.getElementById('exoSeries').value=e.sets||'';document.getElementById('exoReps').value=e.reps||'';document.getElementById('exoRest').value=e.rest||'';document.getElementById('exoVideo').value=e.video||'';document.getElementById('exoNotes').value=e.notes||'';document.getElementById('exoEditId').value=id;window._exoRepls=Array.isArray(e.replacements)?[...e.replacements]:[];}
-  else{['exoNom','exoSeries','exoReps','exoRest','exoVideo','exoNotes'].forEach(x=>document.getElementById(x).value='');document.getElementById('exoEditId').value='';window._exoRepls=[];}
+  if(id){
+    const e=exos.find(x=>x.id===id);if(!e)return;
+    document.getElementById('exoNom').value=e.nom;
+    document.getElementById('exoMuscle').value=e.muscle||'Poitrine';
+    document.getElementById('exoEquip').value=e.equip||'Barre';
+    document.getElementById('exoVideo').value=e.video||'';
+    document.getElementById('exoNotes').value=e.notes||'';
+    document.getElementById('exoEditId').value=id;
+    window._exoRepls=Array.isArray(e.replacements)?[...e.replacements]:[];
+    // Load sets data
+    if(e.sets_data&&Array.isArray(e.sets_data)&&e.sets_data.length){exoSetsData=e.sets_data.map(s=>({...s}));}
+    else{const n=parseInt(e.sets)||3;exoSetsData=[];for(let i=0;i<n;i++)exoSetsData.push({reps:e.reps||'8-12',rest:e.rest||'90',rir:'',tempo:''});}
+    previewExoVideo(e.video||'');
+  } else {
+    ['exoNom','exoVideo','exoNotes'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('exoEditId').value='';
+    window._exoRepls=[];
+    exoSetsData=[{reps:'8-12',rest:'90',rir:'',tempo:''}];
+    document.getElementById('exoVideoPreview').style.display='none';
+  }
+  renderExoSets();
   document.getElementById('exoReplSearch').value='';document.getElementById('exoReplDrop').style.display='none';
   exoRenderReplTags();
   openM('mNewExo');
 }
 function saveExo(){
   const nom=document.getElementById('exoNom').value.trim();if(!nom){toast('Nom requis');return;}
-  const e={nom,muscle:document.getElementById('exoMuscle').value,equip:document.getElementById('exoEquip').value,sets:document.getElementById('exoSeries').value,reps:document.getElementById('exoReps').value,rest:document.getElementById('exoRest').value,video:document.getElementById('exoVideo').value,notes:document.getElementById('exoNotes').value,replacements:window._exoRepls||[]};
+  const e={nom,muscle:document.getElementById('exoMuscle').value,equip:document.getElementById('exoEquip').value,
+    sets:String(exoSetsData.length),reps:exoSetsData[0]?.reps||'',rest:exoSetsData[0]?.rest||'',
+    sets_data:exoSetsData,
+    video:document.getElementById('exoVideo').value,notes:document.getElementById('exoNotes').value,replacements:window._exoRepls||[]};
   const exoEditRaw=document.getElementById('exoEditId').value;
   const editId=exoEditRaw?parseInt(exoEditRaw):null;
   if(editId){const i=exos.findIndex(x=>x.id===editId);if(i>=0)exos[i]={...e,id:editId};else exos.push({...e,id:Date.now()});}
