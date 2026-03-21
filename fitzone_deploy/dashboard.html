@@ -5778,26 +5778,28 @@ async function loadAdminCoaches(){
 async function renderAdminCoaches(){
   if(!isAdmin)return;
   await loadAdminCoaches();
-  // Count clients per coach
   const{data:cls}=await db.from('clients').select('id,coach_id');
   const counts={};
   (cls||[]).forEach(c=>{counts[c.coach_id]=(counts[c.coach_id]||0)+1;});
 
   const ct=document.getElementById('adminCoachesList');
   if(!adminCoaches.length){ct.innerHTML='<div style="color:var(--text3);padding:12px">Aucun coach</div>';return;}
-  const roles=['coach','admin','super_admin'];
+  const roles=['coach','nutrition','training','admin','super_admin'];
+  const roleLabels={coach:'🔄 Complet',nutrition:'🥗 Nutrition',training:'💪 Training',admin:'👑 Admin',super_admin:'🛡️ Super Admin'};
   ct.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
     <tr style="text-align:left;color:var(--text3);font-size:11px;border-bottom:1px solid var(--border)">
-      <th style="padding:8px">Nom</th><th style="padding:8px">Email</th><th style="padding:8px">Rôle</th><th style="padding:8px">Clients</th><th style="padding:8px">Inscrit le</th><th style="padding:8px">Actions</th>
+      <th style="padding:8px">Nom</th><th style="padding:8px">Email</th><th style="padding:8px">Rôle</th><th style="padding:8px">Clients</th><th style="padding:8px">Inscrit</th><th style="padding:8px">Actions</th>
     </tr>
-    ${adminCoaches.map(c=>`<tr style="border-bottom:1px solid var(--border)">
+    ${adminCoaches.map(c=>{
+      const isSelf=c.id===currentCoach.id;
+      return`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:8px;font-weight:600">${esc(c.first_name||'')} ${esc(c.last_name||'')}</td>
       <td style="padding:8px;color:var(--text2)">${esc(c.email||'')}</td>
-      <td style="padding:8px"><select class="fi" style="padding:4px 8px;font-size:12px;min-width:120px" oninput="updateCoachRole('${c.id}',this.value)" ${c.id===currentCoach.id?'disabled':''}>${roles.map(r=>`<option value="${r}" ${c.role===r?'selected':''}>${r}</option>`).join('')}</select></td>
+      <td style="padding:8px"><select class="fi" style="padding:4px 8px;font-size:12px;min-width:130px" onchange="updateCoachRole('${c.id}',this.value)" ${isSelf?'disabled':''}>${roles.map(r=>`<option value="${r}"${c.role===r?' selected':''}>${roleLabels[r]||r}</option>`).join('')}</select></td>
       <td style="padding:8px;text-align:center">${counts[c.id]||0}</td>
       <td style="padding:8px;color:var(--text3)">${c.created_at?new Date(c.created_at).toLocaleDateString('fr-FR'):'-'}</td>
-      <td style="padding:8px">${c.id!==currentCoach.id?`<button class="btn btn-sm" style="font-size:11px;padding:4px 10px" onclick="resendCoachInvite('${esc(c.email)}')">📧 Renvoyer</button>`:''}</td>
-    </tr>`).join('')}
+      <td style="padding:8px;display:flex;gap:4px;flex-wrap:wrap">${!isSelf?`<button class="btn btn-ghost btn-xs" onclick="resendCoachInvite('${esc(c.email)}')">📧</button><button class="btn btn-ghost btn-xs" onclick="resetCoachPassword('${esc(c.email)}')">🔑</button><button class="btn btn-danger btn-xs" onclick="deleteCoachAccount('${c.id}','${esc(c.email)}')">🗑️</button>`:''}</td>
+    </tr>`}).join('')}
   </table>`;
 }
 
@@ -5805,8 +5807,43 @@ async function updateCoachRole(coachId,newRole){
   if(currentCoach.role!=='super_admin'){toast('Seul le super admin peut changer les rôles');return;}
   const{error}=await db.from('coaches').update({role:newRole}).eq('id',coachId);
   if(error){toast('Erreur: '+error.message);return;}
-  toast('Rôle mis à jour');
+  // Sync with team list
+  const coach=adminCoaches.find(c=>c.id===coachId);
+  if(coach){
+    const teamMember=team.find(t=>t.email===coach.email);
+    if(teamMember){teamMember.role=newRole;lsSave('fz_team',team);dbSave('team',teamMember);}
+  }
+  toast('Rôle mis à jour ✓');
   await renderAdminCoaches();
+}
+
+async function resetCoachPassword(email){
+  if(!email)return;
+  toast('Envoi du lien de reset...');
+  try{
+    const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/login.html'})});
+    if(!res.ok)throw new Error('Erreur');
+    toast('Lien de reset envoyé à '+email+' ✓');
+  }catch(e){toast('Erreur: '+e.message);}
+}
+
+async function deleteCoachAccount(coachId,email){
+  if(currentCoach.role!=='super_admin'){toast('Seul le super admin peut supprimer un coach');return;}
+  if(coachId===currentCoach.id){toast('Impossible de supprimer ton propre compte');return;}
+  const coach=adminCoaches.find(c=>c.id===coachId);
+  const name=coach?(coach.first_name||'')+' '+(coach.last_name||''):email;
+  if(!confirm('Supprimer le coach '+name+' ?\n\nSon compte sera désactivé et ses clients devront être réassignés.'))return;
+  // Reassign clients to current coach (super admin)
+  await db.from('clients').update({coach_id:currentCoach.id}).eq('coach_id',coachId);
+  // Delete coach record
+  const{error}=await db.from('coaches').delete().eq('id',coachId);
+  if(error){toast('Erreur: '+error.message);return;}
+  // Remove from team list too
+  const ti=team.findIndex(t=>t.email===email);
+  if(ti>=0){team.splice(ti,1);lsSave('fz_team',team);renderTeam();}
+  toast('Coach supprimé — clients réassignés ✓');
+  await renderAdminCoaches();
+  await loadClients();
 }
 
 function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
