@@ -1721,10 +1721,18 @@ window.addEventListener('DOMContentLoaded',async()=>{
   await loadAllData();
   renderExoPage();renderProgList();renderSeanceList();renderAlims();renderRepasList();renderMods();renderTeam();
   updateOv();renderPlansListPage();
-  // Restore last page
+  // Restore last page + client detail
   const lastPage=sessionStorage.getItem('fz_current_page');
-  if(lastPage&&lastPage!=='overview'){
-    const navEl=document.getElementById('nav-'+{clients:'cl','bilans':'bi','bilans-all':'bi-all','nut-plans':'nut-plans','nut-alim':'nut-alim','nut-repas':'nut-repas','tr-progs':'tr-progs','tr-seances':'tr-seances','tr-exos':'tr-exos',learning:'lr',equipe:'eq',settings:'st','reward-requests':'rr','admin-coaches':'ac','admin-clients':'acl'}[lastPage]);
+  const lastClient=sessionStorage.getItem('fz_current_client');
+  if(lastClient){
+    // Reopen client detail
+    setTimeout(()=>openDet(lastClient),100);
+  } else if(lastPage&&lastPage!=='overview'){
+    const navMap={clients:'cl',bilans:'bi','bilans-all':'bi-all','nut-plans':'nut-plans','nut-alim':'nut-alim','nut-repas':'nut-repas','tr-progs':'tr-progs','tr-seances':'tr-seances','tr-exos':'tr-exos',learning:'lr',equipe:'eq',settings:'st','reward-requests':'rr','admin-coaches':'ac','admin-clients':'acl'};
+    const navEl=document.getElementById('nav-'+(navMap[lastPage]||lastPage));
+    // Open parent submenu if needed
+    const subMap={'clients':'sub-clients,arr-cl','bilans':'sub-clients,arr-cl','bilans-all':'sub-clients,arr-cl','nut-plans':'sub-nut,arr-nut','nut-alim':'sub-nut,arr-nut','nut-repas':'sub-nut,arr-nut','tr-progs':'sub-train,arr-tr','tr-seances':'sub-train,arr-tr','tr-exos':'sub-train,arr-tr'};
+    if(subMap[lastPage]){const[subId,arrId]=subMap[lastPage].split(',');openSub(subId,arrId);}
     showPage(lastPage,navEl||null);
   }
   document.addEventListener('click',e=>{if(!e.target.closest('.ss-wrap'))document.querySelectorAll('.ss-drop').forEach(d=>d.classList.remove('open'));});
@@ -1764,6 +1772,7 @@ function showPage(name,el){
   document.getElementById('detPage').classList.remove('show');
   const pg=document.getElementById('page-'+name);if(pg){pg.style.display='block';pg.classList.add('active');}
   sessionStorage.setItem('fz_current_page',name);
+  sessionStorage.removeItem('fz_current_client');
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
   const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses'};
@@ -1786,6 +1795,7 @@ function showPage(name,el){
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
+  sessionStorage.removeItem('fz_current_client');
   showPage('clients',document.getElementById('nav-cl'));openSub('sub-clients','arr-cl');
 }
 
@@ -1878,8 +1888,8 @@ async function valCl(id){await db.from('clients').update({status:'active'}).eq('
 let canEditClient=true;
 async function openDet(id){
   curClient=allClients.find(c=>c.id===id);if(!curClient)return;
-  // Permission: non-admin coaches can only edit their own clients
   canEditClient=isAdmin||curClient.coach_id===currentCoach.id;
+  sessionStorage.setItem('fz_current_client',id);
   const{data}=await db.from('questionnaires').select('*').eq('client_id',id).order('submitted_at',{ascending:false}).limit(1);
   curQ=(data&&data.length)?data[0]:null;
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none';});
@@ -2333,6 +2343,7 @@ function renderRoadTab(){
   } else {
     toolbar+=`<span class="rcopy-info">Clic droit sur une cellule pour copier</span>`;
   }
+  toolbar+=`<button class="rbtn" style="background:var(--gold);color:white;border-color:var(--gold)" onclick="saveRoadmap()">💾 Enregistrer</button>`;
   toolbar+=`</div>`;
   // Phase legend
   let legend='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
@@ -2411,8 +2422,16 @@ function roadCancelCopy(){
 function sRoad(row,field,val){
   const key='road_'+curClient.id,d=lsGet(key,{});
   if(!d[row])d[row]={};d[row][field]=val;lsSave(key,d);
-  if(currentCoach)db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'}).catch(e=>console.warn('road save:',e));
   if(field==='phase')renderRoadTab();
+}
+async function saveRoadmap(){
+  if(!curClient)return;
+  const key='road_'+curClient.id,d=lsGet(key,{});
+  if(currentCoach){
+    const{error}=await db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'});
+    if(error){toast('Erreur: '+error.message);return;}
+  }
+  toast('Roadmap enregistrée ✓');
 }
 
 /* ===== PROGRESSION TAB (Graphiques données quotidiennes) ===== */
