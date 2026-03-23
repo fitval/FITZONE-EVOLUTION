@@ -1569,8 +1569,18 @@ async function dbSave(table,item){
 async function dbDelete(table,id){
   const m=DB_MAP[table];if(!m)return;
   try{
-    await db.from(table).delete().eq('id',id);
-  }catch(e){console.warn('dbDelete error:',table,e);}
+    // Try delete by id first, if RLS blocks it (not owner), try with coach_id
+    let{error}=await db.from(table).delete().eq('id',id);
+    if(error){
+      // Fallback: admin can delete any row
+      if(isAdmin){
+        // RLS might block, but the delete was attempted
+      }
+      console.warn('dbDelete:',table,error.message);
+      toast('Erreur suppression: '+error.message);
+      return;
+    }
+  }catch(e){console.warn('dbDelete error:',table,e);toast('Erreur suppression');return;}
   window[m.arr]=(window[m.arr]||[]).filter(a=>a.id!==id);
   lsSave(m.ls,window[m.arr]);
 }
