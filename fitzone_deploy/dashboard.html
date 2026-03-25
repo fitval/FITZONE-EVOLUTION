@@ -2353,6 +2353,7 @@ function renderRoadTab(){
   } else {
     toolbar+=`<span class="rcopy-info">Clic droit sur une cellule pour copier</span>`;
   }
+  toolbar+=`<button class="rbtn" style="background:var(--dark);color:white;border-color:var(--dark)" onclick="openRoadImport()">📋 Importer Google Sheet</button>`;
   toolbar+=`<button class="rbtn" style="background:var(--gold);color:white;border-color:var(--gold)" onclick="saveRoadmap()">💾 Enregistrer</button>`;
   toolbar+=`</div>`;
   // Phase legend
@@ -2442,6 +2443,122 @@ async function saveRoadmap(){
     if(error){toast('Erreur: '+error.message);return;}
   }
   toast('Roadmap enregistrée ✓');
+}
+
+/* ===== ROADMAP GOOGLE SHEET IMPORT ===== */
+function openRoadImport(){
+  const fields=[
+    {key:'phase',label:'Phase'},
+    {key:'nut',label:'Nutrition'},
+    {key:'poids',label:'Poids'},
+    {key:'apports',label:'Apports caloriques'},
+    {key:'cardio',label:'Cardio'},
+    {key:'pas',label:'Pas'},
+    {key:'depense',label:'Préc. Dépense'},
+    {key:'training',label:'Préc. Training'},
+    {key:'events',label:'Événements'},
+    {key:'notes',label:'Notes coach'}
+  ];
+  let h=`<div style="background:var(--white);border-radius:var(--r-md);padding:28px;width:100%;max-width:700px;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <h3 style="margin:0 0 6px 0;font-size:20px">📋 Importer depuis Google Sheet</h3>
+    <p style="color:var(--text3);font-size:13px;margin:0 0 16px 0">Copie les cellules de ton Google Sheet (sans les en-têtes), puis colle-les ici. Chaque ligne = 1 semaine.</p>
+    <div style="margin-bottom:16px">
+      <div class="fl" style="margin-bottom:6px">Semaine de départ</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input type="number" id="roadImportStart" class="fi" style="width:80px" value="1" min="1" max="52">
+        <span style="font-size:12px;color:var(--text3)">Les données seront importées à partir de cette semaine</span>
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <div class="fl" style="margin-bottom:6px">Ordre des colonnes dans ton Sheet</div>
+      <p style="font-size:12px;color:var(--text3);margin:0 0 8px 0">Glisse ou modifie l'ordre pour correspondre à ton Google Sheet. Décoche les colonnes absentes.</p>
+      <div id="roadImportCols" style="display:flex;flex-direction:column;gap:4px">`;
+  fields.forEach((f,i)=>{
+    h+=`<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">
+      <input type="checkbox" checked data-field="${f.key}" data-order="${i}">
+      <span style="min-width:18px;text-align:center;color:var(--text3);font-size:11px">${i+1}</span>
+      ${f.label}
+    </label>`;
+  });
+  h+=`</div></div>
+    <div class="fl" style="margin-bottom:6px">Données collées depuis Google Sheet</div>
+    <textarea id="roadImportData" class="fi" style="width:100%;min-height:180px;font-family:monospace;font-size:12px;white-space:pre;resize:vertical" placeholder="Colle ici les données copiées depuis Google Sheet (Ctrl+V / Cmd+V)..."></textarea>
+    <div id="roadImportPreview" style="margin-top:12px"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-outline" style="width:auto;padding:10px 20px" onclick="closeModal()">Annuler</button>
+      <button class="btn-gold" style="width:auto;padding:10px 20px" onclick="previewRoadImport()">Prévisualiser</button>
+      <button class="btn-gold" style="width:auto;padding:10px 20px;display:none" id="roadImportConfirm" onclick="confirmRoadImport()">Confirmer l'import</button>
+    </div>
+  </div>`;
+  openModal(h);
+}
+
+let _roadImportParsed=null;
+
+function previewRoadImport(){
+  const raw=document.getElementById('roadImportData').value.trim();
+  if(!raw){toast('Colle des données d\'abord');return;}
+  const startWeek=parseInt(document.getElementById('roadImportStart').value)||1;
+  // Get active columns in order
+  const checks=[...document.querySelectorAll('#roadImportCols input[type=checkbox]')];
+  const activeCols=checks.filter(c=>c.checked).map(c=>c.dataset.field);
+  if(!activeCols.length){toast('Coche au moins une colonne');return;}
+  // Parse TSV (tab-separated from Google Sheets)
+  const lines=raw.split('\n').filter(l=>l.trim());
+  const parsed={};
+  const preview=[];
+  lines.forEach((line,i)=>{
+    const week=startWeek+i;
+    if(week>52)return;
+    const cells=line.split('\t');
+    const row={};
+    activeCols.forEach((field,ci)=>{
+      const val=(cells[ci]||'').trim();
+      if(val)row[field]=val;
+    });
+    if(Object.keys(row).length>0){
+      parsed[week]=row;
+      preview.push({week,row});
+    }
+  });
+  _roadImportParsed=parsed;
+  // Show preview
+  let ph=`<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--gold)">${preview.length} semaine${preview.length>1?'s':''} détectée${preview.length>1?'s':''}</div>`;
+  ph+=`<div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">`;
+  ph+=`<table style="width:100%;font-size:11px;border-collapse:collapse"><thead><tr style="background:var(--bg);position:sticky;top:0"><th style="padding:4px 6px;text-align:left">SEM</th>`;
+  activeCols.forEach(f=>ph+=`<th style="padding:4px 6px;text-align:left">${f.toUpperCase()}</th>`);
+  ph+=`</tr></thead><tbody>`;
+  preview.slice(0,10).forEach(p=>{
+    ph+=`<tr style="border-top:1px solid var(--border)"><td style="padding:4px 6px;font-weight:700">${p.week}</td>`;
+    activeCols.forEach(f=>ph+=`<td style="padding:4px 6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.row[f]||'—'}</td>`);
+    ph+=`</tr>`;
+  });
+  if(preview.length>10)ph+=`<tr><td colspan="${activeCols.length+1}" style="padding:6px;text-align:center;color:var(--text3);font-style:italic">… et ${preview.length-10} autres semaines</td></tr>`;
+  ph+=`</tbody></table></div>`;
+  document.getElementById('roadImportPreview').innerHTML=ph;
+  document.getElementById('roadImportConfirm').style.display='inline-block';
+}
+
+function confirmRoadImport(){
+  if(!_roadImportParsed||!curClient)return;
+  const key='road_'+curClient.id;
+  const existing=lsGet(key,{});
+  const count=Object.keys(_roadImportParsed).length;
+  // Merge: imported data overwrites existing fields per week
+  Object.entries(_roadImportParsed).forEach(([week,row])=>{
+    const w=parseInt(week);
+    if(!existing[w])existing[w]={};
+    Object.entries(row).forEach(([field,val])=>{
+      existing[w][field]=val;
+    });
+  });
+  lsSave(key,existing);
+  _roadImportParsed=null;
+  closeModal();
+  renderRoadTab();
+  toast(count+' semaine'+(count>1?'s':'')+' importée'+(count>1?'s':''));
+  // Auto-save to Supabase
+  saveRoadmap();
 }
 
 /* ===== PROGRESSION TAB (Graphiques données quotidiennes) ===== */
