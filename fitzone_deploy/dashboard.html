@@ -5033,7 +5033,8 @@ async function irProcessNext(){
       }
       // Convert to base64
       const b64=await irFileToBase64(file);
-      const mediaType=file.type||'image/jpeg';
+      // Always image/jpeg because irFileToBase64 converts via canvas.toDataURL('image/jpeg')
+      const mediaType='image/jpeg';
 
       // Send compact food DB for matching
       const foodDB=alims.map(a=>({nom:a.nom,source:a.source||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat}));
