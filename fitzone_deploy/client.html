@@ -75,16 +75,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .grid-2 { display:grid; grid-template-columns:1.2fr 1fr; gap:14px; margin-bottom:14px; }
 .grid-2 .card,.grid-2 .card-dark { margin-bottom:0; }
 .weight-val { font-size:36px; font-weight:800; line-height:1; margin-bottom:4px; }
-.weight-val span { font-size:16px; font-weight:500; color:var(--text3); }
+.weight-val span { font-size:16px; font-weight:500; color:var(--text3); margin-left:4px; }
 .weight-delta { font-size:13px; font-weight:600; display:flex; align-items:center; gap:4px; }
 .weight-delta.down { color:var(--green); }
 .weight-delta.up { color:var(--red); }
 .weight-chart { margin-top:12px; height:40px; }
 .bilan-val { font-size:40px; font-weight:800; color:white; line-height:1; }
-.bilan-val span { font-size:16px; font-weight:500; color:rgba(255,255,255,.5); }
+.bilan-val span { font-size:16px; font-weight:500; color:rgba(255,255,255,.5); margin-left:4px; }
 .bilan-sub { font-size:12px; color:rgba(255,255,255,.45); margin-top:6px; }
 .steps-val { font-size:32px; font-weight:800; line-height:1; margin-bottom:4px; }
-.steps-val span { font-size:14px; font-weight:500; color:var(--text3); }
+.steps-val span { font-size:14px; font-weight:500; color:var(--text3); margin-left:4px; }
 .steps-bars { display:flex; align-items:flex-end; gap:10px; margin-top:16px; height:60px; }
 .steps-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
 .steps-bar { width:100%; border-radius:6px; background:var(--bg2); min-height:8px; transition:height .4s; }
@@ -473,27 +473,27 @@ textarea.form-input { min-height:100px; resize:vertical; }
       <div id="homeCards"></div>
     </div>
     <div id="tabTrain" class="tab-section">
-      <div style="padding-top:20px"><div style="font-size:24px;font-weight:800;margin-bottom:4px" id="trainTitle">Entraînement</div></div>
+      <div style="padding-top:20px"><button class="back-btn" onclick="switchTab('Home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Retour</button><div style="font-size:24px;font-weight:800;margin-bottom:4px" id="trainTitle">Entraînement</div></div>
       <div id="trainContent"></div>
     </div>
     <div id="tabNutri" class="tab-section">
-      <div style="padding-top:20px"><div class="card-label" style="color:var(--text3)">MA NUTRITION</div><div style="font-size:24px;font-weight:800;margin-bottom:4px">Nutrition</div><div style="font-size:13px;color:var(--text3);margin-bottom:16px">Clique sur le plan alimentaire pour accéder au détail</div></div>
+      <div style="padding-top:20px"><button class="back-btn" onclick="switchTab('Home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Retour</button><div class="card-label" style="color:var(--text3)">MA NUTRITION</div><div style="font-size:24px;font-weight:800;margin-bottom:4px">Nutrition</div><div style="font-size:13px;color:var(--text3);margin-bottom:16px">Clique sur le plan alimentaire pour accéder au détail</div></div>
       <div id="nutriContent"></div>
     </div>
     <div id="tabBilan" class="tab-section">
-      <div style="padding-top:20px"><div class="card-label" style="color:var(--text3)">MES BILANS</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Bilan</div></div>
+      <div style="padding-top:20px"><button class="back-btn" onclick="switchTab('Home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Retour</button><div class="card-label" style="color:var(--text3)">MES BILANS</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Bilan</div></div>
       <div id="bilanContent"></div>
     </div>
     <div id="tabSuivi" class="tab-section">
-      <div style="padding-top:20px"><div style="font-size:24px;font-weight:800;margin-bottom:16px">Suivi</div></div>
+      <div style="padding-top:20px"><button class="back-btn" onclick="switchTab('Home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Retour</button><div style="font-size:24px;font-weight:800;margin-bottom:16px">Suivi</div></div>
       <div id="suiviContent"></div>
     </div>
     <div id="tabLearn" class="tab-section">
-      <div style="padding-top:20px"><div class="card-label" style="color:var(--text3)">APPRENTISSAGE</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Apprentissage</div></div>
+      <div style="padding-top:20px"><button class="back-btn" onclick="switchTab('Home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Retour</button><div class="card-label" style="color:var(--text3)">APPRENTISSAGE</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Apprentissage</div></div>
       <div id="learnContent"></div>
     </div>
     <div id="tabBonus" class="tab-section">
-      <div style="padding-top:20px"><div class="card-label" style="color:var(--gold)">BONUS</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Mes récompenses</div></div>
+      <div style="padding-top:20px"><button class="back-btn" onclick="switchTab('Home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Retour</button><div class="card-label" style="color:var(--gold)">BONUS</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Mes récompenses</div></div>
       <div id="bonusContent"></div>
     </div>
   </div>
@@ -2628,8 +2628,42 @@ function renderHomeLevelStrip(){
   </div>`;
 }
 
-/* ===== PWA INSTALL ===== */
+/* ===== PWA AUTO-UPDATE ===== */
 (function initPWA(){
+  const APP_VERSION_KEY='fz_app_version';
+
+  // Check version.json and force update if version changed
+  function checkForUpdate(){
+    fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(data=>{
+      const saved=localStorage.getItem(APP_VERSION_KEY);
+      if(!saved){localStorage.setItem(APP_VERSION_KEY,data.v);return;}
+      if(saved!==data.v){
+        localStorage.setItem(APP_VERSION_KEY,data.v);
+        // Clear SW cache and reload
+        if(navigator.serviceWorker&&navigator.serviceWorker.controller){
+          navigator.serviceWorker.controller.postMessage({type:'CLEAR_CACHE'});
+        }
+        // Also unregister + re-register to force new SW
+        if(navigator.serviceWorker){
+          navigator.serviceWorker.getRegistration().then(reg=>{
+            if(reg)reg.update().then(()=>location.reload());
+            else location.reload();
+          });
+        } else {
+          location.reload();
+        }
+      }
+    }).catch(()=>{});
+  }
+
+  // Check on load
+  checkForUpdate();
+
+  // Check when app comes back to foreground (tab switch, phone unlock, etc.)
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')checkForUpdate();
+  });
+
   // Register service worker + force update
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').then(reg=>{
