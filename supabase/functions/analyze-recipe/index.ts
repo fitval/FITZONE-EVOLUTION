@@ -87,7 +87,7 @@ FORMAT JSON REQUIS (retourne UNIQUEMENT du JSON valide, pas de texte ni markdown
             type: "image",
             source: {
               type: "base64",
-              media_type: media_type || "image/jpeg",
+              media_type: "image/jpeg",
               data: image_base64,
             },
           },
