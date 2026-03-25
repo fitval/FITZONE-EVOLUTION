@@ -2307,6 +2307,9 @@ function renderRoadTab(){
   const cardios=['Step','LISS','HIIT','Vélo','Course'];
   const sd=curClient.start_date||new Date().toISOString().slice(0,10);
   let saved=lsGet('road_'+curClient.id,{});
+  // Total weeks: default 52, can be extended
+  if(!window['_roadWeeks_'+curClient.id])window['_roadWeeks_'+curClient.id]=Math.max(52,...Object.keys(saved).map(Number).filter(n=>!isNaN(n)));
+  const totalWeeks=window['_roadWeeks_'+curClient.id];
   if(currentCoach&&!window['_roadLoaded_'+curClient.id]){
     window['_roadLoaded_'+curClient.id]=true;
     db.from('roadmaps').select('weeks').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).limit(1).then(({data})=>{
@@ -2316,15 +2319,55 @@ function renderRoadTab(){
       }
     }).catch(()=>{});
   }
+  // Load daily logs from Supabase for auto-fill weight
+  if(currentCoach&&!window['_roadDailyLoaded_'+curClient.id]){
+    window['_roadDailyLoaded_'+curClient.id]=true;
+    db.from('daily_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).then(({data})=>{
+      if(data&&data.length>0){
+        const supaLogs=data.map(d=>({...d.data,date:d.date}));
+        lsSave('daily_'+curClient.id,supaLogs);
+        renderRoadTab();
+      }
+    }).catch(()=>{});
+  }
+  const dailyLogs=lsGet('daily_'+curClient.id,[]);
+  // Build weekly average weight map
+  const weekAvgWeight={};
+  dailyLogs.forEach(l=>{
+    if(!l.date||!l['Poids'])return;
+    const logDate=new Date(l.date);
+    const startDate=new Date(sd);
+    const diffDays=Math.floor((logDate-startDate)/(1000*60*60*24));
+    if(diffDays<0)return;
+    const weekNum=Math.floor(diffDays/7)+1;
+    if(weekNum>totalWeeks)return;
+    if(!weekAvgWeight[weekNum])weekAvgWeight[weekNum]={sum:0,count:0};
+    weekAvgWeight[weekNum].sum+=parseFloat(l['Poids']);
+    weekAvgWeight[weekNum].count++;
+  });
+  // Calculate averages and auto-fill weight into saved data where empty
+  let autoFilled=false;
+  Object.entries(weekAvgWeight).forEach(([w,d])=>{
+    d.avg=(d.sum/d.count).toFixed(1);
+    const wn=parseInt(w);
+    if(!saved[wn])saved[wn]={};
+    if(!saved[wn].poids||saved[wn].poids===''){
+      saved[wn].poids=d.avg;
+      autoFilled=true;
+    }
+  });
+  if(autoFilled)lsSave('road_'+curClient.id,saved);
+
   const now=new Date();
   const fields=['phase','nut','poids','apports','cardio','pas','depense','training','events','notes'];
   let rows='';
-  for(let i=1;i<=52;i++){
+  for(let i=1;i<=totalWeeks;i++){
     const d=new Date(sd);d.setDate(d.getDate()+(i-1)*7);
     const de=new Date(d);de.setDate(de.getDate()+6);
     const fmt=x=>x.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
     const r=saved[i]||{};
     const isCur=d<=now&&now<=de;
+    const hasAutoWeight=weekAvgWeight[i]&&r.poids==weekAvgWeight[i].avg;
     const phaseColor=r.phase?roadPhaseColors[r.phase]||'':'';
     const rowBg=isCur?'var(--gold-pale)':phaseColor;
     rows+=`<tr${isCur?' class="rw-cur"':''} style="${!isCur&&phaseColor?'background:'+phaseColor:''}">
@@ -2332,7 +2375,7 @@ function renderRoadTab(){
       <td style="font-size:11px;color:var(--text3);white-space:nowrap">${fmt(d)}</td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='phase'?'rcopy-src':''} ${roadSelected.has(i+'-phase')?'rcopy-sel':''}" onclick="roadCellClick(${i},'phase',event)"><select class="rsel" onchange="sRoad(${i},'phase',this.value);renderRoadTab()">${phases.map(p=>`<option${r.phase===p?' selected':''}>${p}</option>`).join('')}</select></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='nut'?'rcopy-src':''} ${roadSelected.has(i+'-nut')?'rcopy-sel':''}" onclick="roadCellClick(${i},'nut',event)"><select class="rsel" onchange="sRoad(${i},'nut',this.value)">${nuttypes.map(n=>`<option${r.nut===n?' selected':''}>${n}</option>`).join('')}</select></td>
-      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='poids'?'rcopy-src':''} ${roadSelected.has(i+'-poids')?'rcopy-sel':''}" onclick="roadCellClick(${i},'poids',event)"><input class="rin" type="number" style="width:54px" value="${r.poids||''}" placeholder="—" oninput="sRoad(${i},'poids',this.value)"></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='poids'?'rcopy-src':''} ${roadSelected.has(i+'-poids')?'rcopy-sel':''}" onclick="roadCellClick(${i},'poids',event)"><input class="rin" type="number" step="0.1" style="width:80px${hasAutoWeight?';color:#4a90d9;font-style:italic':''}" value="${r.poids||''}" placeholder="—" oninput="sRoad(${i},'poids',this.value)" title="${hasAutoWeight?'Poids moyen auto (daily logs)':''}"></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='apports'?'rcopy-src':''} ${roadSelected.has(i+'-apports')?'rcopy-sel':''}" onclick="roadCellClick(${i},'apports',event)"><textarea class="rin" style="min-width:160px;min-height:40px;resize:vertical;white-space:pre-wrap;font-size:12px;line-height:1.5" placeholder="Détails apports…" oninput="sRoad(${i},'apports',this.value)">${r.apports||(r.haut&&r.moy?'H:'+r.haut+' M:'+r.moy+(r.bas?' B:'+r.bas:''):'')}</textarea></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='cardio'?'rcopy-src':''} ${roadSelected.has(i+'-cardio')?'rcopy-sel':''}" onclick="roadCellClick(${i},'cardio',event)"><select class="rsel" onchange="sRoad(${i},'cardio',this.value)">${cardios.map(c=>`<option${r.cardio===c?' selected':''}>${c}</option>`).join('')}</select></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='pas'?'rcopy-src':''} ${roadSelected.has(i+'-pas')?'rcopy-sel':''}" onclick="roadCellClick(${i},'pas',event)"><input class="rin" type="number" style="width:52px" value="${r.pas||''}" placeholder="—" oninput="sRoad(${i},'pas',this.value)"></td>
@@ -2345,6 +2388,7 @@ function renderRoadTab(){
   // Toolbar
   let toolbar=`<div class="road-toolbar">
     <div style="display:flex;align-items:center;gap:10px"><label class="fl" style="margin:0">Date de départ :</label><input type="date" class="fi" style="width:175px" value="${sd}" onchange="curClient.start_date=this.value;renderRoadTab()"></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3)">${totalWeeks} sem.</span><button class="rbtn" onclick="addRoadWeeks()">+ Ajouter semaines</button></div>
     <div style="flex:1"></div>`;
   if(roadCopy){
     toolbar+=`<span class="rcopy-info">Copié : <b>${roadCopy.value||'(vide)'}</b> (${roadCopy.field})</span>`;
@@ -2434,6 +2478,15 @@ function sRoad(row,field,val){
   const key='road_'+curClient.id,d=lsGet(key,{});
   if(!d[row])d[row]={};d[row][field]=val;lsSave(key,d);
   if(field==='phase')renderRoadTab();
+}
+function addRoadWeeks(){
+  const n=prompt('Combien de semaines ajouter ?','10');
+  if(!n)return;
+  const num=parseInt(n);
+  if(isNaN(num)||num<1||num>100){toast('Nombre invalide');return;}
+  window['_roadWeeks_'+curClient.id]=(window['_roadWeeks_'+curClient.id]||52)+num;
+  renderRoadTab();
+  toast(num+' semaine'+(num>1?'s':'')+' ajoutée'+(num>1?'s':''));
 }
 async function saveRoadmap(){
   if(!curClient)return;
