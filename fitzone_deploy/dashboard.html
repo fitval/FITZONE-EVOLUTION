@@ -1964,7 +1964,7 @@ function swDet(name,el){
 function renderQTab(){
   const c=curClient,q=curQ;const link=QBASE+'?token='+c.token;
   const lh=`<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Lien d'invitation</div><div class="lbox"><div class="lurl">${link}</div><button class="cbtn" onclick="copyT('${link}')">Copier</button></div></div>`;
-  if(!q){document.getElementById('tc-questionnaire').innerHTML=lh+`<div class="empty"><div class="ei">📋</div><div class="et">Questionnaire non reçu</div><div class="es">Envoie le lien ci-dessus au client</div></div>`;return;}
+  if(!q){document.getElementById('tc-questionnaire').innerHTML=lh+`<div class="empty"><div class="ei">📋</div><div class="et">Questionnaire non reçu</div><div class="es">Envoie le lien ci-dessus au client</div></div><div style="text-align:center;margin-top:10px"><button class="btn btn-sm" style="background:#fee;color:#c03030;border:1px solid #fcc;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer" onclick="resetQuestionnaire()">🔄 Réinitialiser le questionnaire</button></div>`;return;}
   const gm={loss:'Perte de poids',mass:'Prise de masse',recomp:'Recomposition',maintain:'Maintien',performance:'Performance'};
   const am={'1.2':'Sédentaire','1.375':'Légèrement actif','1.55':'Modérément actif','1.725':'Très actif','1.9':'Extrêmement actif'};
   const dm={omni:'Omnivore',vgt:'Végétarien',vgn:'Végétalien',pes:'Pescétarien'};
@@ -1995,7 +1995,26 @@ function renderQTab(){
     ${excl.length?`<div class="qsec"><div class="qsec-label">Exclusions (${excl.length})</div><div style="display:flex;flex-wrap:wrap;gap:5px">${excl.map(e=>`<span style="padding:3px 9px;background:#fff0f0;border:1px solid #ffcccc;border-radius:20px;font-size:11px;color:#c03030;font-weight:500">✕ ${e}</span>`).join('')}</div></div>`:''}
     ${q.why_fitzone?`<div class="qsec"><div class="qsec-label">Pourquoi Fitzone</div><div class="qi full" style="display:block"><div class="qiv">${q.why_fitzone}</div></div></div>`:''}
     ${q.extra_info?`<div class="qsec"><div class="qsec-label">Infos supplémentaires</div><div class="qi full" style="display:block"><div class="qiv">${q.extra_info}</div></div></div>`:''}
-    <div style="margin-top:13px"><button class="btn btn-dark btn-sm" onclick="swDet('nutrition',document.querySelectorAll('#detTabs .tab')[1])">🥗 Calculer nutrition →</button></div>`;
+    <div style="margin-top:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-dark btn-sm" onclick="swDet('nutrition',document.querySelectorAll('#detTabs .tab')[1])">🥗 Calculer nutrition →</button>
+      <button class="btn btn-sm" style="background:#fee;color:#c03030;border:1px solid #fcc;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer" onclick="resetQuestionnaire()">🔄 Réinitialiser le questionnaire</button>
+    </div>`;
+}
+
+async function resetQuestionnaire(){
+  if(!curClient)return;
+  if(!confirm('Réinitialiser le questionnaire de '+curClient.first_name+' ?\n\nLes réponses actuelles seront supprimées et le client pourra re-remplir le questionnaire.'))return;
+  // Delete questionnaire(s) for this client
+  const{error:e1}=await db.from('questionnaires').delete().eq('client_id',curClient.id);
+  if(e1){toast('Erreur: '+e1.message);return;}
+  // Reset client status to 'new' so questionnaire page allows re-filling
+  const{error:e2}=await db.from('clients').update({status:'new'}).eq('id',curClient.id);
+  if(e2){toast('Erreur: '+e2.message);return;}
+  curClient.status='new';
+  curQ=null;
+  renderQTab();
+  renderDetHero();
+  toast('Questionnaire réinitialisé ✓');
 }
 
 /* NUTRITION TAB */
