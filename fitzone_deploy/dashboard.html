@@ -5538,8 +5538,8 @@ async function generateAIPlan(){
     restaurant_margin_kcal:parseInt(document.getElementById('gpRestoKcal').value)||700,
     // Base aliments du coach (valeurs nutritionnelles exactes)
     food_database:alims.map(a=>({nom:a.nom,cat:a.cat||'',source:a.source||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat})),
-    // Recettes existantes comme inspiration
-    recipes:repas.slice(0,30).map(r=>({nom:r.nom,type:r.type||'',items:(r.items||[]).map(i=>({nom:i.nom,qte:i.qte})),kcal:r.kcal||0,prot:r.prot||0}))
+    // Recettes existantes du coach — toutes, avec macros complètes
+    recipes:repas.map(r=>({nom:r.nom,type:r.type||'',items:(r.items||[]).map(i=>({nom:i.nom,qte:i.qte,kcal:i.kcal||0,prot:i.prot||0,carb:i.carb||0,fat:i.fat||0})),kcal:r.kcal||0,prot:r.prot||0,carb:r.carb||0,fat:r.fat||0,instr:r.instructions||''}))
   };
 
   const clientProfile={

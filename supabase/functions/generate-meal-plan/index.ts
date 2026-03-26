@@ -174,9 +174,16 @@ ${foodDBLimited.map(a => `${a.nom}: ${a.kcal}kcal P:${a.prot}g G:${a.carb}g L:${
       : "";
 
     const recipesText = recipesDB.length > 0
-      ? `\n=== RECETTES EXISTANTES DU COACH (INSPIRATION — ${recipesDB.length} recettes) ===
-Tu peux intégrer ces recettes dans le plan ou t'en inspirer :
-${recipesDB.map(r => `- ${r.nom} (${r.type||'repas'}): ${r.items.map(i => `${i.nom} ${i.qte}g`).join(", ")} → ~${r.kcal}kcal ~${r.prot}g P`).join("\n")}\n`
+      ? `\n=== RECETTES DU COACH (PRIORITAIRES — ${recipesDB.length} recettes) ===
+Tu DOIS utiliser ces recettes en PRIORITÉ dans le plan alimentaire. Pour chaque repas :
+1. Cherche d'abord une recette existante qui correspond au type de repas et aux macros cibles
+2. ADAPTE les quantités des ingrédients pour coller aux objectifs caloriques/macros du client
+3. Vérifie que la recette respecte les allergies/exclusions — si un ingrédient est interdit, remplace-le ou choisis une autre recette
+4. Ne crée une recette de zéro QUE si aucune recette existante ne convient
+
+Objectif : utiliser au MAXIMUM les recettes ci-dessous (en ajustant les quantités), plutôt que d'en inventer.
+
+${recipesDB.map(r => `- ${r.nom} (${r.type||'repas'}) [${r.kcal}kcal P:${r.prot}g G:${(r as Record<string, unknown>).carb||'?'}g L:${(r as Record<string, unknown>).fat||'?'}g]: ${r.items.map(i => `${i.nom} ${i.qte}g`).join(", ")}${(r as Record<string, unknown>).instr ? ' | Prépa: ' + (r as Record<string, unknown>).instr : ''}`).join("\n")}\n`
       : "";
 
     const prompt = `Tu es un diététicien-nutritionniste expert francophone. Génère un plan alimentaire complet de 7 jours en JSON strict.
