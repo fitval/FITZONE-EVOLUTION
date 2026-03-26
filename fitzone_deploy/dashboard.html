@@ -4073,8 +4073,10 @@ function progRenderDay(){
   const mkBlock=(e,i,key)=>{
     if(e.superset){
       // SUPERSET
+      const secLenSS=progDays[progDayIdx][key]?.length||1;
       return`<div class="exo-block" draggable="true" ondragstart="progDragStart(event,'${key}',${i})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="progDrop(event,'${key}',${i})" style="border-color:var(--gold-border);background:rgba(196,154,42,.04)">
         <div style="padding:8px 12px;background:var(--gold-pale);border-bottom:1px solid var(--gold-border);display:flex;align-items:center;gap:8px">
+          <input type="number" min="1" max="${secLenSS}" value="${i+1}" onchange="progMoveExo('${key}',${i},parseInt(this.value)-1)" style="width:32px;height:24px;border:1.5px solid var(--gold-border);border-radius:6px;text-align:center;font-size:12px;font-weight:800;color:var(--gold);background:white;font-family:var(--font);padding:0;cursor:pointer" title="Changer la position">
           <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--gold)">⚡ SUPERSET</span>
           <span style="font-size:11px;color:var(--text3)">${e.exercises?.length||2} exercices</span>
           <div style="margin-left:auto;display:flex;gap:5px">
@@ -4122,10 +4124,10 @@ function progRenderDay(){
       ${progShowRIR?`<input class="ef-in" value="${s.rir||''}" onchange="progUpdSet('${key}',${i},${si},'rir',this.value)" placeholder="2">`:''}
       ${progShowTempo?`<input class="ef-in" value="${s.tempo||''}" onchange="progUpdSet('${key}',${i},${si},'tempo',this.value)" placeholder="3-1-2">`:''}
     </div>`).join('');
+    const secLen=progDays[progDayIdx][key]?.length||1;
     return`<div class="exo-block" draggable="true" ondragstart="progDragStart(event,'${key}',${i})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="progDrop(event,'${key}',${i})">
       <div class="exo-block-hdr">
-        <span style="color:var(--text3);font-size:12px;cursor:grab">⠿</span>
-        <div class="exo-letter">${String.fromCharCode(65+i)}</div>
+        <input type="number" min="1" max="${secLen}" value="${i+1}" onchange="progMoveExo('${key}',${i},parseInt(this.value)-1)" style="width:32px;height:26px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px;font-weight:800;color:var(--gold);background:var(--bg);font-family:var(--font);padding:0;cursor:pointer" title="Changer la position">
         ${e.video&&ytId(e.video)?`<div style="position:relative;width:36px;height:30px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="watchVid('${e.nom.replace(/'/g,"\'")}','${e.video}','')" title="Visionner la vidéo"><img src="https://img.youtube.com/vi/${ytId(e.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);font-size:11px">▶</div></div>`:`<div style="width:36px;height:30px;border-radius:6px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">💪</div>`}
         <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3)">${e.muscle||''} · ${e.equip||''}${(e.replacements||[]).length?' · <span style="color:var(--gold)">⇄ '+(e.replacements||[]).length+' rempl.</span>':''}</div></div>
         <div style="display:flex;gap:4px">
@@ -4182,6 +4184,15 @@ function progRenderDay(){
 }
 
 // Drag & drop exercices entre sections
+function progMoveExo(sec,fromIdx,toIdx){
+  const arr=progDays[progDayIdx][sec];if(!arr)return;
+  const max=arr.length-1;
+  toIdx=Math.max(0,Math.min(max,toIdx));
+  if(fromIdx===toIdx)return;
+  const item=arr.splice(fromIdx,1)[0];
+  arr.splice(toIdx,0,item);
+  progRenderDay();
+}
 let progDragSrc=null;
 function progDragStart(e,sec,idx){progDragSrc={sec,idx};e.dataTransfer.effectAllowed='move';}
 function progDrop(e,targetSec,targetIdx){
@@ -4468,10 +4479,10 @@ function seanceRenderAll(){
         ${seanceShowRIR?`<input class="ef-in" value="${s.rir||''}" onchange="seanceUpdSet('${sec}',${i},${si},'rir',this.value)" placeholder="2">`:''}
         ${seanceShowTempo?`<input class="ef-in" value="${s.tempo||''}" onchange="seanceUpdSet('${sec}',${i},${si},'tempo',this.value)" placeholder="3-1-2">`:''}
       </div>`).join('');
+      const seSecLen=seanceData[sec]?.length||1;
       return`<div class="exo-block" draggable="true" ondragstart="seanceDragStart(event,'${sec}',${i})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="seanceDrop(event,'${sec}',${i})">
       <div class="exo-block-hdr">
-        <span style="color:var(--text3);font-size:12px;cursor:grab">⠿</span>
-        <div class="exo-letter">${String.fromCharCode(65+i)}</div>
+        <input type="number" min="1" max="${seSecLen}" value="${i+1}" onchange="seanceMoveExo('${sec}',${i},parseInt(this.value)-1)" style="width:32px;height:26px;border:1.5px solid var(--border);border-radius:6px;text-align:center;font-size:13px;font-weight:800;color:var(--gold);background:var(--bg);font-family:var(--font);padding:0;cursor:pointer" title="Changer la position">
         ${e.video&&ytId(e.video)?`<div style="position:relative;width:34px;height:28px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="watchVid('${(e.nom||'').replace(/'/g,"\'")}','${e.video}','')"><img src="https://img.youtube.com/vi/${ytId(e.video||'')}/default.jpg" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"></div>`:`<div style="width:34px;height:28px;background:var(--dark);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0">💪</div>`}
         <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3)">${e.muscle||''}${(e.replacements||[]).length?' · <span style="color:var(--gold)">⇄ '+(e.replacements||[]).length+' rempl.</span>':''}</div></div>
         ${(e.replacements||[]).length?`<button class="swap-btn" onclick="seanceSwapExo('${sec}',${i})" title="Remplacer l'exercice">⇄</button>`:''}
@@ -4551,6 +4562,15 @@ function seanceDelVid(sec,i){
   if(!confirm('Supprimer la vidéo ?'))return;
   delVidFromDB(e.vidId).catch(()=>{});
   delete e.vidId;seanceRenderAll();toast('Vidéo supprimée');
+}
+function seanceMoveExo(sec,fromIdx,toIdx){
+  const arr=seanceData[sec];if(!arr)return;
+  const max=arr.length-1;
+  toIdx=Math.max(0,Math.min(max,toIdx));
+  if(fromIdx===toIdx)return;
+  const item=arr.splice(fromIdx,1)[0];
+  arr.splice(toIdx,0,item);
+  seanceRenderAll();
 }
 let seanceDragSrc=null;
 function seanceDragStart(e,sec,idx){seanceDragSrc={sec,idx};e.dataTransfer.effectAllowed='move';}
