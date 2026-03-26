@@ -301,15 +301,22 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
     const readable = new ReadableStream({
       async start(controller) {
         let fullText = "";
+        let lastProgress = 0;
         try {
           for await (const event of stream) {
             if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
               fullText += event.delta.text;
-              // Send progress (char count) to keep connection alive
-              controller.enqueue(encoder.encode("data: " + JSON.stringify({ progress: fullText.length }) + "\n\n"));
+              // Send progress every 500 chars to avoid flooding/buffering
+              if (fullText.length - lastProgress >= 500) {
+                lastProgress = fullText.length;
+                controller.enqueue(encoder.encode("data: " + JSON.stringify({ progress: fullText.length }) + "\n\n"));
+              }
             }
           }
-          const finalMessage = await stream.finalMessage();
+          let finalMessage;
+          try { finalMessage = await stream.finalMessage(); } catch(_fm) {
+            finalMessage = { model: 'unknown', usage: {} };
+          }
 
           // Server-side JSON repair
           let jsonStr = fullText.trim();
@@ -341,8 +348,13 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
           controller.enqueue(encoder.encode("data: " + JSON.stringify({ done: true, model: finalMessage.model, usage: finalMessage.usage }) + "\n\n"));
           controller.close();
         } catch (err) {
-          controller.enqueue(encoder.encode("data: " + JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }) + "\n\n"));
-          controller.close();
+          const errMsg = err instanceof Error ? err.message : String(err);
+          console.error("generate-meal-plan error:", errMsg);
+          console.error("fullText length:", fullText.length, "first 200:", fullText.slice(0, 200));
+          try {
+            controller.enqueue(encoder.encode("data: " + JSON.stringify({ error: errMsg }) + "\n\n"));
+          } catch(_) {}
+          try { controller.close(); } catch(_) {}
         }
       }
     });

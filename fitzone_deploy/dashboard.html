@@ -5538,8 +5538,8 @@ async function readSSEPlan(resp,pBar,pText,estTotal){
     const clean=evt.replace(/\n+$/,'').trim();
     if(!clean)continue;
     let d;
-    try{d=JSON.parse(clean);}catch(pe){continue;}
-    if(d.error)throw new Error(d.error);
+    try{d=JSON.parse(clean);}catch(pe){console.warn('SSE event parse fail:',clean.slice(0,100));continue;}
+    if(d.error){console.error('Server error event:',d.error);throw new Error(d.error);}
     if(d.pc!==undefined){
       planChunks.push(d.pc);
       pBar.style.width=(85+Math.round((d.ci+1)/d.tc*10))+'%';
