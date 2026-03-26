@@ -5504,8 +5504,9 @@ function parseAIJSON(raw){
 async function readSSEPlan(resp,pBar,pText,estTotal){
   const reader=resp.body.getReader();
   const decoder=new TextDecoder();
-  let plan=null,charCount=0,sseBuffer='',planChunks=[],lastError=null;
+  let plan=null,charCount=0,allText='',lastError=null;
 
+  // Collect entire stream
   while(true){
     let result;
     try{result=await reader.read();}catch(netErr){
@@ -5513,56 +5514,54 @@ async function readSSEPlan(resp,pBar,pText,estTotal){
       lastError=netErr;break;
     }
     if(result.done)break;
-    sseBuffer+=decoder.decode(result.value,{stream:true});
-    // Process complete data lines, keep incomplete ones in buffer
-    const parts=sseBuffer.split('\n');
-    sseBuffer=parts.pop()||'';
-    for(const part of parts){
-      const trimmed=part.trim();
-      if(!trimmed)continue;
-      if(!trimmed.startsWith('data: '))continue;
-      // Try to parse — if it fails, this line was cut mid-chunk, prepend to buffer
-      let d;
-      try{d=JSON.parse(trimmed.slice(6));}catch(pe){
-        sseBuffer=trimmed+'\n'+sseBuffer;
-        continue;
-      }
-      if(d.error)throw new Error(d.error);
-      if(d.progress){
-        charCount=d.progress;
-        const pct=Math.min(85,Math.round(charCount/estTotal*85));
-        pBar.style.width=pct+'%';
-        const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
-        pText.textContent='Jour '+dayEst+'/7 en cours…';
-      }
-      if(d.pc!==undefined){
-        planChunks.push(d.pc);
-        const pct=85+Math.round((d.ci+1)/d.tc*10);
-        pBar.style.width=pct+'%';
-        pText.textContent='Réception du plan… '+(d.ci+1)+'/'+d.tc;
-      }
-      if(d.done){
-        console.log('AI Plan done. Model:',d.model,'Chunks:',planChunks.length);
-        if(planChunks.length){
-          try{plan=JSON.parse(planChunks.join(''));}catch(pe2){console.error('Plan JSON parse error:',pe2.message);}
-        }
-      }
+    const chunk=decoder.decode(result.value,{stream:true});
+    allText+=chunk;
+    // Update progress bar from progress events as they come
+    const progMatch=chunk.match(/"progress":(\d+)/g);
+    if(progMatch){
+      const last=progMatch[progMatch.length-1];
+      charCount=parseInt(last.match(/(\d+)/)[1])||charCount;
+      const pct=Math.min(85,Math.round(charCount/estTotal*85));
+      pBar.style.width=pct+'%';
+      const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
+      pText.textContent='Jour '+dayEst+'/7 en cours…';
     }
   }
-  // Flush remaining buffer
-  if(sseBuffer.trim()&&sseBuffer.trim().startsWith('data: ')){
-    try{
-      const d=JSON.parse(sseBuffer.trim().slice(6));
-      if(d.pc!==undefined)planChunks.push(d.pc);
-      if(d.done&&planChunks.length){try{plan=JSON.parse(planChunks.join(''));}catch(pe){}}
-    }catch(pe){}
+
+  console.log('SSE stream complete. Total bytes:',allText.length,'charCount:',charCount);
+
+  // Parse all SSE events from collected text
+  const planChunks=[];
+  const events=allText.split('data: ').filter(e=>e.trim());
+  for(const evt of events){
+    // Clean up trailing newlines
+    const clean=evt.replace(/\n+$/,'').trim();
+    if(!clean)continue;
+    let d;
+    try{d=JSON.parse(clean);}catch(pe){continue;}
+    if(d.error)throw new Error(d.error);
+    if(d.pc!==undefined){
+      planChunks.push(d.pc);
+      pBar.style.width=(85+Math.round((d.ci+1)/d.tc*10))+'%';
+      pText.textContent='Réception du plan… '+(d.ci+1)+'/'+d.tc;
+    }
+    if(d.done){
+      console.log('AI Plan done. Model:',d.model,'Chunks:',planChunks.length);
+    }
   }
+
+  // Assemble plan from chunks
+  if(planChunks.length){
+    const joined=planChunks.join('');
+    console.log('Plan chunks joined:',joined.length,'chars');
+    try{plan=JSON.parse(joined);}catch(pe){
+      console.error('Plan JSON parse error, trying repair:',pe.message);
+      try{plan=repairAndParseJSON(joined);}catch(pe2){console.error('Repair also failed:',pe2.message);}
+    }
+  }
+
   if(lastError&&!plan)throw new Error('Connexion perdue pendant la génération. Vérifie ton internet et réessaye.');
-  if(!plan&&planChunks.length){
-    console.warn('Plan null but chunks exist:',planChunks.length);
-    try{plan=JSON.parse(planChunks.join(''));}catch(pe){console.error('Fallback parse failed:',pe.message);}
-  }
-  console.log('readSSEPlan result:',plan?'OK':'NULL','chunks:',planChunks.length,'charCount:',charCount);
+  console.log('readSSEPlan result:',plan?'OK ('+plan.jours?.length+' jours)':'NULL','chunks:',planChunks.length);
   return plan;
 }
 async function generateAIPlan(){
