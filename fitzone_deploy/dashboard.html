@@ -5505,6 +5505,33 @@ async function readSSEPlan(resp,pBar,pText,estTotal){
   const reader=resp.body.getReader();
   const decoder=new TextDecoder();
   let plan=null,charCount=0,sseBuffer='',planChunks=[],lastError=null;
+
+  function processLine(line){
+    if(!line.startsWith('data: '))return;
+    let d;
+    try{d=JSON.parse(line.slice(6));}catch(pe){console.warn('SSE parse skip:',line.slice(0,80));return;}
+    if(d.error)throw new Error(d.error);
+    if(d.progress){
+      charCount=d.progress;
+      const pct=Math.min(85,Math.round(charCount/estTotal*85));
+      pBar.style.width=pct+'%';
+      const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
+      pText.textContent='Jour '+dayEst+'/7 en cours…';
+    }
+    if(d.pc!==undefined){
+      planChunks.push(d.pc);
+      const pct=85+Math.round((d.ci+1)/d.tc*10);
+      pBar.style.width=pct+'%';
+      pText.textContent='Réception du plan… '+(d.ci+1)+'/'+d.tc;
+    }
+    if(d.done){
+      console.log('AI Plan done. Model:',d.model,'Chunks:',planChunks.length);
+      if(planChunks.length){
+        try{plan=JSON.parse(planChunks.join(''));}catch(pe){console.error('Plan JSON parse error:',pe.message);}
+      }
+    }
+  }
+
   while(true){
     let result;
     try{result=await reader.read();}catch(netErr){
@@ -5513,52 +5540,24 @@ async function readSSEPlan(resp,pBar,pText,estTotal){
     }
     if(result.done)break;
     sseBuffer+=decoder.decode(result.value,{stream:true});
-    const lines=sseBuffer.split('\n');
-    sseBuffer=lines.pop()||'';
-    for(const line of lines){
-      if(!line.startsWith('data: '))continue;
-      let d;
-      try{d=JSON.parse(line.slice(6));}catch(pe){continue;}
-      if(d.error)throw new Error(d.error);
-      if(d.progress){
-        charCount=d.progress;
-        const pct=Math.min(85,Math.round(charCount/estTotal*85));
-        pBar.style.width=pct+'%';
-        const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
-        pText.textContent='Jour '+dayEst+'/7 en cours…';
-      }
-      if(d.pc!==undefined){
-        planChunks.push(d.pc);
-        const pct=85+Math.round((d.ci+1)/d.tc*10);
-        pBar.style.width=pct+'%';
-        pText.textContent='Réception du plan… '+(d.ci+1)+'/'+d.tc;
-      }
-      if(d.done){
-        console.log('AI Plan done. Model:',d.model,'Chunks:',planChunks.length,'CharsTotal:',planChunks.join('').length);
-        if(planChunks.length){
-          try{plan=JSON.parse(planChunks.join(''));}catch(pe){console.error('Plan JSON parse error:',pe.message,planChunks.join('').slice(0,200));}
-        }
-      }
+    // Process complete SSE events (separated by double newline)
+    while(sseBuffer.includes('\n\n')){
+      const idx=sseBuffer.indexOf('\n\n');
+      const event=sseBuffer.substring(0,idx);
+      sseBuffer=sseBuffer.substring(idx+2);
+      event.split('\n').forEach(line=>processLine(line));
     }
   }
-  // Flush remaining buffer
+  // Flush remaining buffer (last event may not end with \n\n)
   if(sseBuffer.trim()){
-    const lines=sseBuffer.trim().split('\n');
-    for(const line of lines){
-      if(!line.startsWith('data: '))continue;
-      let d;try{d=JSON.parse(line.slice(6));}catch(pe){continue;}
-      if(d.error)throw new Error(d.error);
-      if(d.pc!==undefined)planChunks.push(d.pc);
-      if(d.done&&planChunks.length)plan=JSON.parse(planChunks.join(''));
-    }
+    sseBuffer.trim().split('\n').forEach(line=>processLine(line));
   }
   if(lastError&&!plan)throw new Error('Connexion perdue pendant la génération. Vérifie ton internet et réessaye.');
-  // Debug: if no plan but we have chunks, try parsing them
   if(!plan&&planChunks.length){
-    console.warn('Plan null but chunks exist:',planChunks.length,'chars:',planChunks.join('').length);
+    console.warn('Plan null but chunks exist:',planChunks.length);
     try{plan=JSON.parse(planChunks.join(''));}catch(pe){console.error('Fallback parse failed:',pe.message);}
   }
-  console.log('readSSEPlan result:',plan?'OK ('+Object.keys(plan).join(',')+')':'NULL','charCount:',charCount);
+  console.log('readSSEPlan result:',plan?'OK':'NULL','chunks:',planChunks.length,'charCount:',charCount);
   return plan;
 }
 async function generateAIPlan(){
