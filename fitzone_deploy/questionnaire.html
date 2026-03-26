@@ -1192,10 +1192,19 @@ async function submitForm() {
   };
 
   const token = new URLSearchParams(window.location.search).get('token');
-  const { error } = await db.rpc('client_insert_questionnaire', { p_token: token, p_data: payload });
-  if (error) { btn.disabled = false; btn.textContent = '✅ Envoyer mon questionnaire'; alert('Erreur : ' + error.message); return; }
-  await db.rpc('client_update_status', { p_token: token, p_status: 'questionnaire_done' });
-  showState('done');
+  try {
+    const resp = await fetch(SUPABASE_URL + '/functions/v1/submit-questionnaire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+      body: JSON.stringify({ token, data: payload })
+    });
+    const result = await resp.json();
+    if (!resp.ok || result.error) { throw new Error(result.error || 'Erreur serveur'); }
+    showState('done');
+  } catch (e) {
+    btn.disabled = false; btn.textContent = '✅ Envoyer mon questionnaire';
+    alert('Erreur : ' + e.message);
+  }
 }
 
 function selectChoice(el, name, value) {
