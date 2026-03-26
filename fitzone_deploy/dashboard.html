@@ -5615,14 +5615,15 @@ async function generateAIPlan(){
       body:JSON.stringify({config,clientProfile})
     });
 
+    pBar.style.width='50%';pText.textContent='L\'IA rédige le plan…';
+
     if(!resp.ok){
-      const err=await resp.text().catch(()=>'Erreur serveur');
-      try{const j=JSON.parse(err);throw new Error(j.error||'Erreur '+resp.status);}catch(e2){if(e2.message.startsWith('Erreur'))throw e2;throw new Error('Erreur '+resp.status);}
+      const err=await resp.json().catch(()=>({error:'Erreur serveur'}));
+      throw new Error(err.error||'Erreur '+resp.status);
     }
 
-    // Read SSE stream (server repairs JSON and sends clean plan in final event)
-    pBar.style.width='5%';pText.textContent='L\'IA rédige le plan…';
-    const plan=await readSSEPlan(resp,pBar,pText,estTotal);
+    pBar.style.width='85%';pText.textContent='Réception du plan…';
+    const plan=await resp.json();
     if(!plan||!plan.jours)throw new Error('Plan invalide reçu du serveur');
 
     pBar.style.width='95%';pText.textContent='Optimisation des quantités…';
