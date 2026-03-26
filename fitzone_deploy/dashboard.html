@@ -3328,7 +3328,7 @@ function startMacrosPlan(){
 
 function startFullPlan(){
   pfEditId=null;pfClients=[];pfFromClient=false;pfDays=[{nom:'Jour 1',repas:[{nom:'Petit-déjeuner',alims:[]},{nom:'Déjeuner',alims:[]},{nom:'Dîner',alims:[]}]}];
-  pfDayIdx=0;pfMealIdx=null;
+  pfDayIdx=0;pfMealIdx=0;
   document.getElementById('pfNom').value='';document.getElementById('pfClIn').value='';
   document.getElementById('planBuilderTitle').textContent='Nouveau plan complet';
   pfRenderDays();pfRenderMeals();pfRenderRecent();
@@ -3443,7 +3443,7 @@ function pfRenameMeal(ri,el){
   el.onblur=finish;el.onkeydown=ev=>{if(ev.key==='Enter'){ev.preventDefault();el.blur();}};
 }
 function pfSelMeal(ri){pfMealIdx=ri;pfRenderMeals();}
-function pfDelMeal(ri){pfDays[pfDayIdx].repas.splice(ri,1);if(pfMealIdx>=pfDays[pfDayIdx].repas.length)pfMealIdx=null;pfRenderMeals();pfRenderTotals();}
+function pfDelMeal(ri){pfDays[pfDayIdx].repas.splice(ri,1);if(pfMealIdx>=pfDays[pfDayIdx].repas.length)pfMealIdx=Math.max(0,pfDays[pfDayIdx].repas.length-1);pfRenderMeals();pfRenderTotals();}
 function pfUpdQte(ri,ai,v){pfDays[pfDayIdx].repas[ri].alims[ai].qte=parseFloat(v)||0;pfRenderMeals();pfRenderTotals();}
 function pfDelFood(ri,ai){pfDays[pfDayIdx].repas[ri].alims.splice(ai,1);pfRenderMeals();pfRenderTotals();}
 function pfAddMeal(){
@@ -3458,7 +3458,8 @@ function pfAddMeal(){
 function pfSearchAlim(q){
   const d=document.getElementById('pfAlimDrop');if(!q||q.length<2){d.classList.remove('open');return;}
   const res=alims.filter(a=>a.nom.toLowerCase().includes(q.toLowerCase())).slice(0,10);
-  d.innerHTML=res.length?res.map(a=>`<div class="ss-item" onclick='pfAddFood(${JSON.stringify(a)})'><div><div>${a.nom}</div><div class="ss-item-sub">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div></div>`).join(''):`<div class="ss-item" style="color:var(--text3);cursor:pointer" onclick="pfCreateAlimInline();document.getElementById('pfAlNom').value='${q.replace(/'/g,"\\'")}';document.getElementById('pfAlimDrop').classList.remove('open')">Aucun résultat — <strong style="color:var(--gold)">Créer « ${q} »</strong></div>`;
+  window._pfAlimResults=res;
+  d.innerHTML=res.length?res.map((a,idx)=>`<div class="ss-item" onclick="pfAddFood(window._pfAlimResults[${idx}])"><div><div>${a.nom}</div><div class="ss-item-sub">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div></div>`).join(''):`<div class="ss-item" style="color:var(--text3);cursor:pointer" onclick="pfCreateAlimInline();document.getElementById('pfAlNom').value='${q.replace(/'/g,"\\'")}';document.getElementById('pfAlimDrop').classList.remove('open')">Aucun résultat — <strong style="color:var(--gold)">Créer « ${q} »</strong></div>`;
   d.classList.add('open');
 }
 function pfAddFood(a){
@@ -3514,7 +3515,8 @@ function pfAddRepasComplet(id){
 function pfRenderRecent(){
   const el=document.getElementById('pfRecentAlims');if(!el)return;
   const rec=lsGet('pfRecent',[]);
-  el.innerHTML=rec.length?rec.map(a=>`<div class="lib-item" onclick='pfAddFood(${JSON.stringify(a)})'><div class="lib-thumb" style="background:var(--gold-pale);font-size:14px">🥗</div><div><div class="lib-nm">${a.nom}</div><div class="lib-meta">${a.kcal} kcal · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div></div>`).join(''):`<div style="font-size:12px;color:var(--text3)">Aucun aliment récent</div>`;
+  window._pfRecentAlims=rec;
+  el.innerHTML=rec.length?rec.map((a,idx)=>`<div class="lib-item" onclick="pfAddFood(window._pfRecentAlims[${idx}])"><div class="lib-thumb" style="background:var(--gold-pale);font-size:14px">🥗</div><div><div class="lib-nm">${a.nom}</div><div class="lib-meta">${a.kcal} kcal · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div></div>`).join(''):`<div style="font-size:12px;color:var(--text3)">Aucun aliment récent</div>`;
 }
 function pfCreateAlimInline(){
   document.getElementById('pfInlineAlimForm').style.display='block';
@@ -3637,7 +3639,7 @@ function renderPlansListPage(){
 }
 function editFullPlan(id){
   const p=plans.find(x=>x.id===id);if(!p)return;
-  pfEditId=id;pfDays=JSON.parse(JSON.stringify(p.jours||[{nom:'Jour 1',repas:[]}]));pfDayIdx=0;pfMealIdx=null;
+  pfEditId=id;pfDays=JSON.parse(JSON.stringify(p.jours||[{nom:'Jour 1',repas:[]}]));pfDayIdx=0;pfMealIdx=0;
   pfClients=[];
   const ids=p.clientIds||p.client_ids||(p.clientId||p.client_id?[p.clientId||p.client_id]:[]);
   ids.forEach(cid=>{const c=allClients.find(x=>x.id===cid);if(c)pfClients.push(c);});
