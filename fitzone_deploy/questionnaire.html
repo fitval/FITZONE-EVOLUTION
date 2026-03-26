@@ -1149,6 +1149,8 @@ async function submitForm() {
   }
 
   const payload = {
+    client_id: clientData.id,
+    coach_id: clientData.coach_id,
     sex: document.getElementById('sex').value,
     age,
     height_cm: parseFloat(document.getElementById('height').value),
@@ -1191,10 +1193,11 @@ async function submitForm() {
     submitted_at: new Date().toISOString(),
   };
 
-  const token = new URLSearchParams(window.location.search).get('token');
-  const { error } = await db.rpc('client_insert_questionnaire', { p_token: token, p_data: payload });
+  // Direct insert instead of RPC to avoid uuid cast issues
+  const { error } = await db.from('questionnaires').insert(payload);
   if (error) { btn.disabled = false; btn.textContent = '✅ Envoyer mon questionnaire'; alert('Erreur : ' + error.message); return; }
-  await db.rpc('client_update_status', { p_token: token, p_status: 'questionnaire_done' });
+  // Update client status
+  await db.from('clients').update({ status: 'questionnaire_done' }).eq('id', clientData.id);
   showState('done');
 }
 
