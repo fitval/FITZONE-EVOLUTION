@@ -160,7 +160,9 @@ Deno.serve(async (req: Request) => {
 
     // Build food database section for prompt
     const foodDB: Array<{nom: string; kcal: number; prot: number; carb: number; fat: number; source: string}> = config.food_database || [];
-    const recipesDB: Array<{nom: string; type: string; items: Array<{nom: string; qte: number}>; kcal: number; prot: number}> = config.recipes || [];
+    const recipesDBFull: Array<{nom: string; type: string; items: Array<{nom: string; qte: number}>; kcal: number; prot: number}> = config.recipes || [];
+    // Limit to 50 recipes to keep prompt manageable
+    const recipesDB = recipesDBFull.slice(0, 50);
 
     // Limit food DB to 150 items max to keep prompt manageable
     const foodDBLimited = foodDB.slice(0, 150);
@@ -183,7 +185,7 @@ Tu DOIS utiliser ces recettes en PRIORITÉ dans le plan alimentaire. Pour chaque
 
 Objectif : utiliser au MAXIMUM les recettes ci-dessous (en ajustant les quantités), plutôt que d'en inventer.
 
-${recipesDB.map(r => `- ${r.nom} (${r.type||'repas'}) [${r.kcal}kcal P:${r.prot}g G:${(r as Record<string, unknown>).carb||'?'}g L:${(r as Record<string, unknown>).fat||'?'}g]: ${r.items.map(i => `${i.nom} ${i.qte}g`).join(", ")}${(r as Record<string, unknown>).instr ? ' | Prépa: ' + (r as Record<string, unknown>).instr : ''}`).join("\n")}\n`
+${recipesDB.map(r => `- ${r.nom} (${r.type||'repas'}) [${r.kcal}kcal P:${r.prot}g G:${(r as Record<string, unknown>).carb||'?'}g L:${(r as Record<string, unknown>).fat||'?'}g]: ${r.items.map(i => `${i.nom} ${i.qte}g`).join(", ")}`).join("\n")}\n`
       : "";
 
     const prompt = `Tu es un diététicien-nutritionniste expert francophone. Génère un plan alimentaire complet de 7 jours en JSON strict.
