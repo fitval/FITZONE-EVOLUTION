@@ -2,11 +2,12 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Fitzone Evolution — Questionnaire</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+html, body { overflow-x:hidden; overscroll-behavior-x:none; touch-action:pan-y; }
 :root {
   --bg: #f0ede8;
   --bg2: #e8e4de;
@@ -615,7 +616,7 @@ body {
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Date de naissance</label>
-          <input type="text" class="form-input" id="birthDate" placeholder="JJ/MM/AAAA">
+          <input type="text" class="form-input" id="birthDate" placeholder="JJ/MM/AAAA" inputmode="numeric" maxlength="10" oninput="autoFormatDate(this)">
         </div>
         <div class="form-group">
           <label class="form-label">Sexe</label>
@@ -1125,6 +1126,14 @@ function validateStep() {
   return true;
 }
 
+function autoFormatDate(el){
+  let v=el.value.replace(/[^\d]/g,'');
+  if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);
+  if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5);
+  if(v.length>10)v=v.slice(0,10);
+  el.value=v;
+}
+
 async function submitForm() {
   const btn = document.getElementById('btnNext');
   btn.disabled = true;
@@ -1140,7 +1149,6 @@ async function submitForm() {
   }
 
   const payload = {
-    client_id: clientData.id,
     sex: document.getElementById('sex').value,
     age,
     height_cm: parseFloat(document.getElementById('height').value),
