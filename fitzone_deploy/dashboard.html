@@ -5515,8 +5515,10 @@ async function readSSEPlan(resp,pBar,pText,estTotal){
         pText.textContent='Réception du plan… '+(d.ci+1)+'/'+d.tc;
       }
       if(d.done){
-        if(planChunks.length)plan=JSON.parse(planChunks.join(''));
-        console.log('AI Plan done. Model:',d.model,'Chunks:',planChunks.length);
+        console.log('AI Plan done. Model:',d.model,'Chunks:',planChunks.length,'CharsTotal:',planChunks.join('').length);
+        if(planChunks.length){
+          try{plan=JSON.parse(planChunks.join(''));}catch(pe){console.error('Plan JSON parse error:',pe.message,planChunks.join('').slice(0,200));}
+        }
       }
     }
   }
@@ -5532,6 +5534,12 @@ async function readSSEPlan(resp,pBar,pText,estTotal){
     }
   }
   if(lastError&&!plan)throw new Error('Connexion perdue pendant la génération. Vérifie ton internet et réessaye.');
+  // Debug: if no plan but we have chunks, try parsing them
+  if(!plan&&planChunks.length){
+    console.warn('Plan null but chunks exist:',planChunks.length,'chars:',planChunks.join('').length);
+    try{plan=JSON.parse(planChunks.join(''));}catch(pe){console.error('Fallback parse failed:',pe.message);}
+  }
+  console.log('readSSEPlan result:',plan?'OK ('+Object.keys(plan).join(',')+')':'NULL','charCount:',charCount);
   return plan;
 }
 async function generateAIPlan(){
