@@ -5506,32 +5506,6 @@ async function readSSEPlan(resp,pBar,pText,estTotal){
   const decoder=new TextDecoder();
   let plan=null,charCount=0,sseBuffer='',planChunks=[],lastError=null;
 
-  function processLine(line){
-    if(!line.startsWith('data: '))return;
-    let d;
-    try{d=JSON.parse(line.slice(6));}catch(pe){console.warn('SSE parse skip:',line.slice(0,80));return;}
-    if(d.error)throw new Error(d.error);
-    if(d.progress){
-      charCount=d.progress;
-      const pct=Math.min(85,Math.round(charCount/estTotal*85));
-      pBar.style.width=pct+'%';
-      const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
-      pText.textContent='Jour '+dayEst+'/7 en cours…';
-    }
-    if(d.pc!==undefined){
-      planChunks.push(d.pc);
-      const pct=85+Math.round((d.ci+1)/d.tc*10);
-      pBar.style.width=pct+'%';
-      pText.textContent='Réception du plan… '+(d.ci+1)+'/'+d.tc;
-    }
-    if(d.done){
-      console.log('AI Plan done. Model:',d.model,'Chunks:',planChunks.length);
-      if(planChunks.length){
-        try{plan=JSON.parse(planChunks.join(''));}catch(pe){console.error('Plan JSON parse error:',pe.message);}
-      }
-    }
-  }
-
   while(true){
     let result;
     try{result=await reader.read();}catch(netErr){
@@ -5540,17 +5514,48 @@ async function readSSEPlan(resp,pBar,pText,estTotal){
     }
     if(result.done)break;
     sseBuffer+=decoder.decode(result.value,{stream:true});
-    // Process complete SSE events (separated by double newline)
-    while(sseBuffer.includes('\n\n')){
-      const idx=sseBuffer.indexOf('\n\n');
-      const event=sseBuffer.substring(0,idx);
-      sseBuffer=sseBuffer.substring(idx+2);
-      event.split('\n').forEach(line=>processLine(line));
+    // Process complete data lines, keep incomplete ones in buffer
+    const parts=sseBuffer.split('\n');
+    sseBuffer=parts.pop()||'';
+    for(const part of parts){
+      const trimmed=part.trim();
+      if(!trimmed)continue;
+      if(!trimmed.startsWith('data: '))continue;
+      // Try to parse — if it fails, this line was cut mid-chunk, prepend to buffer
+      let d;
+      try{d=JSON.parse(trimmed.slice(6));}catch(pe){
+        sseBuffer=trimmed+'\n'+sseBuffer;
+        continue;
+      }
+      if(d.error)throw new Error(d.error);
+      if(d.progress){
+        charCount=d.progress;
+        const pct=Math.min(85,Math.round(charCount/estTotal*85));
+        pBar.style.width=pct+'%';
+        const dayEst=Math.min(7,Math.floor(charCount/3000)+1);
+        pText.textContent='Jour '+dayEst+'/7 en cours…';
+      }
+      if(d.pc!==undefined){
+        planChunks.push(d.pc);
+        const pct=85+Math.round((d.ci+1)/d.tc*10);
+        pBar.style.width=pct+'%';
+        pText.textContent='Réception du plan… '+(d.ci+1)+'/'+d.tc;
+      }
+      if(d.done){
+        console.log('AI Plan done. Model:',d.model,'Chunks:',planChunks.length);
+        if(planChunks.length){
+          try{plan=JSON.parse(planChunks.join(''));}catch(pe2){console.error('Plan JSON parse error:',pe2.message);}
+        }
+      }
     }
   }
-  // Flush remaining buffer (last event may not end with \n\n)
-  if(sseBuffer.trim()){
-    sseBuffer.trim().split('\n').forEach(line=>processLine(line));
+  // Flush remaining buffer
+  if(sseBuffer.trim()&&sseBuffer.trim().startsWith('data: ')){
+    try{
+      const d=JSON.parse(sseBuffer.trim().slice(6));
+      if(d.pc!==undefined)planChunks.push(d.pc);
+      if(d.done&&planChunks.length){try{plan=JSON.parse(planChunks.join(''));}catch(pe){}}
+    }catch(pe){}
   }
   if(lastError&&!plan)throw new Error('Connexion perdue pendant la génération. Vérifie ton internet et réessaye.');
   if(!plan&&planChunks.length){
