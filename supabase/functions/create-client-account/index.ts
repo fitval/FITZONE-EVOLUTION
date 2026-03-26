@@ -31,8 +31,9 @@ Deno.serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    // Create auth user
+    // Create auth user (or find existing)
     const tempPassword = crypto.randomUUID() + "Aa1!";
+    let userId: string;
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: tempPassword,
@@ -41,10 +42,26 @@ Deno.serve(async (req: Request) => {
     });
 
     if (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      // If user already exists, find them and re-send invitation
+      if (authError.message.includes("already") || authError.message.includes("exists") || authError.message.includes("unique")) {
+        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const existing = existingUsers?.users?.find((u: { email?: string }) => u.email === email);
+        if (existing) {
+          userId = existing.id;
+        } else {
+          return new Response(
+            JSON.stringify({ error: authError.message }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else {
+        return new Response(
+          JSON.stringify({ error: authError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      userId = authData.user.id;
     }
 
     // Generate recovery link
@@ -81,7 +98,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ user_id: authData.user.id, email: authData.user.email }),
+      JSON.stringify({ user_id: userId, email }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
