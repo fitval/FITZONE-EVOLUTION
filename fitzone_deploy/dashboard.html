@@ -2044,7 +2044,10 @@ function renderNutTab(){
       <div class="cl" style="color:rgba(255,255,255,.28)">Calories / jour</div>
       <input class="kcal-in" type="number" id="nKcal" value="${kd}" oninput="nMacroUpd()">
       <div style="font-size:11px;color:rgba(255,255,255,.28);margin-top:4px">TDEE: <span id="nTsub">${tdee}</span> kcal</div>
-      <button onclick="nRecalc()" style="margin-top:8px;font-size:11px;font-weight:600;color:var(--gold);background:rgba(196,154,42,.15);border:1px solid rgba(196,154,42,.28);border-radius:7px;padding:4px 11px;cursor:pointer;font-family:var(--font)">↺ Recalculer</button>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button onclick="nRecalc()" style="font-size:11px;font-weight:600;color:var(--gold);background:rgba(196,154,42,.15);border:1px solid rgba(196,154,42,.28);border-radius:7px;padding:4px 11px;cursor:pointer;font-family:var(--font)">↺ Recalculer</button>
+        <button onclick="saveNutParams()" style="font-size:11px;font-weight:600;color:white;background:var(--gold);border:1px solid var(--gold);border-radius:7px;padding:4px 11px;cursor:pointer;font-family:var(--font)">💾 Enregistrer</button>
+      </div>
     </div>
     <div class="card cp"><div class="cl">Macros</div>
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:#c49a2a;width:60px">Protéines</div><input type="range" id="slP" min="1.0" max="3.5" step="0.1" value="2.0" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:#c49a2a;cursor:pointer"><input class="medit" type="number" id="eP" value="${pg}" oninput="nManual()" style="color:#c49a2a"><span style="font-size:10px;color:var(--text3)">g</span></div>
@@ -2066,6 +2069,22 @@ function renderNutTab(){
   <div id="planDisp" style="margin-top:12px"></div>
   <div id="aiPlanResult" style="margin-top:12px"></div>`;
   nMacroUpd();loadPlanDisp();
+}
+async function saveNutParams(){
+  if(!curQ)return;
+  const updates={
+    sex:document.getElementById('nSex')?.value||curQ.sex,
+    weight_kg:parseFloat(document.getElementById('nW')?.value)||curQ.weight_kg,
+    age:parseInt(document.getElementById('nA')?.value)||curQ.age,
+    height_cm:parseFloat(document.getElementById('nH')?.value)||curQ.height_cm,
+    activity_level:document.getElementById('nAct')?.value||curQ.activity_level,
+    goal:document.getElementById('nGoal')?.value||curQ.goal
+  };
+  const{error}=await db.from('questionnaires').update(updates).eq('id',curQ.id);
+  if(error){toast('Erreur: '+error.message);return;}
+  // Update local state
+  Object.assign(curQ,updates);
+  toast('Paramètres nutrition enregistrés ✓');
 }
 function nRecalc(){
   const s=document.getElementById('nSex')?.value,w=parseFloat(document.getElementById('nW')?.value)||70,a=parseInt(document.getElementById('nA')?.value)||30,h=parseFloat(document.getElementById('nH')?.value)||170;
