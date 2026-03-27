@@ -133,17 +133,18 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
 
     const client = new Anthropic({ apiKey });
 
-    // Non-streaming: simpler, avoids SSE parsing issues
-    const message = await client.messages.create({
+    // Stream from Claude (avoids SDK timeout) but collect all text server-side
+    let fullText = "";
+    const stream = client.messages.stream({
       model: "claude-sonnet-4-20250514",
       max_tokens: 30000,
       messages: [{ role: "user", content: prompt }],
     });
-
-    const fullText = message.content
-      .filter((b: {type: string}) => b.type === "text")
-      .map((b: {type: string; text?: string}) => (b as {type: string; text: string}).text)
-      .join("");
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        fullText += event.delta.text;
+      }
+    }
 
     // Server-side JSON repair
     const plan = repairAndParseJSON(fullText);
