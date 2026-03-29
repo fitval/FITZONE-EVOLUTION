@@ -38,7 +38,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 @keyframes spin { to { transform:rotate(360deg); } }
 
 /* === APP SHELL === */
-.scroll-area { padding:0 20px 20px 20px; padding-bottom:calc(var(--tab-h) + var(--safe-b) + 20px); overflow-y:auto; -webkit-overflow-scrolling:touch; height:100dvh; overscroll-behavior-y:none; }
+.scroll-area { padding:0 20px 20px 20px; padding-bottom:calc(var(--tab-h) + var(--safe-b) + 20px); overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; height:100dvh; overscroll-behavior-y:none; }
 .tab-bar { position:fixed; bottom:0; left:0; right:0; background:var(--white); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-around; height:calc(var(--tab-h) + var(--safe-b)); padding-bottom:var(--safe-b); z-index:100; transform:translate3d(0,0,0); -webkit-backface-visibility:hidden; backface-visibility:hidden; }
 .tab-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; height:100%; border:none; background:none; color:var(--text3); font-size:10px; font-weight:500; cursor:pointer; transition:color .2s; gap:3px; }
 .tab-btn svg { width:24px; height:24px; transition:all .2s; }
