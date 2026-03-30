@@ -251,7 +251,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
 /* === MODAL === */
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:200; display:none; align-items:center; justify-content:center; padding:20px; }
 .modal-overlay.show { display:flex; }
-.modal-overlay iframe { width:100%; max-width:560px; aspect-ratio:16/9; border:none; border-radius:var(--r-sm); }
+.modal-overlay iframe { width:100vw; height:56.25vw; max-height:90vh; border:none; border-radius:0; }
 .modal-overlay img { max-width:100%; max-height:90vh; border-radius:var(--r-sm); object-fit:contain; }
 .modal-close { position:fixed; top:16px; right:16px; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.15); border:none; color:white; font-size:20px; cursor:pointer; z-index:201; display:flex; align-items:center; justify-content:center; }
 
@@ -1047,7 +1047,8 @@ function startWorkout(){
       });
     }
     const prevNote=prev&&prev.note?prev.note:'';
-    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,sets:setsArr,showSwap:false,videoFile:null,note:'',prevNote});
+    const wasUnilateral=prev&&prev.unilateral?true:false;
+    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,note:'',prevNote});
   });
 
   // Start elapsed timer
@@ -1093,27 +1094,51 @@ function renderActiveWorkout(){
       h+=`</div>`;
     }
 
-    // Poids du corps toggle
-    h+=`<div class="bw-toggle"><label><input type="checkbox" ${ex.bw?'checked':''} onchange="workoutData[${ei}].bw=this.checked;renderActiveWorkout()"> Poids du corps</label></div>`;
+    // Poids du corps + Unilatéral toggles
+    h+=`<div class="bw-toggle" style="display:flex;gap:16px">
+      <label><input type="checkbox" ${ex.bw?'checked':''} onchange="workoutData[${ei}].bw=this.checked;renderActiveWorkout()"> Poids du corps</label>
+      <label><input type="checkbox" ${ex.unilateral?'checked':''} onchange="workoutData[${ei}].unilateral=this.checked;renderActiveWorkout()"> Unilatéral</label>
+    </div>`;
 
-    // Set header
-    h+=`<div class="set-header"><div>#</div><div>${ex.bw?'':'kg'}</div><div>reps</div><div>RIR</div><div></div></div>`;
+    if(ex.unilateral){
+      // Unilateral mode: G/D columns
+      h+=`<div class="set-header" style="font-size:10px"><div>#</div><div colspan="3" style="flex:3;text-align:center;color:var(--gold);font-weight:800">← GAUCHE</div><div colspan="3" style="flex:3;text-align:center;color:var(--text3);font-weight:800">DROITE →</div><div></div></div>`;
+      h+=`<div class="set-header" style="margin-top:-4px"><div>#</div>${ex.bw?'':'<div>kg</div>'}<div>reps</div><div>RIR</div>${ex.bw?'':'<div>kg</div>'}<div>reps</div><div>RIR</div><div></div></div>`;
 
-    // Set rows
-    ex.sets.forEach((s,si)=>{
-      const phKg=s.prevKg?s.prevKg:'kg';
-      const phReps=s.prevReps?s.prevReps:'reps';
-      h+=`<div class="set-row">
-        <div class="set-num">${String(si+1).padStart(2,'0')}</div>
-        ${ex.bw?'<div class="set-input"></div>':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kg}" oninput="workoutData[${ei}].sets[${si}].kg=this.value"></div>`}
-        <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsActual}" oninput="workoutData[${ei}].sets[${si}].repsActual=this.value"></div>
-        <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirActual}" oninput="workoutData[${ei}].sets[${si}].rirActual=this.value"></div>
-        <div class="set-check"><button class="${s.done?'done':''}" onclick="validateSet(${ei},${si})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button></div>
-      </div>`;
-    });
+      ex.sets.forEach((s,si)=>{
+        const phKg=s.prevKg?s.prevKg:'kg';
+        const phReps=s.prevReps?s.prevReps:'reps';
+        h+=`<div class="set-row">
+          <div class="set-num">${String(si+1).padStart(2,'0')}</div>
+          ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kgL||''}" oninput="workoutData[${ei}].sets[${si}].kgL=this.value" style="border-color:var(--gold-border)"></div>`}
+          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsL||''}" oninput="workoutData[${ei}].sets[${si}].repsL=this.value" style="border-color:var(--gold-border)"></div>
+          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirL||''}" oninput="workoutData[${ei}].sets[${si}].rirL=this.value" style="border-color:var(--gold-border)"></div>
+          ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kgR||''}" oninput="workoutData[${ei}].sets[${si}].kgR=this.value"></div>`}
+          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsR||''}" oninput="workoutData[${ei}].sets[${si}].repsR=this.value"></div>
+          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirR||''}" oninput="workoutData[${ei}].sets[${si}].rirR=this.value"></div>
+          <div class="set-check"><button class="${s.done?'done':''}" onclick="validateSet(${ei},${si})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button></div>
+        </div>`;
+      });
+    } else {
+      // Standard mode
+      h+=`<div class="set-header"><div>#</div><div>${ex.bw?'':'kg'}</div><div>reps</div><div>RIR</div><div></div></div>`;
+
+      ex.sets.forEach((s,si)=>{
+        const phKg=s.prevKg?s.prevKg:'kg';
+        const phReps=s.prevReps?s.prevReps:'reps';
+        h+=`<div class="set-row">
+          <div class="set-num">${String(si+1).padStart(2,'0')}</div>
+          ${ex.bw?'<div class="set-input"></div>':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kg}" oninput="workoutData[${ei}].sets[${si}].kg=this.value"></div>`}
+          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsActual}" oninput="workoutData[${ei}].sets[${si}].repsActual=this.value"></div>
+          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirActual}" oninput="workoutData[${ei}].sets[${si}].rirActual=this.value"></div>
+          <div class="set-check"><button class="${s.done?'done':''}" onclick="validateSet(${ei},${si})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button></div>
+        </div>`;
+      });
+    }
 
     // Camera button
-    h+=`<button class="cam-btn" onclick="filmExo(${ei})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> Filmer</button>`;
+    const hasVid=!!ex.videoFile;
+    h+=`<button class="cam-btn" onclick="filmExo(${ei})" style="${hasVid?'background:#e8f5e9;border-color:#4caf50;color:#2e7d32':''}"><svg viewBox="0 0 24 24" fill="none" stroke="${hasVid?'#2e7d32':'currentColor'}" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> ${hasVid?'✓ Vidéo ajoutée':'Filmer'}</button>`;
 
     // Notes / feedback exercice
     if(ex.prevNote){h+=`<div style="background:var(--bg2);border-radius:var(--r-xs);padding:10px 12px;margin-top:8px;font-size:12px;color:var(--text2);line-height:1.4"><span style="font-weight:700;color:var(--text3);font-size:10px;letter-spacing:.5px">NOTE PRÉCÉDENTE</span><br>${ex.prevNote}</div>`;}
@@ -1154,8 +1179,13 @@ async function finalizeWorkout(){
     const day=(programs[0].jours||[])[currentDayIdx];
     const sessionName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
     const exercises=workoutData.map(ex=>{
-      const o={nom:ex.nom,sets:ex.sets.filter(s=>s.done||s.kg||s.repsActual||s.rirActual).map(s=>({kg:s.kg||'',reps:s.repsActual||'',rir:s.rirActual||'',load:s.kg||''}))};
+      const o={nom:ex.nom,sets:ex.sets.filter(s=>s.done||s.kg||s.repsActual||s.rirActual||s.kgL||s.kgR||s.repsL||s.repsR).map(s=>{
+        const r={kg:s.kg||'',reps:s.repsActual||'',rir:s.rirActual||'',load:s.kg||''};
+        if(ex.unilateral){r.kgL=s.kgL||'';r.kgR=s.kgR||'';r.repsL=s.repsL||'';r.repsR=s.repsR||'';r.rirL=s.rirL||'';r.rirR=s.rirR||'';}
+        return r;
+      })};
       if(ex.note)o.note=ex.note;
+      if(ex.unilateral)o.unilateral=true;
       return o;
     });
     console.log('[WORKOUT SAVE]',JSON.stringify(exercises));
@@ -1202,6 +1232,19 @@ function validateSet(ei,si){
   renderActiveWorkout();
 }
 
+function playRestAlarm(){
+  try{
+    const ac=new(window.AudioContext||window.webkitAudioContext)();
+    [0,0.15,0.3].forEach(t=>{
+      const osc=ac.createOscillator(),gain=ac.createGain();
+      osc.connect(gain);gain.connect(ac.destination);
+      osc.frequency.value=880;osc.type='sine';
+      gain.gain.setValueAtTime(0.3,ac.currentTime+t);
+      gain.gain.exponentialRampToValueAtTime(0.01,ac.currentTime+t+0.12);
+      osc.start(ac.currentTime+t);osc.stop(ac.currentTime+t+0.12);
+    });
+  }catch(e){}
+}
 let restEndTime=0;
 function startRestTimer(sec){
   clearInterval(restTimerInterval);
@@ -1215,10 +1258,14 @@ function startRestTimer(sec){
     if(remaining<=0){
       clearInterval(restTimerInterval);
       ov.classList.remove('show');
-      // Vibrate when done
+      // Sound + vibrate when done
+      playRestAlarm();
       if(navigator.vibrate)navigator.vibrate([200,100,200,100,300]);
       return;
     }
+    // Flash + beep at 3 seconds
+    if(remaining<=3)ov.style.background='rgba(196,154,42,.92)';
+    else ov.style.background='';
     rt.textContent=fmtTimer(remaining);
   },250);
 }
