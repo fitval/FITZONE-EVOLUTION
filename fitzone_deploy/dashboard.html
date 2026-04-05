@@ -2723,9 +2723,43 @@ function _renderProgressionContent(el){
   const period=window._progPeriod||'month';
   const now=new Date();
   let filtered=mData;
-  if(period==='week'){const w=new Date(now);w.setDate(w.getDate()-7);filtered=mData.filter(d=>new Date(d.date)>=w);}
-  else if(period==='month'){const m=new Date(now);m.setMonth(m.getMonth()-1);filtered=mData.filter(d=>new Date(d.date)>=m);}
+  // Build available weeks (Mon-Sun) and months from data
+  let weekOptions=[],monthOptions=[];
+  if(mData.length>0){
+    const minDate=new Date(mData[0].date),maxDate=new Date(mData[mData.length-1].date);
+    // Weeks: find all Mon-Sun ranges that contain data
+    const wSet=new Set();
+    mData.forEach(d=>{const dt=new Date(d.date);const day=dt.getDay();const mon=new Date(dt);mon.setDate(mon.getDate()-((day+6)%7));wSet.add(mon.toISOString().slice(0,10));});
+    weekOptions=[...wSet].sort().reverse().map(mon=>{const m=new Date(mon);const sun=new Date(m);sun.setDate(sun.getDate()+6);return{start:mon,end:sun.toISOString().slice(0,10),label:m.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})+' — '+sun.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})};});
+    // Months
+    const mSet=new Set();
+    mData.forEach(d=>{mSet.add(d.date.slice(0,7));});
+    monthOptions=[...mSet].sort().reverse().map(ym=>{const[y,m]=ym.split('-');const dt=new Date(parseInt(y),parseInt(m)-1,1);return{key:ym,label:dt.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})};});
+  }
+  if(period==='week'){
+    if(!window._progWeek&&weekOptions.length)window._progWeek=weekOptions[0].start;
+    const sel=window._progWeek;
+    if(sel){const s=new Date(sel);const e=new Date(s);e.setDate(e.getDate()+6);filtered=mData.filter(d=>{const dt=new Date(d.date);return dt>=s&&dt<=e;});}
+    else{const w=new Date(now);w.setDate(w.getDate()-7);filtered=mData.filter(d=>new Date(d.date)>=w);}
+  }
+  else if(period==='month'){
+    if(!window._progMonth&&monthOptions.length)window._progMonth=monthOptions[0].key;
+    const sel=window._progMonth;
+    if(sel){filtered=mData.filter(d=>d.date.startsWith(sel));}
+    else{const m=new Date(now);m.setMonth(m.getMonth()-1);filtered=mData.filter(d=>new Date(d.date)>=m);}
+  }
   else if(period==='year'){const y=new Date(now);y.setFullYear(y.getFullYear()-1);filtered=mData.filter(d=>new Date(d.date)>=y);}
+  // Build sub-period selector HTML
+  let subPeriodHtml='';
+  if(period==='week'&&weekOptions.length){
+    subPeriodHtml='<select class="fs" style="min-width:220px;font-size:12px" onchange="window._progWeek=this.value;renderProgressionTab()">';
+    weekOptions.forEach(function(w){subPeriodHtml+='<option value="'+w.start+'"'+(w.start===window._progWeek?' selected':'')+'>'+w.label+'</option>';});
+    subPeriodHtml+='</select>';
+  } else if(period==='month'&&monthOptions.length){
+    subPeriodHtml='<select class="fs" style="min-width:180px;font-size:12px" onchange="window._progMonth=this.value;renderProgressionTab()">';
+    monthOptions.forEach(function(m){subPeriodHtml+='<option value="'+m.key+'"'+(m.key===window._progMonth?' selected':'')+'>'+m.label+'</option>';});
+    subPeriodHtml+='</select>';
+  }
   // Stats
   const vals=filtered.map(d=>parseFloat(d[selMetric])||0);
   const start=vals[0]||0,end=vals[vals.length-1]||0,avg=vals.length?(vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(1):0;
@@ -2751,8 +2785,9 @@ function _renderProgressionContent(el){
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
       <select class="fs" style="min-width:200px" onchange="window._progMetric=this.value;renderProgressionTab()">${optHtml}</select>
       <div style="display:flex;gap:4px">
-        ${['week','month','year','all'].map(p=>`<button class="btn btn-${p===period?'dark':'ghost'} btn-xs" onclick="window._progPeriod='${p}';renderProgressionTab()">${p==='week'?'Semaine':p==='month'?'Mois':p==='year'?'Année':'Tout'}</button>`).join('')}
+        ${['week','month','year','all'].map(p=>`<button class="btn btn-${p===period?'dark':'ghost'} btn-xs" onclick="window._progPeriod='${p}';window._progWeek=null;window._progMonth=null;renderProgressionTab()">${p==='week'?'Semaine':p==='month'?'Mois':p==='year'?'Année':'Tout'}</button>`).join('')}
       </div>
+      ${subPeriodHtml}
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       <div style="display:grid;grid-template-columns:1fr 280px">
