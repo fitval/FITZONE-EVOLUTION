@@ -1207,7 +1207,7 @@ async function finalizeWorkout(){
         try{
           const b64=await fileToBase64(file);
           const ext=file.name.split('.').pop()||'mp4';
-          const fileName='Exo_'+nom+'_'+dateStr+'_'+ex.nom.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30)+'.'+ext;
+          const fileName=nom+'_'+ex.nom.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30)+'_'+dateStr+'.'+ext;
           const url=await uploadToDrive(b64,fileName,file.type||'video/mp4');
           if(url)ex.videoUrl=url;
         }catch(e){console.error('[VIDEO UPLOAD]',ex.nom,e);}
