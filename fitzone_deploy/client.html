@@ -1153,9 +1153,14 @@ function renderActiveWorkout(){
       });
     }
 
-    // Camera button
+    // Camera button + upload status
     const hasVid=!!ex.videoFile;
+    const uploaded=!!ex.videoUrl;
+    h+=`<div style="display:flex;gap:8px;align-items:center">`;
     h+=`<button class="cam-btn" onclick="filmExo(${ei})" style="${hasVid?'background:#e8f5e9;border-color:#4caf50;color:#2e7d32':''}"><svg viewBox="0 0 24 24" fill="none" stroke="${hasVid?'#2e7d32':'currentColor'}" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> ${hasVid?'✓ Vidéo ajoutée':'Filmer'}</button>`;
+    if(hasVid&&!uploaded)h+=`<button class="cam-btn" onclick="uploadExoVideo(${ei})" style="flex:0 0 auto;font-size:11px;padding:8px 12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Mettre en ligne</button>`;
+    if(uploaded)h+=`<span style="font-size:11px;font-weight:700;color:#2e7d32;padding:8px 12px;background:#e8f5e9;border-radius:var(--r-xs);display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="3" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg> Vidéo en ligne</span>`;
+    h+=`</div>`;
 
     // Previous video link
     if(ex.prevVideoUrl){h+=`<a href="${ex.prevVideoUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:#e8f5e9;border:1px solid #4caf50;border-radius:var(--r-xs);font-size:12px;font-weight:700;color:#2e7d32;text-decoration:none">▶ Voir ma vidéo précédente</a>`;}
@@ -1345,11 +1350,26 @@ function swapExo(ei,ri){
 }
 
 
+async function uploadExoVideo(ei){
+  const ex=workoutData[ei];if(!ex||!ex.videoFile)return;
+  toast('Upload en cours...');
+  try{
+    const b64=await fileToBase64(ex.videoFile);
+    const nom=(clientData&&(clientData.first_name||clientData.last_name))?((clientData.first_name||'')+'_'+(clientData.last_name||'')).replace(/\s+/g,'_').replace(/_+$/,''):'client';
+    const dateStr=today().replace(/-/g,'');
+    const ext=ex.videoFile.name.split('.').pop()||'mp4';
+    const fileName=nom+'_'+ex.nom.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30)+'_'+dateStr+'.'+ext;
+    const url=await uploadToDrive(b64,fileName,ex.videoFile.type||'video/mp4');
+    if(url){ex.videoUrl=url;toast('Vidéo mise en ligne ✓');renderActiveWorkout();}
+    else{toast('Erreur upload vidéo');}
+  }catch(e){console.error('[VIDEO UPLOAD]',e);toast('Erreur upload vidéo');}
+}
+
 function filmExo(ei){
   const inp=document.getElementById('camInput');
   inp.onchange=function(e){
     const file=e.target.files[0];
-    if(file){workoutData[ei].videoFile=file;toast('Vidéo ajoutée pour '+workoutData[ei].nom);}
+    if(file){workoutData[ei].videoFile=file;workoutData[ei].videoUrl=null;toast('Vidéo ajoutée pour '+workoutData[ei].nom);renderActiveWorkout();}
     inp.value='';
   };
   inp.click();
