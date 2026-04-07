@@ -732,6 +732,7 @@ async function loadData(){
   ]);
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   clientQuest=(p9.data&&p9.data[0])||null;
+  console.log('[LOAD DEBUG] authMode:', clientAuthMode, 'trainLogs:', trainLogs.length, 'p5.error:', p5.error);
   // Load coach levels
   try{
     const{data:sData}=await db.from('settings').select('gamif_levels').eq('coach_id',clientData.coach_id).limit(1);
@@ -1024,7 +1025,12 @@ function startWorkout(){
   });
 
   // Find previous log for same session
-  const prevLog=trainLogs.find(l=>l.session_name===(day.nom||'Jour '+(currentDayIdx+1)));
+  const targetName=day.nom||'Jour '+(currentDayIdx+1);
+  console.log('[WORKOUT DEBUG] trainLogs count:', trainLogs.length);
+  console.log('[WORKOUT DEBUG] looking for session_name:', JSON.stringify(targetName));
+  console.log('[WORKOUT DEBUG] available session_names:', trainLogs.map(l=>JSON.stringify(l.session_name)));
+  const prevLog=trainLogs.find(l=>l.session_name===targetName);
+  console.log('[WORKOUT DEBUG] prevLog found:', !!prevLog, prevLog?'exercises:'+JSON.stringify((prevLog.exercises||[]).length):'');
   const prevExos=prevLog?prevLog.exercises||[]:[];
 
   allExos.forEach((ex,i)=>{
