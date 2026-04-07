@@ -3002,7 +3002,7 @@ function renderProgressionView(el,sorted,colors){
             <td style="padding:6px;text-align:center;${kgCls}">${kg?kg+'kg':'—'}</td>
             <td style="padding:6px;text-align:center;color:var(--text3)">${rir||'—'}</td>
             <td style="padding:6px;text-align:center;font-weight:600;color:var(--gold)">${rxl?Math.round(rxl):''}</td>
-            <td style="padding:6px;text-align:center;font-size:10px;color:var(--text3)"></td>`;
+            <td style="padding:6px;text-align:center;font-size:10px;color:var(--text3)">${si===0&&ex&&ex.videoUrl?'<a href="'+ex.videoUrl+'" target="_blank" style="color:#2e7d32;font-weight:700" title="Voir vidéo">▶</a>':''}</td>`;
         });
         html+=`</tr>`;
       }
@@ -3044,7 +3044,7 @@ function renderCyclesView(el,sorted,colors){
       const exVol=(e.sets||[]).reduce((s,st)=>(parseFloat(st.reps)||0)*(parseFloat(st.kg||st.load)||0)+s,0);
       html+=`<div style="margin-bottom:12px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-weight:700;font-size:13px">${e.nom}</div>
+          <div style="display:flex;align-items:center;gap:8px"><div style="font-weight:700;font-size:13px">${e.nom}</div>${e.videoUrl?`<a href="${e.videoUrl}" target="_blank" style="font-size:10px;padding:2px 8px;border-radius:4px;background:#e8f5e9;color:#2e7d32;font-weight:700;text-decoration:none">▶ Vidéo</a>`:''}</div>
           <div style="font-size:11px;color:var(--gold);font-weight:700">${exVol?Math.round(exVol)+' vol':''}</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">`;

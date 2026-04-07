@@ -581,19 +581,29 @@ const db=supabase.createClient(SUPA,KEY);
 /* ===== GOOGLE DRIVE UPLOAD ===== */
 const DRIVE_UPLOAD_URL='https://script.google.com/macros/s/AKfycbwyZmpo87o-gypfO9herhhsJ1_5YELTICidFLeennSt-OH1sLym9Ytoo45MXybZbgAp/exec';
 
-async function uploadToDrive(base64,fileName){
+async function uploadToDrive(base64,fileName,mimeType){
   try{
-    console.log('[DRIVE] Uploading',fileName,'size:',Math.round(base64.length/1024)+'KB');
-    const res=await fetch(DRIVE_UPLOAD_URL,{method:'POST',redirect:'follow',body:JSON.stringify({base64,fileName,mimeType:'image/jpeg'})});
+    mimeType=mimeType||'image/jpeg';
+    console.log('[DRIVE] Uploading',fileName,'size:',Math.round(base64.length/1024)+'KB','type:',mimeType);
+    const res=await fetch(DRIVE_UPLOAD_URL,{method:'POST',redirect:'follow',body:JSON.stringify({base64,fileName,mimeType})});
     console.log('[DRIVE] Response status:',res.status,res.type);
     const text=await res.text();
     console.log('[DRIVE] Response body:',text.substring(0,200));
     try{
       const json=JSON.parse(text);
       if(json.success&&json.files&&json.files[0]){console.log('[DRIVE] OK:',json.files[0].url);return json.files[0].url;}
-      console.error('[DRIVE] Error:',json.error);return base64;
-    }catch(pe){console.error('[DRIVE] Parse error:',pe,text.substring(0,200));return base64;}
-  }catch(e){console.error('[DRIVE] Fetch error:',e);return base64;}
+      console.error('[DRIVE] Error:',json.error);return null;
+    }catch(pe){console.error('[DRIVE] Parse error:',pe,text.substring(0,200));return null;}
+  }catch(e){console.error('[DRIVE] Fetch error:',e);return null;}
+}
+
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result.split(',')[1]);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 async function uploadPhotosToDrive(photos){
@@ -1053,8 +1063,9 @@ function startWorkout(){
       });
     }
     const prevNote=prev&&prev.note?prev.note:'';
+    const prevVideoUrl=prev&&prev.videoUrl?prev.videoUrl:'';
     const wasUnilateral=prev&&prev.unilateral?true:false;
-    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,note:'',prevNote});
+    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,videoUrl:null,note:'',prevNote,prevVideoUrl});
   });
 
   // Start elapsed timer
@@ -1146,6 +1157,8 @@ function renderActiveWorkout(){
     const hasVid=!!ex.videoFile;
     h+=`<button class="cam-btn" onclick="filmExo(${ei})" style="${hasVid?'background:#e8f5e9;border-color:#4caf50;color:#2e7d32':''}"><svg viewBox="0 0 24 24" fill="none" stroke="${hasVid?'#2e7d32':'currentColor'}" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> ${hasVid?'✓ Vidéo ajoutée':'Filmer'}</button>`;
 
+    // Previous video link
+    if(ex.prevVideoUrl){h+=`<a href="${ex.prevVideoUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:#e8f5e9;border:1px solid #4caf50;border-radius:var(--r-xs);font-size:12px;font-weight:700;color:#2e7d32;text-decoration:none">▶ Voir ma vidéo précédente</a>`;}
     // Notes / feedback exercice
     if(ex.prevNote){h+=`<div style="background:var(--bg2);border-radius:var(--r-xs);padding:10px 12px;margin-top:8px;font-size:12px;color:var(--text2);line-height:1.4"><span style="font-weight:700;color:var(--text3);font-size:10px;letter-spacing:.5px">NOTE PRÉCÉDENTE</span><br>${ex.prevNote}</div>`;}
     h+=`<textarea placeholder="Notes, réglages, feedback..." style="width:100%;margin-top:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-xs);font-size:13px;font-family:var(--font);background:var(--white);color:var(--text);min-height:44px;resize:vertical;outline:none" oninput="workoutData[${ei}].note=this.value">${ex.note||''}</textarea>`;
@@ -1184,6 +1197,22 @@ async function finalizeWorkout(){
   if(workoutData.length){
     const day=(programs[0].jours||[])[currentDayIdx];
     const sessionName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
+    // Upload exercise videos to Drive
+    const nom=(clientData&&(clientData.first_name||clientData.last_name))?((clientData.first_name||'')+'_'+(clientData.last_name||'')).replace(/\s+/g,'_').replace(/_+$/,''):'client';
+    const dateStr=today().replace(/-/g,'');
+    const videosToUpload=workoutData.filter(ex=>ex.videoFile).map(ex=>({ex,file:ex.videoFile}));
+    if(videosToUpload.length){
+      toast('Upload des vidéos en cours...');
+      for(const{ex,file} of videosToUpload){
+        try{
+          const b64=await fileToBase64(file);
+          const ext=file.name.split('.').pop()||'mp4';
+          const fileName='Exo_'+nom+'_'+dateStr+'_'+ex.nom.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30)+'.'+ext;
+          const url=await uploadToDrive(b64,fileName,file.type||'video/mp4');
+          if(url)ex.videoUrl=url;
+        }catch(e){console.error('[VIDEO UPLOAD]',ex.nom,e);}
+      }
+    }
     const exercises=workoutData.map(ex=>{
       const o={nom:ex.nom,sets:ex.sets.filter(s=>s.done||s.kg||s.repsActual||s.rirActual||s.kgL||s.kgR||s.repsL||s.repsR).map(s=>{
         const r={kg:s.kg||'',reps:s.repsActual||'',rir:s.rirActual||'',load:s.kg||''};
@@ -1192,6 +1221,7 @@ async function finalizeWorkout(){
       })};
       if(ex.note)o.note=ex.note;
       if(ex.unilateral)o.unilateral=true;
+      if(ex.videoUrl)o.videoUrl=ex.videoUrl;
       return o;
     });
     console.log('[WORKOUT SAVE]',JSON.stringify(exercises));
