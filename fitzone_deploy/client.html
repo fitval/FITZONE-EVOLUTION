@@ -724,7 +724,7 @@ async function loadData(){
     db.from('plans_full').select('*').eq('client_id',clientData.id),
     db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false}),
     db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90),
-    db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30),
+    clientAuthMode==='anon'?db.rpc('client_get_train_logs',{p_token:clientData.token}):db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30),
     db.from('modules').select('*').eq('coach_id',clientData.coach_id),
     db.from('aliments').select('*').eq('coach_id',clientData.coach_id),
     db.from('exercises').select('*').eq('coach_id',clientData.coach_id),
@@ -1212,8 +1212,8 @@ async function finalizeWorkout(){
       }
     }
     toast('Séance enregistrée !');
-    const{data}=await db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30);
-    trainLogs=data||[];
+    if(clientAuthMode==='anon'){const{data}=await db.rpc('client_get_train_logs',{p_token:clientData.token});trainLogs=data||[];}
+    else{const{data}=await db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30);trainLogs=data||[];}
     const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
     dailyLogs=nl||[];
     // Gamification: award points for workout
