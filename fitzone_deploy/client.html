@@ -1510,6 +1510,78 @@ function togglePreviewSwap(btn){
 }
 
 /* ===== FOOD SWAP (EQUIVALENCES) ===== */
+// Sous-catégorie d'un aliment pour des équivalences cohérentes.
+// Renvoie { cat: 'feculent'|'legume'|'fruit'|'viande_blanche'|'viande_rouge'|'poisson'|'oeuf'|'laitier_prot'|'proteine_vegetale'|'huile'|'oleagineux'|'autre_lipide'|'', label: '...' }
+function foodSubCategory(alim){
+  if(!alim)return{cat:'',label:''};
+  const n=(alim.nom||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,''); // strip accents
+  const src=alim.source||'';
+  const kcal=alim.kcal||0,prot=alim.prot||0,carb=alim.carb||0,fat=alim.fat||0;
+  const has=arr=>arr.some(k=>n.includes(k));
+
+  // ===== GLUCIDES =====
+  if(src==='glucides'){
+    if(has(['riz','pates','pate ','spaghet','penne','fusilli','tagliat','macaroni','lasagn','nouille','ravioli','gnocchi',
+            'pomme de terre','patate','puree','frites','frite','potato',
+            'avoine','flocon','muesli','granola','cereale','cornflake',
+            'quinoa','boulgour','semoule','couscous','blé','ble ','blé ','epeautre','sarrasin','millet','polenta','orge','seigle',
+            'pain','baguette','toast','wrap','tortilla','pita','biscotte','wasa','cracker',
+            'legumineuse','lentille','pois chiche','haricot rouge','haricot blanc','haricot noir','feve','fève','soja sec',
+            'tapioca','manioc','igname']))
+      return{cat:'feculent',label:'Féculents'};
+    if(has(['pomme','poire','banane','orange','clementine','mandarine','pamplemousse','citron',
+            'fraise','framboise','myrtille','mure','cassis','groseille','cerise','raisin',
+            'peche','nectarine','abricot','prune','mangue','ananas','kiwi','papaye','melon','pasteque',
+            'fruit','grenade','figue','datte','litchi','coco','noix de coco']))
+      return{cat:'fruit',label:'Fruits'};
+    // Par défaut un "glucide" peu calorique = légume
+    if(kcal<60||has(['legume','salade','laitue','roquette','epinard','mache','endive','chou','brocoli','chou-fleur','choufleur',
+                     'courgette','aubergine','poivron','tomate','concombre','radis','navet','carotte','betterave','celeri',
+                     'haricot vert','haricots verts','asperge','artichaut','poireau','oignon','echalote','ail','champignon',
+                     'fenouil','blette','cresson','potiron','courge','butternut','citrouille','okra','panais']))
+      return{cat:'legume',label:'Légumes'};
+    return{cat:'feculent',label:'Féculents'};
+  }
+
+  // ===== PROTEINES =====
+  if(src==='proteines'){
+    if(has(['poulet','dinde','dinde','volaille','poularde','pintade','caille','lapin','escalope']))
+      return{cat:'viande_blanche',label:'Viandes blanches'};
+    if(has(['boeuf','bœuf','steak','bavette','entrecote','rumsteck','rumsteak','faux-filet','filet de boeuf','tartare',
+            'veau','agneau','mouton','gigot','cheval','viande hachee','hache 5','hache15','hache 15','hache','jambon','bacon','lardon',
+            'porc','jambon blanc','jambon cru','rosbif','viande rouge']))
+      return{cat:'viande_rouge',label:'Viandes rouges & charcuterie'};
+    if(has(['poisson','thon','saumon','cabillaud','colin','lieu','merlu','sole','dorade','bar','daurade','maquereau',
+            'sardine','hareng','truite','rouget','espadon','perche','panga','tilapia','julienne','aiglefin','anchois',
+            'crevette','gambas','crabe','homard','langoustine','moule','huitre','calamar','poulpe','seiche','encornet','surimi','fruits de mer']))
+      return{cat:'poisson',label:'Poissons & fruits de mer'};
+    if(has(['oeuf','œuf','blanc d','jaune d','omelette']))
+      return{cat:'oeuf',label:'Œufs'};
+    if(has(['yaourt','skyr','fromage blanc','cottage','faisselle','petit suisse','quark','kefir','ricotta','mozzarella','feta',
+            'fromage','parmesan','comte','emmental','gruyere','cheddar','chevre','brebis','lait']))
+      return{cat:'laitier_prot',label:'Produits laitiers'};
+    if(has(['tofu','seitan','tempeh','soja','protéine vegetale','proteine vegetale','proteines vegetales','steak vegetal','simili']))
+      return{cat:'proteine_vegetale',label:'Protéines végétales'};
+    return{cat:'autre_proteine',label:'Protéines'};
+  }
+
+  // ===== LIPIDES =====
+  if(src==='lipides'){
+    if(has(['huile']))
+      return{cat:'huile',label:'Huiles'};
+    if(has(['amande','noix','noisette','cacahuete','arachide','pistache','noix de cajou','cajou','pecan','macadamia','graine','sesame','tournesol','lin','chia','courge','beurre de cacahuete','purée d','puree d']))
+      return{cat:'oleagineux',label:'Oléagineux & graines'};
+    if(has(['avocat']))
+      return{cat:'avocat',label:'Avocat'};
+    if(has(['beurre','margarine','creme','crème','ghee','saindoux']))
+      return{cat:'mat_grasse',label:'Matières grasses'};
+    return{cat:'autre_lipide',label:'Lipides'};
+  }
+
+  return{cat:'',label:''};
+}
+
 function showFoodSwap(planIdx,dayIdx,ri,ai){
   const p=plans[planIdx],day=(p.jours||[])[dayIdx];
   if(!day)return;
@@ -1521,9 +1593,17 @@ function showFoodSwap(planIdx,dayIdx,ri,ai){
   const origKcalPer100=alim.kcal||0;
   const origQte=alim.qte||100;
   const origKcalTotal=origKcalPer100*origQte/100;
-  // Find alternatives: same source macro ONLY, excluding current
-  const srcLabel={proteines:'Protéines',glucides:'Glucides',lipides:'Lipides'}[src]||src||'Tous';
-  let alternatives=src?coachAlims.filter(a=>(a.source||'')==src&&a.nom!==alim.nom):coachAlims.filter(a=>a.nom!==alim.nom);
+  const sub=foodSubCategory(alim);
+  // Find alternatives: same sub-category (cohérent) ; fallback à la même source si vide
+  const srcLabel=sub.label||({proteines:'Protéines',glucides:'Glucides',lipides:'Lipides'}[src])||'Tous';
+  let alternatives=coachAlims.filter(a=>{
+    if(a.nom===alim.nom)return false;
+    if(sub.cat){
+      const s=foodSubCategory(a);
+      return s.cat===sub.cat;
+    }
+    return src?(a.source||'')==src:true;
+  });
   alternatives=alternatives.slice(0,40);
   // Build popup
   const existing=document.getElementById('foodSwapPopup');
@@ -1559,10 +1639,19 @@ function filterFoodSwap(q,planIdx,dayIdx,ri,ai){
   const list=document.getElementById('foodSwapList');if(!list)return;
   const p=plans[planIdx],day=(p.jours||[])[dayIdx],meal=day.repas[ri],items=mealItems(meal),alim=items[ai];
   const src=alim.source||'';
+  const sub=foodSubCategory(alim);
   const origKcalTotal=(alim.kcal||0)*(alim.qte||100)/100;
   const low=q.toLowerCase();
-  // Filter strictly by same source
-  let filtered=coachAlims.filter(a=>a.nom!==alim.nom&&(!src||(a.source||'')==src)&&(!q||a.nom.toLowerCase().includes(low)));
+  // Filter strictly by same sub-category (cohérence) ; fallback à la même source
+  let filtered=coachAlims.filter(a=>{
+    if(a.nom===alim.nom)return false;
+    if(q&&!a.nom.toLowerCase().includes(low))return false;
+    if(sub.cat){
+      const s=foodSubCategory(a);
+      return s.cat===sub.cat;
+    }
+    return !src||(a.source||'')==src;
+  });
   filtered=filtered.slice(0,40);
   list.innerHTML=filtered.map(a=>{
     const newQte=a.kcal>0?Math.round(origKcalTotal/a.kcal*100):100;
