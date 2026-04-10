@@ -1509,77 +1509,63 @@ function togglePreviewSwap(btn){
   card.appendChild(menu);
 }
 
-/* ===== FOOD SWAP (EQUIVALENCES) ===== */
-// Sous-catégorie d'un aliment pour des équivalences cohérentes.
-// Renvoie { cat: 'feculent'|'legume'|'fruit'|'viande_blanche'|'viande_rouge'|'poisson'|'oeuf'|'laitier_prot'|'proteine_vegetale'|'huile'|'oleagineux'|'autre_lipide'|'', label: '...' }
+/* ===== FOOD SWAP (EQUIVALENCES) =====
+   Segmentation des aliments pour des équivalences cohérentes :
+   - GLUCIDES → féculent | legume | fruit  (strict, séparés)
+   - PROTEINES → proteine  (unifié : viande, poisson, œuf, laitier, whey, végétal)
+   - LIPIDES → lipide  (unifié : huile, oléagineux, avocat, beurre…)
+   Le macro réellement dominant est calculé pour corriger les mauvais taggings
+   du coach (ex: beurre de cacahuète tagué "proteines" → reclassé en lipide).
+*/
+function foodMacroProfile(a){
+  const p=(a.prot||0)*4, c=(a.carb||0)*4, f=(a.fat||0)*9;
+  const tot=p+c+f;
+  if(!tot)return{dominant:'',pPct:0,cPct:0,fPct:0};
+  const dominant = p>=c&&p>=f ? 'proteines' : (c>=f ? 'glucides' : 'lipides');
+  return{dominant,pPct:p/tot,cPct:c/tot,fPct:f/tot};
+}
 function foodSubCategory(alim){
-  if(!alim)return{cat:'',label:''};
-  const n=(alim.nom||'').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,''); // strip accents
-  const src=alim.source||'';
-  const kcal=alim.kcal||0,prot=alim.prot||0,carb=alim.carb||0,fat=alim.fat||0;
+  if(!alim)return{cat:'',src:'',label:''};
+  const n=(alim.nom||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const prof=foodMacroProfile(alim);
+  // Source effective : on part de celle du coach, mais si les macros réelles
+  // contredisent fortement (autre macro >50% des kcal), on bascule.
+  let src=alim.source||prof.dominant||'';
+  if(src && prof.dominant && src!==prof.dominant){
+    const dpct = prof.dominant==='proteines'?prof.pPct
+              : prof.dominant==='glucides'?prof.cPct
+              : prof.fPct;
+    if(dpct>0.5) src=prof.dominant;
+  }
   const has=arr=>arr.some(k=>n.includes(k));
 
-  // ===== GLUCIDES =====
+  // ===== GLUCIDES → féculent / légume / fruit =====
   if(src==='glucides'){
-    if(has(['riz','pates','pate ','spaghet','penne','fusilli','tagliat','macaroni','lasagn','nouille','ravioli','gnocchi',
-            'pomme de terre','patate','puree','frites','frite','potato',
-            'avoine','flocon','muesli','granola','cereale','cornflake',
-            'quinoa','boulgour','semoule','couscous','blé','ble ','blé ','epeautre','sarrasin','millet','polenta','orge','seigle',
-            'pain','baguette','toast','wrap','tortilla','pita','biscotte','wasa','cracker',
-            'legumineuse','lentille','pois chiche','haricot rouge','haricot blanc','haricot noir','feve','fève','soja sec',
-            'tapioca','manioc','igname']))
-      return{cat:'feculent',label:'Féculents'};
+    // Fruits
     if(has(['pomme','poire','banane','orange','clementine','mandarine','pamplemousse','citron',
             'fraise','framboise','myrtille','mure','cassis','groseille','cerise','raisin',
             'peche','nectarine','abricot','prune','mangue','ananas','kiwi','papaye','melon','pasteque',
-            'fruit','grenade','figue','datte','litchi','coco','noix de coco']))
-      return{cat:'fruit',label:'Fruits'};
-    // Par défaut un "glucide" peu calorique = légume
-    if(kcal<60||has(['legume','salade','laitue','roquette','epinard','mache','endive','chou','brocoli','chou-fleur','choufleur',
-                     'courgette','aubergine','poivron','tomate','concombre','radis','navet','carotte','betterave','celeri',
-                     'haricot vert','haricots verts','asperge','artichaut','poireau','oignon','echalote','ail','champignon',
-                     'fenouil','blette','cresson','potiron','courge','butternut','citrouille','okra','panais']))
-      return{cat:'legume',label:'Légumes'};
-    return{cat:'feculent',label:'Féculents'};
+            'grenade','figue','datte','litchi','fruit rouge','fruits rouges','compote']))
+      return{cat:'fruit',src:'glucides',label:'Fruits'};
+    // Légumes
+    if(has(['legume','salade','laitue','roquette','epinard','mache','endive','chou','brocoli','chou-fleur','choufleur',
+            'courgette','aubergine','poivron','tomate','concombre','radis','navet','carotte','betterave','celeri',
+            'haricot vert','haricots verts','asperge','artichaut','poireau','oignon','echalote','ail','champignon',
+            'fenouil','blette','cresson','potiron','courge','butternut','citrouille','okra','panais','crudite']))
+      return{cat:'legume',src:'glucides',label:'Légumes'};
+    // Par défaut → féculents (riz, pâtes, pain, avoine, crème de riz, pdt, légumineuses, etc.)
+    return{cat:'feculent',src:'glucides',label:'Féculents'};
   }
 
-  // ===== PROTEINES =====
-  if(src==='proteines'){
-    if(has(['poulet','dinde','dinde','volaille','poularde','pintade','caille','lapin','escalope']))
-      return{cat:'viande_blanche',label:'Viandes blanches'};
-    if(has(['boeuf','bœuf','steak','bavette','entrecote','rumsteck','rumsteak','faux-filet','filet de boeuf','tartare',
-            'veau','agneau','mouton','gigot','cheval','viande hachee','hache 5','hache15','hache 15','hache','jambon','bacon','lardon',
-            'porc','jambon blanc','jambon cru','rosbif','viande rouge']))
-      return{cat:'viande_rouge',label:'Viandes rouges & charcuterie'};
-    if(has(['poisson','thon','saumon','cabillaud','colin','lieu','merlu','sole','dorade','bar','daurade','maquereau',
-            'sardine','hareng','truite','rouget','espadon','perche','panga','tilapia','julienne','aiglefin','anchois',
-            'crevette','gambas','crabe','homard','langoustine','moule','huitre','calamar','poulpe','seiche','encornet','surimi','fruits de mer']))
-      return{cat:'poisson',label:'Poissons & fruits de mer'};
-    if(has(['oeuf','œuf','blanc d','jaune d','omelette']))
-      return{cat:'oeuf',label:'Œufs'};
-    if(has(['yaourt','skyr','fromage blanc','cottage','faisselle','petit suisse','quark','kefir','ricotta','mozzarella','feta',
-            'fromage','parmesan','comte','emmental','gruyere','cheddar','chevre','brebis','lait']))
-      return{cat:'laitier_prot',label:'Produits laitiers'};
-    if(has(['tofu','seitan','tempeh','soja','protéine vegetale','proteine vegetale','proteines vegetales','steak vegetal','simili']))
-      return{cat:'proteine_vegetale',label:'Protéines végétales'};
-    return{cat:'autre_proteine',label:'Protéines'};
-  }
+  // ===== PROTEINES → unifié =====
+  if(src==='proteines')
+    return{cat:'proteine',src:'proteines',label:'Sources de protéines'};
 
-  // ===== LIPIDES =====
-  if(src==='lipides'){
-    if(has(['huile']))
-      return{cat:'huile',label:'Huiles'};
-    if(has(['amande','noix','noisette','cacahuete','arachide','pistache','noix de cajou','cajou','pecan','macadamia','graine','sesame','tournesol','lin','chia','courge','beurre de cacahuete','purée d','puree d']))
-      return{cat:'oleagineux',label:'Oléagineux & graines'};
-    if(has(['avocat']))
-      return{cat:'avocat',label:'Avocat'};
-    if(has(['beurre','margarine','creme','crème','ghee','saindoux']))
-      return{cat:'mat_grasse',label:'Matières grasses'};
-    return{cat:'autre_lipide',label:'Lipides'};
-  }
+  // ===== LIPIDES → unifié =====
+  if(src==='lipides')
+    return{cat:'lipide',src:'lipides',label:'Sources de lipides'};
 
-  return{cat:'',label:''};
+  return{cat:'',src:'',label:''};
 }
 
 function showFoodSwap(planIdx,dayIdx,ri,ai){
