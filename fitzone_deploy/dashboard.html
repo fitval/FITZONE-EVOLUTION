@@ -240,6 +240,56 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .road-toolbar .rbtn-paste:hover{background:#b8882a}
 .road-toolbar .rcopy-info{font-size:11px;color:var(--text3)}
 .road-table.rcopy-mode td .rsel,.road-table.rcopy-mode td .rin{pointer-events:none}
+/* === MARKETING & FINANCES === */
+.mk-tabs{display:flex;gap:6px;margin-bottom:16px}
+.mk-tab{font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;border:1.5px solid var(--border2);background:var(--white);cursor:pointer;font-family:var(--font);color:var(--text3);transition:all .15s}
+.mk-tab:hover{border-color:var(--gold);color:var(--gold)}
+.mk-tab.active{background:var(--dark);color:white;border-color:var(--dark)}
+.mk-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.mk-toolbar .mk-btn{font-size:11px;font-weight:700;padding:6px 14px;border-radius:6px;border:1.5px solid var(--border2);background:var(--white);cursor:pointer;font-family:var(--font);color:var(--text);transition:all .15s}
+.mk-toolbar .mk-btn:hover{border-color:var(--gold);color:var(--gold)}
+.mk-toolbar .mk-btn-gold{background:var(--gold);color:white;border-color:var(--gold)}
+.mk-toolbar .mk-btn-gold:hover{background:#b8882a}
+.mk-toolbar .mk-btn-dark{background:var(--dark);color:white;border-color:var(--dark)}
+.mk-wrap{overflow-x:auto;max-height:75vh;overflow-y:auto;border-radius:var(--radius);border:1.5px solid var(--border);box-shadow:var(--shadow-sm)}
+.mk-table{width:100%;background:var(--white)}
+.mk-table table{width:100%;border-collapse:collapse;min-width:2200px}
+.mk-table thead th{background:var(--dark);color:rgba(255,255,255,.5);font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:8px 6px;text-align:center;border-right:1px solid rgba(255,255,255,.06);white-space:nowrap;position:sticky;top:0;z-index:2}
+.mk-table thead th.th-mk1{background:#2563eb;color:rgba(255,255,255,.85)}
+.mk-table thead th.th-mk2{background:#7c3aed;color:rgba(255,255,255,.85)}
+.mk-table thead th.th-mk3{background:#059669;color:rgba(255,255,255,.85)}
+.mk-table thead th.th-mk4{background:var(--gold);color:rgba(0,0,0,.7)}
+.mk-table td{padding:5px 6px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:11px;vertical-align:middle;text-align:center}
+.mk-table tbody tr:nth-child(even) td{background:rgba(0,0,0,.015)}
+.mk-table tbody tr:hover td{background:var(--gold-pale)}
+.mk-table .mk-in{background:var(--bg);border:1.5px solid var(--border2);border-radius:5px;padding:4px 6px;font-size:11px;outline:none;font-family:var(--font);width:100%;color:var(--text);text-align:center}
+.mk-table .mk-in:focus{border-color:var(--gold);background:var(--white);box-shadow:0 0 0 3px var(--gold-pale)}
+.mk-table .mk-calc{background:none;border:none;font-weight:700;font-size:11px;color:var(--dark);text-align:center}
+.mk-table .mk-calc-good{color:#059669}
+.mk-table .mk-calc-warn{color:#d97706}
+.mk-table .mk-calc-bad{color:#dc2626}
+.mk-table td.mk-del{cursor:pointer;color:var(--text3);font-size:13px}
+.mk-table td.mk-del:hover{color:#dc2626}
+.mk-summary{display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.mk-summary-card{flex:1;min-width:140px;padding:14px 16px;background:var(--white);border-radius:var(--radius);border:1.5px solid var(--border);box-shadow:var(--shadow-sm)}
+.mk-summary-card .mk-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:4px}
+.mk-summary-card .mk-val{font-size:18px;font-weight:800;color:var(--dark)}
+.mk-summary-card .mk-val small{font-size:11px;font-weight:500;color:var(--text3)}
+/* Finance section */
+.fin-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.fin-grid{grid-template-columns:1fr}}
+.fin-card{background:var(--white);border-radius:var(--radius);border:1.5px solid var(--border);box-shadow:var(--shadow-sm);padding:20px}
+.fin-card h3{font-size:14px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.fin-table{width:100%;border-collapse:collapse}
+.fin-table th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);padding:8px 6px;text-align:left;border-bottom:1.5px solid var(--border)}
+.fin-table td{padding:7px 6px;border-bottom:1px solid var(--border);font-size:12px}
+.fin-table .fi{font-size:12px;padding:5px 8px}
+.fin-total{font-size:16px;font-weight:800;padding:12px 0;display:flex;justify-content:space-between;border-top:2px solid var(--dark)}
+.fin-total.fin-green{color:#059669}
+.fin-total.fin-red{color:#dc2626}
+.fin-balance{margin-top:20px;padding:16px;background:var(--dark);border-radius:var(--rsm);text-align:center}
+.fin-balance .fin-b-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.4);margin-bottom:4px}
+.fin-balance .fin-b-val{font-size:28px;font-weight:900;color:var(--gold-light)}
 
 /* NUTRITION CLIENT */
 .kcal-in{font-size:30px;font-weight:800;color:var(--gold);background:none;border:none;border-bottom:2px solid rgba(255,255,255,.15);outline:none;width:160px;font-family:var(--font);letter-spacing:-1px}
@@ -454,6 +504,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div class="sb-sec" id="admin-sec" style="display:none">Super Admin</div>
     <div class="sb-item" onclick="showPage('admin-coaches',this)" id="nav-ac" style="display:none"><span class="sb-ico">🛡️</span>Gestion Coachs</div>
     <div class="sb-item" onclick="showPage('admin-clients',this)" id="nav-acl" style="display:none"><span class="sb-ico">👥</span>Tous les clients</div>
+    <div class="sb-item" onclick="showPage('marketing',this)" id="nav-mk" style="display:none"><span class="sb-ico">📊</span>Marketing & Finances</div>
 
     <div class="sb-sec">Administration</div>
     <div class="sb-item" onclick="showPage('reward-requests',this)" id="nav-rr"><span class="sb-ico">🎁</span>Récompenses<span class="sb-badge" id="rrBadge" style="display:none">0</span></div>
@@ -930,6 +981,15 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <div id="rewardRequestsList"></div>
       </div>
     </div>
+  </div>
+
+  <div class="page" id="page-marketing">
+    <div class="mk-tabs" style="display:flex;gap:6px;margin-bottom:16px">
+      <button class="mk-tab active" onclick="switchMkTab('tracking',this)">📈 Suivi Marketing</button>
+      <button class="mk-tab" onclick="switchMkTab('finance',this)">💰 Suivi Financier</button>
+    </div>
+    <div id="mk-tracking"></div>
+    <div id="mk-finance" style="display:none"></div>
   </div>
 
   <!-- DETAIL CLIENT -->
@@ -1718,6 +1778,9 @@ async function checkAuth(){
     document.getElementById('nav-acl').style.display='';
     document.getElementById('nav-rec-p').style.display='';
   }
+  if(role==='super_admin'){
+    document.getElementById('nav-mk').style.display='';
+  }
   // Nutrition section
   if(!canNutrition){document.getElementById('nav-nut-p').style.display='none';document.getElementById('sub-nut').style.display='none';}
   // Training section
@@ -1803,7 +1866,7 @@ function showPage(name,el){
   sessionStorage.removeItem('fz_current_client');
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses'};
+  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses',marketing:'Marketing & Finances'};
   document.getElementById('tbTitle').textContent=titles[name]||name;
   document.getElementById('backBtn').style.display='none';
   const actMap={overview:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`,'rec-forms':`<button class="btn btn-dark" onclick="openRecFormBuilder()">+ Questionnaire</button>`};
@@ -1820,6 +1883,7 @@ function showPage(name,el){
   if(name==='rec-forms')renderRecForms();
   if(name==='rec-responses')renderRecResponses();
   if(name==='reward-requests'){renderRewardsSettings();renderLevelsSettings();renderRewardRequestsPage();}
+  if(name==='marketing'){renderMkTracking();renderMkFinance();}
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
@@ -7077,6 +7141,286 @@ async function awardManualPoints(){
 
   toast(`+${pts} pts attribués à ${curClient.first_name} ✓`);
   renderGamifTab();
+}
+
+/* ===== MARKETING & FINANCES ===== */
+function switchMkTab(name,el){
+  document.querySelectorAll('.mk-tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  document.getElementById('mk-tracking').style.display=name==='tracking'?'':'none';
+  document.getElementById('mk-finance').style.display=name==='finance'?'':'none';
+}
+
+// Marketing tracking data: {rows: [{date, depense, leads, appeles, decroches, qualifies, rdv_setting, rdv_auto, appels_prevus, appels_pris, ventes, revenus, cash}, ...]}
+function getMkData(){return lsGet('fz_marketing',{rows:[]});}
+function saveMkData(d){lsSave('fz_marketing',d);}
+
+function mkCalc(row){
+  const r={...row};
+  r.cpl=r.leads>0?(r.depense/r.leads):0;
+  r.pct_decroche=r.appeles>0?((r.decroches/r.appeles)*100):0;
+  r.cout_appel_setting=r.decroches>0?(r.depense/r.decroches):0;
+  r.cout_qualifie=r.qualifies>0?(r.depense/r.qualifies):0;
+  r.cout_rdv_setting=r.rdv_setting>0?(r.depense/r.rdv_setting):0;
+  r.cout_rdv_auto=r.rdv_auto>0?(r.depense/r.rdv_auto):0;
+  r.taux_showup=r.appels_prevus>0?((r.appels_pris/r.appels_prevus)*100):0;
+  r.cout_appel_pris=r.appels_pris>0?(r.depense/r.appels_pris):0;
+  r.taux_closing=r.appels_pris>0?((r.ventes/r.appels_pris)*100):0;
+  return r;
+}
+
+function mkFmt(v,type){
+  if(type==='eur')return v?v.toFixed(2)+'€':'—';
+  if(type==='pct')return v?v.toFixed(1)+'%':'—';
+  if(type==='int')return v||'—';
+  return v||'—';
+}
+
+function renderMkTracking(){
+  const el=document.getElementById('mk-tracking');
+  const data=getMkData();
+  const rows=data.rows||[];
+
+  // Summary cards
+  const totDepense=rows.reduce((s,r)=>s+(parseFloat(r.depense)||0),0);
+  const totLeads=rows.reduce((s,r)=>s+(parseInt(r.leads)||0),0);
+  const totVentes=rows.reduce((s,r)=>s+(parseInt(r.ventes)||0),0);
+  const totRevenu=rows.reduce((s,r)=>s+(parseFloat(r.revenus)||0),0);
+  const totCash=rows.reduce((s,r)=>s+(parseFloat(r.cash)||0),0);
+  const avgCpl=totLeads>0?(totDepense/totLeads):0;
+  const roi=totDepense>0?((totRevenu/totDepense)*100):0;
+
+  let summary=`<div class="mk-summary">
+    <div class="mk-summary-card"><div class="mk-label">Dépense totale</div><div class="mk-val">${totDepense.toFixed(0)}€</div></div>
+    <div class="mk-summary-card"><div class="mk-label">Total leads</div><div class="mk-val">${totLeads}</div></div>
+    <div class="mk-summary-card"><div class="mk-label">CPL moyen</div><div class="mk-val">${avgCpl.toFixed(2)}€</div></div>
+    <div class="mk-summary-card"><div class="mk-label">Ventes</div><div class="mk-val">${totVentes}</div></div>
+    <div class="mk-summary-card"><div class="mk-label">Revenus</div><div class="mk-val">${totRevenu.toFixed(0)}€</div></div>
+    <div class="mk-summary-card"><div class="mk-label">Cash collecté</div><div class="mk-val">${totCash.toFixed(0)}€</div></div>
+    <div class="mk-summary-card"><div class="mk-label">ROI</div><div class="mk-val ${roi>=200?'mk-calc-good':roi>=100?'mk-calc-warn':'mk-calc-bad'}">${roi.toFixed(0)}%</div></div>
+  </div>`;
+
+  let toolbar=`<div class="mk-toolbar">
+    <button class="mk-btn mk-btn-dark" onclick="addMkRow()">+ Ajouter une journée</button>
+    <div style="flex:1"></div>
+    <button class="mk-btn mk-btn-gold" onclick="saveMkToast()">💾 Enregistrer</button>
+  </div>`;
+
+  let thead=`<tr>
+    <th style="min-width:36px">×</th>
+    <th class="th-mk1" style="min-width:100px">DATE</th>
+    <th class="th-mk1" style="min-width:90px">DÉPENSE PUB</th>
+    <th class="th-mk1" style="min-width:70px">NB LEADS</th>
+    <th class="th-mk1" style="min-width:70px">CPL</th>
+    <th class="th-mk2" style="min-width:80px">LEADS APPELÉS</th>
+    <th class="th-mk2" style="min-width:80px">DÉCROCHÉS</th>
+    <th class="th-mk2" style="min-width:70px">% DÉCROCHE</th>
+    <th class="th-mk2" style="min-width:90px">COÛT / SETTING</th>
+    <th class="th-mk2" style="min-width:80px">QUALIFIÉS</th>
+    <th class="th-mk2" style="min-width:90px">COÛT / QUALIFIÉ</th>
+    <th class="th-mk3" style="min-width:80px">RDV SETTING</th>
+    <th class="th-mk3" style="min-width:80px">RDV AUTO</th>
+    <th class="th-mk3" style="min-width:90px">COÛT RDV SET.</th>
+    <th class="th-mk3" style="min-width:90px">COÛT RDV AUTO</th>
+    <th class="th-mk3" style="min-width:80px">APPELS PRÉVUS</th>
+    <th class="th-mk3" style="min-width:80px">APPELS PRIS</th>
+    <th class="th-mk3" style="min-width:70px">SHOW-UP</th>
+    <th class="th-mk3" style="min-width:90px">COÛT / APPEL</th>
+    <th class="th-mk4" style="min-width:60px">VENTES</th>
+    <th class="th-mk4" style="min-width:70px">TX CLOSING</th>
+    <th class="th-mk4" style="min-width:80px">REVENUS</th>
+    <th class="th-mk4" style="min-width:90px">CASH COLLECTÉ</th>
+  </tr>`;
+
+  let tbody='';
+  rows.forEach((row,i)=>{
+    const c=mkCalc(row);
+    tbody+=`<tr>
+      <td class="mk-del" onclick="delMkRow(${i})" title="Supprimer">🗑</td>
+      <td><input class="mk-in" type="date" value="${row.date||''}" oninput="updMk(${i},'date',this.value)"></td>
+      <td><input class="mk-in" type="number" step="0.01" value="${row.depense||''}" placeholder="0" oninput="updMk(${i},'depense',this.value)" style="min-width:80px"></td>
+      <td><input class="mk-in" type="number" value="${row.leads||''}" placeholder="0" oninput="updMk(${i},'leads',this.value)"></td>
+      <td><span class="mk-calc">${mkFmt(c.cpl,'eur')}</span></td>
+      <td><input class="mk-in" type="number" value="${row.appeles||''}" placeholder="0" oninput="updMk(${i},'appeles',this.value)"></td>
+      <td><input class="mk-in" type="number" value="${row.decroches||''}" placeholder="0" oninput="updMk(${i},'decroches',this.value)"></td>
+      <td><span class="mk-calc ${c.pct_decroche>=50?'mk-calc-good':c.pct_decroche>=30?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.pct_decroche,'pct')}</span></td>
+      <td><span class="mk-calc">${mkFmt(c.cout_appel_setting,'eur')}</span></td>
+      <td><input class="mk-in" type="number" value="${row.qualifies||''}" placeholder="0" oninput="updMk(${i},'qualifies',this.value)"></td>
+      <td><span class="mk-calc">${mkFmt(c.cout_qualifie,'eur')}</span></td>
+      <td><input class="mk-in" type="number" value="${row.rdv_setting||''}" placeholder="0" oninput="updMk(${i},'rdv_setting',this.value)"></td>
+      <td><input class="mk-in" type="number" value="${row.rdv_auto||''}" placeholder="0" oninput="updMk(${i},'rdv_auto',this.value)"></td>
+      <td><span class="mk-calc">${mkFmt(c.cout_rdv_setting,'eur')}</span></td>
+      <td><span class="mk-calc">${mkFmt(c.cout_rdv_auto,'eur')}</span></td>
+      <td><input class="mk-in" type="number" value="${row.appels_prevus||''}" placeholder="0" oninput="updMk(${i},'appels_prevus',this.value)"></td>
+      <td><input class="mk-in" type="number" value="${row.appels_pris||''}" placeholder="0" oninput="updMk(${i},'appels_pris',this.value)"></td>
+      <td><span class="mk-calc ${c.taux_showup>=70?'mk-calc-good':c.taux_showup>=50?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.taux_showup,'pct')}</span></td>
+      <td><span class="mk-calc">${mkFmt(c.cout_appel_pris,'eur')}</span></td>
+      <td><input class="mk-in" type="number" value="${row.ventes||''}" placeholder="0" oninput="updMk(${i},'ventes',this.value)"></td>
+      <td><span class="mk-calc ${c.taux_closing>=30?'mk-calc-good':c.taux_closing>=15?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.taux_closing,'pct')}</span></td>
+      <td><input class="mk-in" type="number" step="0.01" value="${row.revenus||''}" placeholder="0" oninput="updMk(${i},'revenus',this.value)" style="min-width:80px"></td>
+      <td><input class="mk-in" type="number" step="0.01" value="${row.cash||''}" placeholder="0" oninput="updMk(${i},'cash',this.value)" style="min-width:80px"></td>
+    </tr>`;
+  });
+
+  // Totals row
+  if(rows.length>0){
+    const totAppeles=rows.reduce((s,r)=>s+(parseInt(r.appeles)||0),0);
+    const totDecroches=rows.reduce((s,r)=>s+(parseInt(r.decroches)||0),0);
+    const totQual=rows.reduce((s,r)=>s+(parseInt(r.qualifies)||0),0);
+    const totRdvSet=rows.reduce((s,r)=>s+(parseInt(r.rdv_setting)||0),0);
+    const totRdvAuto=rows.reduce((s,r)=>s+(parseInt(r.rdv_auto)||0),0);
+    const totPrevus=rows.reduce((s,r)=>s+(parseInt(r.appels_prevus)||0),0);
+    const totPris=rows.reduce((s,r)=>s+(parseInt(r.appels_pris)||0),0);
+    const pctDec=totAppeles>0?((totDecroches/totAppeles)*100):0;
+    const coutSet=totDecroches>0?(totDepense/totDecroches):0;
+    const coutQual=totQual>0?(totDepense/totQual):0;
+    const coutRdvS=totRdvSet>0?(totDepense/totRdvSet):0;
+    const coutRdvA=totRdvAuto>0?(totDepense/totRdvAuto):0;
+    const showUp=totPrevus>0?((totPris/totPrevus)*100):0;
+    const coutPris=totPris>0?(totDepense/totPris):0;
+    const txClose=totPris>0?((totVentes/totPris)*100):0;
+    tbody+=`<tr style="background:var(--bg2);font-weight:700">
+      <td></td><td style="font-weight:800">TOTAL</td>
+      <td>${totDepense.toFixed(0)}€</td><td>${totLeads}</td><td>${avgCpl.toFixed(2)}€</td>
+      <td>${totAppeles}</td><td>${totDecroches}</td><td>${pctDec.toFixed(1)}%</td><td>${coutSet.toFixed(2)}€</td>
+      <td>${totQual}</td><td>${coutQual.toFixed(2)}€</td>
+      <td>${totRdvSet}</td><td>${totRdvAuto}</td><td>${coutRdvS.toFixed(2)}€</td><td>${coutRdvA.toFixed(2)}€</td>
+      <td>${totPrevus}</td><td>${totPris}</td><td>${showUp.toFixed(1)}%</td><td>${coutPris.toFixed(2)}€</td>
+      <td>${totVentes}</td><td>${txClose.toFixed(1)}%</td><td>${totRevenu.toFixed(0)}€</td><td>${totCash.toFixed(0)}€</td>
+    </tr>`;
+  }
+
+  el.innerHTML=summary+toolbar+`<div class="mk-wrap"><div class="mk-table"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div></div>`;
+}
+
+function addMkRow(){
+  const d=getMkData();
+  d.rows.push({date:new Date().toISOString().slice(0,10),depense:0,leads:0,appeles:0,decroches:0,qualifies:0,rdv_setting:0,rdv_auto:0,appels_prevus:0,appels_pris:0,ventes:0,revenus:0,cash:0});
+  saveMkData(d);renderMkTracking();
+}
+function delMkRow(i){
+  if(!confirm('Supprimer cette ligne ?'))return;
+  const d=getMkData();d.rows.splice(i,1);saveMkData(d);renderMkTracking();
+}
+function updMk(i,field,val){
+  const d=getMkData();
+  if(!d.rows[i])return;
+  d.rows[i][field]=['date'].includes(field)?val:parseFloat(val)||0;
+  saveMkData(d);
+  // Re-render summary + totals without full re-render to avoid input focus loss
+  // Only do full re-render for non-input fields
+}
+function saveMkToast(){
+  // Data is already auto-saved, just confirm
+  toast('Données marketing enregistrées ✓');
+}
+
+/* ===== SUIVI FINANCIER ===== */
+function getFinData(){
+  const d=lsGet('fz_finance',{});
+  const key=window._finMonth||new Date().toISOString().slice(0,7);
+  if(!d[key])d[key]={depenses:[],rentrees:[]};
+  return d;
+}
+function saveFinData(d){lsSave('fz_finance',d);}
+function getFinMonth(){return window._finMonth||new Date().toISOString().slice(0,7);}
+
+const finDepTypes=['Publicité','Logiciels/Outils','Salle/Location','Matériel','Comptabilité','Assurance','Téléphone/Internet','Déplacement','Formation','Sous-traitance','Autre'];
+const finRenTypes=['Coaching individuel','Coaching groupe','Programme en ligne','Consultation','Abonnement','Autre'];
+
+function renderMkFinance(){
+  const el=document.getElementById('mk-finance');
+  const month=getFinMonth();
+  const all=getFinData();
+  const data=all[month]||{depenses:[],rentrees:[]};
+
+  const totDep=data.depenses.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+  const totRen=data.rentrees.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+  const balance=totRen-totDep;
+
+  // Month selector
+  let monthSel=`<div class="mk-toolbar">
+    <label style="font-size:12px;font-weight:700;color:var(--text2)">Mois :</label>
+    <input type="month" class="fi" style="width:170px;font-size:13px" value="${month}" onchange="window._finMonth=this.value;renderMkFinance()">
+    <div style="flex:1"></div>
+  </div>`;
+
+  // Balance card
+  let balCard=`<div class="fin-balance">
+    <div class="fin-b-label">Balance du mois</div>
+    <div class="fin-b-val" style="color:${balance>=0?'#4ade80':'#f87171'}">${balance>=0?'+':''}${balance.toFixed(2)}€</div>
+  </div>`;
+
+  // Dépenses table
+  let depRows='';
+  data.depenses.forEach((r,i)=>{
+    depRows+=`<tr>
+      <td><select class="fi" style="font-size:11px;padding:4px 6px" onchange="updFin('${month}','depenses',${i},'type',this.value)">${finDepTypes.map(t=>`<option${r.type===t?' selected':''}>${t}</option>`).join('')}</select></td>
+      <td><input class="fi" style="font-size:11px;padding:4px 6px" value="${r.label||''}" placeholder="Description…" oninput="updFin('${month}','depenses',${i},'label',this.value)"></td>
+      <td><input class="fi" type="number" step="0.01" style="font-size:11px;padding:4px 6px;width:90px" value="${r.montant||''}" placeholder="0" oninput="updFin('${month}','depenses',${i},'montant',this.value)"></td>
+      <td><input class="fi" type="date" style="font-size:11px;padding:4px 6px" value="${r.date||''}" oninput="updFin('${month}','depenses',${i},'date',this.value)"></td>
+      <td style="cursor:pointer;color:var(--text3);text-align:center" onclick="delFin('${month}','depenses',${i})" title="Supprimer">🗑</td>
+    </tr>`;
+  });
+
+  // Rentrées table
+  let renRows='';
+  data.rentrees.forEach((r,i)=>{
+    renRows+=`<tr>
+      <td><select class="fi" style="font-size:11px;padding:4px 6px" onchange="updFin('${month}','rentrees',${i},'type',this.value)">${finRenTypes.map(t=>`<option${r.type===t?' selected':''}>${t}</option>`).join('')}</select></td>
+      <td><input class="fi" style="font-size:11px;padding:4px 6px" value="${r.label||''}" placeholder="Description…" oninput="updFin('${month}','rentrees',${i},'label',this.value)"></td>
+      <td><input class="fi" type="number" step="0.01" style="font-size:11px;padding:4px 6px;width:90px" value="${r.montant||''}" placeholder="0" oninput="updFin('${month}','rentrees',${i},'montant',this.value)"></td>
+      <td><input class="fi" type="date" style="font-size:11px;padding:4px 6px" value="${r.date||''}" oninput="updFin('${month}','rentrees',${i},'date',this.value)"></td>
+      <td style="cursor:pointer;color:var(--text3);text-align:center" onclick="delFin('${month}','rentrees',${i})" title="Supprimer">🗑</td>
+    </tr>`;
+  });
+
+  el.innerHTML=monthSel+`
+  <div class="fin-grid">
+    <div class="fin-card">
+      <h3><span style="color:#dc2626">📉</span> Dépenses</h3>
+      <table class="fin-table">
+        <thead><tr><th>Type</th><th>Description</th><th>Montant</th><th>Date</th><th style="width:30px"></th></tr></thead>
+        <tbody>${depRows}</tbody>
+      </table>
+      <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addFin('${month}','depenses')">+ Ajouter une dépense</button>
+      <div class="fin-total fin-red">
+        <span>Total dépenses</span><span>${totDep.toFixed(2)}€</span>
+      </div>
+    </div>
+    <div class="fin-card">
+      <h3><span style="color:#059669">📈</span> Rentrées d'argent</h3>
+      <table class="fin-table">
+        <thead><tr><th>Type</th><th>Description</th><th>Montant</th><th>Date</th><th style="width:30px"></th></tr></thead>
+        <tbody>${renRows}</tbody>
+      </table>
+      <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addFin('${month}','rentrees')">+ Ajouter une rentrée</button>
+      <div class="fin-total fin-green">
+        <span>Total rentrées</span><span>${totRen.toFixed(2)}€</span>
+      </div>
+    </div>
+  </div>
+  ${balCard}`;
+}
+
+function addFin(month,cat){
+  const all=getFinData();
+  if(!all[month])all[month]={depenses:[],rentrees:[]};
+  const defType=cat==='depenses'?finDepTypes[0]:finRenTypes[0];
+  all[month][cat].push({type:defType,label:'',montant:0,date:new Date().toISOString().slice(0,10)});
+  saveFinData(all);renderMkFinance();
+}
+function delFin(month,cat,i){
+  const all=getFinData();
+  if(!all[month]||!all[month][cat])return;
+  all[month][cat].splice(i,1);
+  saveFinData(all);renderMkFinance();
+}
+function updFin(month,cat,i,field,val){
+  const all=getFinData();
+  if(!all[month]||!all[month][cat]||!all[month][cat][i])return;
+  all[month][cat][i][field]=field==='montant'?(parseFloat(val)||0):val;
+  saveFinData(all);
 }
 </script>
 </body>
