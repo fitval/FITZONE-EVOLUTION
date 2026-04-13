@@ -290,6 +290,9 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .fin-balance{margin-top:20px;padding:16px;background:var(--dark);border-radius:var(--rsm);text-align:center}
 .fin-balance .fin-b-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.4);margin-bottom:4px}
 .fin-balance .fin-b-val{font-size:28px;font-weight:900;color:var(--gold-light)}
+.mk-wk-arr{display:inline-block;transition:transform .15s;margin-right:4px;font-size:9px}
+.mk-wk-arr.mk-wk-open{transform:rotate(90deg)}
+.mk-wk-hide{display:none}
 
 /* NUTRITION CLIENT */
 .kcal-in{font-size:30px;font-weight:800;color:var(--gold);background:none;border:none;border-bottom:2px solid rgba(255,255,255,.15);outline:none;width:160px;font-family:var(--font);letter-spacing:-1px}
@@ -7144,6 +7147,10 @@ async function awardManualPoints(){
 }
 
 /* ===== MARKETING & FINANCES ===== */
+let mkView='mensuel'; // mensuel, hebdo, annuel
+let mkMonth=new Date().toISOString().slice(0,7); // "2026-04"
+let mkYear=new Date().getFullYear();
+
 function switchMkTab(name,el){
   document.querySelectorAll('.mk-tab').forEach(t=>t.classList.remove('active'));
   if(el)el.classList.add('active');
@@ -7151,256 +7158,480 @@ function switchMkTab(name,el){
   document.getElementById('mk-finance').style.display=name==='finance'?'':'none';
 }
 
-// Marketing tracking data: {rows: [{date, depense, leads, appeles, decroches, qualifies, rdv_setting, rdv_auto, appels_prevus, appels_pris, ventes, revenus, cash}, ...]}
-function getMkData(){return lsGet('fz_marketing',{rows:[]});}
-function saveMkData(d){lsSave('fz_marketing',d);}
+// Data: { "2026-04": { "2026-04-01": {...}, "2026-04-02": {...}, ... } }
+function getMkData(){return lsGet('fz_marketing_v2',{});}
+function saveMkData(d){lsSave('fz_marketing_v2',d);}
+
+function mkDaysInMonth(ym){
+  const[y,m]=ym.split('-').map(Number);
+  return new Date(y,m,0).getDate();
+}
+function mkCreateMonth(ym){
+  const d=getMkData();
+  if(d[ym]&&Object.keys(d[ym]).length>0)return;
+  d[ym]={};
+  const days=mkDaysInMonth(ym);
+  for(let i=1;i<=days;i++){
+    const day=String(i).padStart(2,'0');
+    const key=ym+'-'+day;
+    d[ym][key]={depense:0,leads:0,appeles:0,decroches:0,qualifies:0,rdv_setting:0,rdv_auto:0,appels_prevus:0,appels_pris:0,ventes:0,revenus:0,cash:0,notes:''};
+  }
+  saveMkData(d);
+}
+function mkAvailableMonths(){
+  return Object.keys(getMkData()).sort();
+}
 
 function mkCalc(row){
   const r={...row};
-  r.cpl=r.leads>0?(r.depense/r.leads):0;
-  r.pct_decroche=r.appeles>0?((r.decroches/r.appeles)*100):0;
-  r.cout_appel_setting=r.decroches>0?(r.depense/r.decroches):0;
-  r.cout_qualifie=r.qualifies>0?(r.depense/r.qualifies):0;
-  r.cout_rdv_setting=r.rdv_setting>0?(r.depense/r.rdv_setting):0;
-  r.cout_rdv_auto=r.rdv_auto>0?(r.depense/r.rdv_auto):0;
-  r.taux_showup=r.appels_prevus>0?((r.appels_pris/r.appels_prevus)*100):0;
-  r.cout_appel_pris=r.appels_pris>0?(r.depense/r.appels_pris):0;
-  r.taux_closing=r.appels_pris>0?((r.ventes/r.appels_pris)*100):0;
+  const dep=parseFloat(r.depense)||0;
+  const leads=parseInt(r.leads)||0;
+  const appeles=parseInt(r.appeles)||0;
+  const dec=parseInt(r.decroches)||0;
+  const qual=parseInt(r.qualifies)||0;
+  const rdvS=parseInt(r.rdv_setting)||0;
+  const rdvA=parseInt(r.rdv_auto)||0;
+  const prev=parseInt(r.appels_prevus)||0;
+  const pris=parseInt(r.appels_pris)||0;
+  const ventes=parseInt(r.ventes)||0;
+  r.cpl=leads>0?(dep/leads):0;
+  r.pct_decroche=appeles>0?((dec/appeles)*100):0;
+  r.cout_appel_setting=dec>0?(dep/dec):0;
+  r.cout_qualifie=qual>0?(dep/qual):0;
+  r.cout_rdv_setting=rdvS>0?(dep/rdvS):0;
+  r.cout_rdv_auto=rdvA>0?(dep/rdvA):0;
+  r.taux_showup=prev>0?((pris/prev)*100):0;
+  r.cout_appel_pris=pris>0?(dep/pris):0;
+  r.taux_closing=pris>0?((ventes/pris)*100):0;
   return r;
 }
-
 function mkFmt(v,type){
   if(type==='eur')return v?v.toFixed(2)+'€':'—';
   if(type==='pct')return v?v.toFixed(1)+'%':'—';
-  if(type==='int')return v||'—';
   return v||'—';
+}
+function mkSumRows(rows){
+  const s={depense:0,leads:0,appeles:0,decroches:0,qualifies:0,rdv_setting:0,rdv_auto:0,appels_prevus:0,appels_pris:0,ventes:0,revenus:0,cash:0};
+  rows.forEach(r=>{Object.keys(s).forEach(k=>{s[k]+=(parseFloat(r[k])||0);});});
+  return s;
+}
+function mkAvgRows(rows){
+  const s=mkSumRows(rows);
+  const n=rows.filter(r=>(parseFloat(r.depense)||0)>0||(parseInt(r.leads)||0)>0).length||1;
+  Object.keys(s).forEach(k=>{s[k]=s[k]/n;});
+  return s;
+}
+
+function mkSetView(v){mkView=v;renderMkTracking();}
+function mkSetMonth(v){mkMonth=v;renderMkTracking();}
+function mkSetYear(v){mkYear=parseInt(v);renderMkTracking();}
+
+function mkThead(){
+  return`<tr>
+    <th style="min-width:90px">PÉRIODE</th>
+    <th class="th-mk1" style="min-width:85px">DÉPENSE PUB</th>
+    <th class="th-mk1" style="min-width:65px">NB LEADS</th>
+    <th class="th-mk1" style="min-width:65px">CPL</th>
+    <th class="th-mk2" style="min-width:75px">APPELÉS</th>
+    <th class="th-mk2" style="min-width:75px">DÉCROCHÉS</th>
+    <th class="th-mk2" style="min-width:65px">% DÉC.</th>
+    <th class="th-mk2" style="min-width:80px">COÛT/SET.</th>
+    <th class="th-mk2" style="min-width:75px">QUALIFIÉS</th>
+    <th class="th-mk2" style="min-width:80px">COÛT/QUAL.</th>
+    <th class="th-mk3" style="min-width:70px">RDV SET.</th>
+    <th class="th-mk3" style="min-width:70px">RDV AUTO</th>
+    <th class="th-mk3" style="min-width:80px">C. RDV S.</th>
+    <th class="th-mk3" style="min-width:80px">C. RDV A.</th>
+    <th class="th-mk3" style="min-width:75px">APP. PRÉVUS</th>
+    <th class="th-mk3" style="min-width:75px">APP. PRIS</th>
+    <th class="th-mk3" style="min-width:65px">SHOW-UP</th>
+    <th class="th-mk3" style="min-width:80px">COÛT/APP.</th>
+    <th class="th-mk4" style="min-width:55px">VENTES</th>
+    <th class="th-mk4" style="min-width:65px">TX CLOS.</th>
+    <th class="th-mk4" style="min-width:75px">REVENUS</th>
+    <th class="th-mk4" style="min-width:80px">CASH COLL.</th>
+    <th style="min-width:120px">NOTES</th>
+  </tr>`;
+}
+
+function mkRowInput(monthKey,dateKey,row,label){
+  const c=mkCalc(row);
+  const id=monthKey+'|'+dateKey;
+  return`<tr>
+    <td style="font-weight:700;font-size:11px;white-space:nowrap;text-align:left">${label}</td>
+    <td><input class="mk-in" type="number" step="0.01" value="${row.depense||''}" placeholder="0" oninput="updMk2('${id}','depense',this.value)"></td>
+    <td><input class="mk-in" type="number" value="${row.leads||''}" placeholder="0" oninput="updMk2('${id}','leads',this.value)"></td>
+    <td><span class="mk-calc">${mkFmt(c.cpl,'eur')}</span></td>
+    <td><input class="mk-in" type="number" value="${row.appeles||''}" placeholder="0" oninput="updMk2('${id}','appeles',this.value)"></td>
+    <td><input class="mk-in" type="number" value="${row.decroches||''}" placeholder="0" oninput="updMk2('${id}','decroches',this.value)"></td>
+    <td><span class="mk-calc ${c.pct_decroche>=50?'mk-calc-good':c.pct_decroche>=30?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.pct_decroche,'pct')}</span></td>
+    <td><span class="mk-calc">${mkFmt(c.cout_appel_setting,'eur')}</span></td>
+    <td><input class="mk-in" type="number" value="${row.qualifies||''}" placeholder="0" oninput="updMk2('${id}','qualifies',this.value)"></td>
+    <td><span class="mk-calc">${mkFmt(c.cout_qualifie,'eur')}</span></td>
+    <td><input class="mk-in" type="number" value="${row.rdv_setting||''}" placeholder="0" oninput="updMk2('${id}','rdv_setting',this.value)"></td>
+    <td><input class="mk-in" type="number" value="${row.rdv_auto||''}" placeholder="0" oninput="updMk2('${id}','rdv_auto',this.value)"></td>
+    <td><span class="mk-calc">${mkFmt(c.cout_rdv_setting,'eur')}</span></td>
+    <td><span class="mk-calc">${mkFmt(c.cout_rdv_auto,'eur')}</span></td>
+    <td><input class="mk-in" type="number" value="${row.appels_prevus||''}" placeholder="0" oninput="updMk2('${id}','appels_prevus',this.value)"></td>
+    <td><input class="mk-in" type="number" value="${row.appels_pris||''}" placeholder="0" oninput="updMk2('${id}','appels_pris',this.value)"></td>
+    <td><span class="mk-calc ${c.taux_showup>=70?'mk-calc-good':c.taux_showup>=50?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.taux_showup,'pct')}</span></td>
+    <td><span class="mk-calc">${mkFmt(c.cout_appel_pris,'eur')}</span></td>
+    <td><input class="mk-in" type="number" value="${row.ventes||''}" placeholder="0" oninput="updMk2('${id}','ventes',this.value)"></td>
+    <td><span class="mk-calc ${c.taux_closing>=30?'mk-calc-good':c.taux_closing>=15?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.taux_closing,'pct')}</span></td>
+    <td><input class="mk-in" type="number" step="0.01" value="${row.revenus||''}" placeholder="0" oninput="updMk2('${id}','revenus',this.value)"></td>
+    <td><input class="mk-in" type="number" step="0.01" value="${row.cash||''}" placeholder="0" oninput="updMk2('${id}','cash',this.value)"></td>
+    <td><input class="mk-in" value="${row.notes||''}" placeholder="Notes…" oninput="updMk2('${id}','notes',this.value)" style="min-width:100px"></td>
+  </tr>`;
+}
+
+function mkRowSummary(label,row,style){
+  const c=mkCalc(row);
+  const st=style||'background:var(--bg2);font-weight:700';
+  return`<tr style="${st}">
+    <td style="font-weight:800;font-size:11px">${label}</td>
+    <td>${(row.depense||0).toFixed(0)}€</td><td>${Math.round(row.leads||0)}</td><td>${mkFmt(c.cpl,'eur')}</td>
+    <td>${Math.round(row.appeles||0)}</td><td>${Math.round(row.decroches||0)}</td><td>${mkFmt(c.pct_decroche,'pct')}</td><td>${mkFmt(c.cout_appel_setting,'eur')}</td>
+    <td>${Math.round(row.qualifies||0)}</td><td>${mkFmt(c.cout_qualifie,'eur')}</td>
+    <td>${Math.round(row.rdv_setting||0)}</td><td>${Math.round(row.rdv_auto||0)}</td><td>${mkFmt(c.cout_rdv_setting,'eur')}</td><td>${mkFmt(c.cout_rdv_auto,'eur')}</td>
+    <td>${Math.round(row.appels_prevus||0)}</td><td>${Math.round(row.appels_pris||0)}</td><td>${mkFmt(c.taux_showup,'pct')}</td><td>${mkFmt(c.cout_appel_pris,'eur')}</td>
+    <td>${Math.round(row.ventes||0)}</td><td>${mkFmt(c.taux_closing,'pct')}</td><td>${(row.revenus||0).toFixed(0)}€</td><td>${(row.cash||0).toFixed(0)}€</td>
+    <td></td>
+  </tr>`;
+}
+
+function mkSummaryCards(rows){
+  const s=mkSumRows(rows);
+  const c=mkCalc(s);
+  const roi=s.depense>0?((s.revenus/s.depense)*100):0;
+  return`<div class="mk-summary">
+    <div class="mk-summary-card"><div class="mk-label">Dépense totale</div><div class="mk-val">${s.depense.toFixed(0)}€</div></div>
+    <div class="mk-summary-card"><div class="mk-label">Total leads</div><div class="mk-val">${Math.round(s.leads)}</div></div>
+    <div class="mk-summary-card"><div class="mk-label">CPL moyen</div><div class="mk-val">${mkFmt(c.cpl,'eur')}</div></div>
+    <div class="mk-summary-card"><div class="mk-label">Ventes</div><div class="mk-val">${Math.round(s.ventes)}</div></div>
+    <div class="mk-summary-card"><div class="mk-label">Revenus</div><div class="mk-val">${s.revenus.toFixed(0)}€</div></div>
+    <div class="mk-summary-card"><div class="mk-label">Cash collecté</div><div class="mk-val">${s.cash.toFixed(0)}€</div></div>
+    <div class="mk-summary-card"><div class="mk-label">ROI</div><div class="mk-val ${roi>=200?'mk-calc-good':roi>=100?'mk-calc-warn':'mk-calc-bad'}">${roi.toFixed(0)}%</div></div>
+  </div>`;
 }
 
 function renderMkTracking(){
   const el=document.getElementById('mk-tracking');
   const data=getMkData();
-  const rows=data.rows||[];
+  const months=Object.keys(data).sort();
 
-  // Summary cards
-  const totDepense=rows.reduce((s,r)=>s+(parseFloat(r.depense)||0),0);
-  const totLeads=rows.reduce((s,r)=>s+(parseInt(r.leads)||0),0);
-  const totVentes=rows.reduce((s,r)=>s+(parseInt(r.ventes)||0),0);
-  const totRevenu=rows.reduce((s,r)=>s+(parseFloat(r.revenus)||0),0);
-  const totCash=rows.reduce((s,r)=>s+(parseFloat(r.cash)||0),0);
-  const avgCpl=totLeads>0?(totDepense/totLeads):0;
-  const roi=totDepense>0?((totRevenu/totDepense)*100):0;
+  // Month options for selectors
+  const mOpts=months.map(m=>`<option value="${m}"${m===mkMonth?' selected':''}>${new Date(m+'-01').toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}</option>`).join('');
+  const yOpts=[];
+  const ySet=new Set(months.map(m=>parseInt(m.split('-')[0])));
+  ySet.add(mkYear);
+  [...ySet].sort().forEach(y=>{yOpts.push(`<option value="${y}"${y===mkYear?' selected':''}>${y}</option>`);});
 
-  let summary=`<div class="mk-summary">
-    <div class="mk-summary-card"><div class="mk-label">Dépense totale</div><div class="mk-val">${totDepense.toFixed(0)}€</div></div>
-    <div class="mk-summary-card"><div class="mk-label">Total leads</div><div class="mk-val">${totLeads}</div></div>
-    <div class="mk-summary-card"><div class="mk-label">CPL moyen</div><div class="mk-val">${avgCpl.toFixed(2)}€</div></div>
-    <div class="mk-summary-card"><div class="mk-label">Ventes</div><div class="mk-val">${totVentes}</div></div>
-    <div class="mk-summary-card"><div class="mk-label">Revenus</div><div class="mk-val">${totRevenu.toFixed(0)}€</div></div>
-    <div class="mk-summary-card"><div class="mk-label">Cash collecté</div><div class="mk-val">${totCash.toFixed(0)}€</div></div>
-    <div class="mk-summary-card"><div class="mk-label">ROI</div><div class="mk-val ${roi>=200?'mk-calc-good':roi>=100?'mk-calc-warn':'mk-calc-bad'}">${roi.toFixed(0)}%</div></div>
-  </div>`;
-
+  // Toolbar
   let toolbar=`<div class="mk-toolbar">
-    <button class="mk-btn mk-btn-dark" onclick="addMkRow()">+ Ajouter une journée</button>
-    <div style="flex:1"></div>
-    <button class="mk-btn mk-btn-gold" onclick="saveMkToast()">💾 Enregistrer</button>
+    <div style="display:flex;gap:4px">
+      <button class="mk-btn ${mkView==='mensuel'?'mk-btn-dark':''}" onclick="mkSetView('mensuel')">Mensuel</button>
+      <button class="mk-btn ${mkView==='hebdo'?'mk-btn-dark':''}" onclick="mkSetView('hebdo')">Hebdo</button>
+      <button class="mk-btn ${mkView==='annuel'?'mk-btn-dark':''}" onclick="mkSetView('annuel')">Annuel</button>
+    </div>`;
+  if(mkView==='mensuel'||mkView==='hebdo'){
+    toolbar+=`<select class="fi" style="width:180px;font-size:12px" onchange="mkSetMonth(this.value)">${mOpts}</select>`;
+  }
+  if(mkView==='annuel'){
+    toolbar+=`<select class="fi" style="width:100px;font-size:12px" onchange="mkSetYear(this.value)">${yOpts.join('')}</select>`;
+  }
+  toolbar+=`<div style="flex:1"></div>
+    <button class="mk-btn" onclick="mkNewMonth()">+ Nouveau mois</button>
+    <button class="mk-btn mk-btn-gold" onclick="toast('Données marketing sauvegardées ✓')">💾 Enregistrer</button>
   </div>`;
-
-  let thead=`<tr>
-    <th style="min-width:36px">×</th>
-    <th class="th-mk1" style="min-width:100px">DATE</th>
-    <th class="th-mk1" style="min-width:90px">DÉPENSE PUB</th>
-    <th class="th-mk1" style="min-width:70px">NB LEADS</th>
-    <th class="th-mk1" style="min-width:70px">CPL</th>
-    <th class="th-mk2" style="min-width:80px">LEADS APPELÉS</th>
-    <th class="th-mk2" style="min-width:80px">DÉCROCHÉS</th>
-    <th class="th-mk2" style="min-width:70px">% DÉCROCHE</th>
-    <th class="th-mk2" style="min-width:90px">COÛT / SETTING</th>
-    <th class="th-mk2" style="min-width:80px">QUALIFIÉS</th>
-    <th class="th-mk2" style="min-width:90px">COÛT / QUALIFIÉ</th>
-    <th class="th-mk3" style="min-width:80px">RDV SETTING</th>
-    <th class="th-mk3" style="min-width:80px">RDV AUTO</th>
-    <th class="th-mk3" style="min-width:90px">COÛT RDV SET.</th>
-    <th class="th-mk3" style="min-width:90px">COÛT RDV AUTO</th>
-    <th class="th-mk3" style="min-width:80px">APPELS PRÉVUS</th>
-    <th class="th-mk3" style="min-width:80px">APPELS PRIS</th>
-    <th class="th-mk3" style="min-width:70px">SHOW-UP</th>
-    <th class="th-mk3" style="min-width:90px">COÛT / APPEL</th>
-    <th class="th-mk4" style="min-width:60px">VENTES</th>
-    <th class="th-mk4" style="min-width:70px">TX CLOSING</th>
-    <th class="th-mk4" style="min-width:80px">REVENUS</th>
-    <th class="th-mk4" style="min-width:90px">CASH COLLECTÉ</th>
-  </tr>`;
 
   let tbody='';
-  rows.forEach((row,i)=>{
-    const c=mkCalc(row);
-    tbody+=`<tr>
-      <td class="mk-del" onclick="delMkRow(${i})" title="Supprimer">🗑</td>
-      <td><input class="mk-in" type="date" value="${row.date||''}" oninput="updMk(${i},'date',this.value)"></td>
-      <td><input class="mk-in" type="number" step="0.01" value="${row.depense||''}" placeholder="0" oninput="updMk(${i},'depense',this.value)" style="min-width:80px"></td>
-      <td><input class="mk-in" type="number" value="${row.leads||''}" placeholder="0" oninput="updMk(${i},'leads',this.value)"></td>
-      <td><span class="mk-calc">${mkFmt(c.cpl,'eur')}</span></td>
-      <td><input class="mk-in" type="number" value="${row.appeles||''}" placeholder="0" oninput="updMk(${i},'appeles',this.value)"></td>
-      <td><input class="mk-in" type="number" value="${row.decroches||''}" placeholder="0" oninput="updMk(${i},'decroches',this.value)"></td>
-      <td><span class="mk-calc ${c.pct_decroche>=50?'mk-calc-good':c.pct_decroche>=30?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.pct_decroche,'pct')}</span></td>
-      <td><span class="mk-calc">${mkFmt(c.cout_appel_setting,'eur')}</span></td>
-      <td><input class="mk-in" type="number" value="${row.qualifies||''}" placeholder="0" oninput="updMk(${i},'qualifies',this.value)"></td>
-      <td><span class="mk-calc">${mkFmt(c.cout_qualifie,'eur')}</span></td>
-      <td><input class="mk-in" type="number" value="${row.rdv_setting||''}" placeholder="0" oninput="updMk(${i},'rdv_setting',this.value)"></td>
-      <td><input class="mk-in" type="number" value="${row.rdv_auto||''}" placeholder="0" oninput="updMk(${i},'rdv_auto',this.value)"></td>
-      <td><span class="mk-calc">${mkFmt(c.cout_rdv_setting,'eur')}</span></td>
-      <td><span class="mk-calc">${mkFmt(c.cout_rdv_auto,'eur')}</span></td>
-      <td><input class="mk-in" type="number" value="${row.appels_prevus||''}" placeholder="0" oninput="updMk(${i},'appels_prevus',this.value)"></td>
-      <td><input class="mk-in" type="number" value="${row.appels_pris||''}" placeholder="0" oninput="updMk(${i},'appels_pris',this.value)"></td>
-      <td><span class="mk-calc ${c.taux_showup>=70?'mk-calc-good':c.taux_showup>=50?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.taux_showup,'pct')}</span></td>
-      <td><span class="mk-calc">${mkFmt(c.cout_appel_pris,'eur')}</span></td>
-      <td><input class="mk-in" type="number" value="${row.ventes||''}" placeholder="0" oninput="updMk(${i},'ventes',this.value)"></td>
-      <td><span class="mk-calc ${c.taux_closing>=30?'mk-calc-good':c.taux_closing>=15?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.taux_closing,'pct')}</span></td>
-      <td><input class="mk-in" type="number" step="0.01" value="${row.revenus||''}" placeholder="0" oninput="updMk(${i},'revenus',this.value)" style="min-width:80px"></td>
-      <td><input class="mk-in" type="number" step="0.01" value="${row.cash||''}" placeholder="0" oninput="updMk(${i},'cash',this.value)" style="min-width:80px"></td>
-    </tr>`;
-  });
+  let allRows=[];
 
-  // Totals row
-  if(rows.length>0){
-    const totAppeles=rows.reduce((s,r)=>s+(parseInt(r.appeles)||0),0);
-    const totDecroches=rows.reduce((s,r)=>s+(parseInt(r.decroches)||0),0);
-    const totQual=rows.reduce((s,r)=>s+(parseInt(r.qualifies)||0),0);
-    const totRdvSet=rows.reduce((s,r)=>s+(parseInt(r.rdv_setting)||0),0);
-    const totRdvAuto=rows.reduce((s,r)=>s+(parseInt(r.rdv_auto)||0),0);
-    const totPrevus=rows.reduce((s,r)=>s+(parseInt(r.appels_prevus)||0),0);
-    const totPris=rows.reduce((s,r)=>s+(parseInt(r.appels_pris)||0),0);
-    const pctDec=totAppeles>0?((totDecroches/totAppeles)*100):0;
-    const coutSet=totDecroches>0?(totDepense/totDecroches):0;
-    const coutQual=totQual>0?(totDepense/totQual):0;
-    const coutRdvS=totRdvSet>0?(totDepense/totRdvSet):0;
-    const coutRdvA=totRdvAuto>0?(totDepense/totRdvAuto):0;
-    const showUp=totPrevus>0?((totPris/totPrevus)*100):0;
-    const coutPris=totPris>0?(totDepense/totPris):0;
-    const txClose=totPris>0?((totVentes/totPris)*100):0;
-    tbody+=`<tr style="background:var(--bg2);font-weight:700">
-      <td></td><td style="font-weight:800">TOTAL</td>
-      <td>${totDepense.toFixed(0)}€</td><td>${totLeads}</td><td>${avgCpl.toFixed(2)}€</td>
-      <td>${totAppeles}</td><td>${totDecroches}</td><td>${pctDec.toFixed(1)}%</td><td>${coutSet.toFixed(2)}€</td>
-      <td>${totQual}</td><td>${coutQual.toFixed(2)}€</td>
-      <td>${totRdvSet}</td><td>${totRdvAuto}</td><td>${coutRdvS.toFixed(2)}€</td><td>${coutRdvA.toFixed(2)}€</td>
-      <td>${totPrevus}</td><td>${totPris}</td><td>${showUp.toFixed(1)}%</td><td>${coutPris.toFixed(2)}€</td>
-      <td>${totVentes}</td><td>${txClose.toFixed(1)}%</td><td>${totRevenu.toFixed(0)}€</td><td>${totCash.toFixed(0)}€</td>
-    </tr>`;
+  if(mkView==='mensuel'){
+    // Show all days of selected month
+    const md=data[mkMonth]||{};
+    const days=Object.keys(md).sort();
+    const dayNames=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+    days.forEach(dk=>{
+      const dt=new Date(dk+'T12:00:00');
+      const dn=dayNames[dt.getDay()];
+      const label=`${dn} ${dt.getDate()}/${dt.getMonth()+1}`;
+      const isSun=dt.getDay()===0;
+      tbody+=mkRowInput(mkMonth,dk,md[dk],label);
+      allRows.push(md[dk]);
+    });
+    // Total row
+    if(allRows.length>0){
+      tbody+=mkRowSummary('TOTAL MOIS',mkSumRows(allRows));
+    }
+  } else if(mkView==='hebdo'){
+    // Group days by week (Monday-Sunday)
+    const md=data[mkMonth]||{};
+    const days=Object.keys(md).sort();
+    let weeks={};
+    days.forEach(dk=>{
+      const dt=new Date(dk+'T12:00:00');
+      // ISO week: get Monday of that week
+      const mon=new Date(dt);
+      const day=mon.getDay();
+      const diff=mon.getDate()-day+(day===0?-6:1);
+      mon.setDate(diff);
+      const wk=mon.toISOString().slice(0,10);
+      if(!weeks[wk])weeks[wk]=[];
+      weeks[wk].push(md[dk]);
+    });
+    const wks=Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0]));
+    wks.forEach(([wk,rows],wi)=>{
+      const wStart=new Date(wk+'T12:00:00');
+      const wEnd=new Date(wStart);wEnd.setDate(wEnd.getDate()+6);
+      const fmt=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+      const sum=mkSumRows(rows);
+      const avg=mkAvgRows(rows);
+      // Summary row for this week
+      tbody+=`<tr style="background:rgba(37,99,235,.06);font-weight:700;cursor:pointer" onclick="this.nextElementSibling?.classList.toggle('mk-wk-hide');this.querySelector('.mk-wk-arr').classList.toggle('mk-wk-open')">
+        <td style="font-weight:800;font-size:11px" colspan="1"><span class="mk-wk-arr">▶</span> S${wi+1} <span style="font-size:10px;font-weight:500;color:var(--text3)">${fmt(wStart)} → ${fmt(wEnd)}</span></td>
+        <td>${sum.depense.toFixed(0)}€</td><td>${Math.round(sum.leads)}</td><td>${mkFmt(mkCalc(sum).cpl,'eur')}</td>
+        <td>${Math.round(sum.appeles)}</td><td>${Math.round(sum.decroches)}</td><td>${mkFmt(mkCalc(sum).pct_decroche,'pct')}</td><td>${mkFmt(mkCalc(sum).cout_appel_setting,'eur')}</td>
+        <td>${Math.round(sum.qualifies)}</td><td>${mkFmt(mkCalc(sum).cout_qualifie,'eur')}</td>
+        <td>${Math.round(sum.rdv_setting)}</td><td>${Math.round(sum.rdv_auto)}</td><td>${mkFmt(mkCalc(sum).cout_rdv_setting,'eur')}</td><td>${mkFmt(mkCalc(sum).cout_rdv_auto,'eur')}</td>
+        <td>${Math.round(sum.appels_prevus)}</td><td>${Math.round(sum.appels_pris)}</td><td>${mkFmt(mkCalc(sum).taux_showup,'pct')}</td><td>${mkFmt(mkCalc(sum).cout_appel_pris,'eur')}</td>
+        <td>${Math.round(sum.ventes)}</td><td>${mkFmt(mkCalc(sum).taux_closing,'pct')}</td><td>${sum.revenus.toFixed(0)}€</td><td>${sum.cash.toFixed(0)}€</td>
+        <td></td>
+      </tr>`;
+      // Average row (hidden by default, toggled with click)
+      tbody+=`<tbody class="mk-wk-hide">`;
+      tbody+=mkRowSummary('Moy/jour',avg,'background:rgba(37,99,235,.03);font-weight:600;font-style:italic;font-size:10px');
+      tbody+=`</tbody>`;
+      allRows.push(...rows);
+    });
+    if(allRows.length>0){
+      tbody+=mkRowSummary('TOTAL MOIS',mkSumRows(allRows));
+    }
+  } else if(mkView==='annuel'){
+    // Show one row per month for the year
+    const yearMonths=months.filter(m=>m.startsWith(mkYear+''));
+    yearMonths.forEach(ym=>{
+      const md=data[ym]||{};
+      const rows=Object.values(md);
+      const sum=mkSumRows(rows);
+      const c=mkCalc(sum);
+      const mLabel=new Date(ym+'-01').toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+      tbody+=`<tr style="cursor:pointer" onclick="mkMonth='${ym}';mkView='mensuel';renderMkTracking()">
+        <td style="font-weight:800;font-size:12px;text-align:left">${mLabel}</td>
+        <td>${sum.depense.toFixed(0)}€</td><td>${Math.round(sum.leads)}</td><td>${mkFmt(c.cpl,'eur')}</td>
+        <td>${Math.round(sum.appeles)}</td><td>${Math.round(sum.decroches)}</td><td>${mkFmt(c.pct_decroche,'pct')}</td><td>${mkFmt(c.cout_appel_setting,'eur')}</td>
+        <td>${Math.round(sum.qualifies)}</td><td>${mkFmt(c.cout_qualifie,'eur')}</td>
+        <td>${Math.round(sum.rdv_setting)}</td><td>${Math.round(sum.rdv_auto)}</td><td>${mkFmt(c.cout_rdv_setting,'eur')}</td><td>${mkFmt(c.cout_rdv_auto,'eur')}</td>
+        <td>${Math.round(sum.appels_prevus)}</td><td>${Math.round(sum.appels_pris)}</td><td>${mkFmt(c.taux_showup,'pct')}</td><td>${mkFmt(c.cout_appel_pris,'eur')}</td>
+        <td>${Math.round(sum.ventes)}</td><td>${mkFmt(c.taux_closing,'pct')}</td><td>${sum.revenus.toFixed(0)}€</td><td>${sum.cash.toFixed(0)}€</td>
+        <td></td>
+      </tr>`;
+      allRows.push(...rows);
+    });
+    if(allRows.length>0){
+      tbody+=mkRowSummary('TOTAL ANNUEL',mkSumRows(allRows),'background:var(--dark);color:white;font-weight:800');
+    }
   }
 
-  el.innerHTML=summary+toolbar+`<div class="mk-wrap"><div class="mk-table"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div></div>`;
+  const allForCards=mkView==='annuel'?allRows:(data[mkMonth]?Object.values(data[mkMonth]):[]);
+  el.innerHTML=mkSummaryCards(allForCards)+toolbar+`<div class="mk-wrap"><div class="mk-table"><table><thead>${mkThead()}</thead><tbody>${tbody}</tbody></table></div></div>`;
 }
 
-function addMkRow(){
-  const d=getMkData();
-  d.rows.push({date:new Date().toISOString().slice(0,10),depense:0,leads:0,appeles:0,decroches:0,qualifies:0,rdv_setting:0,rdv_auto:0,appels_prevus:0,appels_pris:0,ventes:0,revenus:0,cash:0});
-  saveMkData(d);renderMkTracking();
+function mkNewMonth(){
+  const cur=new Date().toISOString().slice(0,7);
+  const v=prompt('Mois à créer (format YYYY-MM) :',cur);
+  if(!v||!/^\d{4}-\d{2}$/.test(v))return;
+  mkCreateMonth(v);
+  mkMonth=v;mkView='mensuel';
+  renderMkTracking();
+  toast('Mois '+v+' créé avec '+mkDaysInMonth(v)+' jours ✓');
 }
-function delMkRow(i){
-  if(!confirm('Supprimer cette ligne ?'))return;
-  const d=getMkData();d.rows.splice(i,1);saveMkData(d);renderMkTracking();
-}
-function updMk(i,field,val){
+
+function updMk2(id,field,val){
+  const[monthKey,dateKey]=id.split('|');
   const d=getMkData();
-  if(!d.rows[i])return;
-  d.rows[i][field]=['date'].includes(field)?val:parseFloat(val)||0;
+  if(!d[monthKey])d[monthKey]={};
+  if(!d[monthKey][dateKey])d[monthKey][dateKey]={};
+  d[monthKey][dateKey][field]=['notes'].includes(field)?val:(parseFloat(val)||0);
   saveMkData(d);
-  // Re-render summary + totals without full re-render to avoid input focus loss
-  // Only do full re-render for non-input fields
-}
-function saveMkToast(){
-  // Data is already auto-saved, just confirm
-  toast('Données marketing enregistrées ✓');
 }
 
 /* ===== SUIVI FINANCIER ===== */
-function getFinData(){
-  const d=lsGet('fz_finance',{});
-  const key=window._finMonth||new Date().toISOString().slice(0,7);
-  if(!d[key])d[key]={depenses:[],rentrees:[]};
-  return d;
-}
+let finView='mensuel';
+let finMonth=new Date().toISOString().slice(0,7);
+let finYear=new Date().getFullYear();
+
+function getFinData(){return lsGet('fz_finance',{});}
 function saveFinData(d){lsSave('fz_finance',d);}
-function getFinMonth(){return window._finMonth||new Date().toISOString().slice(0,7);}
 
 const finDepTypes=['Publicité','Logiciels/Outils','Salle/Location','Matériel','Comptabilité','Assurance','Téléphone/Internet','Déplacement','Formation','Sous-traitance','Autre'];
 const finRenTypes=['Coaching individuel','Coaching groupe','Programme en ligne','Consultation','Abonnement','Autre'];
 
+function finSetView(v){finView=v;renderMkFinance();}
+function finSetMonth(v){finMonth=v;renderMkFinance();}
+function finSetYear(v){finYear=parseInt(v);renderMkFinance();}
+
+function finGetMonthData(all,ym){
+  if(!all[ym])all[ym]={depenses:[],rentrees:[]};
+  return all[ym];
+}
+
+function finRenderTable(cat,rows,month,types){
+  const isD=cat==='depenses';
+  let html='';
+  rows.forEach((r,i)=>{
+    html+=`<tr>
+      <td><select class="fi" style="font-size:11px;padding:4px 6px" onchange="updFin('${month}','${cat}',${i},'type',this.value)">${types.map(t=>`<option${r.type===t?' selected':''}>${t}</option>`).join('')}</select></td>
+      <td><input class="fi" style="font-size:11px;padding:4px 6px" value="${r.label||''}" placeholder="Description…" oninput="updFin('${month}','${cat}',${i},'label',this.value)"></td>
+      <td><input class="fi" type="number" step="0.01" style="font-size:11px;padding:4px 6px;width:90px" value="${r.montant||''}" placeholder="0" oninput="updFin('${month}','${cat}',${i},'montant',this.value)"></td>
+      <td><input class="fi" type="date" style="font-size:11px;padding:4px 6px" value="${r.date||''}" oninput="updFin('${month}','${cat}',${i},'date',this.value)"></td>
+      <td style="cursor:pointer;color:var(--text3);text-align:center" onclick="delFin('${month}','${cat}',${i})" title="Supprimer">🗑</td>
+    </tr>`;
+  });
+  return html;
+}
+
 function renderMkFinance(){
   const el=document.getElementById('mk-finance');
-  const month=getFinMonth();
   const all=getFinData();
-  const data=all[month]||{depenses:[],rentrees:[]};
+  const allMonths=Object.keys(all).sort();
 
-  const totDep=data.depenses.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
-  const totRen=data.rentrees.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
-  const balance=totRen-totDep;
+  // Month/year selectors
+  const mOpts=allMonths.map(m=>`<option value="${m}"${m===finMonth?' selected':''}>${new Date(m+'-01').toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}</option>`).join('');
+  const ySet=new Set(allMonths.map(m=>parseInt(m.split('-')[0])));
+  ySet.add(finYear);
+  const yOpts=[...ySet].sort().map(y=>`<option value="${y}"${y===finYear?' selected':''}>${y}</option>`).join('');
 
-  // Month selector
-  let monthSel=`<div class="mk-toolbar">
-    <label style="font-size:12px;font-weight:700;color:var(--text2)">Mois :</label>
-    <input type="month" class="fi" style="width:170px;font-size:13px" value="${month}" onchange="window._finMonth=this.value;renderMkFinance()">
-    <div style="flex:1"></div>
+  let toolbar=`<div class="mk-toolbar">
+    <div style="display:flex;gap:4px">
+      <button class="mk-btn ${finView==='mensuel'?'mk-btn-dark':''}" onclick="finSetView('mensuel')">Mensuel</button>
+      <button class="mk-btn ${finView==='hebdo'?'mk-btn-dark':''}" onclick="finSetView('hebdo')">Hebdo</button>
+      <button class="mk-btn ${finView==='annuel'?'mk-btn-dark':''}" onclick="finSetView('annuel')">Annuel</button>
+    </div>`;
+  if(finView==='mensuel'||finView==='hebdo'){
+    toolbar+=`<select class="fi" style="width:180px;font-size:12px" onchange="finSetMonth(this.value)">${mOpts}</select>`;
+  }
+  if(finView==='annuel'){
+    toolbar+=`<select class="fi" style="width:100px;font-size:12px" onchange="finSetYear(this.value)">${yOpts}</select>`;
+  }
+  toolbar+=`<div style="flex:1"></div>
+    <button class="mk-btn" onclick="finNewMonth()">+ Nouveau mois</button>
   </div>`;
 
-  // Balance card
-  let balCard=`<div class="fin-balance">
-    <div class="fin-b-label">Balance du mois</div>
-    <div class="fin-b-val" style="color:${balance>=0?'#4ade80':'#f87171'}">${balance>=0?'+':''}${balance.toFixed(2)}€</div>
-  </div>`;
+  let content='';
 
-  // Dépenses table
-  let depRows='';
-  data.depenses.forEach((r,i)=>{
-    depRows+=`<tr>
-      <td><select class="fi" style="font-size:11px;padding:4px 6px" onchange="updFin('${month}','depenses',${i},'type',this.value)">${finDepTypes.map(t=>`<option${r.type===t?' selected':''}>${t}</option>`).join('')}</select></td>
-      <td><input class="fi" style="font-size:11px;padding:4px 6px" value="${r.label||''}" placeholder="Description…" oninput="updFin('${month}','depenses',${i},'label',this.value)"></td>
-      <td><input class="fi" type="number" step="0.01" style="font-size:11px;padding:4px 6px;width:90px" value="${r.montant||''}" placeholder="0" oninput="updFin('${month}','depenses',${i},'montant',this.value)"></td>
-      <td><input class="fi" type="date" style="font-size:11px;padding:4px 6px" value="${r.date||''}" oninput="updFin('${month}','depenses',${i},'date',this.value)"></td>
-      <td style="cursor:pointer;color:var(--text3);text-align:center" onclick="delFin('${month}','depenses',${i})" title="Supprimer">🗑</td>
-    </tr>`;
-  });
+  if(finView==='mensuel'){
+    const data=finGetMonthData(all,finMonth);
+    const totDep=data.depenses.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+    const totRen=data.rentrees.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+    const balance=totRen-totDep;
 
-  // Rentrées table
-  let renRows='';
-  data.rentrees.forEach((r,i)=>{
-    renRows+=`<tr>
-      <td><select class="fi" style="font-size:11px;padding:4px 6px" onchange="updFin('${month}','rentrees',${i},'type',this.value)">${finRenTypes.map(t=>`<option${r.type===t?' selected':''}>${t}</option>`).join('')}</select></td>
-      <td><input class="fi" style="font-size:11px;padding:4px 6px" value="${r.label||''}" placeholder="Description…" oninput="updFin('${month}','rentrees',${i},'label',this.value)"></td>
-      <td><input class="fi" type="number" step="0.01" style="font-size:11px;padding:4px 6px;width:90px" value="${r.montant||''}" placeholder="0" oninput="updFin('${month}','rentrees',${i},'montant',this.value)"></td>
-      <td><input class="fi" type="date" style="font-size:11px;padding:4px 6px" value="${r.date||''}" oninput="updFin('${month}','rentrees',${i},'date',this.value)"></td>
-      <td style="cursor:pointer;color:var(--text3);text-align:center" onclick="delFin('${month}','rentrees',${i})" title="Supprimer">🗑</td>
-    </tr>`;
-  });
-
-  el.innerHTML=monthSel+`
-  <div class="fin-grid">
-    <div class="fin-card">
-      <h3><span style="color:#dc2626">📉</span> Dépenses</h3>
-      <table class="fin-table">
-        <thead><tr><th>Type</th><th>Description</th><th>Montant</th><th>Date</th><th style="width:30px"></th></tr></thead>
-        <tbody>${depRows}</tbody>
-      </table>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addFin('${month}','depenses')">+ Ajouter une dépense</button>
-      <div class="fin-total fin-red">
-        <span>Total dépenses</span><span>${totDep.toFixed(2)}€</span>
+    content+=`<div class="fin-grid">
+      <div class="fin-card">
+        <h3><span style="color:#dc2626">📉</span> Dépenses</h3>
+        <table class="fin-table"><thead><tr><th>Type</th><th>Description</th><th>Montant</th><th>Date</th><th style="width:30px"></th></tr></thead>
+        <tbody>${finRenderTable('depenses',data.depenses,finMonth,finDepTypes)}</tbody></table>
+        <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addFin('${finMonth}','depenses')">+ Ajouter une dépense</button>
+        <div class="fin-total fin-red"><span>Total dépenses</span><span>${totDep.toFixed(2)}€</span></div>
+      </div>
+      <div class="fin-card">
+        <h3><span style="color:#059669">📈</span> Rentrées d'argent</h3>
+        <table class="fin-table"><thead><tr><th>Type</th><th>Description</th><th>Montant</th><th>Date</th><th style="width:30px"></th></tr></thead>
+        <tbody>${finRenderTable('rentrees',data.rentrees,finMonth,finRenTypes)}</tbody></table>
+        <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addFin('${finMonth}','rentrees')">+ Ajouter une rentrée</button>
+        <div class="fin-total fin-green"><span>Total rentrées</span><span>${totRen.toFixed(2)}€</span></div>
       </div>
     </div>
-    <div class="fin-card">
-      <h3><span style="color:#059669">📈</span> Rentrées d'argent</h3>
-      <table class="fin-table">
-        <thead><tr><th>Type</th><th>Description</th><th>Montant</th><th>Date</th><th style="width:30px"></th></tr></thead>
-        <tbody>${renRows}</tbody>
-      </table>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addFin('${month}','rentrees')">+ Ajouter une rentrée</button>
-      <div class="fin-total fin-green">
-        <span>Total rentrées</span><span>${totRen.toFixed(2)}€</span>
-      </div>
-    </div>
-  </div>
-  ${balCard}`;
+    <div class="fin-balance"><div class="fin-b-label">Balance du mois</div><div class="fin-b-val" style="color:${balance>=0?'#4ade80':'#f87171'}">${balance>=0?'+':''}${balance.toFixed(2)}€</div></div>`;
+
+  } else if(finView==='hebdo'){
+    // Group entries by week within the month
+    const data=finGetMonthData(all,finMonth);
+    const allEntries=[
+      ...data.depenses.map(r=>({...r,cat:'dep'})),
+      ...data.rentrees.map(r=>({...r,cat:'ren'}))
+    ].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+
+    // Group by ISO week
+    let weeks={};
+    allEntries.forEach(e=>{
+      if(!e.date)return;
+      const dt=new Date(e.date+'T12:00:00');
+      const mon=new Date(dt);const day=mon.getDay();const diff=mon.getDate()-day+(day===0?-6:1);mon.setDate(diff);
+      const wk=mon.toISOString().slice(0,10);
+      if(!weeks[wk])weeks[wk]={dep:0,ren:0,items:[]};
+      if(e.cat==='dep')weeks[wk].dep+=(parseFloat(e.montant)||0);
+      else weeks[wk].ren+=(parseFloat(e.montant)||0);
+      weeks[wk].items.push(e);
+    });
+
+    let whtml='';
+    Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([wk,w],wi)=>{
+      const wStart=new Date(wk+'T12:00:00');
+      const wEnd=new Date(wStart);wEnd.setDate(wEnd.getDate()+6);
+      const fmt=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+      const bal=w.ren-w.dep;
+      whtml+=`<div class="fin-card" style="margin-bottom:14px">
+        <h3>S${wi+1} <span style="font-size:11px;font-weight:500;color:var(--text3)">${fmt(wStart)} → ${fmt(wEnd)}</span></h3>
+        <div style="display:flex;gap:20px;flex-wrap:wrap">
+          <div><span style="font-size:11px;font-weight:700;color:#dc2626">Dépenses: ${w.dep.toFixed(2)}€</span></div>
+          <div><span style="font-size:11px;font-weight:700;color:#059669">Rentrées: ${w.ren.toFixed(2)}€</span></div>
+          <div><span style="font-size:11px;font-weight:700;color:${bal>=0?'#059669':'#dc2626'}">Balance: ${bal>=0?'+':''}${bal.toFixed(2)}€</span></div>
+        </div>
+      </div>`;
+    });
+
+    const totDep=data.depenses.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+    const totRen=data.rentrees.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+    const balance=totRen-totDep;
+    content+=whtml;
+    content+=`<div class="fin-balance"><div class="fin-b-label">Balance du mois</div><div class="fin-b-val" style="color:${balance>=0?'#4ade80':'#f87171'}">${balance>=0?'+':''}${balance.toFixed(2)}€</div></div>`;
+
+  } else if(finView==='annuel'){
+    // Show monthly summaries for the year
+    const yearMonths=allMonths.filter(m=>m.startsWith(finYear+''));
+    let yDep=0,yRen=0;
+    let rows='';
+    yearMonths.forEach(ym=>{
+      const data=finGetMonthData(all,ym);
+      const dep=data.depenses.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+      const ren=data.rentrees.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+      const bal=ren-dep;
+      yDep+=dep;yRen+=ren;
+      const mLabel=new Date(ym+'-01').toLocaleDateString('fr-FR',{month:'long'});
+      rows+=`<tr style="cursor:pointer" onclick="finMonth='${ym}';finView='mensuel';renderMkFinance()">
+        <td style="font-weight:700;text-transform:capitalize">${mLabel}</td>
+        <td style="color:#dc2626;font-weight:600">${dep.toFixed(2)}€</td>
+        <td style="color:#059669;font-weight:600">${ren.toFixed(2)}€</td>
+        <td style="font-weight:800;color:${bal>=0?'#059669':'#dc2626'}">${bal>=0?'+':''}${bal.toFixed(2)}€</td>
+      </tr>`;
+    });
+    const yBal=yRen-yDep;
+    rows+=`<tr style="background:var(--dark);color:white;font-weight:800">
+      <td>TOTAL ${finYear}</td><td>${yDep.toFixed(2)}€</td><td>${yRen.toFixed(2)}€</td>
+      <td style="color:${yBal>=0?'#4ade80':'#f87171'}">${yBal>=0?'+':''}${yBal.toFixed(2)}€</td>
+    </tr>`;
+
+    content+=`<div class="fin-card"><table class="fin-table">
+      <thead><tr><th>Mois</th><th>Dépenses</th><th>Rentrées</th><th>Balance</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div class="fin-balance"><div class="fin-b-label">Balance annuelle ${finYear}</div><div class="fin-b-val" style="color:${yBal>=0?'#4ade80':'#f87171'}">${yBal>=0?'+':''}${yBal.toFixed(2)}€</div></div>`;
+  }
+
+  el.innerHTML=toolbar+content;
+}
+
+function finNewMonth(){
+  const cur=new Date().toISOString().slice(0,7);
+  const v=prompt('Mois à créer (format YYYY-MM) :',cur);
+  if(!v||!/^\d{4}-\d{2}$/.test(v))return;
+  const all=getFinData();
+  if(!all[v])all[v]={depenses:[],rentrees:[]};
+  saveFinData(all);
+  finMonth=v;finView='mensuel';
+  renderMkFinance();
+  toast('Mois financier '+v+' créé ✓');
 }
 
 function addFin(month,cat){
