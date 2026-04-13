@@ -12,9 +12,11 @@ CREATE TABLE IF NOT EXISTS recruitment_forms (
     description TEXT,
     questions   JSONB       NOT NULL DEFAULT '[]',
     -- question object shape: { id, type, label, required, options }
-    status      TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    status              TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+    success_button_text TEXT,
+    success_button_url  TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_recruitment_forms_coach_id

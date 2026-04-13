@@ -1383,6 +1383,18 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
       </div>
     </div>
     <div id="rfQuestions"></div>
+    <div style="border-top:1.5px solid var(--border);margin-top:18px;padding-top:14px">
+      <div class="cl" style="margin:0 0 10px">Bouton après validation</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="rfBtnEnabled" onchange="document.getElementById('rfBtnFields').style.display=this.checked?'block':'none'"> Afficher un bouton après l'envoi du questionnaire
+        </label>
+      </div>
+      <div id="rfBtnFields" style="display:none">
+        <div class="fg"><label class="fl">Texte du bouton</label><input class="fi" id="rfBtnText" placeholder="Ex : Suis les prochaines étapes"></div>
+        <div class="fg"><label class="fl">Lien du bouton (URL)</label><input class="fi" id="rfBtnUrl" placeholder="https://..."></div>
+      </div>
+    </div>
   </div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeM('mRecForm')">Annuler</button><button class="btn btn-dark" onclick="saveRecForm()">Enregistrer</button></div>
 </div></div>
@@ -6418,6 +6430,10 @@ function openRecFormBuilder(){
   document.getElementById('recFormMT').textContent='Nouveau questionnaire';
   document.getElementById('rfTitle').value='';
   document.getElementById('rfDesc').value='';
+  document.getElementById('rfBtnEnabled').checked=false;
+  document.getElementById('rfBtnFields').style.display='none';
+  document.getElementById('rfBtnText').value='';
+  document.getElementById('rfBtnUrl').value='';
   renderRecQuestions();
   openM('mRecForm');
 }
@@ -6429,6 +6445,11 @@ async function editRecForm(id){
   document.getElementById('recFormMT').textContent='Modifier le questionnaire';
   document.getElementById('rfTitle').value=f.title;
   document.getElementById('rfDesc').value=f.description||'';
+  const hasBtn=!!(f.success_button_url);
+  document.getElementById('rfBtnEnabled').checked=hasBtn;
+  document.getElementById('rfBtnFields').style.display=hasBtn?'block':'none';
+  document.getElementById('rfBtnText').value=f.success_button_text||'';
+  document.getElementById('rfBtnUrl').value=f.success_button_url||'';
   renderRecQuestions();
   openM('mRecForm');
 }
@@ -6485,7 +6506,10 @@ async function saveRecForm(){
   const desc=document.getElementById('rfDesc').value.trim();
   const valid=recQuestions.filter(q=>q.label.trim());
   if(!valid.length){toast('Ajoutez au moins une question');return;}
-  const obj={title,description:desc||null,questions:valid,coach_id:currentCoach.id};
+  const btnEnabled=document.getElementById('rfBtnEnabled').checked;
+  const btnText=document.getElementById('rfBtnText').value.trim();
+  const btnUrl=document.getElementById('rfBtnUrl').value.trim();
+  const obj={title,description:desc||null,questions:valid,coach_id:currentCoach.id,success_button_text:btnEnabled&&btnText?btnText:null,success_button_url:btnEnabled&&btnUrl?btnUrl:null};
   if(recEditId){
     await db.from('recruitment_forms').update(obj).eq('id',recEditId);
     toast('Questionnaire mis à jour');
