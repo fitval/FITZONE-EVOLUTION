@@ -912,10 +912,10 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
       </select>
       <div style="display:flex;gap:4px;flex-wrap:wrap" id="recStatusChips">
         <button class="chip active" onclick="setRecStatus('all',this)">Tous</button>
-        <button class="chip" onclick="setRecStatus('en_attente',this)">En attente</button>
+        <button class="chip" onclick="setRecStatus('en_attente',this)">À lire</button>
+        <button class="chip" onclick="setRecStatus('lu',this)">Lu</button>
         <button class="chip" onclick="setRecStatus('contacte',this)">Contacté</button>
-        <button class="chip" onclick="setRecStatus('reserve',this)">Réservé</button>
-        <button class="chip" onclick="setRecStatus('accepte',this)">Accepté</button>
+        <button class="chip" onclick="setRecStatus('accepte',this)">Validé</button>
         <button class="chip" onclick="setRecStatus('refuse',this)">Refusé</button>
       </div>
     </div>
@@ -1423,6 +1423,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .rec-opt button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px}
 .rec-opt button:hover{color:#c03030}
 .b-en_attente{background:#fff8e6;color:#9a6e00;border:1px solid #f0d080}
+.b-lu{background:#eef2f7;color:#475569;border:1px solid #cbd5e1}
 .b-contacte{background:#e8f4ff;color:#1a6096;border:1px solid #90c8f0}
 .b-reserve{background:#f3e8ff;color:#7c3aed;border:1px solid #c4b5fd}
 .b-accepte{background:#e8f8f0;color:#1a7040;border:1px solid #80d4a8}
@@ -1468,10 +1469,10 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <div class="mb" id="recRespDetail"></div>
   <div class="mf">
     <select class="fi" id="recRespStatus" oninput="updateRecRespStatus()" style="width:auto">
-      <option value="en_attente">En attente</option>
+      <option value="en_attente">À lire</option>
+      <option value="lu">Lu</option>
       <option value="contacte">Contacté</option>
-      <option value="reserve">Réservé</option>
-      <option value="accepte">Accepté</option>
+      <option value="accepte">Validé</option>
       <option value="refuse">Refusé</option>
     </select>
     <button class="btn btn-ghost" onclick="closeM('mRecResp')">Fermer</button>
@@ -6628,17 +6629,24 @@ async function renderRecResponses(){
   if(recStatusFilter!=='all')filtered=filtered.filter(r=>r.status===recStatusFilter);
   const el=document.getElementById('recResponsesList');
   if(!filtered.length){el.innerHTML='<div class="empty"><div class="ei">📬</div><div class="et">Aucune candidature</div><div class="es">Les candidatures apparaîtront ici</div></div>';return;}
-  const statusLabels={en_attente:'En attente',contacte:'Contacté',reserve:'Réservé',accepte:'Accepté',refuse:'Refusé'};
-  let h='<div class="tw"><table><thead><tr><th>Candidat</th><th>Email</th><th>Questionnaire</th><th>Statut</th><th>Date</th></tr></thead><tbody>';
+  const statusLabels={en_attente:'À lire',lu:'Lu',contacte:'Contacté',reserve:'Réservé',accepte:'Validé',refuse:'Refusé'};
+  const statusOpts=['en_attente','lu','contacte','accepte','refuse'];
+  let h='<div class="tw"><table><thead><tr><th>Candidat</th><th>Email</th><th>Questionnaire</th><th>Statut</th><th>Date</th><th style="width:110px;text-align:center">Actions</th></tr></thead><tbody>';
   filtered.forEach(r=>{
     const form=recForms.find(f=>f.id===r.form_id);
     const d=new Date(r.created_at).toLocaleDateString('fr-FR');
-    h+=`<tr class="crow" onclick="openRecResp('${r.id}')">
-      <td><div class="c-cell"><div class="c-av" style="background:var(--gold)">${(r.first_name||'?')[0].toUpperCase()}</div><div><div class="c-nm">${esc(r.first_name)} ${esc(r.last_name)}</div>${r.phone?`<div class="c-sb">${esc(r.phone)}</div>`:''}</div></div></td>
-      <td style="font-size:12px">${esc(r.email||'—')}</td>
-      <td style="font-size:12px">${form?esc(form.title):'—'}</td>
-      <td><span class="badge b-${r.status}">${statusLabels[r.status]||r.status}</span></td>
-      <td style="font-size:12px">${d}</td>
+    const curStatus=statusOpts.includes(r.status)?r.status:'en_attente';
+    const selOpts=statusOpts.map(s=>`<option value="${s}"${s===curStatus?' selected':''}>${statusLabels[s]}</option>`).join('');
+    h+=`<tr class="crow">
+      <td onclick="openRecResp('${r.id}')" style="cursor:pointer"><div class="c-cell"><div class="c-av" style="background:var(--gold)">${(r.first_name||'?')[0].toUpperCase()}</div><div><div class="c-nm">${esc(r.first_name)} ${esc(r.last_name)}</div>${r.phone?`<div class="c-sb">${esc(r.phone)}</div>`:''}</div></div></td>
+      <td onclick="openRecResp('${r.id}')" style="cursor:pointer;font-size:12px">${esc(r.email||'—')}</td>
+      <td onclick="openRecResp('${r.id}')" style="cursor:pointer;font-size:12px">${form?esc(form.title):'—'}</td>
+      <td><span class="badge b-${curStatus}" style="margin-right:4px">${statusLabels[curStatus]}</span></td>
+      <td onclick="openRecResp('${r.id}')" style="cursor:pointer;font-size:12px">${d}</td>
+      <td style="text-align:center;white-space:nowrap">
+        <select class="fi" style="font-size:11px;padding:4px 6px;width:95px;display:inline-block" onchange="updRecRespStatusInline('${r.id}',this.value)" onclick="event.stopPropagation()" title="Mettre à jour le statut">${selOpts}</select>
+        <button class="btn btn-ghost btn-sm" style="padding:4px 8px;margin-left:4px;color:#c03030;border-color:#f0bcbc" onclick="event.stopPropagation();deleteRecResp('${r.id}')" title="Supprimer">🗑</button>
+      </td>
     </tr>`;
   });
   h+='</tbody></table></div>';
@@ -6677,6 +6685,26 @@ async function updateRecRespStatus(){
   const r=recResponses.find(x=>x.id===recCurrentRespId);
   if(r){r.status=status;r.notes=notes;}
   toast('Statut mis à jour');
+  renderRecResponses();
+}
+
+async function updRecRespStatusInline(id,status){
+  const{error}=await db.from('recruitment_responses').update({status}).eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  const r=recResponses.find(x=>x.id===id);
+  if(r)r.status=status;
+  toast('Statut mis à jour ✓');
+  renderRecResponses();
+}
+
+async function deleteRecResp(id){
+  const r=recResponses.find(x=>x.id===id);
+  const name=r?((r.first_name||'')+' '+(r.last_name||'')).trim()||'cette candidature':'cette candidature';
+  if(!confirm('⚠️ Supprimer la candidature de '+name+' ?\n\nCette action est irréversible.'))return;
+  const{error}=await db.from('recruitment_responses').delete().eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  recResponses=recResponses.filter(x=>x.id!==id);
+  toast('Candidature supprimée');
   renderRecResponses();
 }
 
