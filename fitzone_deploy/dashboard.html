@@ -7250,7 +7250,7 @@ function mkThead(){
     <th class="th-mk4" style="min-width:65px">TX CLOS.</th>
     <th class="th-mk4" style="min-width:75px">REVENUS</th>
     <th class="th-mk4" style="min-width:80px">CASH COLL.</th>
-    <th style="min-width:120px">NOTES</th>
+    <th style="min-width:360px">NOTES</th>
   </tr>`;
 }
 
@@ -7280,7 +7280,7 @@ function mkRowInput(monthKey,dateKey,row,label){
     <td><span class="mk-calc ${c.taux_closing>=30?'mk-calc-good':c.taux_closing>=15?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.taux_closing,'pct')}</span></td>
     <td><input class="mk-in" type="number" step="0.01" value="${row.revenus||''}" placeholder="0" oninput="updMk2('${id}','revenus',this.value)"></td>
     <td><input class="mk-in" type="number" step="0.01" value="${row.cash||''}" placeholder="0" oninput="updMk2('${id}','cash',this.value)"></td>
-    <td><input class="mk-in" value="${row.notes||''}" placeholder="Notes…" oninput="updMk2('${id}','notes',this.value)" style="min-width:100px"></td>
+    <td><input class="mk-in" value="${row.notes||''}" placeholder="Notes…" oninput="updMk2('${id}','notes',this.value)" style="min-width:340px;text-align:left"></td>
   </tr>`;
 }
 
