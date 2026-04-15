@@ -1074,7 +1074,7 @@ function startWorkout(){
     const prevNote=prev&&prev.note?prev.note:'';
     const prevVideoUrl=prev&&prev.videoUrl?prev.videoUrl:'';
     const wasUnilateral=prev&&prev.unilateral?true:false;
-    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,videoUrl:null,note:'',prevNote,prevVideoUrl});
+    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,videoUrl:null,note:prevNote,prevNote,prevVideoUrl});
   });
 
   // Start elapsed timer
@@ -1172,8 +1172,7 @@ function renderActiveWorkout(){
 
     // Previous video link
     if(ex.prevVideoUrl){h+=`<a href="${ex.prevVideoUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:#e8f5e9;border:1px solid #4caf50;border-radius:var(--r-xs);font-size:12px;font-weight:700;color:#2e7d32;text-decoration:none">▶ Voir ma vidéo précédente</a>`;}
-    // Notes / feedback exercice
-    if(ex.prevNote){h+=`<div style="background:var(--bg2);border-radius:var(--r-xs);padding:10px 12px;margin-top:8px;font-size:12px;color:var(--text2);line-height:1.4"><span style="font-weight:700;color:var(--text3);font-size:10px;letter-spacing:.5px">NOTE PRÉCÉDENTE</span><br>${ex.prevNote}</div>`;}
+    // Notes / feedback exercice (pré-rempli avec la note précédente, éditable)
     h+=`<textarea placeholder="Notes, réglages, feedback..." style="width:100%;margin-top:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-xs);font-size:13px;font-family:var(--font);background:var(--white);color:var(--text);min-height:44px;resize:vertical;outline:none" oninput="workoutData[${ei}].note=this.value">${ex.note||''}</textarea>`;
 
     h+=`</div>`;
