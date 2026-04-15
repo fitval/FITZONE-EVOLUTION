@@ -2220,6 +2220,7 @@ async function loadPlanDisp(){
           <div style="font-size:11px;color:var(--text3);margin-top:2px">${nbJ} jour${nbJ>1?'s':''} · ${pf.kcal||0} kcal${isAI?' · Généré par IA':''}</div>
         </div>
         <div style="display:flex;gap:5px">
+          <button class="btn btn-ghost btn-xs" onclick="openGroceryListFromSupabase(${pfId})" title="Liste de courses">🛒</button>
           <button class="btn btn-gold btn-xs" onclick="editClientPlan(${pfId})" title="Modifier dans le plan builder">✏️</button>
           <button class="btn btn-danger btn-xs" onclick="deleteClientPlan(${pfId})" title="Supprimer">✕</button>
         </div>
@@ -3876,11 +3877,21 @@ function fmtQty(g){
   return Math.round(g)+' g';
 }
 
-let _groceryPlanId=null;
+let _groceryPlan=null;
 let _groceryDuration=7;
 
 function openGroceryList(planId){
-  _groceryPlanId=planId;
+  _groceryPlan=plans.find(x=>x.id===planId);
+  if(!_groceryPlan){toast('Plan introuvable');return;}
+  _groceryDuration=7;
+  renderGroceryList();
+  openM('mGrocery');
+}
+
+async function openGroceryListFromSupabase(planId){
+  const{data}=await db.from('plans_full').select('*').eq('id',planId).maybeSingle();
+  if(!data){toast('Plan introuvable');return;}
+  _groceryPlan=data;
   _groceryDuration=7;
   renderGroceryList();
   openM('mGrocery');
@@ -3892,7 +3903,7 @@ function setGroceryDuration(d){
 }
 
 function renderGroceryList(){
-  const p=plans.find(x=>x.id===_groceryPlanId);
+  const p=_groceryPlan;
   if(!p)return;
   const list=buildGroceryList(p,_groceryDuration);
   let h=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap">
@@ -3932,7 +3943,7 @@ function renderGroceryList(){
 }
 
 function printGroceryList(){
-  const p=plans.find(x=>x.id===_groceryPlanId);if(!p)return;
+  const p=_groceryPlan;if(!p)return;
   const list=buildGroceryList(p,_groceryDuration);
   const durLabel=_groceryDuration===7?'1 semaine':_groceryDuration===14?'2 semaines':'1 mois';
   let body='';
