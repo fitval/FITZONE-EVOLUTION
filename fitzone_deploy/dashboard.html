@@ -1035,6 +1035,11 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <div class="mf"><button class="btn btn-ghost" onclick="closeM('mNewClient')">Annuler</button><button class="btn btn-dark" id="btnCreate" onclick="doCreateClient()">Créer →</button></div>
 </div></div>
 
+<div class="overlay" id="mGrocery"><div class="modal" style="max-width:600px">
+  <div class="mh"><div class="mt">Liste de courses</div><button class="mc" onclick="closeM('mGrocery')">✕</button></div>
+  <div class="mb"><div id="groceryContent"></div></div>
+</div></div>
+
 <div class="overlay" id="mNewAliment"><div class="modal">
   <div class="mh"><div class="mt" id="alimMT">Ajouter un aliment</div><button class="mc" onclick="closeM('mNewAliment')">✕</button></div>
   <div class="mb">
@@ -3625,7 +3630,7 @@ function pfSearchAlim(q){
 }
 function pfAddFood(a){
   if(pfMealIdx===null||pfMealIdx===undefined){toast('Clique sur un repas pour le sélectionner');return;}
-  pfDays[pfDayIdx].repas[pfMealIdx].alims.push({nom:a.nom,source:a.source||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat,qte:100});
+  pfDays[pfDayIdx].repas[pfMealIdx].alims.push({nom:a.nom,source:a.source||'',cat:a.cat||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat,qte:100});
   pfRenderMeals();pfRenderTotals();
   const key='pfRecent';let rec=lsGet(key,[]);rec=rec.filter(r=>r.nom!==a.nom);rec.unshift(a);if(rec.length>6)rec.pop();lsSave(key,rec);pfRenderRecent();
   document.getElementById('pfAlimIn').value='';document.getElementById('pfAlimDrop').classList.remove('open');
@@ -3775,6 +3780,7 @@ function renderPlansListPage(){
         <div style="font-size:11px;color:var(--text3);margin-top:2px">${(p.clientNoms||p.client_noms||[]).length?(p.clientNoms||p.client_noms).join(', '):(p.clientNom||p.client_nom||'Sans client')} · ${p.kcal||'?'} kcal · P:${p.prot}g G:${p.carb}g L:${p.fat}g</div>
       </div>
       <div style="display:flex;gap:5px" onclick="event.stopPropagation()">
+        ${p.type==='full'?`<button class="btn btn-ghost btn-xs" onclick="openGroceryList(${p.id})" title="Liste de courses">🛒</button>`:``}
         ${p.type==='full'?`<button class="btn btn-ghost btn-xs" onclick="editFullPlan(${p.id})">✏️</button>`:``}
         <button class="btn btn-danger btn-xs" onclick="delPlan(${p.id})">✕</button>
       </div>
@@ -3811,6 +3817,150 @@ function editFullPlan(id){
   document.getElementById('planBuilderWrap').style.display='block';
 }
 function delPlan(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ce plan ?'))return;dbDelete('plans_full',id);renderPlansListPage();toast('Plan supprimé');}
+
+/* ===== LISTE DE COURSES ===== */
+const GROCERY_AISLES=['Légumes','Fruits','Viandes','Poissons','Œufs & laitiers','Légumineuses','Céréales','Oléagineux','Autres'];
+const GROCERY_AISLE_ICON={'Légumes':'🥦','Fruits':'🍎','Viandes':'🥩','Poissons':'🐟','Œufs & laitiers':'🥛','Légumineuses':'🫘','Céréales':'🌾','Oléagineux':'🥜','Autres':'🛒'};
+
+function groceryGuessAisle(nom,source){
+  const n=(nom||'').toLowerCase();
+  if(/poul|boeuf|dinde|porc|agneau|veau|steak|jambon|lardon|viande|canard/.test(n))return'Viandes';
+  if(/saumon|thon|cabillaud|morue|truite|merlu|poisson|sardine|maquereau|crevette|moule|poulpe|bar|dorade/.test(n))return'Poissons';
+  if(/oeuf|œuf|lait|yaourt|fromage|skyr|fromage blanc|ricotta|mozzarella|cottage|cheddar|feta|emmental/.test(n))return'Œufs & laitiers';
+  if(/lentille|pois chiche|haricot|feve|fève|soja|tofu|tempeh/.test(n))return'Légumineuses';
+  if(/riz|pâte|pate|avoine|flocon|quinoa|sarrasin|semoule|boulgour|pain|patate|pomme de terre|patate douce|blé|épeautre|maïs/.test(n))return'Céréales';
+  if(/amande|noix|noisette|cajou|pistache|pignon|graine|sesame|chia|lin|tournesol|courge/.test(n))return'Oléagineux';
+  if(/pomme|banane|poire|orange|fraise|framboise|myrtille|cerise|raisin|kiwi|ananas|mangue|abricot|peche|pêche|clementine|clémentine|citron|pamplemousse|melon|pastèque|pasteque|figue|datte/.test(n))return'Fruits';
+  if(/salade|epinard|épinard|brocoli|chou|carotte|courgette|aubergine|tomate|concombre|poivron|oignon|ail|echalote|échalote|poireau|champignon|asperge|haricot vert|endive|radis|betterave|courge|butternut|celeri|céleri|fenouil|navet|artichaut/.test(n))return'Légumes';
+  if(source==='proteines')return'Viandes';
+  if(source==='glucides')return'Céréales';
+  if(source==='lipides')return'Oléagineux';
+  return'Autres';
+}
+
+function buildGroceryList(plan,durationDays){
+  const aliments=lsGet('fz_alims',[]);
+  const agg={};
+  const planDays=(plan.jours||[]).length||1;
+  const multiplier=durationDays/planDays;
+  (plan.jours||[]).forEach(day=>{
+    (day.repas||[]).forEach(meal=>{
+      (meal.alims||[]).forEach(a=>{
+        const key=(a.nom||'').toLowerCase().trim();
+        if(!key)return;
+        let cat=a.cat;
+        if(!cat){
+          const dbAlim=aliments.find(x=>(x.nom||'').toLowerCase().trim()===key);
+          cat=dbAlim?.cat||groceryGuessAisle(a.nom,a.source);
+        }
+        if(!agg[key]){
+          agg[key]={nom:a.nom,cat:cat||'Autres',source:a.source||'',qte:0};
+        }
+        agg[key].qte+=(parseFloat(a.qte)||0)*multiplier;
+      });
+    });
+  });
+  // Group by aisle
+  const grouped={};
+  GROCERY_AISLES.forEach(c=>grouped[c]=[]);
+  Object.values(agg).forEach(a=>{
+    const c=GROCERY_AISLES.includes(a.cat)?a.cat:'Autres';
+    grouped[c].push(a);
+  });
+  Object.keys(grouped).forEach(c=>grouped[c].sort((a,b)=>a.nom.localeCompare(b.nom)));
+  return grouped;
+}
+
+function fmtQty(g){
+  if(g>=1000)return(g/1000).toFixed(g%1000===0?0:2)+' kg';
+  return Math.round(g)+' g';
+}
+
+let _groceryPlanId=null;
+let _groceryDuration=7;
+
+function openGroceryList(planId){
+  _groceryPlanId=planId;
+  _groceryDuration=7;
+  renderGroceryList();
+  openM('mGrocery');
+}
+
+function setGroceryDuration(d){
+  _groceryDuration=d;
+  renderGroceryList();
+}
+
+function renderGroceryList(){
+  const p=plans.find(x=>x.id===_groceryPlanId);
+  if(!p)return;
+  const list=buildGroceryList(p,_groceryDuration);
+  let h=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap">
+    <div>
+      <div style="font-size:17px;font-weight:800">🛒 Liste de courses</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px">${p.nom}</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="printGroceryList()">🖨️ Imprimer</button>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
+    <button class="btn btn-sm ${_groceryDuration===7?'btn-dark':'btn-ghost'}" onclick="setGroceryDuration(7)">1 semaine</button>
+    <button class="btn btn-sm ${_groceryDuration===14?'btn-dark':'btn-ghost'}" onclick="setGroceryDuration(14)">2 semaines</button>
+    <button class="btn btn-sm ${_groceryDuration===30?'btn-dark':'btn-ghost'}" onclick="setGroceryDuration(30)">1 mois</button>
+  </div>
+  <div id="groceryPrintArea">`;
+  let totalItems=0;
+  GROCERY_AISLES.forEach(cat=>{
+    const items=list[cat];
+    if(!items||!items.length)return;
+    totalItems+=items.length;
+    h+=`<div style="margin-bottom:16px;border:1.5px solid var(--border);border-radius:12px;overflow:hidden">
+      <div style="background:var(--gold-pale);padding:10px 14px;font-size:13px;font-weight:800;color:var(--dark);display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">${GROCERY_AISLE_ICON[cat]||'🛒'}</span>${cat} <span style="font-weight:500;color:var(--text3);font-size:11px">(${items.length})</span>
+      </div>
+      <div>`;
+    items.forEach((it,i)=>{
+      h+=`<div style="display:flex;align-items:center;padding:9px 14px;${i<items.length-1?'border-bottom:1px solid var(--border)':''}">
+        <div style="flex:1;font-size:13px;color:var(--text);font-weight:500">${it.nom}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--gold)">${fmtQty(it.qte)}</div>
+      </div>`;
+    });
+    h+=`</div></div>`;
+  });
+  if(!totalItems)h+=`<div class="empty"><div class="ei">🥕</div><div class="et">Plan vide</div><div class="es">Ce plan ne contient aucun aliment</div></div>`;
+  h+=`</div>`;
+  document.getElementById('groceryContent').innerHTML=h;
+}
+
+function printGroceryList(){
+  const p=plans.find(x=>x.id===_groceryPlanId);if(!p)return;
+  const list=buildGroceryList(p,_groceryDuration);
+  const durLabel=_groceryDuration===7?'1 semaine':_groceryDuration===14?'2 semaines':'1 mois';
+  let body='';
+  GROCERY_AISLES.forEach(cat=>{
+    const items=list[cat];if(!items||!items.length)return;
+    body+=`<div class="aisle"><div class="aisle-hdr">${GROCERY_AISLE_ICON[cat]||''} ${cat}</div>`;
+    items.forEach(it=>{body+=`<div class="item"><span>☐ ${it.nom}</span><span>${fmtQty(it.qte)}</span></div>`;});
+    body+=`</div>`;
+  });
+  const w=window.open('','_blank');
+  w.document.write(`<html><head><title>Liste de courses - ${p.nom||''}</title><style>
+    body{font-family:system-ui,-apple-system,sans-serif;padding:20px;max-width:700px;margin:0 auto;color:#1a1916}
+    h1{font-size:20px;margin-bottom:4px}
+    .sub{font-size:12px;color:#666;margin-bottom:20px}
+    .aisle{margin-bottom:16px;border:1.5px solid #ddd;border-radius:10px;overflow:hidden;page-break-inside:avoid}
+    .aisle-hdr{background:#f5f0e0;padding:10px 14px;font-size:13px;font-weight:800}
+    .item{display:flex;padding:8px 14px;border-bottom:1px solid #eee;font-size:13px}
+    .item:last-child{border-bottom:none}
+    .item span:first-child{flex:1}
+    .item span:last-child{font-weight:700}
+  </style></head><body>
+  <h1>🛒 Liste de courses</h1>
+  <div class="sub">${p.nom||''} · Durée : ${durLabel}</div>
+  ${body}
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>w.print(),300);
+}
 
 /* ===== ALIMENTS ===== */
 function openAlim(id){

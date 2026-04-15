@@ -568,10 +568,19 @@ textarea.form-input { min-height:100px; resize:vertical; }
     <button id="logoutBtn" onclick="clientLogout()" style="width:100%;margin-top:12px;padding:12px;border:1.5px solid #c03030;border-radius:var(--r-sm);background:none;color:#c03030;font-weight:700;font-size:14px;cursor:pointer;display:none">Se déconnecter</button>
   </div>
 </div>
+<div class="modal-overlay" id="mClGrocery" onclick="closeClientGrocery()">
+  <div onclick="event.stopPropagation()" style="background:var(--white);border-radius:var(--r-md);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--white);z-index:5">
+      <div style="font-size:18px;font-weight:800">🛒 Liste de courses</div>
+      <button onclick="closeClientGrocery()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">✕</button>
+    </div>
+    <div style="padding:18px 20px;flex:1"><div id="clGroceryContent"></div></div>
+  </div>
+</div>
 <div class="rest-overlay" id="restOverlay"><div class="rest-label">REPOS</div><div class="rest-time" id="restTime">0:00</div><button class="rest-skip" onclick="skipRest()">Passer →</button></div>
 <div class="toast" id="toast"></div>
 <input type="file" accept="image/*,video/*" id="camInput" style="display:none">
-<input type="file" accept="image/*" id="photoInput" style="display:none">
+<input type="file" accept="image/*" id="photoInput" multiple style="display:none">
 <script>
 /* ===== CONFIG ===== */
 const SUPA='https://wsrykmutyhjxdnhnyexl.supabase.co';
@@ -1401,7 +1410,10 @@ function calcDayMacros(day){
 }
 function renderPlanDetail(){
   const p=plans[currentPlanIdx],jours=p.jours||[];
-  let h=`<button class="back-btn" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> ${p.nom||'Retour'}</button>`;
+  let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    <button class="back-btn" style="margin-bottom:0;flex:1" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> ${p.nom||'Retour'}</button>
+    ${p.type==='full'&&jours.length?`<button onclick="openClientGrocery()" style="background:var(--gold);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">🛒 Courses</button>`:''}
+  </div>`;
 
   // Calculate average macros across all days
   let avgK=0,avgP=0,avgC=0,avgF=0;
@@ -1466,6 +1478,76 @@ function renderPlanDetail(){
     h+=`</div></div>`;
   });
   document.getElementById('nutriContent').innerHTML=h;
+}
+
+/* ===== LISTE DE COURSES (CLIENT) ===== */
+const CL_AISLES=['Légumes','Fruits','Viandes','Poissons','Œufs & laitiers','Légumineuses','Céréales','Oléagineux','Autres'];
+const CL_AISLE_ICON={'Légumes':'🥦','Fruits':'🍎','Viandes':'🥩','Poissons':'🐟','Œufs & laitiers':'🥛','Légumineuses':'🫘','Céréales':'🌾','Oléagineux':'🥜','Autres':'🛒'};
+let clGroceryDuration=7;
+function clGuessAisle(nom,source){
+  const n=(nom||'').toLowerCase();
+  if(/poul|boeuf|dinde|porc|agneau|veau|steak|jambon|lardon|viande|canard/.test(n))return'Viandes';
+  if(/saumon|thon|cabillaud|morue|truite|merlu|poisson|sardine|maquereau|crevette|moule|poulpe|bar|dorade/.test(n))return'Poissons';
+  if(/oeuf|œuf|lait|yaourt|fromage|skyr|fromage blanc|ricotta|mozzarella|cottage|cheddar|feta|emmental/.test(n))return'Œufs & laitiers';
+  if(/lentille|pois chiche|haricot|feve|fève|soja|tofu|tempeh/.test(n))return'Légumineuses';
+  if(/riz|pâte|pate|avoine|flocon|quinoa|sarrasin|semoule|boulgour|pain|patate|pomme de terre|patate douce|blé|épeautre|maïs/.test(n))return'Céréales';
+  if(/amande|noix|noisette|cajou|pistache|pignon|graine|sesame|chia|lin|tournesol|courge/.test(n))return'Oléagineux';
+  if(/pomme|banane|poire|orange|fraise|framboise|myrtille|cerise|raisin|kiwi|ananas|mangue|abricot|peche|pêche|clementine|clémentine|citron|pamplemousse|melon|pastèque|pasteque|figue|datte/.test(n))return'Fruits';
+  if(/salade|epinard|épinard|brocoli|chou|carotte|courgette|aubergine|tomate|concombre|poivron|oignon|ail|echalote|échalote|poireau|champignon|asperge|haricot vert|endive|radis|betterave|courge|butternut|celeri|céleri|fenouil|navet|artichaut/.test(n))return'Légumes';
+  if(source==='proteines')return'Viandes';
+  if(source==='glucides')return'Céréales';
+  if(source==='lipides')return'Oléagineux';
+  return'Autres';
+}
+function clFmtQty(g){if(g>=1000)return(g/1000).toFixed(g%1000===0?0:2)+' kg';return Math.round(g)+' g';}
+function clBuildGrocery(p,durationDays){
+  const agg={};
+  const planDays=(p.jours||[]).length||1;
+  const mult=durationDays/planDays;
+  (p.jours||[]).forEach(day=>{
+    (day.repas||[]).forEach(meal=>{
+      (mealItems(meal)||[]).forEach(a=>{
+        const key=(a.nom||'').toLowerCase().trim();if(!key)return;
+        const cat=a.cat||clGuessAisle(a.nom,a.source);
+        if(!agg[key])agg[key]={nom:a.nom,cat:CL_AISLES.includes(cat)?cat:'Autres',qte:0};
+        agg[key].qte+=(parseFloat(a.qte)||0)*mult;
+      });
+    });
+  });
+  const grouped={};CL_AISLES.forEach(c=>grouped[c]=[]);
+  Object.values(agg).forEach(a=>{grouped[a.cat].push(a);});
+  Object.keys(grouped).forEach(c=>grouped[c].sort((a,b)=>a.nom.localeCompare(b.nom)));
+  return grouped;
+}
+function openClientGrocery(){clGroceryDuration=7;renderClientGrocery();document.getElementById('mClGrocery').classList.add('show');}
+function closeClientGrocery(){document.getElementById('mClGrocery').classList.remove('show');}
+function setClGroceryDuration(d){clGroceryDuration=d;renderClientGrocery();}
+function renderClientGrocery(){
+  const p=plans[currentPlanIdx];if(!p)return;
+  const list=clBuildGrocery(p,clGroceryDuration);
+  let h=`<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
+    <button class="day-tab${clGroceryDuration===7?' active':''}" style="flex:1" onclick="setClGroceryDuration(7)">1 sem</button>
+    <button class="day-tab${clGroceryDuration===14?' active':''}" style="flex:1" onclick="setClGroceryDuration(14)">2 sem</button>
+    <button class="day-tab${clGroceryDuration===30?' active':''}" style="flex:1" onclick="setClGroceryDuration(30)">1 mois</button>
+  </div>`;
+  let total=0;
+  CL_AISLES.forEach(cat=>{
+    const items=list[cat];if(!items||!items.length)return;
+    total+=items.length;
+    h+=`<div style="margin-bottom:14px;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;background:var(--white)">
+      <div style="background:rgba(196,154,42,.10);padding:10px 14px;font-size:14px;font-weight:800;display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">${CL_AISLE_ICON[cat]||'🛒'}</span>${cat} <span style="font-weight:500;color:var(--text3);font-size:11px">(${items.length})</span>
+      </div>`;
+    items.forEach((it,i)=>{
+      h+=`<div style="display:flex;align-items:center;padding:11px 14px;${i<items.length-1?'border-bottom:1px solid var(--border)':''}">
+        <div style="flex:1;font-size:14px;font-weight:500">${it.nom}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--gold)">${clFmtQty(it.qte)}</div>
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+  if(!total)h+=`<div style="text-align:center;padding:30px;color:var(--text3)">Plan vide</div>`;
+  document.getElementById('clGroceryContent').innerHTML=h;
 }
 
 /* ===== EXERCISE PREVIEW SWAP ===== */
@@ -1818,7 +1900,31 @@ function setGauge(val){
     d.classList.toggle('active',v<=val);
   });
 }
-function addBilanPhoto(){if(bilanPhotos.length>=8)return;const inp=document.getElementById('photoInput');inp.onchange=function(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{resizeImg(ev.target.result,1200,.7,c=>{bilanPhotos.push(c);renderPhotoGrid();});};r.readAsDataURL(f);inp.value='';};inp.click();}
+function addBilanPhoto(){
+  if(bilanPhotos.length>=8)return;
+  const inp=document.getElementById('photoInput');
+  inp.onchange=function(e){
+    const files=Array.from(e.target.files||[]);
+    if(!files.length)return;
+    const slotsLeft=8-bilanPhotos.length;
+    const toProcess=files.slice(0,slotsLeft);
+    if(files.length>slotsLeft)toast('Seulement '+slotsLeft+' photo'+(slotsLeft>1?'s':'')+' ajoutée'+(slotsLeft>1?'s':'')+' (max 8)');
+    let done=0;
+    toProcess.forEach(f=>{
+      const r=new FileReader();
+      r.onload=ev=>{
+        resizeImg(ev.target.result,1200,.7,c=>{
+          bilanPhotos.push(c);
+          done++;
+          if(done===toProcess.length)renderPhotoGrid();
+        });
+      };
+      r.readAsDataURL(f);
+    });
+    inp.value='';
+  };
+  inp.click();
+}
 function resizeImg(du,mw,q,cb){const img=new Image();img.onload=function(){let w=img.width,h=img.height;if(w>mw){h=h*(mw/w);w=mw;}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);cb(c.toDataURL('image/jpeg',q));};img.src=du;}
 function renderPhotoGrid(){let h='';bilanPhotos.forEach((p,i)=>{h+=`<div class="photo-slot"><img src="${p}"><div class="photo-remove" onclick="event.stopPropagation();bilanPhotos.splice(${i},1);renderPhotoGrid()">✕</div></div>`;});if(bilanPhotos.length<8)h+=`<div class="photo-slot" onclick="addBilanPhoto()"><div class="photo-add">+</div></div>`;document.getElementById('photoGrid').innerHTML=h;}
 async function submitBilan(){
