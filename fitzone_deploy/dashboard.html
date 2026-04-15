@@ -7349,7 +7349,45 @@ function switchMkTab(name,el){
 
 // Data: { "2026-04": { "2026-04-01": {...}, "2026-04-02": {...}, ... } }
 function getMkData(){return lsGet('fz_marketing_v2',{});}
-function saveMkData(d){lsSave('fz_marketing_v2',d);}
+function saveMkData(d){lsSave('fz_marketing_v2',d);coachDataSaveDebounced('marketing',d);}
+
+/* Generic coach_data sync (Supabase) */
+const _coachDataTimers={};
+async function coachDataLoad(key){
+  if(!currentCoach)return null;
+  try{
+    const{data,error}=await db.from('coach_data').select('data').eq('coach_id',currentCoach.id).eq('key',key).maybeSingle();
+    if(error){console.warn('coach_data load '+key+':',error);return null;}
+    return data?data.data:null;
+  }catch(e){console.warn('coach_data load err:',e);return null;}
+}
+async function coachDataSave(key,data){
+  if(!currentCoach)return;
+  try{
+    const{error}=await db.from('coach_data').upsert({coach_id:currentCoach.id,key,data,updated_at:new Date().toISOString()},{onConflict:'coach_id,key'});
+    if(error)console.warn('coach_data save '+key+':',error);
+  }catch(e){console.warn('coach_data save err:',e);}
+}
+function coachDataSaveDebounced(key,data){
+  clearTimeout(_coachDataTimers[key]);
+  _coachDataTimers[key]=setTimeout(()=>coachDataSave(key,data),800);
+}
+async function coachDataSyncToLocal(key,localKey){
+  const supaData=await coachDataLoad(key);
+  if(supaData&&Object.keys(supaData).length>0){
+    const local=lsGet(localKey,{});
+    // Merge: use whichever has more data (simple heuristic by JSON length)
+    if(JSON.stringify(supaData)!==JSON.stringify(local)){
+      lsSave(localKey,supaData);
+      return true; // signals re-render needed
+    }
+  } else {
+    // No Supabase data — push local to Supabase if exists
+    const local=lsGet(localKey,{});
+    if(Object.keys(local).length>0)await coachDataSave(key,local);
+  }
+  return false;
+}
 
 function mkDaysInMonth(ym){
   const[y,m]=ym.split('-').map(Number);
@@ -7505,6 +7543,13 @@ function mkSummaryCards(rows){
 
 function renderMkTracking(){
   const el=document.getElementById('mk-tracking');
+  // First-time sync from Supabase
+  if(!window._mkSynced&&currentCoach){
+    window._mkSynced=true;
+    coachDataSyncToLocal('marketing','fz_marketing_v2').then(needsRerender=>{
+      if(needsRerender)renderMkTracking();
+    });
+  }
   const data=getMkData();
   const months=Object.keys(data).sort();
 
@@ -7651,7 +7696,7 @@ let finMonth=new Date().toISOString().slice(0,7);
 let finYear=new Date().getFullYear();
 
 function getFinData(){return lsGet('fz_finance',{});}
-function saveFinData(d){lsSave('fz_finance',d);}
+function saveFinData(d){lsSave('fz_finance',d);coachDataSaveDebounced('finance',d);}
 
 const finDepTypes=['Publicité','Logiciels/Outils','Salle/Location','Matériel','Comptabilité','Assurance','Téléphone/Internet','Déplacement','Formation','Sous-traitance','Autre'];
 const finRenTypes=['Coaching individuel','Coaching groupe','Programme en ligne','Consultation','Abonnement','Autre'];
@@ -7682,6 +7727,13 @@ function finRenderTable(cat,rows,month,types){
 
 function renderMkFinance(){
   const el=document.getElementById('mk-finance');
+  // First-time sync from Supabase
+  if(!window._finSynced&&currentCoach){
+    window._finSynced=true;
+    coachDataSyncToLocal('finance','fz_finance').then(needsRerender=>{
+      if(needsRerender)renderMkFinance();
+    });
+  }
   const all=getFinData();
   const allMonths=Object.keys(all).sort();
 
