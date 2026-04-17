@@ -2597,13 +2597,15 @@ function renderRoadTab(){
       renderRoadTab();
     });
   });
-  // Auto-scroll to current week
-  const curRow=el.querySelector('tr.rw-cur');
-  if(curRow){
-    setTimeout(()=>{
-      const wrap=el.querySelector('.road-wrap');
-      if(wrap)wrap.scrollTop=curRow.offsetTop-wrap.offsetTop-60;
-    },50);
+  // Auto-scroll to current week (skip when in copy mode to preserve position)
+  if(!roadCopy){
+    const curRow=el.querySelector('tr.rw-cur');
+    if(curRow){
+      setTimeout(()=>{
+        const wrap=el.querySelector('.road-wrap');
+        if(wrap)wrap.scrollTop=curRow.offsetTop-wrap.offsetTop-60;
+      },50);
+    }
   }
 }
 function roadCellClick(row,field,e){
@@ -2613,7 +2615,10 @@ function roadCellClick(row,field,e){
   e.preventDefault();e.stopPropagation();
   const k=row+'-'+field;
   if(roadSelected.has(k))roadSelected.delete(k);else roadSelected.add(k);
+  const wrap=document.querySelector('#tc-roadmap .road-wrap');
+  const scrollPos=wrap?wrap.scrollTop:0;
   renderRoadTab();
+  if(wrap){const w2=document.querySelector('#tc-roadmap .road-wrap');if(w2)w2.scrollTop=scrollPos;}
 }
 function roadPaste(){
   if(!roadCopy||!roadSelected.size)return;
