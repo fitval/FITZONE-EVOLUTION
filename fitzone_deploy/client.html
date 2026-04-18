@@ -772,15 +772,17 @@ async function loadData(){
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   clientQuest=(p9.data&&p9.data[0])||null;
   console.log('[LOAD DEBUG] authMode:', clientAuthMode, 'trainLogs:', trainLogs.length, 'p5.error:', p5.error);
-  // Load coach settings (levels + partner)
+  // Load coach settings (levels)
   try{
-    const{data:sData,error:sErr}=await db.from('settings').select('gamif_levels,partner').eq('coach_id',clientData.coach_id).limit(1);
-    console.log('[SETTINGS]',sData,sErr);
-    if(sData&&sData[0]){
-      if(sData[0].gamif_levels&&sData[0].gamif_levels.length){LEVELS=sData[0].gamif_levels;}
-      if(sData[0].partner){const p=sData[0].partner;coachPartners=Array.isArray(p)?p:(p&&p.image?[p]:[]);}
-    }
-  }catch(e){console.error('[SETTINGS]',e);}
+    const{data:sData}=await db.from('settings').select('gamif_levels').eq('coach_id',clientData.coach_id).limit(1);
+    if(sData&&sData[0]&&sData[0].gamif_levels&&sData[0].gamif_levels.length){LEVELS=sData[0].gamif_levels;}
+  }catch(e){}
+  // Load partner banners
+  try{
+    const{data:pData,error:pErr}=await db.from('settings').select('partner').eq('coach_id',clientData.coach_id).limit(1);
+    console.log('[PARTNER]',pData,pErr);
+    if(pData&&pData[0]&&pData[0].partner){const p=pData[0].partner;coachPartners=Array.isArray(p)?p:(p&&p.image?[p]:[]);}
+  }catch(e){console.error('[PARTNER]',e);}
   // Load gamification data
   await loadGamification();
 }
