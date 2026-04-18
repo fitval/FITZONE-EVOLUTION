@@ -947,10 +947,12 @@ function renderHome(){
   html+=renderRoadmapVisual();
 
   // Partner banners (last widgets)
+  console.log('[PARTNERS]',coachPartners);
   coachPartners.forEach((cp,ci)=>{
     if(!cp.image)return;
+    const imgUrl=cp.image.includes('drive.google.com')&&cp.image.includes('/d/')?'https://lh3.googleusercontent.com/d/'+cp.image.match(/\/d\/([^/]+)/)[1]:cp.image;
     html+=`<div class="partner-banner fade-up" style="animation-delay:${(.3+ci*.05).toFixed(2)}s">
-      <img src="${cp.image}" alt="Partenaire" onerror="this.style.display='none'">
+      <img src="${imgUrl}" alt="Partenaire" referrerpolicy="no-referrer" style="width:100%;height:140px;object-fit:cover;display:block">
       <div class="partner-banner-body">
         ${cp.description?`<div class="partner-banner-desc">${cp.description}</div>`:''}
         ${cp.button_text&&cp.button_url?`<a href="${cp.button_url}" target="_blank" rel="noopener" class="partner-banner-btn">${cp.button_text}</a>`:''}
