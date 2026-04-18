@@ -360,6 +360,9 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .day-tab{padding:5px 13px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border2);background:var(--white);color:var(--text2);white-space:nowrap;flex-shrink:0}
 .day-tab.active{background:var(--dark);color:white;border-color:var(--dark)}
 .day-tab:hover:not(.active){border-color:var(--gold-border)}
+.day-tab-del{margin-left:5px;font-size:10px;color:rgba(255,255,255,.5);cursor:pointer;display:none}
+.day-tab.active .day-tab-del{display:inline;color:rgba(255,255,255,.6)}
+.day-tab.active .day-tab-del:hover{color:#ef4444}
 .day-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px}
 .dtot{background:var(--bg);border-radius:10px;padding:9px 7px;text-align:center}
 .dtot-val{font-size:17px;font-weight:800}
@@ -2283,10 +2286,12 @@ function renderClientPlanEditor(){
       </div>
     </div>`;
   // Day tabs
-  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px">`;
+  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;align-items:center">`;
   jours.forEach((j,ji)=>{
-    h+=`<button class="btn btn-xs ${ji===(cpEditPlan._dayIdx||0)?'btn-dark':'btn-ghost'}" onclick="cpEditPlan._dayIdx=${ji};renderClientPlanEditor()" style="font-size:11px">${j.nom||'Jour '+(ji+1)}</button>`;
+    const isActive=ji===(cpEditPlan._dayIdx||0);
+    h+=`<div style="display:inline-flex;align-items:center;gap:2px;position:relative"><button class="btn btn-xs ${isActive?'btn-dark':'btn-ghost'}" onclick="cpEditPlan._dayIdx=${ji};renderClientPlanEditor()" ondblclick="cpRenameDay(${ji})" style="font-size:11px" title="Double-clic pour renommer">${j.nom||'Jour '+(ji+1)}</button>${isActive&&jours.length>1?`<span style="font-size:10px;cursor:pointer;color:#ef4444;margin-left:-2px" onclick="cpDelDay(${ji})" title="Supprimer ce jour">✕</span>`:''}</div>`;
   });
+  h+=`<button class="btn btn-xs btn-ghost" onclick="cpRoundAll()" style="font-size:10px;color:var(--gold);border-color:var(--gold-border)" title="Arrondir toutes les quantités">⊙ Arrondir</button>`;
   h+=`</div>`;
   // Current day
   const di=cpEditPlan._dayIdx||0;
@@ -2332,6 +2337,23 @@ function cpRemoveAlim(di,ri,ai){
   if(!cpEditPlan)return;
   cpEditPlan.jours[di].repas[ri].alims.splice(ai,1);
   renderClientPlanEditor();
+}
+function cpRenameDay(di){
+  if(!cpEditPlan)return;
+  const j=cpEditPlan.jours[di];if(!j)return;
+  const n=prompt('Renommer le jour :',j.nom||'Jour '+(di+1));
+  if(n&&n.trim()){j.nom=n.trim();renderClientPlanEditor();}
+}
+function cpDelDay(di){
+  if(!cpEditPlan||cpEditPlan.jours.length<=1){toast('Il faut au moins 1 jour');return;}
+  cpEditPlan.jours.splice(di,1);
+  if((cpEditPlan._dayIdx||0)>=cpEditPlan.jours.length)cpEditPlan._dayIdx=cpEditPlan.jours.length-1;
+  renderClientPlanEditor();toast('Jour supprimé');
+}
+function cpRoundAll(){
+  if(!cpEditPlan)return;const step=10;
+  cpEditPlan.jours.forEach(j=>(j.repas||[]).forEach(r=>(r.alims||[]).forEach(a=>{a.qte=Math.round((a.qte||100)/step)*step||step;})));
+  renderClientPlanEditor();toast('Quantités arrondies à '+step+'g');
 }
 function cpShowAddAlim(di,ri){
   const existing=document.getElementById('cpAddAlimPopup');
@@ -3540,12 +3562,14 @@ function saveMacrosPlan(){
 /* Plan complet */
 function pfRenderDays(){
   const c=document.getElementById('pfDayTabs');if(!c)return;
-  c.innerHTML=pfDays.map((d,i)=>`<div class="day-tab${i===pfDayIdx?' active':''}" onclick="pfSelDay(${i})" ondblclick="pfRenameDay(${i})">${d.nom}</div>`).join('')+`<div class="add-day-btn" onclick="pfAddDay()">+</div>`;
+  c.innerHTML=pfDays.map((d,i)=>`<div class="day-tab${i===pfDayIdx?' active':''}" onclick="pfSelDay(${i})" ondblclick="pfRenameDay(${i})">${d.nom}${pfDays.length>1?`<span class="day-tab-del" onclick="event.stopPropagation();pfDelDay(${i})" title="Supprimer ce jour">✕</span>`:''}</div>`).join('')+`<div class="add-day-btn" onclick="pfAddDay()">+</div>`+`<div class="add-day-btn" onclick="pfRoundAll()" title="Arrondir toutes les quantités (valeurs rondes)" style="background:var(--gold-pale);color:var(--gold);font-size:10px;padding:4px 8px">⊙ Arrondir</div>`;
   pfRenderTotals();
 }
 function pfSelDay(i){pfDayIdx=i;pfMealIdx=null;pfRenderDays();pfRenderMeals();}
 function pfAddDay(){pfDays.push({nom:'Jour '+(pfDays.length+1),repas:[{nom:'Repas 1',alims:[]}]});pfSelDay(pfDays.length-1);}
+function pfDelDay(i){if(pfDays.length<=1){toast('Il faut au moins 1 jour');return;}pfDays.splice(i,1);if(pfDayIdx>=pfDays.length)pfDayIdx=pfDays.length-1;pfRenderDays();pfRenderMeals();toast('Jour supprimé');}
 function pfRenameDay(i){const n=prompt('Renommer le jour :',pfDays[i].nom);if(n&&n.trim()){pfDays[i].nom=n.trim();pfRenderDays();pfRenderMeals();}}
+function pfRoundAll(){const step=10;pfDays.forEach(d=>d.repas.forEach(r=>r.alims.forEach(a=>{a.qte=Math.round(a.qte/step)*step||step;})));pfRenderDays();pfRenderMeals();toast('Quantités arrondies à '+step+'g');}
 function pfCalcDay(i){const t={k:0,p:0,g:0,l:0};pfDays[i]?.repas.forEach(r=>r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;}));return t;}
 function pfCalcMeal(r){const t={k:0,p:0,g:0,l:0};r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;});return t;}
 function pfCalcTotal(){const t={k:0,p:0,g:0,l:0};pfDays.forEach(d=>d.repas.forEach(r=>r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;})));return t;}
@@ -5991,6 +6015,7 @@ function renderAIPlan(plan,config){
       <div style="display:flex;gap:6px">
         <button class="btn btn-dark btn-xs" onclick="saveAIPlanToPlans()">💾 Sauvegarder</button>
         <button class="btn btn-gold btn-xs" onclick="saveAndEditAIPlan()">✏️ Modifier</button>
+        <button class="btn btn-ghost btn-xs" onclick="aiRoundAll()">⊙ Arrondir</button>
         <button class="btn btn-ghost btn-xs" onclick="openGenPlanModal()">↺ Régénérer</button>
       </div>
     </div>
@@ -6005,8 +6030,11 @@ function renderAIPlan(plan,config){
 
     html+=`<div class="ai-plan-day">
       <div class="ai-plan-day-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
-        <span>${j.nom}</span>
-        <span id="aiDay${ji}Macros" style="font-size:11px;font-weight:400;color:${kcalOk?'rgba(255,255,255,.6)':'#fbbf24'}">${Math.round(dayKcal)} kcal · P:${Math.round(dayProt)}g G:${Math.round(dayCarb)}g L:${Math.round(dayFat)}g</span>
+        <span ondblclick="event.stopPropagation();aiRenameDay(${ji})" title="Double-clic pour renommer">${j.nom}</span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span id="aiDay${ji}Macros" style="font-size:11px;font-weight:400;color:${kcalOk?'rgba(255,255,255,.6)':'#fbbf24'}">${Math.round(dayKcal)} kcal · P:${Math.round(dayProt)}g G:${Math.round(dayCarb)}g L:${Math.round(dayFat)}g</span>
+          ${plan.jours.length>1?`<span onclick="event.stopPropagation();aiDelDay(${ji})" style="cursor:pointer;font-size:12px;color:rgba(255,255,255,.5);padding:0 4px" title="Supprimer ce jour">✕</span>`:''}
+        </span>
       </div>
       <div class="ai-plan-day-body${ji===0?' open':''}">`;
 
@@ -6097,6 +6125,28 @@ function aiUpdateQte(ji,ri,ai,newQte){
   aiRecalcMeal(ji,ri);
 }
 
+function aiRenameDay(ji){
+  if(!aiPlanData||!aiPlanData.jours[ji])return;
+  const n=prompt('Renommer le jour :',aiPlanData.jours[ji].nom);
+  if(n&&n.trim()){aiPlanData.jours[ji].nom=n.trim();renderAIPlan(aiPlanData,aiPlanData.config);}
+}
+function aiDelDay(ji){
+  if(!aiPlanData||aiPlanData.jours.length<=1){toast('Il faut au moins 1 jour');return;}
+  aiPlanData.jours.splice(ji,1);
+  renderAIPlan(aiPlanData,aiPlanData.config);toast('Jour supprimé');
+}
+function aiRoundAll(){
+  if(!aiPlanData)return;const step=10;
+  aiPlanData.jours.forEach(j=>j.repas.forEach(r=>(r.alims||[]).forEach(a=>{a.qte=Math.round((a.qte||0)/step)*step||step;})));
+  aiPlanData.jours.forEach(j=>j.repas.forEach((r,ri)=>{
+    const ma=r.alims||[];
+    r.actual_kcal=ma.reduce((s,a)=>s+Math.round(a.kcal*(a.qte||0)/100),0);
+    r.actual_prot=ma.reduce((s,a)=>s+Math.round(a.prot*(a.qte||0)/100),0);
+    r.actual_carb=ma.reduce((s,a)=>s+Math.round(a.carb*(a.qte||0)/100),0);
+    r.actual_fat=ma.reduce((s,a)=>s+Math.round(a.fat*(a.qte||0)/100),0);
+  }));
+  renderAIPlan(aiPlanData,aiPlanData.config);toast('Quantités arrondies à '+step+'g');
+}
 function aiRemoveAlim(ji,ri,ai){
   if(!aiPlanData||!aiPlanData.jours[ji])return;
   const r=aiPlanData.jours[ji].repas[ri];
