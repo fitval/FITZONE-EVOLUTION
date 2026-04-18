@@ -779,8 +779,7 @@ async function loadData(){
   }catch(e){}
   // Load partner banners
   try{
-    const{data:pData,error:pErr}=await db.from('settings').select('partner').eq('coach_id',clientData.coach_id).limit(1);
-    console.log('[PARTNER]',pData,pErr);
+    const{data:pData}=await db.from('settings').select('partner').eq('coach_id',clientData.coach_id).limit(1);
     if(pData&&pData[0]&&pData[0].partner){const p=pData[0].partner;coachPartners=Array.isArray(p)?p:(p&&p.image?[p]:[]);}
   }catch(e){console.error('[PARTNER]',e);}
   // Load gamification data
@@ -947,7 +946,6 @@ function renderHome(){
   html+=renderRoadmapVisual();
 
   // Partner banners (last widgets)
-  console.log('[PARTNERS]',coachPartners);
   coachPartners.forEach((cp,ci)=>{
     if(!cp.image)return;
     const imgUrl=cp.image.includes('drive.google.com')&&cp.image.includes('/d/')?'https://lh3.googleusercontent.com/d/'+cp.image.match(/\/d\/([^/]+)/)[1]:cp.image;
