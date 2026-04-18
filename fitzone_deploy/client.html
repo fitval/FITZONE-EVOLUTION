@@ -657,7 +657,7 @@ let suiviDate=null;
 let suiviPeriod='month';
 
 let clientAuthMode='anon'; // 'auth' or 'anon'
-let coachPartner=null; // {image, description, button_text, button_url}
+let coachPartners=[]; // [{image, description, button_text, button_url}, ...]
 
 /* ===== GAMIFICATION STATE ===== */
 let clientPoints=null; // {total_points, monthly_points, usable_balance, level, leaderboard_opt_in}
@@ -777,7 +777,7 @@ async function loadData(){
     const{data:sData}=await db.from('settings').select('gamif_levels,partner').eq('coach_id',clientData.coach_id).limit(1);
     if(sData&&sData[0]){
       if(sData[0].gamif_levels&&sData[0].gamif_levels.length){LEVELS=sData[0].gamif_levels;}
-      if(sData[0].partner)coachPartner=sData[0].partner;
+      if(sData[0].partner){const p=sData[0].partner;coachPartners=Array.isArray(p)?p:(p&&p.image?[p]:[]);}
     }
   }catch(e){}
   // Load gamification data
@@ -943,16 +943,17 @@ function renderHome(){
   // Visual roadmap at the bottom
   html+=renderRoadmapVisual();
 
-  // Partner banner (last widget)
-  if(coachPartner&&coachPartner.image){
-    html+=`<div class="partner-banner fade-up" style="animation-delay:.3s">
-      <img src="${coachPartner.image}" alt="Partenaire" onerror="this.style.display='none'">
+  // Partner banners (last widgets)
+  coachPartners.forEach((cp,ci)=>{
+    if(!cp.image)return;
+    html+=`<div class="partner-banner fade-up" style="animation-delay:${(.3+ci*.05).toFixed(2)}s">
+      <img src="${cp.image}" alt="Partenaire" onerror="this.style.display='none'">
       <div class="partner-banner-body">
-        ${coachPartner.description?`<div class="partner-banner-desc">${coachPartner.description}</div>`:''}
-        ${coachPartner.button_text&&coachPartner.button_url?`<a href="${coachPartner.button_url}" target="_blank" rel="noopener" class="partner-banner-btn">${coachPartner.button_text}</a>`:''}
+        ${cp.description?`<div class="partner-banner-desc">${cp.description}</div>`:''}
+        ${cp.button_text&&cp.button_url?`<a href="${cp.button_url}" target="_blank" rel="noopener" class="partner-banner-btn">${cp.button_text}</a>`:''}
       </div>
     </div>`;
-  }
+  });
 
   document.getElementById('homeCards').innerHTML=html;
 }

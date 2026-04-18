@@ -936,19 +936,30 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <button class="btn btn-dark" onclick="saveSettings()">Enregistrer</button>
       </div>
       <div class="card cp" style="margin-top:16px">
-        <div class="cl cl-gold">🤝 BANNIÈRE PARTENAIRE</div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Affichée en bas de la page d'accueil de l'app client</div>
-        <div id="partnerPreview" style="margin-bottom:12px"></div>
-        <div class="fg"><label class="fl">URL de l'image (bannière)</label><input class="fi" id="partnerImg" placeholder="https://exemple.com/image.jpg" oninput="updatePartnerPreview()"></div>
-        <div class="fg"><label class="fl">Description</label><textarea class="fi" id="partnerDesc" rows="2" placeholder="Ex: Nos compléments alimentaires partenaires" oninput="updatePartnerPreview()"></textarea></div>
-        <div class="fr2">
-          <div class="fg"><label class="fl">Texte du bouton</label><input class="fi" id="partnerBtnText" placeholder="Ex: Commander" oninput="updatePartnerPreview()"></div>
-          <div class="fg"><label class="fl">Lien du bouton</label><input class="fi" id="partnerBtnUrl" placeholder="https://"></div>
+        <div class="cl cl-gold">🤝 BANNIÈRES PARTENAIRES</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Affichées en bas de la page d'accueil de l'app client</div>
+        <div id="partnersList"></div>
+        <div id="partnerForm" style="display:none;border-top:1.5px solid var(--border);padding-top:14px;margin-top:14px">
+          <div class="cl" id="partnerFormTitle" style="margin-bottom:10px">NOUVEAU PARTENAIRE</div>
+          <div class="fg"><label class="fl">Image bannière</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <label style="padding:8px 14px;background:var(--gold);color:white;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-block">📷 Choisir une image<input type="file" accept="image/*" onchange="partnerUploadImg(this)" style="display:none" id="partnerFileInput"></label>
+              <span id="partnerImgStatus" style="font-size:11px;color:var(--text3)"></span>
+            </div>
+            <input type="hidden" id="partnerImg">
+            <div id="partnerImgPreview" style="margin-top:8px"></div>
+          </div>
+          <div class="fg"><label class="fl">Description</label><textarea class="fi" id="partnerDesc" rows="2" placeholder="Ex: Nos compléments alimentaires partenaires"></textarea></div>
+          <div class="fr2">
+            <div class="fg"><label class="fl">Texte du bouton</label><input class="fi" id="partnerBtnText" placeholder="Ex: Je commande mes compléments"></div>
+            <div class="fg"><label class="fl">Lien du bouton</label><input class="fi" id="partnerBtnUrl" placeholder="https://"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-gold btn-sm" onclick="savePartner()">Enregistrer</button>
+            <button class="btn btn-ghost btn-sm" onclick="closePartnerForm()">Annuler</button>
+          </div>
         </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-gold" onclick="savePartner()">Enregistrer le partenaire</button>
-          <button class="btn btn-ghost" onclick="clearPartner()">Supprimer</button>
-        </div>
+        <button class="btn btn-dark" style="margin-top:14px" id="partnerAddBtn" onclick="openAddPartner()">+ Ajouter un partenaire</button>
       </div>
     </div>
   </div>
@@ -5337,51 +5348,100 @@ function saveSettings(){
   toast('Paramètres enregistrés ✓');
 }
 
-/* ===== PARTNER BANNER ===== */
-function updatePartnerPreview(){
-  const el=document.getElementById('partnerPreview');if(!el)return;
-  const img=document.getElementById('partnerImg').value.trim();
-  const desc=document.getElementById('partnerDesc').value.trim();
-  const btn=document.getElementById('partnerBtnText').value.trim();
-  if(!img){el.innerHTML='';return;}
-  el.innerHTML=`<div style="border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden">
-    <img src="${img}" style="width:100%;height:80px;object-fit:cover;display:block" onerror="this.style.display='none'">
-    <div style="padding:10px">${desc?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px">${desc}</div>`:''}${btn?`<div style="background:var(--gold);color:white;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;text-align:center">${btn}</div>`:''}</div>
-  </div>`;
-}
+/* ===== PARTNER BANNERS ===== */
+let allPartners=[];
+let partnerEditIdx=null;
+
 async function loadPartner(){
   if(!currentCoach)return;
   try{
     const{data}=await db.from('settings').select('partner').eq('coach_id',currentCoach.id).limit(1);
     if(data&&data[0]&&data[0].partner){
       const p=data[0].partner;
-      const img=document.getElementById('partnerImg'),desc=document.getElementById('partnerDesc'),btn=document.getElementById('partnerBtnText'),url=document.getElementById('partnerBtnUrl');
-      if(img)img.value=p.image||'';
-      if(desc)desc.value=p.description||'';
-      if(btn)btn.value=p.button_text||'';
-      if(url)url.value=p.button_url||'';
-      updatePartnerPreview();
-    }
+      allPartners=Array.isArray(p)?p:(p&&p.image?[p]:[]);
+    } else allPartners=[];
+    renderPartnersList();
   }catch(e){}
+}
+function renderPartnersList(){
+  const el=document.getElementById('partnersList');if(!el)return;
+  if(!allPartners.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px 0">Aucun partenaire configuré</div>';return;}
+  el.innerHTML=allPartners.map((p,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+    <div style="width:80px;height:50px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--bg2)"><img src="${p.image}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"></div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.description||'Sans description'}</div>
+      <div style="font-size:11px;color:var(--text3)">${p.button_text||'—'}</div>
+    </div>
+    <div style="display:flex;gap:4px;flex-shrink:0">
+      <button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px" onclick="editPartner(${i})">✏️</button>
+      <button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px;color:#ef4444" onclick="deletePartner(${i})">✕</button>
+    </div>
+  </div>`).join('');
+}
+function openAddPartner(){
+  partnerEditIdx=null;
+  document.getElementById('partnerFormTitle').textContent='NOUVEAU PARTENAIRE';
+  document.getElementById('partnerImg').value='';document.getElementById('partnerDesc').value='';
+  document.getElementById('partnerBtnText').value='';document.getElementById('partnerBtnUrl').value='';
+  document.getElementById('partnerImgPreview').innerHTML='';document.getElementById('partnerImgStatus').textContent='';
+  document.getElementById('partnerForm').style.display='block';
+  document.getElementById('partnerAddBtn').style.display='none';
+}
+function editPartner(i){
+  partnerEditIdx=i;
+  const p=allPartners[i];if(!p)return;
+  document.getElementById('partnerFormTitle').textContent='MODIFIER LE PARTENAIRE';
+  document.getElementById('partnerImg').value=p.image||'';
+  document.getElementById('partnerDesc').value=p.description||'';
+  document.getElementById('partnerBtnText').value=p.button_text||'';
+  document.getElementById('partnerBtnUrl').value=p.button_url||'';
+  document.getElementById('partnerImgPreview').innerHTML=p.image?`<img src="${p.image}" style="width:100%;max-height:100px;object-fit:cover;border-radius:8px">`:'';
+  document.getElementById('partnerImgStatus').textContent='';
+  document.getElementById('partnerForm').style.display='block';
+  document.getElementById('partnerAddBtn').style.display='none';
+}
+function closePartnerForm(){
+  document.getElementById('partnerForm').style.display='none';
+  document.getElementById('partnerAddBtn').style.display='block';
+  partnerEditIdx=null;
+}
+async function partnerUploadImg(input){
+  const file=input.files[0];if(!file)return;
+  const status=document.getElementById('partnerImgStatus');
+  status.textContent='Upload en cours…';
+  try{
+    const b64=await new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=ko;r.readAsDataURL(file);});
+    const url=await uploadToDrive(b64,'partner_'+Date.now()+'.jpg');
+    if(url&&!url.startsWith('data:')){
+      document.getElementById('partnerImg').value=url;
+      document.getElementById('partnerImgPreview').innerHTML=`<img src="${url}" style="width:100%;max-height:100px;object-fit:cover;border-radius:8px">`;
+      status.textContent='Image uploadée ✓';
+    } else {status.textContent='Erreur upload';toast('Erreur upload image');}
+  }catch(e){console.error(e);status.textContent='Erreur';toast('Erreur upload');}
+  input.value='';
 }
 async function savePartner(){
   if(!currentCoach){toast('Connexion requise');return;}
-  const partner={
-    image:document.getElementById('partnerImg').value.trim(),
+  const img=document.getElementById('partnerImg').value.trim();
+  if(!img){toast('Image requise');return;}
+  const entry={
+    image:img,
     description:document.getElementById('partnerDesc').value.trim(),
     button_text:document.getElementById('partnerBtnText').value.trim(),
     button_url:document.getElementById('partnerBtnUrl').value.trim()
   };
-  const{error}=await db.from('settings').upsert({coach_id:currentCoach.id,partner},{onConflict:'coach_id'});
+  if(partnerEditIdx!==null)allPartners[partnerEditIdx]=entry;
+  else allPartners.push(entry);
+  const{error}=await db.from('settings').upsert({coach_id:currentCoach.id,partner:allPartners},{onConflict:'coach_id'});
   if(error){toast('Erreur: '+error.message);return;}
-  toast('Partenaire enregistré ✓');
+  closePartnerForm();renderPartnersList();
+  toast(partnerEditIdx!==null?'Partenaire modifié ✓':'Partenaire ajouté ✓');
 }
-async function clearPartner(){
-  if(!currentCoach)return;
-  document.getElementById('partnerImg').value='';document.getElementById('partnerDesc').value='';document.getElementById('partnerBtnText').value='';document.getElementById('partnerBtnUrl').value='';
-  document.getElementById('partnerPreview').innerHTML='';
-  await db.from('settings').upsert({coach_id:currentCoach.id,partner:null},{onConflict:'coach_id'});
-  toast('Partenaire supprimé');
+async function deletePartner(i){
+  if(!confirm('Supprimer ce partenaire ?'))return;
+  allPartners.splice(i,1);
+  await db.from('settings').upsert({coach_id:currentCoach.id,partner:allPartners.length?allPartners:null},{onConflict:'coach_id'});
+  renderPartnersList();toast('Partenaire supprimé');
 }
 
 /* ===== OVERVIEW ===== */
