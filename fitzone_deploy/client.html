@@ -93,6 +93,25 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .steps-bar-label { font-size:10px; color:var(--text3); font-weight:500; }
 .workout-go { background:var(--gold); color:var(--dark); border:none; border-radius:var(--r-sm); padding:10px 20px; font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap; }
 
+/* === DETAIL OVERLAY (weight/steps) === */
+.detail-overlay { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease }
+.detail-sheet { background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;padding:20px 16px calc(20px + var(--safe-b));animation:slideUp .3s ease }
+@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.detail-period-btns { display:flex;gap:6px;margin-bottom:16px }
+.detail-period-btn { flex:1;padding:8px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;text-align:center }
+.detail-period-btn.active { background:var(--dark);color:white;border-color:var(--dark) }
+.detail-stat { display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border) }
+.detail-stat-label { font-size:12px;color:var(--text3);font-weight:600 }
+.detail-stat-val { font-size:14px;font-weight:700;color:var(--dark) }
+
+/* === PARTNER BANNER === */
+.partner-banner { border-radius:var(--r);overflow:hidden;margin-bottom:14px;background:var(--white);box-shadow:var(--shadow) }
+.partner-banner img { width:100%;height:140px;object-fit:cover;display:block }
+.partner-banner-body { padding:16px }
+.partner-banner-desc { font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:12px }
+.partner-banner-btn { display:block;width:100%;padding:12px;border:none;border-radius:var(--r-sm);background:var(--gold);color:white;font-size:14px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none }
+
 /* === TRAINING TAB === */
 .day-tabs { display:flex; gap:0; overflow-x:auto; padding:0; border-bottom:2px solid var(--border); -webkit-overflow-scrolling:touch; scrollbar-width:none; }
 .day-tabs::-webkit-scrollbar { display:none; }
@@ -638,6 +657,7 @@ let suiviDate=null;
 let suiviPeriod='month';
 
 let clientAuthMode='anon'; // 'auth' or 'anon'
+let coachPartner=null; // {image, description, button_text, button_url}
 
 /* ===== GAMIFICATION STATE ===== */
 let clientPoints=null; // {total_points, monthly_points, usable_balance, level, leaderboard_opt_in}
@@ -752,10 +772,13 @@ async function loadData(){
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   clientQuest=(p9.data&&p9.data[0])||null;
   console.log('[LOAD DEBUG] authMode:', clientAuthMode, 'trainLogs:', trainLogs.length, 'p5.error:', p5.error);
-  // Load coach levels
+  // Load coach settings (levels + partner)
   try{
-    const{data:sData}=await db.from('settings').select('gamif_levels').eq('coach_id',clientData.coach_id).limit(1);
-    if(sData&&sData[0]&&sData[0].gamif_levels&&sData[0].gamif_levels.length){LEVELS=sData[0].gamif_levels;}
+    const{data:sData}=await db.from('settings').select('gamif_levels,partner').eq('coach_id',clientData.coach_id).limit(1);
+    if(sData&&sData[0]){
+      if(sData[0].gamif_levels&&sData[0].gamif_levels.length){LEVELS=sData[0].gamif_levels;}
+      if(sData[0].partner)coachPartner=sData[0].partner;
+    }
   }catch(e){}
   // Load gamification data
   await loadGamification();
@@ -895,16 +918,16 @@ function renderHome(){
     </div>
   </div>`;
 
-  // Weight
+  // Weight (clickable)
   const wd=getWeightData();
   html+=`<div class="grid-2 fade-up" style="animation-delay:.12s">
-    <div class="card"><div class="card-label">POIDS / SEM.</div><div class="weight-val">${wd.current}<span>kg</span></div><div class="weight-delta ${wd.delta<0?'down':'up'}">${wd.delta<0?'↓':'↑'} ${Math.abs(wd.delta).toFixed(1)} kg</div><div class="weight-chart">${renderMiniChart(wd.points)}</div></div>
+    <div class="card" onclick="openDetailWidget('Poids','kg')" style="cursor:pointer"><div class="card-label">POIDS / SEM.</div><div class="weight-val">${wd.current}<span>kg</span></div><div class="weight-delta ${wd.delta<0?'down':'up'}">${wd.delta<0?'↓':'↑'} ${Math.abs(wd.delta).toFixed(1)} kg</div><div class="weight-chart">${renderMiniChart(wd.points)}</div></div>
     <div class="card-dark"><div class="card-label">PROCHAIN BILAN</div><div class="bilan-val">${bc.days}<span>jours</span></div><div class="bilan-sub">${bc.label}</div></div>
   </div>`;
 
-  // Steps
+  // Steps (clickable)
   const sd=getStepsData();
-  html+=`<div class="card fade-up" style="animation-delay:.15s"><div class="card-label">NOMBRE DE PAS</div><div class="steps-val">${sd.today>0?sd.today.toLocaleString('fr-FR'):'—'}<span>pas</span></div><div class="steps-bars">${sd.bars.map((b,i)=>`<div class="steps-bar-wrap"><div class="steps-bar${i===3?' today':''}" style="height:${b.h}px"></div><div class="steps-bar-label">${b.label}</div></div>`).join('')}</div></div>`;
+  html+=`<div class="card fade-up" style="animation-delay:.15s;cursor:pointer" onclick="openDetailWidget('Pas','pas')"><div class="card-label">NOMBRE DE PAS</div><div class="steps-val">${sd.today>0?sd.today.toLocaleString('fr-FR'):'—'}<span>pas</span></div><div class="steps-bars">${sd.bars.map((b,i)=>`<div class="steps-bar-wrap"><div class="steps-bar${i===3?' today':''}" style="height:${b.h}px"></div><div class="steps-bar-label">${b.label}</div></div>`).join('')}</div></div>`;
 
   // Next workout
   if(programs.length>0){
@@ -919,6 +942,17 @@ function renderHome(){
   }
   // Visual roadmap at the bottom
   html+=renderRoadmapVisual();
+
+  // Partner banner (last widget)
+  if(coachPartner&&coachPartner.image){
+    html+=`<div class="partner-banner fade-up" style="animation-delay:.3s">
+      <img src="${coachPartner.image}" alt="Partenaire" onerror="this.style.display='none'">
+      <div class="partner-banner-body">
+        ${coachPartner.description?`<div class="partner-banner-desc">${coachPartner.description}</div>`:''}
+        ${coachPartner.button_text&&coachPartner.button_url?`<a href="${coachPartner.button_url}" target="_blank" rel="noopener" class="partner-banner-btn">${coachPartner.button_text}</a>`:''}
+      </div>
+    </div>`;
+  }
 
   document.getElementById('homeCards').innerHTML=html;
 }
@@ -968,6 +1002,51 @@ function getStepsData(){
   const t=new Date(),labels=['J-3','J-2','J-1','Auj.'],bars=[];let ts=0,mx=1;
   for(let i=3;i>=0;i--){const d=new Date(t);d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10);const log=dailyLogs.find(l=>l.date===ds);const s=log&&log.data&&log.data['Pas']?parseFloat(log.data['Pas']):0;if(s>mx)mx=s;if(i===0)ts=s;bars.push({steps:s,label:labels[3-i]});}
   bars.forEach(b=>b.h=Math.max(8,Math.round(b.steps/mx*55)));return{today:ts,bars};
+}
+
+/* ===== DETAIL WIDGET OVERLAY (Poids/Pas) ===== */
+let detailPeriod='7d';
+function openDetailWidget(metric,unit){
+  detailPeriod='7d';
+  renderDetailWidget(metric,unit);
+}
+function renderDetailWidget(metric,unit){
+  const existing=document.getElementById('detailOverlay');
+  if(existing)existing.remove();
+  const periodDays={'7d':7,'14d':14,'30d':30}[detailPeriod];
+  const cut=new Date();cut.setDate(cut.getDate()-periodDays);
+  const logs=dailyLogs.filter(l=>l.data&&l.data[metric]&&new Date(l.date)>=cut).reverse();
+  const pts=logs.map(l=>({date:l.date,v:parseFloat(l.data[metric])}));
+  const title=metric==='Poids'?'Évolution du poids':'Nombre de pas';
+
+  let stats='';
+  if(pts.length){
+    const vals=pts.map(p=>p.v);
+    const mn=Math.min(...vals),mx=Math.max(...vals),avg=(vals.reduce((a,b)=>a+b,0)/vals.length);
+    const first=vals[0],last=vals[vals.length-1],delta=last-first;
+    stats=`<div class="detail-stat"><span class="detail-stat-label">Actuel</span><span class="detail-stat-val">${metric==='Pas'?last.toLocaleString('fr-FR'):last.toFixed(1)} ${unit}</span></div>
+      <div class="detail-stat"><span class="detail-stat-label">Moyenne</span><span class="detail-stat-val">${metric==='Pas'?Math.round(avg).toLocaleString('fr-FR'):avg.toFixed(1)} ${unit}</span></div>
+      <div class="detail-stat"><span class="detail-stat-label">Min</span><span class="detail-stat-val">${metric==='Pas'?mn.toLocaleString('fr-FR'):mn.toFixed(1)} ${unit}</span></div>
+      <div class="detail-stat"><span class="detail-stat-label">Max</span><span class="detail-stat-val">${metric==='Pas'?mx.toLocaleString('fr-FR'):mx.toFixed(1)} ${unit}</span></div>
+      <div class="detail-stat" style="border:none"><span class="detail-stat-label">Évolution</span><span class="detail-stat-val" style="color:${delta<0?'var(--green)':delta>0?'var(--red)':'var(--text)'}">${delta>0?'+':''}${metric==='Pas'?Math.round(delta).toLocaleString('fr-FR'):delta.toFixed(1)} ${unit}</span></div>`;
+  }
+
+  const overlay=document.createElement('div');
+  overlay.id='detailOverlay';
+  overlay.className='detail-overlay';
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  overlay.innerHTML=`<div class="detail-sheet">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:18px;font-weight:800;color:var(--dark)">${title}</div>
+      <span onclick="document.getElementById('detailOverlay').remove()" style="font-size:22px;cursor:pointer;color:var(--text3);padding:4px">✕</span>
+    </div>
+    <div class="detail-period-btns">
+      ${[['7d','7 jours'],['14d','2 semaines'],['30d','1 mois']].map(([k,l])=>`<button class="detail-period-btn${detailPeriod===k?' active':''}" onclick="detailPeriod='${k}';renderDetailWidget('${metric}','${unit}')">${l}</button>`).join('')}
+    </div>
+    ${pts.length>=2?`<div class="card" style="padding:12px;margin-bottom:16px">${renderChart(pts)}</div>`:`<div class="card" style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Pas assez de données sur cette période</div>`}
+    <div style="background:var(--white);border-radius:var(--r-sm);padding:4px 16px">${stats||'<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">Aucune donnée</div>'}</div>
+  </div>`;
+  document.body.appendChild(overlay);
 }
 
 /* ===== TRAINING PREVIEW ===== */

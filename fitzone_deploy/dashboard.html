@@ -935,6 +935,21 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <div class="fg"><label class="fl">Lien questionnaire</label><div class="lbox"><div class="lurl" id="sQUrl">—</div><button class="cbtn" onclick="copyT(document.getElementById('sQUrl').textContent)">Copier</button></div></div>
         <button class="btn btn-dark" onclick="saveSettings()">Enregistrer</button>
       </div>
+      <div class="card cp" style="margin-top:16px">
+        <div class="cl cl-gold">🤝 BANNIÈRE PARTENAIRE</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Affichée en bas de la page d'accueil de l'app client</div>
+        <div id="partnerPreview" style="margin-bottom:12px"></div>
+        <div class="fg"><label class="fl">URL de l'image (bannière)</label><input class="fi" id="partnerImg" placeholder="https://exemple.com/image.jpg" oninput="updatePartnerPreview()"></div>
+        <div class="fg"><label class="fl">Description</label><textarea class="fi" id="partnerDesc" rows="2" placeholder="Ex: Nos compléments alimentaires partenaires" oninput="updatePartnerPreview()"></textarea></div>
+        <div class="fr2">
+          <div class="fg"><label class="fl">Texte du bouton</label><input class="fi" id="partnerBtnText" placeholder="Ex: Commander" oninput="updatePartnerPreview()"></div>
+          <div class="fg"><label class="fl">Lien du bouton</label><input class="fi" id="partnerBtnUrl" placeholder="https://"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-gold" onclick="savePartner()">Enregistrer le partenaire</button>
+          <button class="btn btn-ghost" onclick="clearPartner()">Supprimer</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1896,6 +1911,7 @@ function showPage(name,el){
   if(name==='rec-responses')renderRecResponses();
   if(name==='reward-requests'){renderRewardsSettings();renderLevelsSettings();renderRewardRequestsPage();}
   if(name==='marketing'){renderMkTracking();renderMkFinance();}
+  if(name==='settings')loadPartner();
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
@@ -5319,6 +5335,53 @@ function saveSettings(){
   lsSave('fz_settings',{first:f,last:l,gym:g});
   if(currentCoach)db.from('settings').upsert({coach_id:currentCoach.id,first_name:f,last_name:l,gym:g},{onConflict:'coach_id'}).catch(e=>console.warn('settings save:',e));
   toast('Paramètres enregistrés ✓');
+}
+
+/* ===== PARTNER BANNER ===== */
+function updatePartnerPreview(){
+  const el=document.getElementById('partnerPreview');if(!el)return;
+  const img=document.getElementById('partnerImg').value.trim();
+  const desc=document.getElementById('partnerDesc').value.trim();
+  const btn=document.getElementById('partnerBtnText').value.trim();
+  if(!img){el.innerHTML='';return;}
+  el.innerHTML=`<div style="border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden">
+    <img src="${img}" style="width:100%;height:80px;object-fit:cover;display:block" onerror="this.style.display='none'">
+    <div style="padding:10px">${desc?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px">${desc}</div>`:''}${btn?`<div style="background:var(--gold);color:white;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;text-align:center">${btn}</div>`:''}</div>
+  </div>`;
+}
+async function loadPartner(){
+  if(!currentCoach)return;
+  try{
+    const{data}=await db.from('settings').select('partner').eq('coach_id',currentCoach.id).limit(1);
+    if(data&&data[0]&&data[0].partner){
+      const p=data[0].partner;
+      const img=document.getElementById('partnerImg'),desc=document.getElementById('partnerDesc'),btn=document.getElementById('partnerBtnText'),url=document.getElementById('partnerBtnUrl');
+      if(img)img.value=p.image||'';
+      if(desc)desc.value=p.description||'';
+      if(btn)btn.value=p.button_text||'';
+      if(url)url.value=p.button_url||'';
+      updatePartnerPreview();
+    }
+  }catch(e){}
+}
+async function savePartner(){
+  if(!currentCoach){toast('Connexion requise');return;}
+  const partner={
+    image:document.getElementById('partnerImg').value.trim(),
+    description:document.getElementById('partnerDesc').value.trim(),
+    button_text:document.getElementById('partnerBtnText').value.trim(),
+    button_url:document.getElementById('partnerBtnUrl').value.trim()
+  };
+  const{error}=await db.from('settings').upsert({coach_id:currentCoach.id,partner},{onConflict:'coach_id'});
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Partenaire enregistré ✓');
+}
+async function clearPartner(){
+  if(!currentCoach)return;
+  document.getElementById('partnerImg').value='';document.getElementById('partnerDesc').value='';document.getElementById('partnerBtnText').value='';document.getElementById('partnerBtnUrl').value='';
+  document.getElementById('partnerPreview').innerHTML='';
+  await db.from('settings').upsert({coach_id:currentCoach.id,partner:null},{onConflict:'coach_id'});
+  toast('Partenaire supprimé');
 }
 
 /* ===== OVERVIEW ===== */
