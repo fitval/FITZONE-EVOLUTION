@@ -1519,24 +1519,28 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 <script>
 const SUPA='https://wsrykmutyhjxdnhnyexl.supabase.co';
 const KEY='sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
-const DRIVE_UPLOAD_URL='https://script.google.com/macros/s/AKfycbxxPRwXc7AgNyRyD96yZTQENBM3INL-kLkpCPmwKuk_o7fAQzvSzi6e--LEoiK_QPrP/exec';
+const DRIVE_UPLOAD_URL='https://script.google.com/macros/s/AKfycbwyZmpo87o-gypfO9herhhsJ1_5YELTICidFLeennSt-OH1sLym9Ytoo45MXybZbgAp/exec';
 const _base=window.location.href.substring(0,window.location.href.lastIndexOf('/')+1);
 const QBASE=_base+'questionnaire.html';
 const CBASE=_base+'client.html';
 
-async function uploadToDrive(base64,fileName){
+async function uploadToDrive(base64,fileName,mimeType){
   try{
-    const res=await fetch(DRIVE_UPLOAD_URL,{method:'POST',body:JSON.stringify({base64,fileName,mimeType:'image/jpeg'})});
-    const json=await res.json();
-    if(json.success&&json.files&&json.files[0])return json.files[0].url;
-    console.error('[DRIVE]',json.error);return base64;
-  }catch(e){console.error('[DRIVE]',e);return base64;}
+    mimeType=mimeType||'image/jpeg';
+    const res=await fetch(DRIVE_UPLOAD_URL,{method:'POST',redirect:'follow',body:JSON.stringify({base64,fileName,mimeType})});
+    const text=await res.text();
+    try{
+      const json=JSON.parse(text);
+      if(json.success&&json.files&&json.files[0])return json.files[0].url;
+      console.error('[DRIVE]',json.error);return null;
+    }catch(pe){console.error('[DRIVE] parse error:',text.substring(0,200));return null;}
+  }catch(e){console.error('[DRIVE]',e);return null;}
 }
 async function uploadPhotosToDrive(photos){
   const results=[];
   for(const p of photos){
     if(p.startsWith('https://'))results.push(p);
-    else{const url=await uploadToDrive(p,'fitzone_'+Date.now()+'_'+Math.random().toString(36).substr(2,4)+'.jpg');results.push(url);}
+    else{const url=await uploadToDrive(p,'fitzone_'+Date.now()+'_'+Math.random().toString(36).substr(2,4)+'.jpg');if(url)results.push(url);else results.push(p);}
   }
   return results;
 }
