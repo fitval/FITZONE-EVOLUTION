@@ -809,6 +809,7 @@ function switchTab(name){
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 function fmtDate(d){if(!d)return'—';return new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});}
 function fmtDateShort(d){if(!d)return'—';return new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}
+function driveDirectUrl(url){if(!url||!url.includes('drive.google.com'))return url;let id=null;const m1=url.match(/\/d\/([^/]+)/);if(m1)id=m1[1];const m2=url.match(/[?&]id=([^&]+)/);if(m2)id=m2[1];return id?'https://lh3.googleusercontent.com/d/'+id:url;}
 function getWeekNumber(d){const dt=new Date(d);dt.setHours(0,0,0,0);dt.setDate(dt.getDate()+3-(dt.getDay()+6)%7);const w1=new Date(dt.getFullYear(),0,4);return 1+Math.round(((dt-w1)/86400000-3+(w1.getDay()+6)%7)/7);}
 function ytId(url){if(!url)return null;const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|.*&v=))([\w-]{11})/);return m?m[1]:null;}
 function today(){return new Date().toISOString().slice(0,10);}
@@ -948,7 +949,7 @@ function renderHome(){
   // Partner banners (last widgets)
   coachPartners.forEach((cp,ci)=>{
     if(!cp.image)return;
-    const imgUrl=cp.image.includes('drive.google.com')&&cp.image.includes('/d/')?'https://lh3.googleusercontent.com/d/'+cp.image.match(/\/d\/([^/]+)/)[1]:cp.image;
+    const imgUrl=driveDirectUrl(cp.image);
     html+=`<div class="partner-banner fade-up" style="animation-delay:${(.3+ci*.05).toFixed(2)}s">
       <img src="${imgUrl}" alt="Partenaire" referrerpolicy="no-referrer" style="width:100%;height:140px;object-fit:cover;display:block">
       <div class="partner-banner-body">

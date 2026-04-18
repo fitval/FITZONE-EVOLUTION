@@ -5356,7 +5356,7 @@ function saveSettings(){
 /* ===== PARTNER BANNERS ===== */
 let allPartners=[];
 let partnerEditIdx=null;
-function driveImgUrl(url){if(!url)return'';if(url.includes('drive.google.com')&&url.includes('/d/')){const m=url.match(/\/d\/([^/]+)/);if(m)return'https://lh3.googleusercontent.com/d/'+m[1];}return url;}
+function driveImgUrl(url){if(!url||!url.includes('drive.google.com'))return url;let id=null;const m1=url.match(/\/d\/([^/]+)/);if(m1)id=m1[1];const m2=url.match(/[?&]id=([^&]+)/);if(m2)id=m2[1];return id?'https://lh3.googleusercontent.com/d/'+id:url;}
 
 async function loadPartner(){
   if(!currentCoach)return;
