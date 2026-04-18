@@ -2435,6 +2435,7 @@ async function saveClientPlanEdit(){
     if(row.clientId!==undefined){row.client_id=row.clientId;delete row.clientId;}
     if(row.clientNom!==undefined){row.client_nom=row.clientNom;delete row.clientNom;}
     if(row.createdAt!==undefined){row.created_at=row.createdAt;delete row.createdAt;}
+    console.log('saveClientPlanEdit row:',JSON.stringify(row).substring(0,500));
     const{error}=await db.from('plans_full').upsert(row,{onConflict:'id'});
     if(error){console.error('saveClientPlanEdit error:',error);toast('Erreur: '+error.message);return;}
   }catch(e){console.error('saveClientPlanEdit exception:',e);toast('Erreur sauvegarde');return;}
