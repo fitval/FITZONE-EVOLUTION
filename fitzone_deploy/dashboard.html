@@ -5411,23 +5411,100 @@ function closePartnerForm(){
   document.getElementById('partnerAddBtn').style.display='block';
   partnerEditIdx=null;
 }
-async function partnerUploadImg(input){
+function partnerUploadImg(input){
   const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>openPartnerCrop(reader.result);
+  reader.readAsDataURL(file);
+  input.value='';
+}
+function openPartnerCrop(b64){
+  const existing=document.getElementById('cropOverlay');if(existing)existing.remove();
+  const ov=document.createElement('div');ov.id='cropOverlay';
+  ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML=`<div style="color:white;font-size:14px;font-weight:700;margin-bottom:12px">Recadrer la bannière</div>
+    <div style="color:rgba(255,255,255,.5);font-size:12px;margin-bottom:16px">Déplace et redimensionne le cadre pour choisir la zone visible</div>
+    <div id="cropContainer" style="position:relative;max-width:90vw;max-height:60vh;overflow:hidden;border-radius:8px;cursor:crosshair">
+      <img id="cropImg" src="${b64}" style="display:block;max-width:90vw;max-height:60vh;user-select:none;-webkit-user-drag:none">
+      <div id="cropDim" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none">
+        <div id="cropDimTop" style="position:absolute;background:rgba(0,0,0,.55)"></div>
+        <div id="cropDimBottom" style="position:absolute;background:rgba(0,0,0,.55)"></div>
+        <div id="cropDimLeft" style="position:absolute;background:rgba(0,0,0,.55)"></div>
+        <div id="cropDimRight" style="position:absolute;background:rgba(0,0,0,.55)"></div>
+      </div>
+      <div id="cropBox" style="position:absolute;border:2px solid var(--gold);cursor:move;box-shadow:0 0 0 1px rgba(0,0,0,.3)">
+        <div id="cropHandleBR" style="position:absolute;bottom:-5px;right:-5px;width:12px;height:12px;background:var(--gold);border-radius:50%;cursor:nwse-resize"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-gold" onclick="confirmPartnerCrop()">Valider et uploader</button>
+      <button class="btn btn-ghost" style="color:white;border-color:rgba(255,255,255,.3)" onclick="document.getElementById('cropOverlay').remove()">Annuler</button>
+    </div>`;
+  document.body.appendChild(ov);
+  const img=document.getElementById('cropImg');
+  img.onload=()=>{
+    const iw=img.offsetWidth,ih=img.offsetHeight;
+    const ratio=3;
+    let bw=Math.min(iw,iw*.9),bh=bw/ratio;
+    if(bh>ih*.8){bh=ih*.8;bw=bh*ratio;}
+    const bx=(iw-bw)/2,by=(ih-bh)/2;
+    window._cropState={bx,by,bw,bh,iw,ih,b64,dragging:null};
+    updateCropBox();
+    initCropDrag();
+  };
+  if(img.complete)img.onload();
+}
+function updateCropBox(){
+  const s=window._cropState;if(!s)return;
+  const box=document.getElementById('cropBox');if(!box)return;
+  box.style.left=s.bx+'px';box.style.top=s.by+'px';box.style.width=s.bw+'px';box.style.height=s.bh+'px';
+  const dt=document.getElementById('cropDimTop'),db=document.getElementById('cropDimBottom'),dl=document.getElementById('cropDimLeft'),dr=document.getElementById('cropDimRight');
+  dt.style.cssText=`position:absolute;top:0;left:0;width:${s.iw}px;height:${s.by}px;background:rgba(0,0,0,.55)`;
+  db.style.cssText=`position:absolute;top:${s.by+s.bh}px;left:0;width:${s.iw}px;height:${s.ih-s.by-s.bh}px;background:rgba(0,0,0,.55)`;
+  dl.style.cssText=`position:absolute;top:${s.by}px;left:0;width:${s.bx}px;height:${s.bh}px;background:rgba(0,0,0,.55)`;
+  dr.style.cssText=`position:absolute;top:${s.by}px;left:${s.bx+s.bw}px;width:${s.iw-s.bx-s.bw}px;height:${s.bh}px;background:rgba(0,0,0,.55)`;
+}
+function initCropDrag(){
+  const container=document.getElementById('cropContainer');if(!container)return;
+  const box=document.getElementById('cropBox');
+  const handle=document.getElementById('cropHandleBR');
+  let mode=null,sx=0,sy=0,obx=0,oby=0,obw=0,obh=0;
+  const onDown=(e,m)=>{e.preventDefault();e.stopPropagation();mode=m;const t=e.touches?e.touches[0]:e;sx=t.clientX;sy=t.clientY;const s=window._cropState;obx=s.bx;oby=s.by;obw=s.bw;obh=s.bh;};
+  handle.onmousedown=e=>onDown(e,'resize');handle.ontouchstart=e=>onDown(e,'resize');
+  box.onmousedown=e=>{if(e.target===handle)return;onDown(e,'move');};box.ontouchstart=e=>{if(e.target===handle)return;onDown(e,'move');};
+  const onMove=e=>{if(!mode)return;const t=e.touches?e.touches[0]:e;const dx=t.clientX-sx,dy=t.clientY-sy;const s=window._cropState;
+    if(mode==='move'){s.bx=Math.max(0,Math.min(s.iw-s.bw,obx+dx));s.by=Math.max(0,Math.min(s.ih-s.bh,oby+dy));}
+    if(mode==='resize'){const nw=Math.max(60,obw+dx);const nh=nw/3;if(s.bx+nw<=s.iw&&s.by+nh<=s.ih){s.bw=nw;s.bh=nh;}}
+    updateCropBox();};
+  const onUp=()=>{mode=null;};
+  document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+  document.addEventListener('touchmove',onMove,{passive:false});document.addEventListener('touchend',onUp);
+  const ov=document.getElementById('cropOverlay');
+  const cleanup=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);document.removeEventListener('touchmove',onMove);document.removeEventListener('touchend',onUp);};
+  const obs=new MutationObserver(()=>{if(!document.getElementById('cropOverlay')){cleanup();obs.disconnect();}});
+  obs.observe(document.body,{childList:true});
+}
+async function confirmPartnerCrop(){
+  const s=window._cropState;if(!s)return;
   const status=document.getElementById('partnerImgStatus');
-  status.textContent='Upload en cours…';
+  const img=document.getElementById('cropImg');
+  const scaleX=img.naturalWidth/s.iw,scaleY=img.naturalHeight/s.ih;
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.round(s.bw*scaleX);canvas.height=Math.round(s.bh*scaleY);
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(img,Math.round(s.bx*scaleX),Math.round(s.by*scaleY),canvas.width,canvas.height,0,0,canvas.width,canvas.height);
+  const cropped=canvas.toDataURL('image/jpeg',0.9);
+  document.getElementById('cropOverlay').remove();
+  if(status)status.textContent='Upload en cours…';
   try{
-    const b64=await new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=ko;r.readAsDataURL(file);});
     const fname='partner_'+Date.now()+'_'+Math.random().toString(36).substr(2,4)+'.jpg';
-    console.log('[PARTNER] uploading',fname,'size:',Math.round(b64.length/1024)+'KB');
-    const url=await uploadToDrive(b64,fname);
-    console.log('[PARTNER] result:',url?.substring(0,80));
+    const url=await uploadToDrive(cropped,fname);
     if(url&&url.startsWith('https://')){
       document.getElementById('partnerImg').value=url;
       document.getElementById('partnerImgPreview').innerHTML=`<img src="${driveImgUrl(url)}" referrerpolicy="no-referrer" style="width:100%;max-height:100px;object-fit:cover;border-radius:8px">`;
-      status.textContent='Image uploadée ✓';
-    } else {status.textContent='Erreur upload';toast('Erreur upload image');}
-  }catch(e){console.error('[PARTNER]',e);status.textContent='Erreur';toast('Erreur upload');}
-  input.value='';
+      if(status)status.textContent='Image uploadée ✓';
+    } else {if(status)status.textContent='Erreur upload';toast('Erreur upload image');}
+  }catch(e){console.error('[PARTNER]',e);if(status)status.textContent='Erreur';toast('Erreur upload');}
 }
 async function savePartner(){
   if(!currentCoach){toast('Connexion requise');return;}
