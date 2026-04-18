@@ -774,12 +774,13 @@ async function loadData(){
   console.log('[LOAD DEBUG] authMode:', clientAuthMode, 'trainLogs:', trainLogs.length, 'p5.error:', p5.error);
   // Load coach settings (levels + partner)
   try{
-    const{data:sData}=await db.from('settings').select('gamif_levels,partner').eq('coach_id',clientData.coach_id).limit(1);
+    const{data:sData,error:sErr}=await db.from('settings').select('gamif_levels,partner').eq('coach_id',clientData.coach_id).limit(1);
+    console.log('[SETTINGS]',sData,sErr);
     if(sData&&sData[0]){
       if(sData[0].gamif_levels&&sData[0].gamif_levels.length){LEVELS=sData[0].gamif_levels;}
       if(sData[0].partner){const p=sData[0].partner;coachPartners=Array.isArray(p)?p:(p&&p.image?[p]:[]);}
     }
-  }catch(e){}
+  }catch(e){console.error('[SETTINGS]',e);}
   // Load gamification data
   await loadGamification();
 }
