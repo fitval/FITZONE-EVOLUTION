@@ -941,9 +941,10 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <div id="partnersList"></div>
         <div id="partnerForm" style="display:none;border-top:1.5px solid var(--border);padding-top:14px;margin-top:14px">
           <div class="cl" id="partnerFormTitle" style="margin-bottom:10px">NOUVEAU PARTENAIRE</div>
-          <div class="fg"><label class="fl">Image bannière</label>
+          <div class="fg"><div class="fl">Image bannière</div>
             <div style="display:flex;gap:8px;align-items:center">
-              <label style="padding:8px 14px;background:var(--gold);color:white;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-block">📷 Choisir une image<input type="file" accept="image/*" onchange="partnerUploadImg(this)" style="display:none" id="partnerFileInput"></label>
+              <input type="file" accept="image/*" id="partnerFileInput" onchange="partnerUploadImg(this)" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden">
+              <button type="button" class="btn btn-gold btn-sm" onclick="document.getElementById('partnerFileInput').click()">📷 Choisir une image</button>
               <span id="partnerImgStatus" style="font-size:11px;color:var(--text3)"></span>
             </div>
             <input type="hidden" id="partnerImg">
@@ -5411,13 +5412,16 @@ async function partnerUploadImg(input){
   status.textContent='Upload en cours…';
   try{
     const b64=await new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=ko;r.readAsDataURL(file);});
-    const url=await uploadToDrive(b64,'partner_'+Date.now()+'.jpg');
-    if(url&&!url.startsWith('data:')){
+    const fname='partner_'+Date.now()+'_'+Math.random().toString(36).substr(2,4)+'.jpg';
+    console.log('[PARTNER] uploading',fname,'size:',Math.round(b64.length/1024)+'KB');
+    const url=await uploadToDrive(b64,fname);
+    console.log('[PARTNER] result:',url?.substring(0,80));
+    if(url&&url.startsWith('https://')){
       document.getElementById('partnerImg').value=url;
       document.getElementById('partnerImgPreview').innerHTML=`<img src="${url}" style="width:100%;max-height:100px;object-fit:cover;border-radius:8px">`;
       status.textContent='Image uploadée ✓';
     } else {status.textContent='Erreur upload';toast('Erreur upload image');}
-  }catch(e){console.error(e);status.textContent='Erreur';toast('Erreur upload');}
+  }catch(e){console.error('[PARTNER]',e);status.textContent='Erreur';toast('Erreur upload');}
   input.value='';
 }
 async function savePartner(){
