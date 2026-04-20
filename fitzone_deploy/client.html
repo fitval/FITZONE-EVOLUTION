@@ -1876,6 +1876,8 @@ function renderBilanList(){
       mens.forEach(m=>{h+=`<div style="text-align:center;padding:8px 12px;background:var(--bg2);border-radius:8px;flex:1"><div style="font-size:18px;font-weight:800;color:var(--gold)">${m.v}</div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase">${m.l} (cm)</div></div>`;});
       h+=`</div>`;
     }
+    // Edit button
+    if(!validated)h+=`<button class="btn-gold" onclick="event.stopPropagation();showBilanForm('${b.id}')" style="margin-top:14px;width:100%">Modifier ce bilan</button>`;
     h+=`</div></div>`;
   });
   document.getElementById('bilanContent').innerHTML=h;
@@ -1905,42 +1907,28 @@ function renderReponses(rep){
   return h;
 }
 
-function getExistingBilanThisWeek(){
-  if(!bilans.length)return null;
-  const now=new Date();
-  for(const b of bilans){
-    const d=new Date(b.date);
-    const daysSince=Math.floor((now-d)/(864e5));
-    if(daysSince<7)return b;
-  }
-  return null;
-}
 let bilanEditMode=false;
 let bilanEditId=null;
 
-function showBilanForm(forceEdit){
+function showBilanForm(editBilanId){
   bilanPhotos=[];
   bilanEditMode=false;
   bilanEditId=null;
-  const existing=getExistingBilanThisWeek();
-  const readOnly=existing&&!forceEdit;
-  const rep=existing?.reponses||{};
+  bilanAttitude=0;
+  const editing=editBilanId?bilans.find(b=>b.id===editBilanId):null;
+  const rep=editing?.reponses||{};
+  if(editing){bilanEditMode=true;bilanEditId=editing.id;}
+  if(editing&&Array.isArray(editing.photos))bilanPhotos=editing.photos.slice();
 
   let h=`<button class="back-btn" onclick="renderBilanList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
-  h+=`<div style="font-size:20px;font-weight:800;margin-bottom:4px">Bilan hebdomadaire</div>`;
-  h+=`<div style="font-size:13px;color:var(--text3);margin-bottom:20px">${readOnly?'Bilan déjà envoyé cette semaine.':'Prends le temps de faire le point sur ta semaine.'}</div>`;
+  h+=`<div style="font-size:20px;font-weight:800;margin-bottom:4px">${editing?'Modifier le bilan':'Bilan hebdomadaire'}</div>`;
+  h+=`<div style="font-size:13px;color:var(--text3);margin-bottom:20px">${editing?'Mets à jour les informations de ce bilan.':'Prends le temps de faire le point sur ta semaine.'}</div>`;
 
-  if(readOnly)h+=`<div style="opacity:.5;pointer-events:none">`;
-
-  // Date
-  h+=`<div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="bilanDate" value="${existing?existing.date.slice(0,10):today()}"${readOnly?' disabled':''}></div>`;
+  // Date (toujours éditable)
+  h+=`<div class="form-group"><label class="form-label">Date du bilan</label><input type="date" class="form-input" id="bilanDate" value="${editing?editing.date.slice(0,10):today()}"></div>`;
 
   // Photos
-  if(readOnly&&(existing.photos||[]).length){
-    h+=`<div class="form-group"><label class="form-label">Photos</label><div style="display:flex;flex-wrap:wrap;gap:6px">${(existing.photos||[]).map(p=>`<img src="${p}" style="width:72px;height:72px;border-radius:8px;object-fit:cover">`).join('')}</div></div>`;
-  } else if(!readOnly){
-    h+=`<div class="form-group"><label class="form-label">Photos (max 8)</label><div class="photo-grid" id="photoGrid"><div class="photo-slot" onclick="addBilanPhoto()"><div class="photo-add">+</div></div></div></div>`;
-  }
+  h+=`<div class="form-group"><label class="form-label">Photos (max 8)</label><div class="photo-grid" id="photoGrid"></div></div>`;
 
   // Q1 - Attitude gauge
   h+=`<div class="bilan-section-title"><i class="fas fa-brain"></i> ATTITUDE</div>`;
@@ -1953,27 +1941,22 @@ function showBilanForm(forceEdit){
   bilanQuestions.forEach(q=>{
     h+=`<div class="bilan-section-title"><i class="fas ${q.icon}"></i> ${q.section}</div>`;
     h+=`<div class="form-group"><div class="bilan-q-label">${q.label}</div>`;
-    h+=`<textarea class="form-input" id="bilan_${q.id}" placeholder="Ta réponse..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="min-height:80px"${readOnly?' disabled':''}>${rep[q.id]||''}</textarea></div>`;
+    h+=`<textarea class="form-input" id="bilan_${q.id}" placeholder="Ta réponse..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="min-height:80px">${rep[q.id]||''}</textarea></div>`;
   });
 
   // Mensurations optionnelles
   h+=`<div class="bilan-section-title"><i class="fas fa-ruler"></i> MENSURATIONS <span class="bilan-optional-tag">Optionnel</span></div>`;
-  h+=`<div class="form-group"><div class="bilan-q-label">Biceps (cm)</div><input type="number" step="0.1" class="form-input" id="bilanBiceps" placeholder="Ex: 35.5" value="${rep.biceps||''}"${readOnly?' disabled':''}></div>`;
-  h+=`<div class="form-group"><div class="bilan-q-label">Tour de nombril (cm)</div><input type="number" step="0.1" class="form-input" id="bilanNombril" placeholder="Ex: 82" value="${rep.nombril||''}"${readOnly?' disabled':''}></div>`;
-  h+=`<div class="form-group"><div class="bilan-q-label">Tour de poitrine (cm)</div><input type="number" step="0.1" class="form-input" id="bilanPoitrine" placeholder="Ex: 98" value="${rep.poitrine||''}"${readOnly?' disabled':''}></div>`;
+  h+=`<div class="form-group"><div class="bilan-q-label">Biceps (cm)</div><input type="number" step="0.1" class="form-input" id="bilanBiceps" placeholder="Ex: 35.5" value="${rep.biceps||''}"></div>`;
+  h+=`<div class="form-group"><div class="bilan-q-label">Tour de nombril (cm)</div><input type="number" step="0.1" class="form-input" id="bilanNombril" placeholder="Ex: 82" value="${rep.nombril||''}"></div>`;
+  h+=`<div class="form-group"><div class="bilan-q-label">Tour de poitrine (cm)</div><input type="number" step="0.1" class="form-input" id="bilanPoitrine" placeholder="Ex: 98" value="${rep.poitrine||''}"></div>`;
 
-  if(readOnly)h+=`</div>`;
+  if(rep.attitude)bilanAttitude=rep.attitude;
+  h+=`<button class="btn-gold" onclick="submitBilan()" style="margin-top:16px;margin-bottom:40px">${editing?'Mettre à jour':'Envoyer le bilan'}</button>`;
 
-  if(readOnly){
-    h+=`<button class="btn-gold" onclick="showBilanForm(true)" style="margin-top:16px;margin-bottom:40px;background:var(--dark)">Refaire mon bilan</button>`;
-  } else {
-    if(existing){bilanEditMode=true;bilanEditId=existing.id;}
-    if(rep.attitude){bilanAttitude=rep.attitude;}
-    h+=`<button class="btn-gold" onclick="submitBilan()" style="margin-top:16px;margin-bottom:40px">${existing?'Renvoyer le bilan':'Envoyer le bilan'}</button>`;
-  }
   document.getElementById('bilanContent').innerHTML=h;
+  renderPhotoGrid();
   // Auto-resize textareas with content
-  if(!readOnly){document.querySelectorAll('#bilanContent textarea').forEach(ta=>{if(ta.value){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}});}
+  document.querySelectorAll('#bilanContent textarea').forEach(ta=>{if(ta.value){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}});
 }
 let bilanAttitude=0;
 function setGauge(val){

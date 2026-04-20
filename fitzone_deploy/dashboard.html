@@ -3442,6 +3442,10 @@ async function validateBilanByKey(clientId,rawDate,supaId,btnEl){
     btnEl.outerHTML=`<span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(72,187,120,.12);color:#38a169">Validé</span>`;
   }
   updateNotifBadge();
+  // Si on est sur la page Bilans hebdo (vue globale), re-render pour mettre à jour les onglets
+  const pageAll=document.getElementById('page-bilans-all');
+  const wrapAll=document.getElementById('bilansAllWrap');
+  if(pageAll&&pageAll.classList.contains('active')&&wrapAll)_renderBilansAllContent(wrapAll);
   toast('Bilan validé ✓');
 }
 async function deleteBilanByKey(clientId,rawDate,supaId){
@@ -3529,12 +3533,25 @@ function _renderBilansAllContent(wrap){
   });
   allBilans.sort((a,b)=>new Date(b.date)-new Date(a.date));
   if(!allBilans.length){wrap.innerHTML=`<div class="empty"><div class="ei">📋</div><div class="et">Aucun bilan soumis</div><div class="es">Les bilans apparaîtront ici quand vos clients en soumettront.</div></div>`;return;}
-  wrap.innerHTML=allBilans.map(b=>{
-    const rep=b.reponses||{};const ph=b.photos||[];
-    const dt=new Date(b.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
-    const answeredCount=dashBilanQuestions.filter(q=>rep[q.id]).length;
-    return _buildBilanCard({rep,ph,validated:!!b.read,realIdx:b.clientIdx,dt,rawDate:b.date,supaId:b._supa_id,answeredCount,clientId:b.clientId,clientIdx:b.clientIdx,clientName:b.clientName,clientColor:b.clientColor,showValidate:true,showDelete:false});
-  }).join('');
+  const tab=window._bilanAllTab||'todo';
+  const todo=allBilans.filter(b=>!b.read);
+  const done=allBilans.filter(b=>b.read);
+  const list=tab==='todo'?todo:done;
+  let h=`<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px">`;
+  h+=`<button style="padding:10px 20px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:none;color:${tab==='todo'?'var(--gold)':'var(--text3)'};position:relative;font-family:inherit" onclick="window._bilanAllTab='todo';_renderBilansAllContent(document.getElementById('bilansAllWrap'))">À traiter (${todo.length})${tab==='todo'?'<span style=\"position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--gold)\"></span>':''}</button>`;
+  h+=`<button style="padding:10px 20px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:none;color:${tab==='done'?'var(--gold)':'var(--text3)'};position:relative;font-family:inherit" onclick="window._bilanAllTab='done';_renderBilansAllContent(document.getElementById('bilansAllWrap'))">Validés (${done.length})${tab==='done'?'<span style=\"position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--gold)\"></span>':''}</button>`;
+  h+=`</div>`;
+  if(!list.length){
+    h+=`<div class="empty"><div class="ei">${tab==='todo'?'✅':'📋'}</div><div class="et">${tab==='todo'?'Aucun bilan à traiter':'Aucun bilan validé'}</div><div class="es">${tab==='todo'?'Tous les bilans reçus ont été validés.':'Les bilans validés apparaîtront ici.'}</div></div>`;
+  } else {
+    h+=list.map(b=>{
+      const rep=b.reponses||{};const ph=b.photos||[];
+      const dt=new Date(b.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+      const answeredCount=dashBilanQuestions.filter(q=>rep[q.id]).length;
+      return _buildBilanCard({rep,ph,validated:!!b.read,realIdx:b.clientIdx,dt,rawDate:b.date,supaId:b._supa_id,answeredCount,clientId:b.clientId,clientIdx:b.clientIdx,clientName:b.clientName,clientColor:b.clientColor,showValidate:true,showDelete:false});
+    }).join('');
+  }
+  wrap.innerHTML=h;
 }
 
 function markBilanRead(clientId,date,el){
