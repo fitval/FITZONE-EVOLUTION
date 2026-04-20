@@ -1303,7 +1303,7 @@ async function finalizeWorkout(){
         try{
           const b64=await fileToBase64(file);
           const ext=file.name.split('.').pop()||'mp4';
-          const fileName=nom+'_'+ex.nom.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30)+'_'+dateStr+'.'+ext;
+          const fileName='Video_'+nom+'_'+dateStr+'_'+ex.nom.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30)+'.'+ext;
           const url=await uploadToDrive(b64,fileName,file.type||'video/mp4');
           if(url)ex.videoUrl=url;
         }catch(e){console.error('[VIDEO UPLOAD]',ex.nom,e);}
@@ -1449,7 +1449,7 @@ async function uploadExoVideo(ei){
     const nom=(clientData&&(clientData.first_name||clientData.last_name))?((clientData.first_name||'')+'_'+(clientData.last_name||'')).replace(/\s+/g,'_').replace(/_+$/,''):'client';
     const dateStr=today().replace(/-/g,'');
     const ext=ex.videoFile.name.split('.').pop()||'mp4';
-    const fileName=nom+'_'+ex.nom.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30)+'_'+dateStr+'.'+ext;
+    const fileName='Video_'+nom+'_'+dateStr+'_'+ex.nom.replace(/[^a-zA-Z0-9]/g,'_').substring(0,30)+'.'+ext;
     const url=await uploadToDrive(b64,fileName,ex.videoFile.type||'video/mp4');
     if(url){ex.videoUrl=url;toast('Vidéo mise en ligne ✓');renderActiveWorkout();}
     else{toast('Erreur upload vidéo');}

@@ -37,9 +37,16 @@ function doPost(e) {
       const driveFile = folder.createFile(blob);
       driveFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
+      // URL adaptée: images -> uc?export=view (affichage inline), autres (vidéos) -> /file/d/ID/view
+      const mime = file.mimeType || '';
+      const isImage = mime.indexOf('image/') === 0;
+      const viewUrl = isImage
+        ? 'https://drive.google.com/uc?export=view&id=' + driveFile.getId()
+        : 'https://drive.google.com/file/d/' + driveFile.getId() + '/view';
+
       results.push({
         id: driveFile.getId(),
-        url: 'https://drive.google.com/uc?export=view&id=' + driveFile.getId(),
+        url: viewUrl,
         name: driveFile.getName()
       });
     }
