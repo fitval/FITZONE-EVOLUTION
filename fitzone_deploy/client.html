@@ -1297,9 +1297,12 @@ async function finalizeWorkout(){
     const nom=(clientData&&(clientData.first_name||clientData.last_name))?((clientData.first_name||'')+'_'+(clientData.last_name||'')).replace(/\s+/g,'_').replace(/_+$/,''):'client';
     const dateStr=today().replace(/-/g,'');
     const videosToUpload=workoutData.filter(ex=>ex.videoFile).map(ex=>({ex,file:ex.videoFile}));
+    // Affiche un overlay de chargement pendant upload + save
+    showWorkoutSaveOverlay(videosToUpload.length?`Préparation de ${videosToUpload.length} vidéo${videosToUpload.length>1?'s':''}…`:'Enregistrement de ta séance…',0,videosToUpload.length);
     if(videosToUpload.length){
-      toast('Upload des vidéos en cours...');
-      for(const{ex,file} of videosToUpload){
+      for(let i=0;i<videosToUpload.length;i++){
+        const{ex,file}=videosToUpload[i];
+        updateWorkoutSaveOverlay(`Envoi de la vidéo ${i+1}/${videosToUpload.length} · ${ex.nom}`,i,videosToUpload.length);
         try{
           const b64=await fileToBase64(file);
           const ext=file.name.split('.').pop()||'mp4';
@@ -1308,6 +1311,7 @@ async function finalizeWorkout(){
           if(url)ex.videoUrl=url;
         }catch(e){console.error('[VIDEO UPLOAD]',ex.nom,e);}
       }
+      updateWorkoutSaveOverlay('Enregistrement de ta séance…',videosToUpload.length,videosToUpload.length);
     }
     const exercises=workoutData.map(ex=>{
       const o={nom:ex.nom,sets:ex.sets.filter(s=>s.done||s.kg||s.repsActual||s.rirActual||s.kgL||s.kgR||s.repsL||s.repsR).map(s=>{
@@ -1343,15 +1347,54 @@ async function finalizeWorkout(){
         else{await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:today(),data:extra});}
       }
     }
-    toast('Séance enregistrée !');
     if(clientAuthMode==='anon'){const{data}=await db.rpc('client_get_train_logs',{p_token:clientData.token});trainLogs=data||[];}
     else{const{data}=await db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30);trainLogs=data||[];}
     const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
     dailyLogs=nl||[];
     // Gamification: award points for workout
     await awardPoints('workout_complete',50,{session:sessionName});
+    hideWorkoutSaveOverlay();
+    toast('Séance enregistrée !');
   }
   switchTab('Home');
+}
+
+function showWorkoutSaveOverlay(msg,done,total){
+  let o=document.getElementById('workoutSaveOverlay');
+  if(!o){
+    o=document.createElement('div');
+    o.id='workoutSaveOverlay';
+    o.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .2s ease';
+    o.innerHTML=`<div style="background:var(--white);border-radius:20px;padding:32px 28px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+      <div class="spinner" style="margin:0 auto 20px"></div>
+      <div id="woSaveTitle" style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:8px">Enregistrement…</div>
+      <div id="woSaveMsg" style="font-size:13px;color:var(--text3);line-height:1.4;margin-bottom:16px"></div>
+      <div id="woSaveBarWrap" style="display:none;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;margin-bottom:8px"><div id="woSaveBar" style="height:100%;background:linear-gradient(90deg,var(--gold),#e8b84a);width:0%;transition:width .3s ease;border-radius:3px"></div></div>
+      <div id="woSaveHint" style="font-size:11px;color:var(--text3);font-style:italic">Ne ferme pas l'application…</div>
+    </div>`;
+    document.body.appendChild(o);
+  }
+  updateWorkoutSaveOverlay(msg,done,total);
+}
+function updateWorkoutSaveOverlay(msg,done,total){
+  const o=document.getElementById('workoutSaveOverlay');if(!o)return;
+  const t=document.getElementById('woSaveTitle');
+  const m=document.getElementById('woSaveMsg');
+  const bw=document.getElementById('woSaveBarWrap');
+  const b=document.getElementById('woSaveBar');
+  if(m)m.textContent=msg||'';
+  if(total>0){
+    if(t)t.textContent='Envoi des vidéos';
+    if(bw)bw.style.display='block';
+    if(b)b.style.width=Math.round((done/total)*100)+'%';
+  } else {
+    if(t)t.textContent='Enregistrement…';
+    if(bw)bw.style.display='none';
+  }
+}
+function hideWorkoutSaveOverlay(){
+  const o=document.getElementById('workoutSaveOverlay');
+  if(o){o.style.opacity='0';o.style.transition='opacity .25s ease';setTimeout(()=>o.remove(),250);}
 }
 
 function validateSet(ei,si){
