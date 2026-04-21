@@ -1046,7 +1046,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (!clients || !clients.length) { showState('blocked'); return; }
 
   clientData = clients[0];
-  if (clientData.status === 'questionnaire_done' || clientData.status === 'active') { showState('done'); return; }
+  // Si le questionnaire est déjà rempli, on redirige vers l'app (accès modules via V3)
+  if (clientData.status === 'questionnaire_done' || clientData.status === 'active') {
+    window.location.href = 'client.html';
+    return;
+  }
 
   document.getElementById('firstName').value = clientData.first_name || '';
   document.getElementById('lastName').value = clientData.last_name || '';
@@ -1297,8 +1301,8 @@ async function submitForm() {
     });
     const result = await resp.json();
     if (!resp.ok || result.error) { throw new Error(result.error || 'Erreur serveur'); }
-    // Le contrat est signé AVANT dans le nouveau flow, donc on passe direct en "done"
-    showState('done');
+    // Redirection directe vers l'app client (accès aux modules en attente de validation coach)
+    window.location.href = 'client.html';
   } catch (e) {
     btn.disabled = false; btn.textContent = '✅ Envoyer mon questionnaire';
     alert('Erreur : ' + e.message);

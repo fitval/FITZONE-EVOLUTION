@@ -230,6 +230,8 @@ body {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
 /* Reset password view */
 #view-login, #view-reset, #view-newpw, #view-confirmed { display: none; }
@@ -473,26 +475,61 @@ async function doNewPassword() {
   btn.disabled = true;
   btn.innerHTML = '<span class="sp"></span> Enregistrement...';
 
+  // Overlay de chargement pleine page
+  showPwdOverlay('loading', 'Enregistrement de ton mot de passe…');
+
   const { error } = await db.auth.updateUser({ password });
 
   if (error) {
+    hidePwdOverlay();
     btn.disabled = false;
     btn.textContent = 'Definir mon mot de passe';
     showError('newpw-error', error.message);
     return;
   }
 
-  // Password set — check if questionnaire needs to be filled first
-  btn.innerHTML = '<span class="sp"></span> Redirection...';
+  // Succès : popup d'abord, puis redirection selon statut
+  showPwdOverlay('success', 'Ton mot de passe a bien été enregistré et ton compte est créé ✓');
+
+  // Déterminer la redirection
   const { data: { session: newSession } } = await db.auth.getSession();
+  let redirectUrl = 'client.html';
   if (newSession) {
     const { data: cl } = await db.from('clients').select('status,token').eq('user_id', newSession.user.id).maybeSingle();
-    if (cl && cl.status === 'questionnaire_pending' && cl.token) {
-      window.location.href = 'questionnaire.html?token=' + cl.token;
-      return;
+    if (cl && cl.token) {
+      // contract_pending OU questionnaire_pending → questionnaire.html (qui gère les deux)
+      if (cl.status === 'contract_pending' || cl.status === 'questionnaire_pending') {
+        redirectUrl = 'questionnaire.html?token=' + cl.token;
+      }
     }
   }
-  window.location.href = 'client.html';
+
+  // Laisse la popup 1.8s puis redirige
+  setTimeout(() => { window.location.href = redirectUrl; }, 1800);
+}
+
+function showPwdOverlay(mode, message) {
+  let ov = document.getElementById('pwdOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'pwdOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .2s ease';
+    document.body.appendChild(ov);
+  }
+  const isSuccess = mode === 'success';
+  const icon = isSuccess
+    ? `<div style="width:72px;height:72px;margin:0 auto 20px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;animation:pop .4s cubic-bezier(.34,1.56,.64,1)"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>`
+    : `<div class="sp" style="width:40px;height:40px;border-width:3.5px;margin:0 auto 20px"></div>`;
+  ov.innerHTML = `<div style="background:white;border-radius:20px;padding:36px 28px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+    ${icon}
+    <div style="font-size:16px;font-weight:800;color:#0f172a;line-height:1.4">${message}</div>
+    ${isSuccess ? '<div style="font-size:12px;color:#64748b;margin-top:10px">Redirection en cours…</div>' : ''}
+  </div>`;
+}
+
+function hidePwdOverlay() {
+  const ov = document.getElementById('pwdOverlay');
+  if (ov) { ov.style.opacity = '0'; ov.style.transition = 'opacity .2s ease'; setTimeout(() => ov.remove(), 220); }
 }
 
 // Enter key support

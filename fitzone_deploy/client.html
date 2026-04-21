@@ -721,12 +721,12 @@ const BADGES=[
       clientData=authClient;
       clientAuthMode='auth';
       if(authClient.status==='paused'){showState('Paused');return;}
-      // If questionnaire not yet filled, redirect to questionnaire
-      if(authClient.status==='questionnaire_pending'&&authClient.token){
+      // Si contrat à signer OU questionnaire à remplir → rediriger vers questionnaire.html
+      if((authClient.status==='contract_pending'||authClient.status==='questionnaire_pending')&&authClient.token){
         window.location.href='questionnaire.html?token='+authClient.token;
         return;
       }
-      if(authClient.status!=='active'){showState('Waiting');return;}
+      // questionnaire_done ou active → accès à l'app (modules via isModuleVisibleForClient)
       await loadData();
       showState('App');
       renderHome();
@@ -746,8 +746,7 @@ const BADGES=[
   clientData=data;
   clientAuthMode='anon';
   if(data.status==='paused'){showState('Paused');return;}
-  if(data.status==='questionnaire_pending'){window.location.href='questionnaire.html?token='+data.token;return;}
-  if(data.status!=='active'){showState('Waiting');return;}
+  if(data.status==='contract_pending'||data.status==='questionnaire_pending'){window.location.href='questionnaire.html?token='+data.token;return;}
   await loadData();
   showState('App');
   renderHome();
@@ -904,6 +903,16 @@ function renderHome(){
   const todayLog=dailyLogs.find(l=>l.date===today());
   const notFilled=!todayLog;
   let html='';
+
+  // Bannière compte en cours de validation si status=questionnaire_done
+  if(clientData.status==='questionnaire_done'){
+    html+=`<div class="card fade-up" style="margin-bottom:14px;background:linear-gradient(135deg,rgba(196,154,42,.12),rgba(232,184,74,.06));border:1.5px solid var(--gold-border)">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:40px;border-radius:50%;background:var(--gold);color:white;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">⏳</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:800;color:var(--gold)">Compte en cours de validation</div><div style="font-size:11px;color:var(--text2);margin-top:2px;line-height:1.4">Ton coach prépare ton programme. En attendant, explore les modules vidéo.</div></div>
+      </div>
+    </div>`;
+  }
 
   // Gamification level strip
   html+=renderHomeLevelStrip();
