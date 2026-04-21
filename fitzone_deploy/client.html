@@ -211,6 +211,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .bilan-gauge { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
 .bilan-gauge-dot { width:36px; height:36px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:var(--text3); cursor:pointer; transition:all .2s; }
 .bilan-gauge-dot.active { border-color:var(--gold); background:var(--gold); color:white; }
+.rate-dots { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.rate-dot { width:38px; height:38px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--text3); cursor:pointer; transition:all .15s; user-select:none; background:var(--white); }
+.rate-dot.active { border-color:var(--gold); background:var(--gold); color:white; transform:scale(1.05); }
+.rate-dot:active { transform:scale(.95); }
 .bilan-q-label { font-size:14px; font-weight:600; color:var(--text); margin-bottom:6px; line-height:1.4; }
 .bilan-q-sub { font-size:12px; color:var(--text3); margin-bottom:8px; font-style:italic; }
 .bilan-optional-tag { font-size:10px; background:var(--bg2); color:var(--text3); padding:2px 8px; border-radius:10px; font-weight:600; margin-left:6px; }
@@ -2074,6 +2078,32 @@ async function submitBilan(){
 }
 
 /* ===== SUIVI ===== */
+function rateDotsField(id,label,max,value){
+  const v=parseInt(value)||0;
+  const sub=max===5?'/5':max===10?'/10':'/'+max;
+  let dots=`<div class="rate-dots" id="${id}_dots" data-val="${v}" data-max="${max}">`;
+  for(let i=1;i<=max;i++){
+    dots+=`<div class="rate-dot${i<=v?' active':''}" data-val="${i}" onclick="setRateDot('${id}',${i})">${i}</div>`;
+  }
+  dots+=`</div>`;
+  return`<div class="suivi-field"><div class="suivi-field-label">${label} <span>${sub}</span></div><input type="hidden" id="${id}" value="${v||''}">${dots}</div>`;
+}
+function setRateDot(id,val){
+  const hid=document.getElementById(id);if(hid)hid.value=val;
+  const wrap=document.getElementById(id+'_dots');if(!wrap)return;
+  wrap.setAttribute('data-val',val);
+  wrap.querySelectorAll('.rate-dot').forEach(d=>{const dv=parseInt(d.dataset.val);d.classList.toggle('active',dv<=val);});
+}
+function pctSliderField(id,label,value){
+  const v=value==null||value===''?70:parseInt(value);
+  return`<div class="suivi-field"><div class="suivi-field-label">${label}</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+      <input type="range" min="0" max="100" step="5" value="${v}" id="${id}" oninput="document.getElementById('${id}_val').textContent=this.value+'%';document.getElementById('${id}_fill').style.width=this.value+'%'" style="flex:1;accent-color:var(--gold);height:6px;background:transparent;-webkit-appearance:none;appearance:none">
+      <div id="${id}_val" style="font-size:18px;font-weight:800;color:var(--gold);min-width:54px;text-align:right">${v}%</div>
+    </div>
+    <div style="position:relative;height:4px;background:var(--bg2);border-radius:2px;margin-top:-2px;margin-bottom:4px;pointer-events:none"><div id="${id}_fill" style="height:100%;background:linear-gradient(90deg,var(--gold),#e8b84a);border-radius:2px;width:${v}%"></div></div>
+  </div>`;
+}
 function renderSuivi(){
   if(!suiviDate)suiviDate=today();
   const log=dailyLogs.find(l=>l.date===suiviDate);
@@ -2085,14 +2115,14 @@ function renderSuivi(){
 
   // All fields visible
   h+=`<div class="suivi-field"><div class="suivi-field-label">Poids <span>(kg à jeun après 🚾)</span></div><input type="number" step="0.1" id="sv_poids" value="${d['Poids']||''}" placeholder="Ex: 73.5"></div>`;
-  h+=`<div class="suivi-field"><div class="suivi-field-label">Énergie <span>/5</span></div><input type="number" min="1" max="5" id="sv_energie" value="${d['Énergie']||''}" placeholder="1 à 5"></div>`;
-  h+=`<div class="suivi-field"><div class="suivi-field-label">Faim <span>/5</span></div><input type="number" min="1" max="5" id="sv_faim" value="${d['Faim']||''}" placeholder="1 à 5"></div>`;
-  h+=`<div class="suivi-field"><div class="suivi-field-label">Stress <span>/5</span></div><input type="number" min="1" max="5" id="sv_stress" value="${d['Stress']||''}" placeholder="1 à 5"></div>`;
+  h+=rateDotsField('sv_energie','Énergie',5,d['Énergie']);
+  h+=rateDotsField('sv_faim','Faim',5,d['Faim']);
+  h+=rateDotsField('sv_stress','Stress',5,d['Stress']);
   h+=`<div class="suivi-field"><div class="suivi-field-label">Sommeil <span>(heures)</span></div><input type="number" step="0.5" id="sv_sommeil" value="${d['Sommeil (h)']||''}" placeholder="Ex: 7.5"></div>`;
   h+=`<div class="suivi-field"><div class="suivi-field-label">Pas</div><input type="number" id="sv_pas" value="${d['Pas']||''}" placeholder="Ex: 8000"></div>`;
-  h+=`<div class="suivi-field"><div class="suivi-field-label">À combien de % as-tu suivi ton alimentation aujourd'hui ?</div><input type="number" min="0" max="100" id="sv_diet" value="${d['Alimentation suivie (%)']||''}" placeholder="0 à 100%"></div>`;
+  h+=pctSliderField('sv_diet',"À combien de % as-tu suivi ton alimentation aujourd'hui ?",d['Alimentation suivie (%)']);
   h+=`<div class="suivi-field"><div class="suivi-field-label">Donne du contexte à ta note pour que ton coach puisse mieux la comprendre.</div><textarea id="sv_contexte" placeholder="Ex: J'ai craqué sur le dessert au resto...">${d['Contexte']||''}</textarea></div>`;
-  h+=`<div class="suivi-field"><div class="suivi-field-label">Note attitude <span>/10</span></div><input type="number" min="1" max="10" id="sv_attitude" value="${d['Note attitude (/10)']||''}" placeholder="1 à 10"></div>`;
+  h+=rateDotsField('sv_attitude','Note attitude',10,d['Note attitude (/10)']);
   h+=`<button class="btn-gold" onclick="saveSuivi()" style="margin-top:8px">Enregistrer</button></div>`;
 
   // Chart section
