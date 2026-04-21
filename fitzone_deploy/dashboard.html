@@ -1135,28 +1135,73 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 </main>
 
 <!-- MODALS -->
-<div class="overlay" id="mNewClient"><div class="modal">
+<div class="overlay" id="mNewClient"><div class="modal" style="max-width:1040px">
   <div class="mh"><div class="mt">Nouveau client</div><button class="mc" onclick="closeM('mNewClient')">✕</button></div>
   <div class="mb">
-    <div class="fr2"><div class="fg"><label class="fl">Prénom *</label><input class="fi" id="nfFirst" placeholder="Aurélien"></div><div class="fg"><label class="fl">Nom *</label><input class="fi" id="nfLast" placeholder="Richard"></div></div>
-    <div class="fg"><label class="fl">Email *</label><input class="fi" id="nfEmail" placeholder="client@email.com"></div>
-    <div class="fg"><label class="fl">Téléphone <span class="fl-o">optionnel</span></label><input class="fi" id="nfPhone"></div>
-    <div class="fg"><label class="fl">Tags</label><div style="display:flex;flex-wrap:wrap;gap:6px">
-      <div class="ttog" onclick="togTag(this,'débutant')">Débutant</div><div class="ttog" onclick="togTag(this,'intermédiaire')">Intermédiaire</div><div class="ttog" onclick="togTag(this,'avancé')">Avancé</div>
-      <div class="ttog" onclick="togTag(this,'salle')">Salle</div><div class="ttog" onclick="togTag(this,'maison')">Maison</div><div class="ttog" onclick="togTag(this,'hôtel')">Hôtel</div>
-    </div></div>
-    <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
-    <div class="cl" style="font-size:11px;margin-bottom:10px">📄 CONTRAT & PAIEMENT <span style="font-weight:400;color:var(--text3)">(optionnel)</span></div>
-    <div class="fg"><label class="fl">Modèle de contrat</label><select class="fs" id="nfContractTpl" onchange="nfContractChange()"><option value="">— Aucun contrat —</option></select></div>
-    <div id="nfContractDetails" style="display:none">
-      <div class="fr2"><div class="fg"><label class="fl">Montant total (€)</label><input class="fi" type="number" step="0.01" id="nfContractAmount" placeholder="1200"></div><div class="fg"><label class="fl">Durée (mois)</label><input class="fi" type="number" id="nfContractDuration" placeholder="3"></div></div>
-      <div class="fr2"><div class="fg"><label class="fl">Date de début</label><input class="fi" type="date" id="nfContractStart"></div><div class="fg"><label class="fl">Plan de paiement</label><select class="fs" id="nfContractPlan" onchange="nfPlanChange()"><option value="one_shot">Paiement en 1 fois</option><option value="monthly">Mensuel pendant N mois</option><option value="installments">Échéances libres</option><option value="downpayment">Acompte + mensualités</option></select></div></div>
-      <div id="nfPlanDetails"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <!-- LEFT: FORM -->
+      <div>
+        <div class="cl cl-gold" style="font-size:11px;margin-bottom:8px">👤 INFOS CLIENT</div>
+        <div class="fr2"><div class="fg"><label class="fl">Prénom *</label><input class="fi" id="nfFirst" placeholder="Aurélien" oninput="nfPreviewUpdate()"></div><div class="fg"><label class="fl">Nom *</label><input class="fi" id="nfLast" placeholder="Richard" oninput="nfPreviewUpdate()"></div></div>
+        <div class="fg"><label class="fl">Email *</label><input class="fi" id="nfEmail" placeholder="client@email.com" oninput="nfPreviewUpdate()"></div>
+        <div class="fg"><label class="fl">Téléphone <span class="fl-o">optionnel</span></label><input class="fi" id="nfPhone"></div>
+        <div class="fg"><label class="fl">Tags</label><div style="display:flex;flex-wrap:wrap;gap:6px">
+          <div class="ttog" onclick="togTag(this,'débutant')">Débutant</div><div class="ttog" onclick="togTag(this,'intermédiaire')">Intermédiaire</div><div class="ttog" onclick="togTag(this,'avancé')">Avancé</div>
+          <div class="ttog" onclick="togTag(this,'salle')">Salle</div><div class="ttog" onclick="togTag(this,'maison')">Maison</div><div class="ttog" onclick="togTag(this,'hôtel')">Hôtel</div>
+        </div></div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+        <div class="cl cl-gold" style="font-size:11px;margin-bottom:8px">⏱️ DURÉE DU COACHING</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <button type="button" class="nf-dur-btn" data-dur="3" onclick="nfSetDuration(3)">3 mois</button>
+          <button type="button" class="nf-dur-btn" data-dur="6" onclick="nfSetDuration(6)">6 mois</button>
+          <button type="button" class="nf-dur-btn" data-dur="9" onclick="nfSetDuration(9)">9 mois</button>
+          <button type="button" class="nf-dur-btn" data-dur="12" onclick="nfSetDuration(12)">12 mois</button>
+          <button type="button" class="nf-dur-btn" data-dur="custom" onclick="nfSetDuration('custom')">Autre</button>
+        </div>
+        <div id="nfDurCustom" style="display:none" class="fr2">
+          <div class="fg"><label class="fl">Durée (mois)</label><input class="fi" type="number" id="nfContractDuration" value="3" min="1" oninput="nfPreviewUpdate()"></div>
+          <div class="fg"><label class="fl">Date de début</label><input class="fi" type="date" id="nfContractStart" oninput="nfPreviewUpdate()"></div>
+        </div>
+        <div id="nfDurInline" class="fg"><label class="fl">Date de début</label><input class="fi" type="date" id="nfContractStart2" oninput="document.getElementById('nfContractStart').value=this.value;nfPreviewUpdate()"></div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+        <div class="cl cl-gold" style="font-size:11px;margin-bottom:8px">💰 PAIEMENT</div>
+        <div class="fg"><label class="fl">Montant total (€) *</label><input class="fi" type="number" step="0.01" id="nfContractAmount" placeholder="1200" oninput="nfPreviewUpdate();nfPlanRecompute()"></div>
+        <div class="fg"><label class="fl">Format de paiement</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <button type="button" class="nf-plan-btn" data-plan="one_shot" onclick="nfSetPlan('one_shot')">💳 1 fois</button>
+            <button type="button" class="nf-plan-btn" data-plan="recurring" onclick="nfSetPlan('recurring')">🔁 Récurrent</button>
+            <button type="button" class="nf-plan-btn" data-plan="downpayment" onclick="nfSetPlan('downpayment')">💵 Acompte + récurrent</button>
+            <button type="button" class="nf-plan-btn" data-plan="installments" onclick="nfSetPlan('installments')">📅 Échéances libres</button>
+          </div>
+        </div>
+        <div id="nfPlanDetails"></div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+        <div class="cl cl-gold" style="font-size:11px;margin-bottom:8px">📄 CONTRAT</div>
+        <div class="fg"><label class="fl">Modèle de contrat <span class="fl-o">(optionnel si aucun)</span></label><select class="fs" id="nfContractTpl" onchange="nfPreviewUpdate()"><option value="">— Aucun contrat —</option></select></div>
+      </div>
+
+      <!-- RIGHT: LIVE PREVIEW -->
+      <div>
+        <div class="cl cl-gold" style="font-size:11px;margin-bottom:8px">👁️ APERÇU LIVE</div>
+        <div id="nfPlanSummary" style="background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:12px;line-height:1.6"></div>
+        <div id="nfContractPreview" style="background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:16px 20px;max-height:500px;overflow-y:auto;font-size:12px;line-height:1.55;color:var(--text)">
+          <div style="color:var(--text3);font-style:italic">Choisis un modèle de contrat pour voir l'aperçu ici.</div>
+        </div>
+      </div>
     </div>
-    <div id="createdWrap" style="display:none"><hr style="border:none;border-top:1px solid var(--border);margin:11px 0"><div style="font-size:12px;color:var(--text3);margin-bottom:6px">✅ Client créé — lien d'invitation :</div><div class="lbox"><div class="lurl" id="createdLink"></div><button class="cbtn" onclick="copyT(document.getElementById('createdLink').textContent)">Copier</button></div></div>
+    <div id="createdWrap" style="display:none;margin-top:16px"><hr style="border:none;border-top:1px solid var(--border);margin:11px 0"><div style="font-size:12px;color:var(--text3);margin-bottom:6px">✅ Client créé — lien envoyé par email. Tu peux aussi le copier :</div><div class="lbox"><div class="lurl" id="createdLink"></div><button class="cbtn" onclick="copyT(document.getElementById('createdLink').textContent)">Copier</button></div></div>
   </div>
-  <div class="mf"><button class="btn btn-ghost" onclick="closeM('mNewClient')">Annuler</button><button class="btn btn-dark" id="btnCreate" onclick="doCreateClient()">Créer →</button></div>
+  <div class="mf"><button class="btn btn-ghost" onclick="closeM('mNewClient')">Annuler</button><button class="btn btn-dark" id="btnCreate" onclick="doCreateClient()">Créer et envoyer le contrat →</button></div>
 </div></div>
+<style>
+.nf-dur-btn,.nf-plan-btn{padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--white);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);transition:all .15s}
+.nf-dur-btn:hover,.nf-plan-btn:hover{border-color:var(--gold);color:var(--gold)}
+.nf-dur-btn.active,.nf-plan-btn.active{background:var(--dark);border-color:var(--dark);color:white}
+.nf-dur-btn.active .nf-count,.nf-plan-btn.active .nf-count{color:var(--gold)}
+</style>
 
 <div class="overlay" id="mGrocery"><div class="modal" style="max-width:600px">
   <div class="mh"><div class="mt">Liste de courses</div><button class="mc" onclick="closeM('mGrocery')">✕</button></div>
@@ -2046,7 +2091,7 @@ async function populateCoachFilter(){
   if(data){data.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=(c.first_name||'')+' '+(c.last_name||'');sel.appendChild(o);});}
 }
 function renderStats(){
-  const tot=allClients.length,act=allClients.filter(c=>c.status==='active').length,q=allClients.filter(c=>c.status==='questionnaire_done').length,p=allClients.filter(c=>c.status==='questionnaire_pending').length;
+  const tot=allClients.length,act=allClients.filter(c=>c.status==='active').length,q=allClients.filter(c=>c.status==='questionnaire_done').length,p=allClients.filter(c=>c.status==='questionnaire_pending'||c.status==='contract_pending').length;
   txt('s-tot',tot);txt('s-act',act);txt('s-q',q);txt('s-p',p);
   txt('ov-act',act);txt('ov-tot',tot);txt('ov-bil',q);
 }
@@ -2072,7 +2117,7 @@ function renderClients(list){
     </tr>`;
   }).join('');
 }
-const stBadge=s=>({questionnaire_pending:`<span class="badge b-pend">⏳ En attente</span>`,questionnaire_done:`<span class="badge b-done">📋 Questionnaire reçu</span>`,active:`<span class="badge b-active">✅ Actif</span>`,paused:`<span class="badge" style="background:rgba(255,160,0,.15);color:#b57800">⏸️ En pause</span>`}[s]||`<span class="badge b-pend">${s}</span>`);
+const stBadge=s=>({contract_pending:`<span class="badge" style="background:rgba(180,90,30,.15);color:#b45a1e">📄 Contrat à signer</span>`,questionnaire_pending:`<span class="badge b-pend">⏳ Questionnaire en attente</span>`,questionnaire_done:`<span class="badge b-done">📋 Questionnaire reçu</span>`,active:`<span class="badge b-active">✅ Actif</span>`,paused:`<span class="badge" style="background:rgba(255,160,0,.15);color:#b57800">⏸️ En pause</span>`}[s]||`<span class="badge b-pend">${s}</span>`);
 function filterCl(q){
   let l=clFilter==='all'?allClients:allClients.filter(c=>c.status===clFilter);
   // Coach filter
@@ -2098,27 +2143,30 @@ async function doCreateClient(){
   const colors=['#c49a2a','#2a8c5c','#2a5c8c','#8c2a5c','#5c2a8c'];
   const col=colors[Math.floor(Math.random()*colors.length)];
   const tok=crypto.randomUUID();
-  const{data,error}=await db.from('clients').insert([{first_name:f,last_name:l,email:e,phone:document.getElementById('nfPhone').value.trim(),token:tok,status:'questionnaire_pending',tags:newClientTags,avatar_color:col,coach_id:currentCoach?.id||null}]).select();
-  if(error){btn.disabled=false;btn.textContent='Créer →';toast('Erreur: '+error.message);return;}
-  // Create auth account for the client
-  const newClient=data?.[0];
-  if(newClient&&e){
-    btn.textContent='Création du compte...';
-    const uid=await createClientAccount(newClient.id,e,f,l);
-    if(uid) toast('Compte client créé — email d\'invitation envoyé');
-  }
-  // Contrat optionnel
   const tplId=document.getElementById('nfContractTpl')?.value;
+  // Status initial : si contrat, bloqué sur signature ; sinon bloqué sur questionnaire
+  const initStatus=tplId?'contract_pending':'questionnaire_pending';
+  const{data,error}=await db.from('clients').insert([{first_name:f,last_name:l,email:e,phone:document.getElementById('nfPhone').value.trim(),token:tok,status:initStatus,tags:newClientTags,avatar_color:col,coach_id:currentCoach?.id||null}]).select();
+  if(error){btn.disabled=false;btn.textContent='Créer et envoyer le contrat →';toast('Erreur: '+error.message);return;}
+  const newClient=data?.[0];
+  // Contrat d'abord (pour qu'il soit attaché avant l'email d'invitation)
   if(tplId&&newClient){
     btn.textContent='Création du contrat...';
-    try{await _attachContractToClient(newClient,tplId);}catch(e){console.error('[CONTRACT ATTACH]',e);toast('Client créé mais erreur contrat : '+e.message);}
+    try{await _attachContractToClient(newClient,tplId);}
+    catch(e){console.error('[CONTRACT ATTACH]',e);toast('Client créé mais erreur contrat : '+e.message);}
   }
-  btn.disabled=false;btn.textContent='Créer →';
+  // Création compte auth + email d'invitation (inclut le lien vers le questionnaire/contrat)
+  if(newClient&&e){
+    btn.textContent='Envoi de l\'email...';
+    const uid=await createClientAccount(newClient.id,e,f,l);
+    if(uid)toast(tplId?'Contrat envoyé au client par email ✓':'Client créé — invitation envoyée');
+  }
+  btn.disabled=false;btn.textContent='Créer et envoyer le contrat →';
   const link=QBASE+'?token='+tok;
   document.getElementById('createdLink').textContent=link;
   document.getElementById('createdWrap').style.display='block';
   newClientTags=[];
-  await loadClients();toast('Client créé ✓');
+  await loadClients();
 }
 async function valCl(id){await db.from('clients').update({status:'active'}).eq('id',id);toast('Client activé ✓');await loadClients();if(curClient&&curClient.id===id){curClient.status='active';renderDetHero();}}
 
@@ -8593,23 +8641,42 @@ async function populateContractTplSelect(){
   await _loadContractTemplates();
   sel.innerHTML='<option value="">— Aucun contrat —</option>'+_contractTemplates.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
 }
-function nfContractChange(){
-  const tplId=document.getElementById('nfContractTpl').value;
-  document.getElementById('nfContractDetails').style.display=tplId?'block':'none';
-  if(tplId){
-    // default values
-    if(!document.getElementById('nfContractStart').value)document.getElementById('nfContractStart').value=new Date().toISOString().slice(0,10);
-    if(!document.getElementById('nfContractDuration').value)document.getElementById('nfContractDuration').value=3;
-    nfPlanChange();
-  }
+let _nfCurrentPlan='one_shot';let _nfCurrentDur=3;
+function nfSetDuration(n){
+  _nfCurrentDur=n;
+  document.querySelectorAll('.nf-dur-btn').forEach(b=>b.classList.toggle('active',String(b.dataset.dur)===String(n)));
+  const cust=document.getElementById('nfDurCustom');const inl=document.getElementById('nfDurInline');
+  if(n==='custom'){cust.style.display='grid';inl.style.display='none';}
+  else{cust.style.display='none';inl.style.display='block';document.getElementById('nfContractDuration').value=n;}
+  if(!document.getElementById('nfContractStart2').value)document.getElementById('nfContractStart2').value=new Date().toISOString().slice(0,10);
+  if(!document.getElementById('nfContractStart').value)document.getElementById('nfContractStart').value=document.getElementById('nfContractStart2').value;
+  nfPreviewUpdate();
 }
-function nfPlanChange(){
-  const plan=document.getElementById('nfContractPlan').value;
-  const pd=document.getElementById('nfPlanDetails');
-  if(plan==='monthly'){pd.innerHTML=`<div class="fr2"><div class="fg"><label class="fl">Nombre de mensualités</label><input class="fi" type="number" id="nfPlanN" value="3" min="1"></div><div class="fg"><label class="fl">Jour de prélèvement</label><input class="fi" type="number" id="nfPlanDay" value="1" min="1" max="28"></div></div>`;}
-  else if(plan==='downpayment'){pd.innerHTML=`<div class="fr2"><div class="fg"><label class="fl">Acompte (€)</label><input class="fi" type="number" step="0.01" id="nfPlanDown" placeholder="500"></div><div class="fg"><label class="fl">Nb mensualités restantes</label><input class="fi" type="number" id="nfPlanN" value="3" min="1"></div></div><div class="fr2"><div class="fg"><label class="fl">Délai avant 1ère mensualité (jours)</label><input class="fi" type="number" id="nfPlanDelay" value="12"></div><div class="fg"><label class="fl">Jour de prélèvement mensuel</label><input class="fi" type="number" id="nfPlanDay" value="1" min="1" max="28"></div></div>`;}
-  else if(plan==='installments'){pd.innerHTML=`<div class="fg"><label class="fl">Nb d'échéances</label><input class="fi" type="number" id="nfPlanN" value="3" min="1" oninput="nfInstallmentsRender()"></div><div id="nfInstallmentsList"></div>`;nfInstallmentsRender();}
-  else pd.innerHTML='<div style="font-size:12px;color:var(--text3);padding:6px 0">Paiement unique à la signature.</div>';
+function nfSetPlan(type){
+  _nfCurrentPlan=type;
+  document.querySelectorAll('.nf-plan-btn').forEach(b=>b.classList.toggle('active',b.dataset.plan===type));
+  nfPlanRecompute();
+}
+function nfPlanRecompute(){
+  const pd=document.getElementById('nfPlanDetails');if(!pd)return;
+  const total=parseFloat(document.getElementById('nfContractAmount')?.value)||0;
+  const plan=_nfCurrentPlan;
+  if(plan==='one_shot'){
+    pd.innerHTML=`<div style="background:var(--gold-pale);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);margin-top:8px">💳 <strong>${total.toFixed(2)}€</strong> à la signature du contrat.</div>`;
+  } else if(plan==='recurring'){
+    pd.innerHTML=`<div class="fr2" style="margin-top:8px"><div class="fg"><label class="fl">Fréquence</label><select class="fs" id="nfFreq" onchange="nfPreviewUpdate()"><option value="month">Tous les mois</option><option value="week">Toutes les semaines</option><option value="2weeks">Toutes les 2 semaines</option></select></div><div class="fg"><label class="fl">Nombre d'échéances</label><input class="fi" type="number" id="nfPlanN" value="3" min="1" oninput="nfPreviewUpdate()"></div></div>
+      <div class="fg"><label class="fl">Montant par échéance (€) <span class="fl-o">(auto-calculé, modifiable)</span></label><input class="fi" type="number" step="0.01" id="nfPerAmount" value="${(total/3).toFixed(2)}" oninput="nfPreviewUpdate()"></div>`;
+    // Recalc initial
+    setTimeout(()=>{const n=parseInt(document.getElementById('nfPlanN')?.value)||3;document.getElementById('nfPerAmount').value=(total/n).toFixed(2);nfPreviewUpdate();},10);
+  } else if(plan==='downpayment'){
+    pd.innerHTML=`<div class="fr2" style="margin-top:8px"><div class="fg"><label class="fl">Acompte (€)</label><input class="fi" type="number" step="0.01" id="nfPlanDown" placeholder="500" oninput="nfPreviewUpdate()"></div><div class="fg"><label class="fl">Nb mensualités restantes</label><input class="fi" type="number" id="nfPlanN" value="3" min="1" oninput="nfPreviewUpdate()"></div></div>
+      <div class="fr2"><div class="fg"><label class="fl">Fréquence</label><select class="fs" id="nfFreq" onchange="nfPreviewUpdate()"><option value="month">Mensuel</option><option value="week">Hebdo</option><option value="2weeks">Toutes les 2 semaines</option></select></div><div class="fg"><label class="fl">Délai avant 1ère échéance (jours)</label><input class="fi" type="number" id="nfPlanDelay" value="30" oninput="nfPreviewUpdate()"></div></div>
+      <div class="fg"><label class="fl">Montant par échéance (€) <span class="fl-o">(après acompte)</span></label><input class="fi" type="number" step="0.01" id="nfPerAmount" placeholder="Auto" oninput="nfPreviewUpdate()"></div>`;
+  } else if(plan==='installments'){
+    pd.innerHTML=`<div class="fg" style="margin-top:8px"><label class="fl">Nb d'échéances</label><input class="fi" type="number" id="nfPlanN" value="3" min="1" oninput="nfInstallmentsRender()"></div><div id="nfInstallmentsList"></div>`;
+    nfInstallmentsRender();
+  }
+  nfPreviewUpdate();
 }
 function nfInstallmentsRender(){
   const n=parseInt(document.getElementById('nfPlanN')?.value)||3;const tot=parseFloat(document.getElementById('nfContractAmount')?.value)||0;
@@ -8619,24 +8686,95 @@ function nfInstallmentsRender(){
   const start=document.getElementById('nfContractStart')?.value||new Date().toISOString().slice(0,10);
   for(let i=0;i<n;i++){
     const d=new Date(start);d.setMonth(d.getMonth()+i);const ds=d.toISOString().slice(0,10);
-    h+=`<div class="fr2" style="gap:6px;margin-bottom:4px"><input class="fi" type="date" data-inst-date="${i}" value="${ds}"><input class="fi" type="number" step="0.01" data-inst-amt="${i}" value="${per}" placeholder="Montant"></div>`;
+    h+=`<div class="fr2" style="gap:6px;margin-bottom:4px"><input class="fi" type="date" data-inst-date="${i}" value="${ds}" oninput="nfPreviewUpdate()"><input class="fi" type="number" step="0.01" data-inst-amt="${i}" value="${per}" placeholder="Montant" oninput="nfPreviewUpdate()"></div>`;
   }
   ctn.innerHTML=h;
+  nfPreviewUpdate();
+}
+function _nfCollectPlanData(){
+  const total=parseFloat(document.getElementById('nfContractAmount')?.value)||0;
+  const plan=_nfCurrentPlan;
+  let data={},desc='',schedule=[];
+  const startStr=document.getElementById('nfContractStart')?.value||new Date().toISOString().slice(0,10);
+  const start=new Date(startStr);
+  const stepDays=(freq)=>freq==='week'?7:freq==='2weeks'?14:null; // null=mensuel
+  if(plan==='one_shot'){
+    desc=`Paiement unique de ${total.toFixed(2)}€`;
+    schedule.push({date:startStr,amount:total,label:null});
+  } else if(plan==='recurring'){
+    const n=parseInt(document.getElementById('nfPlanN')?.value)||1;
+    const freq=document.getElementById('nfFreq')?.value||'month';
+    const per=parseFloat(document.getElementById('nfPerAmount')?.value)||(total/n);
+    data={plan:'recurring',n,freq,per};
+    const freqL=freq==='week'?'semaine':freq==='2weeks'?'2 semaines':'mois';
+    desc=`${n} échéances de ${per.toFixed(2)}€ / ${freqL}`;
+    const dStep=stepDays(freq);
+    for(let i=0;i<n;i++){const d=new Date(start);if(dStep)d.setDate(d.getDate()+i*dStep);else d.setMonth(d.getMonth()+i);schedule.push({date:d.toISOString().slice(0,10),amount:per,label:null});}
+  } else if(plan==='downpayment'){
+    const down=parseFloat(document.getElementById('nfPlanDown')?.value)||0;
+    const n=parseInt(document.getElementById('nfPlanN')?.value)||1;
+    const freq=document.getElementById('nfFreq')?.value||'month';
+    const delay=parseInt(document.getElementById('nfPlanDelay')?.value)||30;
+    const rest=total-down;
+    const per=parseFloat(document.getElementById('nfPerAmount')?.value)||(n>0?rest/n:0);
+    data={plan:'downpayment',down,n,freq,delay,per};
+    const freqL=freq==='week'?'semaine':freq==='2weeks'?'2 semaines':'mois';
+    desc=`Acompte de ${down.toFixed(2)}€ puis ${n} échéances de ${per.toFixed(2)}€ / ${freqL}`;
+    schedule.push({date:startStr,amount:down,label:'Acompte'});
+    const start2=new Date(start);start2.setDate(start2.getDate()+delay);
+    const dStep=stepDays(freq);
+    for(let i=0;i<n;i++){const d=new Date(start2);if(dStep)d.setDate(d.getDate()+i*dStep);else d.setMonth(d.getMonth()+i);schedule.push({date:d.toISOString().slice(0,10),amount:per,label:null});}
+  } else if(plan==='installments'){
+    const items=[];document.querySelectorAll('[data-inst-date]').forEach(el=>{const i=parseInt(el.dataset.instDate);const amt=parseFloat(document.querySelector(`[data-inst-amt="${i}"]`)?.value)||0;items.push({date:el.value,amount:amt});});
+    data={plan:'installments',items};
+    desc=`${items.length} échéances libres (total ${items.reduce((s,it)=>s+it.amount,0).toFixed(2)}€)`;
+    schedule=items.map(it=>({date:it.date,amount:it.amount,label:null}));
+  }
+  return{data,desc,schedule};
+}
+function nfPreviewUpdate(){
+  const first=document.getElementById('nfFirst')?.value||'Prénom';
+  const last=document.getElementById('nfLast')?.value||'Nom';
+  const email=document.getElementById('nfEmail')?.value||'email@exemple.com';
+  const amount=parseFloat(document.getElementById('nfContractAmount')?.value)||0;
+  const duration=parseInt(document.getElementById('nfContractDuration')?.value)||_nfCurrentDur||3;
+  const startStr=document.getElementById('nfContractStart')?.value||'';
+  const{desc,schedule}=_nfCollectPlanData();
+  // Plan summary
+  const sum=document.getElementById('nfPlanSummary');
+  if(sum){
+    const totalSched=schedule.reduce((s,x)=>s+(parseFloat(x.amount)||0),0);
+    let sch='';
+    if(schedule.length){
+      sch=`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:4px">ÉCHÉANCIER</div>`+schedule.map((s,i)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span>${i+1}. ${s.date?new Date(s.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):'—'}${s.label?' ('+s.label+')':''}</span><span style="font-weight:700;color:var(--gold)">${(parseFloat(s.amount)||0).toFixed(2)}€</span></div>`).join('')+`<div style="display:flex;justify-content:space-between;padding:4px 0 0;margin-top:4px;border-top:1px solid var(--border);font-size:12px"><strong>TOTAL</strong><strong style="color:var(--gold)">${totalSched.toFixed(2)}€</strong></div></div>`;
+    }
+    sum.innerHTML=`<div><strong>${first} ${last}</strong> · ${email}</div><div style="color:var(--text3);margin-top:4px">${duration} mois · ${desc||'Aucun plan de paiement'}</div>${sch}`;
+  }
+  // Contract preview
+  const prev=document.getElementById('nfContractPreview');
+  const tplId=document.getElementById('nfContractTpl')?.value;
+  if(!tplId||!prev){if(prev)prev.innerHTML='<div style="color:var(--text3);font-style:italic">Choisis un modèle de contrat pour voir l\'aperçu ici.</div>';return;}
+  const tpl=_contractTemplates.find(t=>t.id===tplId);if(!tpl){prev.innerHTML='<div style="color:var(--text3)">Modèle introuvable</div>';return;}
+  const coachName=((currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'')).trim()||'Coach';
+  const startFr=startStr?new Date(startStr).toLocaleDateString('fr-FR'):'';
+  prev.innerHTML=(tpl.content_html||'')
+    .replace(/\{\{first_name\}\}/g,first)
+    .replace(/\{\{last_name\}\}/g,last)
+    .replace(/\{\{email\}\}/g,email)
+    .replace(/\{\{amount\}\}/g,amount?amount.toFixed(2):'—')
+    .replace(/\{\{plan_description\}\}/g,desc||'—')
+    .replace(/\{\{duration\}\}/g,duration||'—')
+    .replace(/\{\{start_date\}\}/g,startFr||'—')
+    .replace(/\{\{coach_name\}\}/g,coachName);
 }
 /* Attach contract to newly-created client */
 async function _attachContractToClient(newClient,tplId){
   const tpl=_contractTemplates.find(x=>x.id===tplId);if(!tpl)throw new Error('Template introuvable');
   const amount=parseFloat(document.getElementById('nfContractAmount').value)||0;
-  const duration=parseInt(document.getElementById('nfContractDuration').value)||null;
+  const duration=parseInt(document.getElementById('nfContractDuration').value)||_nfCurrentDur||null;
   const startDate=document.getElementById('nfContractStart').value||null;
-  const plan=document.getElementById('nfContractPlan').value;
-  let planData={};let planDesc='';
-  if(plan==='monthly'){const n=parseInt(document.getElementById('nfPlanN').value)||1;const day=parseInt(document.getElementById('nfPlanDay').value)||1;planData={n,day};planDesc=`${n} mensualités de ${(amount/n).toFixed(2)}€`;}
-  else if(plan==='downpayment'){const down=parseFloat(document.getElementById('nfPlanDown').value)||0;const n=parseInt(document.getElementById('nfPlanN').value)||1;const delay=parseInt(document.getElementById('nfPlanDelay').value)||12;const day=parseInt(document.getElementById('nfPlanDay').value)||1;planData={down,n,delay,day};planDesc=`${down}€ d'acompte puis ${n} mensualités de ${((amount-down)/n).toFixed(2)}€`;}
-  else if(plan==='installments'){const items=[];document.querySelectorAll('[data-inst-date]').forEach(el=>{const i=parseInt(el.dataset.instDate);const amt=parseFloat(document.querySelector(`[data-inst-amt="${i}"]`)?.value)||0;items.push({date:el.value,amount:amt});});planData={items};planDesc=`${items.length} échéances libres`;}
-  else{planDesc=`Paiement unique de ${amount}€`;}
-  // Rendu snapshot
-  const coachName=(currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'');
+  const{data:planData,desc:planDesc,schedule}=_nfCollectPlanData();
+  const coachName=((currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'')).trim();
   const rendered=(tpl.content_html||'')
     .replace(/\{\{first_name\}\}/g,newClient.first_name||'')
     .replace(/\{\{last_name\}\}/g,newClient.last_name||'')
@@ -8645,32 +8783,19 @@ async function _attachContractToClient(newClient,tplId){
     .replace(/\{\{plan_description\}\}/g,planDesc)
     .replace(/\{\{duration\}\}/g,duration||'')
     .replace(/\{\{start_date\}\}/g,startDate?new Date(startDate).toLocaleDateString('fr-FR'):'')
-    .replace(/\{\{coach_name\}\}/g,coachName.trim());
+    .replace(/\{\{coach_name\}\}/g,coachName);
   const{data:cc,error}=await db.from('client_contracts').insert({
     coach_id:currentCoach.id,client_id:newClient.id,template_id:tpl.id,template_name:tpl.name,
-    content_snapshot:rendered,amount_total:amount,plan_type:plan,plan_data:planData,
+    content_snapshot:rendered,amount_total:amount,plan_type:_nfCurrentPlan,plan_data:planData,
     duration_months:duration,start_date:startDate
   }).select().single();
   if(error){
     if(_isMigrationError(error)){_showMigrationAlert('contracts');throw new Error('Migration SQL contrats manquante');}
     throw error;
   }
-  // Pre-generate payments
-  const pays=_generatePaymentSchedule(cc.id,newClient,plan,planData,amount,startDate);
+  const pays=schedule.map(s=>({client_contract_id:cc.id,coach_id:currentCoach.id,client_id:newClient.id,due_date:s.date,amount:Math.round((parseFloat(s.amount)||0)*100)/100,label:s.label||null,note:null}));
   if(pays.length){const{error:pe}=await db.from('payments').insert(pays);if(pe)console.error('[PAYMENTS]',pe);}
-}
-function _generatePaymentSchedule(ccId,cl,plan,planData,amount,startDate){
-  const base=new Date(startDate||new Date().toISOString().slice(0,10));
-  const rows=[];
-  if(plan==='one_shot'){rows.push({client_contract_id:ccId,coach_id:currentCoach.id,client_id:cl.id,due_date:base.toISOString().slice(0,10),amount});}
-  else if(plan==='monthly'){const n=planData.n||1;const day=planData.day||1;const per=amount/n;for(let i=0;i<n;i++){const d=new Date(base);d.setMonth(d.getMonth()+i);d.setDate(day);rows.push({client_contract_id:ccId,coach_id:currentCoach.id,client_id:cl.id,due_date:d.toISOString().slice(0,10),amount:Math.round(per*100)/100});}}
-  else if(plan==='downpayment'){const down=planData.down||0;const n=planData.n||1;const delay=planData.delay||12;const day=planData.day||1;const rest=amount-down;const per=rest/n;
-    rows.push({client_contract_id:ccId,coach_id:currentCoach.id,client_id:cl.id,due_date:base.toISOString().slice(0,10),amount:down,note:'Acompte'});
-    const start2=new Date(base);start2.setDate(start2.getDate()+delay);
-    for(let i=0;i<n;i++){const d=new Date(start2);d.setMonth(d.getMonth()+i);d.setDate(day);rows.push({client_contract_id:ccId,coach_id:currentCoach.id,client_id:cl.id,due_date:d.toISOString().slice(0,10),amount:Math.round(per*100)/100});}
-  }
-  else if(plan==='installments'){(planData.items||[]).forEach(it=>{rows.push({client_contract_id:ccId,coach_id:currentCoach.id,client_id:cl.id,due_date:it.date,amount:it.amount});});}
-  return rows;
+  return cc;
 }
 
 /* ===== SUIVI PAIEMENTS ===== */
@@ -8822,10 +8947,18 @@ async function viewClientContract(ccId){
   openM('mClientContract');
 }
 async function openNewClientModal(){
+  // Reset all fields
+  ['nfFirst','nfLast','nfEmail','nfPhone','nfContractAmount','nfContractDuration','nfContractStart','nfContractStart2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  newClientTags=[];
+  document.querySelectorAll('.ttog').forEach(t=>t.classList.remove('on'));
+  document.getElementById('createdWrap').style.display='none';
   await populateContractTplSelect();
-  // Reset contract fields
-  const tpl=document.getElementById('nfContractTpl');if(tpl)tpl.value='';
-  const det=document.getElementById('nfContractDetails');if(det)det.style.display='none';
+  // Defaults
+  nfSetDuration(3);
+  nfSetPlan('one_shot');
+  document.getElementById('nfContractStart2').value=new Date().toISOString().slice(0,10);
+  document.getElementById('nfContractStart').value=document.getElementById('nfContractStart2').value;
+  nfPreviewUpdate();
   openM('mNewClient');
 }
 </script>

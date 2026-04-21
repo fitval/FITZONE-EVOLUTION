@@ -1052,6 +1052,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('lastName').value = clientData.last_name || '';
   document.getElementById('email').value = clientData.email || '';
 
+  // Nouveau flow : contrat À SIGNER AVANT questionnaire (si contrat attaché et non signé)
+  try {
+    const { data: contracts } = await db.from('client_contracts').select('*').eq('client_id', clientData.id).is('signed_at', null).limit(1);
+    if (contracts && contracts.length) {
+      showContractSigning(contracts[0]);
+      return;
+    }
+  } catch(e){ console.error('[CONTRACT CHECK]', e); }
+
   // Chargement des questions extras définies par le coach
   try {
     const { data: sData } = await db.from('settings').select('q_integration').eq('coach_id', clientData.coach_id).limit(1);
@@ -1288,13 +1297,8 @@ async function submitForm() {
     });
     const result = await resp.json();
     if (!resp.ok || result.error) { throw new Error(result.error || 'Erreur serveur'); }
-    // Check if client has a pending contract to sign
-    const { data: contracts } = await db.from('client_contracts').select('*').eq('client_id', clientData.id).is('signed_at', null).limit(1);
-    if (contracts && contracts.length) {
-      showContractSigning(contracts[0]);
-    } else {
-      showState('done');
-    }
+    // Le contrat est signé AVANT dans le nouveau flow, donc on passe direct en "done"
+    showState('done');
   } catch (e) {
     btn.disabled = false; btn.textContent = '✅ Envoyer mon questionnaire';
     alert('Erreur : ' + e.message);
@@ -1361,20 +1365,37 @@ async function signContract() {
     alert('Erreur : ' + error.message);
     return;
   }
+  // Passage au statut "questionnaire_pending" pour débloquer l'étape suivante
+  try { await db.from('clients').update({ status: 'questionnaire_pending' }).eq('id', clientData.id); } catch(e) { console.error(e); }
   document.getElementById('contractState').innerHTML = `
-    <div style="text-align:center;padding:40px 20px;max-width:500px;margin:0 auto">
+    <div style="text-align:center;padding:40px 20px;max-width:520px;margin:0 auto">
       <div style="font-size:56px;margin-bottom:16px">✅</div>
       <div style="font-size:24px;font-weight:800;color:#0f172a;margin-bottom:8px">Contrat signé !</div>
-      <div style="font-size:14px;color:#64748b;line-height:1.6;margin-bottom:20px">Ton questionnaire et ton contrat ont bien été enregistrés.</div>
-      <div style="background:#f8fafc;border-radius:12px;padding:16px;text-align:left;font-size:12px;color:#475569;line-height:1.8">
+      <div style="font-size:14px;color:#64748b;line-height:1.6;margin-bottom:20px">Tu peux maintenant passer au questionnaire d'intégration.</div>
+      <div style="background:#f8fafc;border-radius:12px;padding:16px;text-align:left;font-size:12px;color:#475569;line-height:1.8;margin-bottom:20px">
         <div><strong>Signataire :</strong> ${name}</div>
         <div><strong>Date :</strong> ${new Date(now).toLocaleString('fr-FR')}</div>
         <div><strong>IP :</strong> ${ip || 'non détectée'}</div>
         <div><strong>Hash :</strong> <span style="font-family:ui-monospace,monospace;font-size:10px">${hash.slice(0,32)}…</span></div>
       </div>
-      <div style="font-size:13px;color:#64748b;margin-top:20px">Tu recevras bientôt ton accès à l'application. À très vite !</div>
+      <button onclick="proceedToQuestionnaire()" style="width:100%;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,#c49a2a,#e8b84a);color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">📋 Commencer le questionnaire →</button>
     </div>
   `;
+}
+async function proceedToQuestionnaire() {
+  // Charge les questions extras si configurées
+  try {
+    const { data: sData } = await db.from('settings').select('q_integration').eq('coach_id', clientData.coach_id).limit(1);
+    if (sData && sData[0] && Array.isArray(sData[0].q_integration) && sData[0].q_integration.length) {
+      extraQuestions = sData[0].q_integration;
+      renderExtraQuestions();
+    }
+  } catch(e){ console.error('[Q_INTEGRATION]', e); }
+  const cs = document.getElementById('contractState');
+  if (cs) cs.style.display = 'none';
+  showState('app');
+  updateProgress();
+  window.scrollTo({ top: 0 });
 }
 
 function selectChoice(el, name, value) {
