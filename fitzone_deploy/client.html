@@ -2295,15 +2295,26 @@ function showSuiviInline(){
 }
 
 /* ===== APPRENTISSAGE ===== */
+function isModuleVisibleForClient(mod){
+  const access=(mod&&mod.access)||'all';
+  const status=(clientData&&clientData.status)||'';
+  if(access==='all')return true;
+  if(access==='integration')return status==='questionnaire_done'||status==='active';
+  if(access==='active')return status==='active';
+  if(access==='manual')return false;
+  return true;
+}
 function renderLearn(){
-  if(!modules.length){
+  const visibleModules=modules.filter(isModuleVisibleForClient);
+  if(!visibleModules.length){
     document.getElementById('learnContent').innerHTML=`<div class="empty"><div class="empty-icon">🎓</div><div class="empty-text">Aucun contenu d'apprentissage disponible pour le moment.</div></div>`;
     return;
   }
   let h='';
-  modules.forEach((mod,i)=>{
+  visibleModules.forEach((mod,i)=>{
     const chaps=mod.chapitres||[];
-    h+=`<div class="card fade-up" style="animation-delay:${i*.05}s;cursor:pointer" onclick="openModule(${i})">
+    const originalIdx=modules.indexOf(mod);
+    h+=`<div class="card fade-up" style="animation-delay:${i*.05}s;cursor:pointer" onclick="openModule(${originalIdx})">
       ${mod.img?`<img src="${mod.img}" style="width:100%;height:140px;object-fit:cover;border-radius:var(--r-xs);margin-bottom:12px">`:''}
       <div style="font-size:16px;font-weight:700;margin-bottom:4px">${mod.title||'Module'}</div>
       ${mod.cat?`<div style="font-size:11px;background:var(--gold-pale);color:var(--gold);padding:3px 10px;border-radius:20px;font-weight:600;display:inline-block;margin-bottom:6px">${mod.cat}</div>`:''}
@@ -2316,8 +2327,9 @@ function renderLearn(){
 
 let currentModIdx=null;
 function openModule(idx){
-  currentModIdx=idx;
   const mod=modules[idx];
+  if(!mod||!isModuleVisibleForClient(mod)){toast('Ce module n\'est pas encore accessible');return;}
+  currentModIdx=idx;
   const chaps=mod.chapitres||[];
   let h=`<button class="back-btn" onclick="renderLearn()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:20px;font-weight:800;margin-bottom:16px">${mod.title||'Module'}</div>`;
@@ -2906,10 +2918,11 @@ function renderBonus(){
 
 /* Learning navigation in Bonus tab */
 function openBonusLearning(){
+  const visibleMods=modules.filter(isModuleVisibleForClient);
   let h=`<button class="back-btn" onclick="renderBonus()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Apprentissage</div>`;
-  h+=`<div style="font-size:13px;color:var(--text3);margin-bottom:20px">${modules.length} module${modules.length>1?'s':''} disponible${modules.length>1?'s':''}</div>`;
-  modules.forEach((mod,i)=>{
+  h+=`<div style="font-size:13px;color:var(--text3);margin-bottom:20px">${visibleMods.length} module${visibleMods.length>1?'s':''} disponible${visibleMods.length>1?'s':''}</div>`;
+  visibleMods.forEach((mod,idx)=>{const i=modules.indexOf(mod);
     const chaps=mod.chapitres||[];
     h+=`<div class="card" style="padding:0;margin-bottom:12px;overflow:hidden;cursor:pointer" onclick="openBonusModule(${i})">
       ${mod.img?`<img src="${mod.img}" style="width:100%;height:120px;object-fit:cover">`:`<div style="width:100%;height:80px;background:linear-gradient(135deg,var(--gold-pale),rgba(196,154,42,.18));display:flex;align-items:center;justify-content:center;font-size:36px">🎓</div>`}
@@ -2926,7 +2939,7 @@ function openBonusLearning(){
 }
 
 function openBonusModule(idx){
-  const mod=modules[idx];if(!mod)return;
+  const mod=modules[idx];if(!mod||!isModuleVisibleForClient(mod)){toast('Ce module n\'est pas encore accessible');return;}
   const chaps=mod.chapitres||[];
   let h=`<button class="back-btn" onclick="openBonusLearning()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">${mod.title||'Module'}</div>`;
