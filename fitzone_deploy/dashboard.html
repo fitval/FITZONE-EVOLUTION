@@ -1005,10 +1005,10 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <button class="btn btn-ghost btn-sm" onclick="ctplInsertStarter()" title="Insérer un modèle de départ">📄 Modèle de départ</button>
       </div>
       <div id="ctplEditPane">
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Écris ton contrat en HTML. Utilise les variables ci-dessous — elles seront remplacées automatiquement à la signature.</div>
-        <textarea class="fi" id="ctplContent" rows="18" style="font-family:ui-monospace,monospace;font-size:12px;min-height:400px" placeholder="<h1>Contrat de coaching</h1>&#10;<p>Entre {{coach_name}} et {{first_name}} {{last_name}}…</p>&#10;<p>Montant : {{amount}}€ — {{plan_description}}</p>&#10;<p>Durée : {{duration}} mois, à partir du {{start_date}}.</p>"></textarea>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Colle ton contrat en texte normal. Les sauts de ligne sont conservés, et les variables <code>{{first_name}}</code>, <code>{{amount}}</code>, <code>{{plan_description}}</code>, <code>{{duration}}</code>, <code>{{start_date}}</code>, <code>{{coach_name}}</code>, <code>{{email}}</code> seront remplacées automatiquement.</div>
+        <textarea class="fi" id="ctplContent" rows="18" style="font-size:13px;min-height:400px;line-height:1.5" placeholder="CONTRAT DE COACHING&#10;&#10;Entre {{coach_name}} et {{first_name}} {{last_name}}…&#10;&#10;Article 1 — Objet&#10;Le présent contrat a pour objet de définir…&#10;&#10;Article 2 — Durée&#10;La prestation débute le {{start_date}} pour {{duration}} mois.&#10;&#10;Article 3 — Tarif&#10;Le montant total est de {{amount}}€ ({{plan_description}})."></textarea>
       </div>
-      <div id="ctplPreviewPane" style="display:none;background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:20px 24px;min-height:400px;max-height:60vh;overflow-y:auto;line-height:1.6"></div>
+      <div id="ctplPreviewPane" style="display:none;background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:20px 24px;min-height:400px;max-height:60vh;overflow-y:auto;line-height:1.6;font-size:14px"></div>
       <input type="hidden" id="ctplEditId">
     </div>
     <div class="mf"><button class="btn btn-ghost" onclick="closeM('mContractTpl')">Annuler</button><button class="btn btn-dark" onclick="saveContractTpl()">💾 Enregistrer</button></div>
@@ -8550,25 +8550,35 @@ function openContractTplEditor(id){
   ctplSwitchTab('edit');
   openM('mContractTpl');
 }
+/* Convertit un texte brut en HTML formaté : échappement + paragraphes + sauts de ligne.
+   Si le texte contient déjà des balises HTML (détection basique), on le garde tel quel. */
+function contractTextToHtml(raw){
+  if(!raw)return '';
+  const hasHtml=/<[a-z][^>]*>/i.test(raw);
+  if(hasHtml)return raw; // rétro-compat : si l'utilisateur a déjà écrit du HTML
+  // Échappement HTML
+  const esc=raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Double saut de ligne = nouveau paragraphe ; simple saut = <br>
+  return esc.split(/\n{2,}/).map(p=>'<p style="margin:0 0 1em">'+p.replace(/\n/g,'<br>')+'</p>').join('');
+}
+function _applyContractVars(raw,vars){
+  let txt=raw||'';
+  Object.entries(vars).forEach(([k,v])=>{
+    txt=txt.replace(new RegExp('\\{\\{'+k+'\\}\\}','g'),String(v==null?'':v));
+  });
+  return txt;
+}
 function ctplSwitchTab(tab){
   const edit=document.getElementById('ctplEditPane');const prev=document.getElementById('ctplPreviewPane');
   const btnE=document.getElementById('ctplTabEdit');const btnP=document.getElementById('ctplTabPreview');
   if(tab==='preview'){
     edit.style.display='none';prev.style.display='block';
     btnE.className='btn btn-ghost btn-sm';btnP.className='btn btn-dark btn-sm';
-    // Preview with fake sample data
-    const raw=document.getElementById('ctplContent').value||'<em style="color:var(--text3)">Écris ton contrat dans l\'onglet Édition.</em>';
+    const raw=document.getElementById('ctplContent').value;
+    if(!raw.trim()){prev.innerHTML='<em style="color:var(--text3)">Écris ton contrat dans l\'onglet Édition.</em>';return;}
     const coachName=((currentCoach?.first_name||'Coach')+' '+(currentCoach?.last_name||'')).trim();
-    const rendered=raw
-      .replace(/\{\{first_name\}\}/g,'Julie')
-      .replace(/\{\{last_name\}\}/g,'Martin')
-      .replace(/\{\{email\}\}/g,'julie@example.com')
-      .replace(/\{\{amount\}\}/g,'1200.00')
-      .replace(/\{\{plan_description\}\}/g,'3 mensualités de 400€')
-      .replace(/\{\{duration\}\}/g,'3')
-      .replace(/\{\{start_date\}\}/g,new Date().toLocaleDateString('fr-FR'))
-      .replace(/\{\{coach_name\}\}/g,coachName);
-    prev.innerHTML=rendered;
+    const filled=_applyContractVars(raw,{first_name:'Julie',last_name:'Martin',email:'julie@example.com',amount:'1200.00',plan_description:'3 mensualités de 400€',duration:'3',start_date:new Date().toLocaleDateString('fr-FR'),coach_name:coachName});
+    prev.innerHTML=contractTextToHtml(filled);
   } else {
     edit.style.display='block';prev.style.display='none';
     btnE.className='btn btn-dark btn-sm';btnP.className='btn btn-ghost btn-sm';
@@ -8577,41 +8587,50 @@ function ctplSwitchTab(tab){
 function ctplInsertStarter(){
   const ta=document.getElementById('ctplContent');
   if(ta.value.trim()&&!confirm('Remplacer le contenu actuel par le modèle de départ ?'))return;
-  ta.value=`<h1 style="text-align:center;color:#0f172a">Contrat de coaching personnalisé</h1>
-<p style="text-align:center;font-size:13px;color:#64748b">Conclu entre {{coach_name}} et {{first_name}} {{last_name}}</p>
+  ta.value=`CONTRAT DE COACHING PERSONNALISÉ
 
-<h2>Article 1 — Objet</h2>
-<p>Le présent contrat a pour objet de définir les conditions de l'accompagnement de coaching sportif et/ou nutritionnel proposé par <strong>{{coach_name}}</strong> (ci-après « le Coach ») à <strong>{{first_name}} {{last_name}}</strong> (ci-après « le Client »).</p>
+Entre les soussignés :
+{{coach_name}} (ci-après « le Coach »),
+et
+{{first_name}} {{last_name}} (ci-après « le Client »), contact : {{email}}.
 
-<h2>Article 2 — Durée</h2>
-<p>L'accompagnement débute le <strong>{{start_date}}</strong> pour une durée de <strong>{{duration}} mois</strong>. Il inclut les services suivants :</p>
-<ul>
-  <li>Programme d'entraînement personnalisé, mis à jour chaque mois</li>
-  <li>Plan nutritionnel individualisé</li>
-  <li>Bilan hebdomadaire et suivi quotidien via l'application</li>
-  <li>Accès à la bibliothèque de contenus éducatifs</li>
-</ul>
+ARTICLE 1 — OBJET
 
-<h2>Article 3 — Tarif et modalités de paiement</h2>
-<p>Le montant total de la prestation est de <strong>{{amount}}€ TTC</strong>, selon le plan de paiement suivant : <em>{{plan_description}}</em>.</p>
-<p>Tout défaut de paiement à l'échéance prévue pourra entraîner la suspension immédiate de l'accompagnement, sans préjudice du recouvrement des sommes dues.</p>
+Le présent contrat a pour objet de définir les conditions de l'accompagnement de coaching sportif et/ou nutritionnel proposé par le Coach au Client.
 
-<h2>Article 4 — Engagements du Client</h2>
-<p>Le Client s'engage à :</p>
-<ul>
-  <li>Fournir des informations sincères lors du questionnaire d'intégration</li>
-  <li>Communiquer toute contre-indication médicale connue</li>
-  <li>Réaliser les séances et le suivi dans les conditions définies</li>
-  <li>Respecter les échéances de paiement convenues</li>
-</ul>
+ARTICLE 2 — DURÉE ET PRESTATIONS
 
-<h2>Article 5 — Rétractation et résiliation</h2>
-<p>Conformément à l'article L221-28 du Code de la consommation, le droit de rétractation de 14 jours ne s'applique pas aux prestations pleinement exécutées avant l'expiration du délai. En cas de résiliation anticipée à l'initiative du Client après le début de l'accompagnement, aucun remboursement ne pourra être réclamé.</p>
+L'accompagnement débute le {{start_date}} pour une durée de {{duration}} mois.
 
-<h2>Article 6 — Signature électronique</h2>
-<p>Le Client reconnaît que sa signature électronique apposée ci-dessous, horodatée et associée à son adresse IP, a la même valeur probante qu'une signature manuscrite en application des articles 1366 et 1367 du Code civil.</p>
+Il inclut notamment :
+- Un programme d'entraînement personnalisé, mis à jour chaque mois
+- Un plan nutritionnel individualisé
+- Le suivi hebdomadaire (bilan) et quotidien via l'application
+- L'accès à la bibliothèque de contenus éducatifs
 
-<p style="margin-top:30px;font-size:12px;color:#64748b;text-align:center">Fait à ______________________, le {{start_date}}.</p>`;
+ARTICLE 3 — TARIF ET MODALITÉS DE PAIEMENT
+
+Le montant total de la prestation est de {{amount}}€ TTC, selon le plan suivant : {{plan_description}}.
+
+Tout défaut de paiement à l'échéance prévue pourra entraîner la suspension immédiate de l'accompagnement, sans préjudice du recouvrement des sommes dues.
+
+ARTICLE 4 — ENGAGEMENTS DU CLIENT
+
+Le Client s'engage à :
+- Fournir des informations sincères lors du questionnaire d'intégration
+- Communiquer toute contre-indication médicale connue
+- Réaliser les séances et le suivi dans les conditions définies
+- Respecter les échéances de paiement convenues
+
+ARTICLE 5 — RÉTRACTATION ET RÉSILIATION
+
+Conformément à l'article L221-28 du Code de la consommation, le droit de rétractation de 14 jours ne s'applique pas aux prestations pleinement exécutées avant l'expiration du délai. En cas de résiliation anticipée à l'initiative du Client après le début de l'accompagnement, aucun remboursement ne pourra être réclamé.
+
+ARTICLE 6 — SIGNATURE ÉLECTRONIQUE
+
+Le Client reconnaît que sa signature électronique, horodatée et associée à son adresse IP, a la même valeur probante qu'une signature manuscrite (articles 1366 et 1367 du Code civil).
+
+Fait le {{start_date}}.`;
   toast('Modèle inséré — personnalise-le à ta convenance');
 }
 async function saveContractTpl(){
@@ -8757,15 +8776,8 @@ function nfPreviewUpdate(){
   const tpl=_contractTemplates.find(t=>t.id===tplId);if(!tpl){prev.innerHTML='<div style="color:var(--text3)">Modèle introuvable</div>';return;}
   const coachName=((currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'')).trim()||'Coach';
   const startFr=startStr?new Date(startStr).toLocaleDateString('fr-FR'):'';
-  prev.innerHTML=(tpl.content_html||'')
-    .replace(/\{\{first_name\}\}/g,first)
-    .replace(/\{\{last_name\}\}/g,last)
-    .replace(/\{\{email\}\}/g,email)
-    .replace(/\{\{amount\}\}/g,amount?amount.toFixed(2):'—')
-    .replace(/\{\{plan_description\}\}/g,desc||'—')
-    .replace(/\{\{duration\}\}/g,duration||'—')
-    .replace(/\{\{start_date\}\}/g,startFr||'—')
-    .replace(/\{\{coach_name\}\}/g,coachName);
+  const filled=_applyContractVars(tpl.content_html||'',{first_name:first,last_name:last,email:email,amount:amount?amount.toFixed(2):'—',plan_description:desc||'—',duration:duration||'—',start_date:startFr||'—',coach_name:coachName});
+  prev.innerHTML=contractTextToHtml(filled);
 }
 /* Attach contract to newly-created client */
 async function _attachContractToClient(newClient,tplId){
@@ -8775,15 +8787,8 @@ async function _attachContractToClient(newClient,tplId){
   const startDate=document.getElementById('nfContractStart').value||null;
   const{data:planData,desc:planDesc,schedule}=_nfCollectPlanData();
   const coachName=((currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'')).trim();
-  const rendered=(tpl.content_html||'')
-    .replace(/\{\{first_name\}\}/g,newClient.first_name||'')
-    .replace(/\{\{last_name\}\}/g,newClient.last_name||'')
-    .replace(/\{\{email\}\}/g,newClient.email||'')
-    .replace(/\{\{amount\}\}/g,amount?amount.toFixed(2):'')
-    .replace(/\{\{plan_description\}\}/g,planDesc)
-    .replace(/\{\{duration\}\}/g,duration||'')
-    .replace(/\{\{start_date\}\}/g,startDate?new Date(startDate).toLocaleDateString('fr-FR'):'')
-    .replace(/\{\{coach_name\}\}/g,coachName);
+  const filled=_applyContractVars(tpl.content_html||'',{first_name:newClient.first_name||'',last_name:newClient.last_name||'',email:newClient.email||'',amount:amount?amount.toFixed(2):'',plan_description:planDesc,duration:duration||'',start_date:startDate?new Date(startDate).toLocaleDateString('fr-FR'):'',coach_name:coachName});
+  const rendered=contractTextToHtml(filled);
   const{data:cc,error}=await db.from('client_contracts').insert({
     coach_id:currentCoach.id,client_id:newClient.id,template_id:tpl.id,template_name:tpl.name,
     content_snapshot:rendered,amount_total:amount,plan_type:_nfCurrentPlan,plan_data:planData,
