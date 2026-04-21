@@ -987,6 +987,9 @@ body {
         <textarea class="form-textarea" id="extraInfo" placeholder="Tout ce que tu n'as pas pu dire dans les étapes précédentes…"></textarea>
       </div>
 
+      <!-- Extras dynamiques (éditables par le coach dans le dashboard) -->
+      <div id="extraQuestionsContainer"></div>
+
       <div class="section-divider"></div>
 
       <div class="section-heading">Récapitulatif</div>
@@ -1049,9 +1052,83 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('lastName').value = clientData.last_name || '';
   document.getElementById('email').value = clientData.email || '';
 
+  // Chargement des questions extras définies par le coach
+  try {
+    const { data: sData } = await db.from('settings').select('q_integration').eq('coach_id', clientData.coach_id).limit(1);
+    if (sData && sData[0] && Array.isArray(sData[0].q_integration) && sData[0].q_integration.length) {
+      extraQuestions = sData[0].q_integration;
+      renderExtraQuestions();
+    }
+  } catch(e){ console.error('[Q_INTEGRATION]', e); }
+
   showState('app');
   updateProgress();
 });
+
+let extraQuestions = [];
+function slugify(s){return String(s||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,40)||'q';}
+function renderExtraQuestions() {
+  const ctn = document.getElementById('extraQuestionsContainer');
+  if (!ctn || !extraQuestions.length) return;
+  let h = '<div class="section-heading" style="margin-top:28px">Questions supplémentaires</div>';
+  extraQuestions.forEach((q, i) => {
+    const id = 'extra_' + slugify(q.id || i);
+    const req = q.required ? '<span style="color:#dc2626;font-weight:800">*</span>' : '<span class="form-optional">optionnel</span>';
+    h += `<div class="form-group"><label class="form-label">${q.label || ''} ${req}</label>`;
+    if (q.type === 'textarea') {
+      h += `<textarea class="form-textarea" id="${id}" data-qid="${q.id||i}" data-required="${q.required?1:0}"></textarea>`;
+    } else if (q.type === 'rating') {
+      const scale = q.scale || 5;
+      h += `<input type="hidden" id="${id}" data-qid="${q.id||i}" data-required="${q.required?1:0}" value=""><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">`;
+      for (let k=1; k<=scale; k++) h += `<button type="button" class="scale-btn" data-v="${k}" onclick="pickExtraRating('${id}',${k},this)">${k}</button>`;
+      h += `</div>`;
+    } else if (q.type === 'yesno') {
+      h += `<input type="hidden" id="${id}" data-qid="${q.id||i}" data-required="${q.required?1:0}" value=""><div style="display:flex;gap:8px;margin-top:6px"><button type="button" class="choice-card" onclick="pickExtraYN('${id}','Oui',this)" style="padding:12px 16px;flex:1">Oui</button><button type="button" class="choice-card" onclick="pickExtraYN('${id}','Non',this)" style="padding:12px 16px;flex:1">Non</button></div>`;
+    } else if (q.type === 'choice') {
+      const opts = q.options || [];
+      h += `<input type="hidden" id="${id}" data-qid="${q.id||i}" data-required="${q.required?1:0}" value=""><div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">`;
+      opts.forEach(o => { h += `<button type="button" class="choice-card" onclick="pickExtraChoice('${id}',${JSON.stringify(o)},this)" style="text-align:left;padding:12px 14px">${o}</button>`; });
+      h += `</div>`;
+    } else if (q.type === 'number') {
+      h += `<input type="number" step="${q.step||1}" class="form-input" id="${id}" data-qid="${q.id||i}" data-required="${q.required?1:0}" placeholder="${q.unit||''}">`;
+    } else {
+      h += `<input type="text" class="form-input" id="${id}" data-qid="${q.id||i}" data-required="${q.required?1:0}">`;
+    }
+    h += `</div>`;
+  });
+  ctn.innerHTML = h;
+}
+function pickExtraRating(id, val, btn){
+  document.getElementById(id).value = val;
+  btn.parentNode.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+function pickExtraYN(id, val, btn){
+  document.getElementById(id).value = val;
+  btn.parentNode.querySelectorAll('.choice-card').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+function pickExtraChoice(id, val, btn){
+  document.getElementById(id).value = val;
+  btn.parentNode.querySelectorAll('.choice-card').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+function collectExtraAnswers(){
+  const out = {};
+  document.querySelectorAll('#extraQuestionsContainer [data-qid]').forEach(el => {
+    const qid = el.dataset.qid;
+    const val = (el.value || '').trim();
+    if (val !== '') out[qid] = val;
+  });
+  return out;
+}
+function validateExtraRequired(){
+  const missing = [];
+  document.querySelectorAll('#extraQuestionsContainer [data-required="1"]').forEach(el => {
+    if (!(el.value || '').trim()) missing.push(el.previousElementSibling ? '' : '');
+  });
+  return missing;
+}
 
 function showState(s) {
   document.getElementById('blockedState').style.display = s === 'blocked' ? 'flex' : 'none';
@@ -1188,8 +1265,19 @@ async function submitForm() {
     sleep_quality: selectedValues['sleepQuality'] === 'yes',
     allergies: selectedExclusions,
     extra_info: document.getElementById('extraInfo').value || null,
+    extra_questions: collectExtraAnswers(),
     submitted_at: new Date().toISOString(),
   };
+  // Validation required extras
+  const missingExtras = [];
+  document.querySelectorAll('#extraQuestionsContainer [data-required="1"]').forEach(el => {
+    if (!(el.value || '').trim()) missingExtras.push(el.closest('.form-group')?.querySelector('.form-label')?.textContent || 'Champ requis');
+  });
+  if (missingExtras.length) {
+    btn.disabled = false; btn.textContent = '✅ Envoyer mon questionnaire';
+    alert('Merci de remplir : ' + missingExtras.slice(0,3).join(', '));
+    return;
+  }
 
   const token = new URLSearchParams(window.location.search).get('token');
   try {

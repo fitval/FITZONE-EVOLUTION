@@ -786,6 +786,14 @@ async function loadData(){
     const{data:pData}=await db.from('settings').select('partner').eq('coach_id',clientData.coach_id).limit(1);
     if(pData&&pData[0]&&pData[0].partner){const p=pData[0].partner;coachPartners=Array.isArray(p)?p:(p&&p.image?[p]:[]);}
   }catch(e){console.error('[PARTNER]',e);}
+  // Load questionnaire templates (bilan, daily)
+  try{
+    const{data:qData}=await db.from('settings').select('q_bilan,q_daily').eq('coach_id',clientData.coach_id).limit(1);
+    if(qData&&qData[0]){
+      if(Array.isArray(qData[0].q_bilan)&&qData[0].q_bilan.length)bilanQuestions=qData[0].q_bilan;
+      if(Array.isArray(qData[0].q_daily)&&qData[0].q_daily.length)dailyQuestions=qData[0].q_daily;
+    }
+  }catch(e){console.error('[Q TEMPLATES]',e);}
   // Load gamification data
   await loadGamification();
 }
@@ -1929,17 +1937,75 @@ function renderBilanList(){
   });
   document.getElementById('bilanContent').innerHTML=h;
 }
-const bilanQuestions=[
-  {id:'q2',label:'Peux-tu expliciter pourquoi tu t\'es noté ainsi ?',section:'ATTITUDE',icon:'fa-brain'},
-  {id:'q3',label:'Quelles sont tes 3 plus grosses victoires cette semaine ? Dis-moi pourquoi cette semaine a été TOP !',section:'VICTOIRES',icon:'fa-trophy'},
-  {id:'q4',label:'Quelles ont été tes performances d\'entraînement cette semaine ? As-tu fait des nouvelles performances, remarqué un plateau, etc. ?',section:'PERFORMANCES',icon:'fa-dumbbell'},
-  {id:'q5',label:'S\'est-il passé quelque chose cette semaine qui ne figure pas sur ton tableur et qui pourrait avoir un effet sur toi, ton entraînement ou ton suivi des progrès ?',section:'BIEN-ÊTRE',icon:'fa-heart'},
-  {id:'q6',label:'Comment aurais-tu pu améliorer cette semaine ou essayer de t\'améliorer pour la semaine prochaine ?',section:'CONSTRUIRE',icon:'fa-hammer'},
-  {id:'q7',label:'Les personnes qui t\'entourent facilitent-elles ou compliquent-elles le processus ? Te soutiennent-elles ?',section:'SOUTIEN / ENVIRONNEMENT',icon:'fa-users'},
-  {id:'q8',label:'Si tu devais conclure cette semaine, que dirais-tu ? Et as-tu des questions à me poser ?',section:'RÉSUMÉ / QUESTIONS',icon:'fa-comment-dots'},
-  {id:'q9',label:'Y a-t-il quelque chose à venir qui affectera tes progrès ?',section:'SEMAINE PROCHAINE',icon:'fa-calendar-alt'},
-  {id:'q10',label:'Y a-t-il quelque chose qui pourrait t\'aider pour adhérer encore mieux au plan / modifications à apporter ?',section:'COACHING',icon:'fa-clipboard-check'}
+let bilanQuestions=[
+  {id:'q2',label:'Peux-tu expliciter pourquoi tu t\'es noté ainsi ?',section:'ATTITUDE',icon:'fa-brain',type:'textarea',required:false},
+  {id:'q3',label:'Quelles sont tes 3 plus grosses victoires cette semaine ? Dis-moi pourquoi cette semaine a été TOP !',section:'VICTOIRES',icon:'fa-trophy',type:'textarea',required:false},
+  {id:'q4',label:'Quelles ont été tes performances d\'entraînement cette semaine ? As-tu fait des nouvelles performances, remarqué un plateau, etc. ?',section:'PERFORMANCES',icon:'fa-dumbbell',type:'textarea',required:false},
+  {id:'q5',label:'S\'est-il passé quelque chose cette semaine qui ne figure pas sur ton tableur et qui pourrait avoir un effet sur toi, ton entraînement ou ton suivi des progrès ?',section:'BIEN-ÊTRE',icon:'fa-heart',type:'textarea',required:false},
+  {id:'q6',label:'Comment aurais-tu pu améliorer cette semaine ou essayer de t\'améliorer pour la semaine prochaine ?',section:'CONSTRUIRE',icon:'fa-hammer',type:'textarea',required:false},
+  {id:'q7',label:'Les personnes qui t\'entourent facilitent-elles ou compliquent-elles le processus ? Te soutiennent-elles ?',section:'SOUTIEN / ENVIRONNEMENT',icon:'fa-users',type:'textarea',required:false},
+  {id:'q8',label:'Si tu devais conclure cette semaine, que dirais-tu ? Et as-tu des questions à me poser ?',section:'RÉSUMÉ / QUESTIONS',icon:'fa-comment-dots',type:'textarea',required:false},
+  {id:'q9',label:'Y a-t-il quelque chose à venir qui affectera tes progrès ?',section:'SEMAINE PROCHAINE',icon:'fa-calendar-alt',type:'textarea',required:false},
+  {id:'q10',label:'Y a-t-il quelque chose qui pourrait t\'aider pour adhérer encore mieux au plan / modifications à apporter ?',section:'COACHING',icon:'fa-clipboard-check',type:'textarea',required:false}
 ];
+let dailyQuestions=[
+  {id:'Poids',section:'MESURES',icon:'fa-weight',label:'Poids',type:'number',unit:'kg',step:0.1,required:false,sub:'(kg à jeun après 🚾)'},
+  {id:'Énergie',section:'BIEN-ÊTRE',icon:'fa-bolt',label:'Énergie',type:'rating',scale:5,required:false},
+  {id:'Faim',section:'BIEN-ÊTRE',icon:'fa-utensils',label:'Faim',type:'rating',scale:5,required:false},
+  {id:'Stress',section:'BIEN-ÊTRE',icon:'fa-brain',label:'Stress',type:'rating',scale:5,required:false},
+  {id:'Sommeil (h)',section:'BIEN-ÊTRE',icon:'fa-bed',label:'Sommeil',type:'number',unit:'h',step:0.5,required:false,sub:'(heures)'},
+  {id:'Pas',section:'ACTIVITÉ',icon:'fa-walking',label:'Pas',type:'number',unit:'',step:1,required:false},
+  {id:'Alimentation suivie (%)',section:'NUTRITION',icon:'fa-apple-alt',label:"À combien de % as-tu suivi ton alimentation aujourd'hui ?",type:'percent',required:false},
+  {id:'Contexte',section:'NOTES',icon:'fa-pen',label:'Donne du contexte à ta note pour que ton coach puisse mieux la comprendre.',type:'textarea',required:false},
+  {id:'Note attitude (/10)',section:'ATTITUDE',icon:'fa-star',label:'Note attitude',type:'rating',scale:10,required:false}
+];
+function _renderDynQuestionInput(q,inpId,value){
+  const v=value==null?'':value;
+  switch(q.type){
+    case 'text':
+      return`<input type="text" class="form-input" id="${inpId}" value="${String(v).replace(/"/g,'&quot;')}" placeholder="Ta réponse...">`;
+    case 'number':{
+      const step=q.step||1;const unit=q.unit||'';
+      return`<div style="display:flex;align-items:center;gap:8px"><input type="number" step="${step}" class="form-input" id="${inpId}" value="${v||''}" placeholder="Ex: ${step<1?'7.5':'10'}" style="flex:1">${unit?`<span style="font-size:13px;color:var(--text3);font-weight:600">${unit}</span>`:''}</div>`;
+    }
+    case 'rating':{
+      const scale=q.scale||5;const cur=parseInt(v)||0;
+      let h=`<input type="hidden" id="${inpId}" value="${cur||''}"><div class="rate-dots" data-val="${cur}" data-max="${scale}" id="${inpId}_dots">`;
+      for(let i=1;i<=scale;i++)h+=`<div class="rate-dot${i<=cur?' active':''}" data-val="${i}" onclick="setRateDot('${inpId}',${i})">${i}</div>`;
+      h+=`</div>`;return h;
+    }
+    case 'percent':{
+      const cur=v===''||v==null?70:parseInt(v);
+      return`<div><div style="display:flex;align-items:center;gap:12px"><input type="range" min="0" max="100" step="5" value="${cur}" id="${inpId}" oninput="document.getElementById('${inpId}_val').textContent=this.value+'%';document.getElementById('${inpId}_fill').style.width=this.value+'%'" style="flex:1;accent-color:var(--gold);height:6px"><div id="${inpId}_val" style="font-size:18px;font-weight:800;color:var(--gold);min-width:54px;text-align:right">${cur}%</div></div><div style="position:relative;height:4px;background:var(--bg2);border-radius:2px;margin-top:4px"><div id="${inpId}_fill" style="height:100%;background:linear-gradient(90deg,var(--gold),#e8b84a);border-radius:2px;width:${cur}%"></div></div></div>`;
+    }
+    case 'yesno':{
+      const cur=String(v);
+      return`<input type="hidden" id="${inpId}" value="${cur}"><div style="display:flex;gap:8px"><button type="button" onclick="setYesNo('${inpId}','Oui')" id="${inpId}_yes" style="flex:1;padding:12px;border-radius:10px;border:2px solid ${cur==='Oui'?'var(--gold)':'var(--border)'};background:${cur==='Oui'?'var(--gold)':'var(--white)'};color:${cur==='Oui'?'white':'var(--text2)'};font-weight:700;cursor:pointer;font-family:var(--font)">Oui</button><button type="button" onclick="setYesNo('${inpId}','Non')" id="${inpId}_no" style="flex:1;padding:12px;border-radius:10px;border:2px solid ${cur==='Non'?'var(--gold)':'var(--border)'};background:${cur==='Non'?'var(--gold)':'var(--white)'};color:${cur==='Non'?'white':'var(--text2)'};font-weight:700;cursor:pointer;font-family:var(--font)">Non</button></div>`;
+    }
+    case 'choice':{
+      const opts=q.options||[];const cur=String(v);
+      let h=`<input type="hidden" id="${inpId}" value="${cur.replace(/"/g,'&quot;')}"><div style="display:flex;flex-direction:column;gap:6px">`;
+      opts.forEach((o,oi)=>{
+        h+=`<button type="button" onclick="setChoiceOpt('${inpId}',${JSON.stringify(o)})" id="${inpId}_${oi}" style="padding:12px 14px;border-radius:10px;border:2px solid ${cur===o?'var(--gold)':'var(--border)'};background:${cur===o?'var(--gold)':'var(--white)'};color:${cur===o?'white':'var(--text2)'};font-weight:600;cursor:pointer;font-family:var(--font);text-align:left">${o}</button>`;
+      });
+      h+=`</div>`;return h;
+    }
+    case 'textarea':
+    default:
+      return`<textarea class="form-input" id="${inpId}" placeholder="Ta réponse..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="min-height:80px">${String(v).replace(/</g,'&lt;')}</textarea>`;
+  }
+}
+function setYesNo(inpId,val){
+  const hid=document.getElementById(inpId);if(hid)hid.value=val;
+  const yes=document.getElementById(inpId+'_yes');const no=document.getElementById(inpId+'_no');
+  if(yes){yes.style.borderColor=val==='Oui'?'var(--gold)':'var(--border)';yes.style.background=val==='Oui'?'var(--gold)':'var(--white)';yes.style.color=val==='Oui'?'white':'var(--text2)';}
+  if(no){no.style.borderColor=val==='Non'?'var(--gold)':'var(--border)';no.style.background=val==='Non'?'var(--gold)':'var(--white)';no.style.color=val==='Non'?'white':'var(--text2)';}
+}
+function setChoiceOpt(inpId,val){
+  const hid=document.getElementById(inpId);if(hid)hid.value=val;
+  const btns=document.querySelectorAll('[id^="'+inpId+'_"]');
+  btns.forEach(b=>{const isSel=b.textContent===val;b.style.borderColor=isSel?'var(--gold)':'var(--border)';b.style.background=isSel?'var(--gold)':'var(--white)';b.style.color=isSel?'white':'var(--text2)';});
+}
 function renderReponses(rep){
   if(!rep||typeof rep!=='object')return'';
   let h='';
@@ -1984,11 +2050,13 @@ function showBilanForm(editBilanId){
   for(let i=1;i<=10;i++)h+=`<div class="bilan-gauge-dot${rep.attitude&&i<=rep.attitude?' active':''}" onclick="setGauge(${i})" data-val="${i}">${i}</div>`;
   h+=`</div></div>`;
 
-  // Q2-Q10 text questions
+  // Questions dynamiques (bilan)
   bilanQuestions.forEach(q=>{
-    h+=`<div class="bilan-section-title"><i class="fas ${q.icon}"></i> ${q.section}</div>`;
-    h+=`<div class="form-group"><div class="bilan-q-label">${q.label}</div>`;
-    h+=`<textarea class="form-input" id="bilan_${q.id}" placeholder="Ta réponse..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="min-height:80px">${rep[q.id]||''}</textarea></div>`;
+    const req=q.required?'<span style="color:#dc2626;font-weight:800" title="Obligatoire">*</span>':'';
+    h+=`<div class="bilan-section-title"><i class="fas ${q.icon||'fa-circle'}"></i> ${q.section||''} ${req}</div>`;
+    h+=`<div class="form-group"><div class="bilan-q-label">${q.label||''}</div>`;
+    h+=_renderDynQuestionInput(q,'bilan_'+q.id,rep[q.id]);
+    h+=`</div>`;
   });
 
   // Mensurations optionnelles
@@ -2044,7 +2112,15 @@ async function submitBilan(){
   if(!bilanAttitude){toast('Note ton attitude de 1 à 10');return;}
   const d=document.getElementById('bilanDate').value;
   const rep={attitude:bilanAttitude};
-  bilanQuestions.forEach(q=>{const e=document.getElementById('bilan_'+q.id);if(e&&e.value.trim())rep[q.id]=e.value.trim();});
+  // Required check
+  const missing=[];
+  bilanQuestions.forEach(q=>{
+    const e=document.getElementById('bilan_'+q.id);
+    const val=e?(e.value||'').trim():'';
+    if(val)rep[q.id]=val;
+    if(q.required&&!val)missing.push(q.section||q.label);
+  });
+  if(missing.length){toast('Champs obligatoires : '+missing.slice(0,3).join(', ')+(missing.length>3?'…':''));return;}
   // Mensurations optionnelles
   const bic=document.getElementById('bilanBiceps').value;if(bic)rep.biceps=bic;
   const nom=document.getElementById('bilanNombril').value;if(nom)rep.nombril=nom;
@@ -2078,6 +2154,7 @@ async function submitBilan(){
 }
 
 /* ===== SUIVI ===== */
+function _slug(s){return String(s||'').replace(/[^a-zA-Z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'').slice(0,40)||'x';}
 function rateDotsField(id,label,max,value){
   const v=parseInt(value)||0;
   const sub=max===5?'/5':max===10?'/10':'/'+max;
@@ -2113,16 +2190,26 @@ function renderSuivi(){
   // Date picker
   h+=`<div class="card"><div class="suivi-date-pick"><input type="date" value="${suiviDate}" onchange="suiviDate=this.value;renderSuivi()"></div>`;
 
-  // All fields visible
-  h+=`<div class="suivi-field"><div class="suivi-field-label">Poids <span>(kg à jeun après 🚾)</span></div><input type="number" step="0.1" id="sv_poids" value="${d['Poids']||''}" placeholder="Ex: 73.5"></div>`;
-  h+=rateDotsField('sv_energie','Énergie',5,d['Énergie']);
-  h+=rateDotsField('sv_faim','Faim',5,d['Faim']);
-  h+=rateDotsField('sv_stress','Stress',5,d['Stress']);
-  h+=`<div class="suivi-field"><div class="suivi-field-label">Sommeil <span>(heures)</span></div><input type="number" step="0.5" id="sv_sommeil" value="${d['Sommeil (h)']||''}" placeholder="Ex: 7.5"></div>`;
-  h+=`<div class="suivi-field"><div class="suivi-field-label">Pas</div><input type="number" id="sv_pas" value="${d['Pas']||''}" placeholder="Ex: 8000"></div>`;
-  h+=pctSliderField('sv_diet',"À combien de % as-tu suivi ton alimentation aujourd'hui ?",d['Alimentation suivie (%)']);
-  h+=`<div class="suivi-field"><div class="suivi-field-label">Donne du contexte à ta note pour que ton coach puisse mieux la comprendre.</div><textarea id="sv_contexte" placeholder="Ex: J'ai craqué sur le dessert au resto...">${d['Contexte']||''}</textarea></div>`;
-  h+=rateDotsField('sv_attitude','Note attitude',10,d['Note attitude (/10)']);
+  // Questions dynamiques
+  dailyQuestions.forEach(q=>{
+    const subLabel=q.sub?`<span>${q.sub}</span>`:'';
+    const req=q.required?' <span style="color:#dc2626;font-weight:800" title="Obligatoire">*</span>':'';
+    if(q.type==='rating'){
+      h+=rateDotsField('dq_'+_slug(q.id),q.label+req,q.scale||5,d[q.id]);
+    } else if(q.type==='percent'){
+      h+=pctSliderField('dq_'+_slug(q.id),q.label+req,d[q.id]);
+    } else if(q.type==='textarea'){
+      h+=`<div class="suivi-field"><div class="suivi-field-label">${q.label}${req}</div><textarea id="dq_${_slug(q.id)}" placeholder="Ta réponse...">${d[q.id]||''}</textarea></div>`;
+    } else if(q.type==='yesno'){
+      h+=`<div class="suivi-field"><div class="suivi-field-label">${q.label}${req}</div>${_renderDynQuestionInput(q,'dq_'+_slug(q.id),d[q.id])}</div>`;
+    } else if(q.type==='choice'){
+      h+=`<div class="suivi-field"><div class="suivi-field-label">${q.label}${req}</div>${_renderDynQuestionInput(q,'dq_'+_slug(q.id),d[q.id])}</div>`;
+    } else {
+      // number (default)
+      const step=q.step||0.1;const unit=q.unit?`<span> (${q.unit})</span>`:'';
+      h+=`<div class="suivi-field"><div class="suivi-field-label">${q.label}${unit}${subLabel}${req}</div><input type="number" step="${step}" id="dq_${_slug(q.id)}" value="${d[q.id]||''}" placeholder="Ex: ${step<1?'7.5':'10'}"></div>`;
+    }
+  });
   h+=`<button class="btn-gold" onclick="saveSuivi()" style="margin-top:8px">Enregistrer</button></div>`;
 
   // Chart section
@@ -2157,10 +2244,15 @@ function renderChart(data){
 
 async function saveSuivi(){
   const data={date:suiviDate};
-  const map={'sv_poids':'Poids','sv_energie':'Énergie','sv_faim':'Faim','sv_stress':'Stress','sv_sommeil':'Sommeil (h)','sv_pas':'Pas','sv_diet':'Alimentation suivie (%)','sv_attitude':'Note attitude (/10)'};
-  Object.entries(map).forEach(([id,key])=>{const el=document.getElementById(id);if(el&&el.value)data[key]=parseFloat(el.value);});
-  const ctx=document.getElementById('sv_contexte');
-  if(ctx&&ctx.value.trim())data['Contexte']=ctx.value.trim();
+  const missing=[];
+  dailyQuestions.forEach(q=>{
+    const el=document.getElementById('dq_'+_slug(q.id));if(!el)return;
+    const raw=(el.value||'').trim();
+    if(raw===''){if(q.required)missing.push(q.label||q.id);return;}
+    if(q.type==='textarea'||q.type==='yesno'||q.type==='choice'){data[q.id]=raw;}
+    else{const num=parseFloat(raw);if(!isNaN(num))data[q.id]=num;}
+  });
+  if(missing.length){toast('Champs requis : '+missing.slice(0,3).join(', '));return;}
 
   const existing=dailyLogs.find(l=>l.date===suiviDate);
   if(clientAuthMode==='anon'){

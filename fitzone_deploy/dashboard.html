@@ -515,6 +515,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div class="sb-sec">Administration</div>
     <div class="sb-item" onclick="showPage('reward-requests',this)" id="nav-rr"><span class="sb-ico">🎁</span>Récompenses<span class="sb-badge" id="rrBadge" style="display:none">0</span></div>
     <div class="sb-item" onclick="showPage('equipe',this)" id="nav-eq"><span class="sb-ico">👨‍💼</span>Équipe</div>
+    <div class="sb-item" onclick="showPage('q-editor',this)" id="nav-qe"><span class="sb-ico">📝</span>Questionnaires</div>
     <div class="sb-item" onclick="showPage('settings',this)" id="nav-st"><span class="sb-ico">⚙️</span>Paramètres</div>
   </nav>
   <div class="sb-bot">
@@ -963,6 +964,17 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <button class="btn btn-dark" style="margin-top:14px" id="partnerAddBtn" onclick="openAddPartner()">+ Ajouter un partenaire</button>
       </div>
     </div>
+  </div>
+
+  <!-- PAGE: QUESTIONNAIRE EDITOR -->
+  <div class="page" id="page-q-editor">
+    <div class="sh"><div class="st">Éditeur de questionnaires</div><div style="font-size:12px;color:var(--text3);margin-top:4px">Personnalise les questions que tes clients remplissent. Les changements s'appliquent en temps réel.</div></div>
+    <div style="display:flex;gap:6px;border-bottom:1.5px solid var(--border);margin-bottom:16px;padding-bottom:8px">
+      <button class="btn btn-dark btn-sm" id="qe-tab-bilan" onclick="switchQEditor('bilan')">📋 Bilan hebdomadaire</button>
+      <button class="btn btn-ghost btn-sm" id="qe-tab-daily" onclick="switchQEditor('daily')">📊 Quotidien</button>
+      <button class="btn btn-ghost btn-sm" id="qe-tab-integration" onclick="switchQEditor('integration')">🎯 Intégration (extras)</button>
+    </div>
+    <div id="qEditorContent"></div>
   </div>
 
   <!-- PAGE: REWARD REQUESTS -->
@@ -1909,7 +1921,7 @@ function showPage(name,el){
   sessionStorage.removeItem('fz_current_client');
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses',marketing:'Marketing & Finances'};
+  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','q-editor':'Éditeur questionnaires','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses',marketing:'Marketing & Finances'};
   document.getElementById('tbTitle').textContent=titles[name]||name;
   document.getElementById('backBtn').style.display='none';
   const actMap={overview:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`,'rec-forms':`<button class="btn btn-dark" onclick="openRecFormBuilder()">+ Questionnaire</button>`};
@@ -1928,6 +1940,7 @@ function showPage(name,el){
   if(name==='reward-requests'){renderRewardsSettings();renderLevelsSettings();renderRewardRequestsPage();}
   if(name==='marketing'){renderMkTracking();renderMkFinance();}
   if(name==='settings')loadPartner();
+  if(name==='q-editor')renderQEditor();
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
@@ -8226,6 +8239,133 @@ function updFin(month,cat,i,field,val){
   if(!all[month]||!all[month][cat]||!all[month][cat][i])return;
   all[month][cat][i][field]=field==='montant'?(parseFloat(val)||0):val;
   saveFinData(all);
+}
+
+/* ===== QUESTIONNAIRE EDITOR ===== */
+const DEFAULT_Q_BILAN=[
+  {id:'q2',section:'ATTITUDE',icon:'fa-brain',label:"Peux-tu expliciter pourquoi tu t'es noté ainsi ?",type:'textarea',required:false},
+  {id:'q3',section:'VICTOIRES',icon:'fa-trophy',label:"Quelles sont tes 3 plus grosses victoires cette semaine ?",type:'textarea',required:false},
+  {id:'q4',section:'PERFORMANCES',icon:'fa-dumbbell',label:"Quelles ont été tes performances d'entraînement ?",type:'textarea',required:false},
+  {id:'q5',section:'BIEN-ÊTRE',icon:'fa-heart',label:"Quelque chose d'extérieur qui peut affecter tes progrès ?",type:'textarea',required:false},
+  {id:'q6',section:'CONSTRUIRE',icon:'fa-hammer',label:"Comment aurais-tu pu améliorer cette semaine ?",type:'textarea',required:false},
+  {id:'q7',section:'SOUTIEN',icon:'fa-users',label:"Les personnes qui t'entourent te soutiennent-elles ?",type:'textarea',required:false},
+  {id:'q8',section:'RÉSUMÉ',icon:'fa-comment-dots',label:"Si tu devais conclure cette semaine, que dirais-tu ?",type:'textarea',required:false},
+  {id:'q9',section:'SEMAINE PROCHAINE',icon:'fa-calendar-alt',label:"Quelque chose à venir qui affectera tes progrès ?",type:'textarea',required:false},
+  {id:'q10',section:'COACHING',icon:'fa-clipboard-check',label:"Quelque chose qui pourrait t'aider à mieux adhérer au plan ?",type:'textarea',required:false}
+];
+const DEFAULT_Q_DAILY=[
+  {id:'Poids',section:'MESURES',icon:'fa-weight',label:'Poids',type:'number',unit:'kg',step:0.1,required:false},
+  {id:'Énergie',section:'BIEN-ÊTRE',icon:'fa-bolt',label:'Énergie',type:'rating',scale:5,required:false},
+  {id:'Faim',section:'BIEN-ÊTRE',icon:'fa-utensils',label:'Faim',type:'rating',scale:5,required:false},
+  {id:'Stress',section:'BIEN-ÊTRE',icon:'fa-brain',label:'Stress',type:'rating',scale:5,required:false},
+  {id:'Sommeil (h)',section:'BIEN-ÊTRE',icon:'fa-bed',label:'Sommeil',type:'number',unit:'h',step:0.5,required:false},
+  {id:'Pas',section:'ACTIVITÉ',icon:'fa-walking',label:'Pas',type:'number',unit:'',step:1,required:false},
+  {id:'Alimentation suivie (%)',section:'NUTRITION',icon:'fa-apple-alt',label:'À combien de % as-tu suivi ton alimentation aujourd\'hui ?',type:'percent',required:false},
+  {id:'Contexte',section:'NOTES',icon:'fa-pen',label:'Donne du contexte à ta note pour que ton coach puisse mieux la comprendre',type:'textarea',required:false},
+  {id:'Note attitude (/10)',section:'ATTITUDE',icon:'fa-star',label:'Note attitude',type:'rating',scale:10,required:false}
+];
+const DEFAULT_Q_INTEGRATION=[]; // extras ajoutés en plus du questionnaire standard
+window._qeCurrentTab='bilan';
+window._qeDraft={bilan:null,daily:null,integration:null};
+async function _qeLoadAll(){
+  if(!currentCoach)return;
+  const{data}=await db.from('settings').select('q_bilan,q_daily,q_integration').eq('coach_id',currentCoach.id).maybeSingle();
+  const s=data||{};
+  window._qeDraft.bilan=Array.isArray(s.q_bilan)&&s.q_bilan.length?JSON.parse(JSON.stringify(s.q_bilan)):JSON.parse(JSON.stringify(DEFAULT_Q_BILAN));
+  window._qeDraft.daily=Array.isArray(s.q_daily)&&s.q_daily.length?JSON.parse(JSON.stringify(s.q_daily)):JSON.parse(JSON.stringify(DEFAULT_Q_DAILY));
+  window._qeDraft.integration=Array.isArray(s.q_integration)?JSON.parse(JSON.stringify(s.q_integration)):JSON.parse(JSON.stringify(DEFAULT_Q_INTEGRATION));
+}
+async function renderQEditor(){
+  const el=document.getElementById('qEditorContent');if(!el)return;
+  el.innerHTML=`<div style="padding:30px;text-align:center;color:var(--text3)">Chargement…</div>`;
+  if(!window._qeDraft.bilan)await _qeLoadAll();
+  _qeRender();
+}
+function switchQEditor(tab){
+  window._qeCurrentTab=tab;
+  ['bilan','daily','integration'].forEach(t=>{
+    const b=document.getElementById('qe-tab-'+t);if(!b)return;
+    b.className='btn btn-sm '+(t===tab?'btn-dark':'btn-ghost');
+  });
+  _qeRender();
+}
+function _qeRender(){
+  const el=document.getElementById('qEditorContent');if(!el)return;
+  const tab=window._qeCurrentTab||'bilan';
+  const list=window._qeDraft[tab]||[];
+  const info={bilan:'Questions affichées après la note d\'attitude /10 (qui est toujours la 1ère question).',daily:'Métriques affichées dans le rapport quotidien du client.',integration:'Questions supplémentaires ajoutées à la fin du questionnaire d\'intégration standard.'}[tab];
+  let h=`<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)"><strong style="color:var(--gold)">ℹ️</strong> ${info}</div>`;
+  h+=`<div id="qeList" style="display:flex;flex-direction:column;gap:10px">`;
+  list.forEach((q,i)=>{
+    h+=_qeItemCard(q,i,list.length);
+  });
+  h+=`</div>`;
+  h+=`<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><button class="btn btn-dark" onclick="qeAddItem()">+ Ajouter une question</button><button class="btn btn-gold" onclick="qeSave()">💾 Enregistrer</button><button class="btn btn-ghost" onclick="qeResetDefaults()">↺ Restaurer défauts</button></div>`;
+  el.innerHTML=h;
+}
+function _qeItemCard(q,i,total){
+  const types={text:'Texte court',textarea:'Texte long',rating:'Note (dots)',number:'Nombre',percent:'Pourcentage 0-100%',yesno:'Oui / Non',choice:'Choix multiples'};
+  const tab=window._qeCurrentTab;
+  let h=`<div style="background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px">`;
+  h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">`;
+  h+=`<div style="width:28px;height:28px;border-radius:8px;background:var(--dark);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">${i+1}</div>`;
+  h+=`<div style="flex:1;font-size:13px;font-weight:700">${q.label||'<em style="color:var(--text3)">Sans titre</em>'}</div>`;
+  h+=`<button class="btn btn-ghost btn-xs" ${i===0?'disabled style="opacity:.3"':''} onclick="qeMove(${i},-1)" title="Monter">↑</button>`;
+  h+=`<button class="btn btn-ghost btn-xs" ${i===total-1?'disabled style="opacity:.3"':''} onclick="qeMove(${i},1)" title="Descendre">↓</button>`;
+  h+=`<button class="btn btn-danger btn-xs" onclick="qeDel(${i})" title="Supprimer">✕</button>`;
+  h+=`</div>`;
+  h+=`<div class="fr2">
+    <div class="fg"><label class="fl">Libellé</label><input class="fi" value="${(q.label||'').replace(/"/g,'&quot;')}" oninput="qeEdit(${i},'label',this.value)"></div>
+    <div class="fg"><label class="fl">Section / Groupe</label><input class="fi" value="${(q.section||'').replace(/"/g,'&quot;')}" oninput="qeEdit(${i},'section',this.value)" placeholder="Ex: ATTITUDE"></div>
+  </div>`;
+  h+=`<div class="fr2">
+    <div class="fg"><label class="fl">Type de réponse</label><select class="fs" onchange="qeEdit(${i},'type',this.value);_qeRender()">${Object.entries(types).map(([k,l])=>`<option value="${k}" ${q.type===k?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Obligatoire</label><label style="display:flex;align-items:center;gap:8px;padding:12px 0;font-size:13px;color:var(--text2);cursor:pointer"><input type="checkbox" ${q.required?'checked':''} onchange="qeEdit(${i},'required',this.checked)" style="width:18px;height:18px;accent-color:var(--gold)">Réponse requise pour valider</label></div>
+  </div>`;
+  if(q.type==='rating'){
+    h+=`<div class="fg"><label class="fl">Échelle</label><select class="fs" onchange="qeEdit(${i},'scale',parseInt(this.value))"><option value="5" ${q.scale===5?'selected':''}>/5</option><option value="10" ${q.scale===10?'selected':''}>/10</option></select></div>`;
+  } else if(q.type==='number'){
+    h+=`<div class="fr2"><div class="fg"><label class="fl">Unité (optionnel)</label><input class="fi" value="${q.unit||''}" oninput="qeEdit(${i},'unit',this.value)" placeholder="kg, cm, h…"></div><div class="fg"><label class="fl">Pas (step)</label><input class="fi" type="number" step="0.01" value="${q.step||1}" oninput="qeEdit(${i},'step',parseFloat(this.value)||1)"></div></div>`;
+  } else if(q.type==='choice'){
+    h+=`<div class="fg"><label class="fl">Options (une par ligne)</label><textarea class="fi" rows="3" oninput="qeEdit(${i},'options',this.value.split('\\n').map(s=>s.trim()).filter(Boolean))">${(q.options||[]).join('\n')}</textarea></div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+function qeEdit(i,field,val){
+  const tab=window._qeCurrentTab;const list=window._qeDraft[tab];if(!list||!list[i])return;
+  list[i][field]=val;
+}
+function qeMove(i,dir){
+  const tab=window._qeCurrentTab;const list=window._qeDraft[tab];if(!list)return;
+  const j=i+dir;if(j<0||j>=list.length)return;
+  [list[i],list[j]]=[list[j],list[i]];_qeRender();
+}
+function qeDel(i){
+  if(!confirm('Supprimer cette question ?'))return;
+  const tab=window._qeCurrentTab;window._qeDraft[tab].splice(i,1);_qeRender();
+}
+function qeAddItem(){
+  const tab=window._qeCurrentTab;const list=window._qeDraft[tab];
+  const id='q_'+Date.now();
+  const base={id,label:'Nouvelle question',section:'',icon:'fa-circle',type:tab==='daily'?'rating':'textarea',required:false};
+  if(base.type==='rating')base.scale=5;
+  list.push(base);_qeRender();
+}
+async function qeSave(){
+  if(!currentCoach){toast('Non connecté');return;}
+  const payload={coach_id:currentCoach.id,q_bilan:window._qeDraft.bilan,q_daily:window._qeDraft.daily,q_integration:window._qeDraft.integration};
+  const{error}=await db.from('settings').upsert(payload,{onConflict:'coach_id'});
+  if(error){console.error(error);toast('Erreur: '+error.message);return;}
+  toast('Questionnaires enregistrés ✓');
+}
+function qeResetDefaults(){
+  if(!confirm('Restaurer le questionnaire par défaut (les modifications non enregistrées seront perdues) ?'))return;
+  const tab=window._qeCurrentTab;
+  if(tab==='bilan')window._qeDraft.bilan=JSON.parse(JSON.stringify(DEFAULT_Q_BILAN));
+  else if(tab==='daily')window._qeDraft.daily=JSON.parse(JSON.stringify(DEFAULT_Q_DAILY));
+  else window._qeDraft.integration=[];
+  _qeRender();
 }
 </script>
 </body>
