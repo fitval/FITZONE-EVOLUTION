@@ -1352,9 +1352,14 @@ async function sha256(str) {
 }
 async function signContract() {
   const name = document.getElementById('signerName').value.trim();
-  const expected = ((clientData.first_name || '') + ' ' + (clientData.last_name || '')).trim().toLowerCase();
+  const expected = ((clientData.first_name || '') + ' ' + (clientData.last_name || '')).trim();
   if (!name) { alert('Merci de taper ton nom complet pour signer.'); return; }
-  if (name.toLowerCase() !== expected && !confirm('Le nom tapé ne correspond pas exactement à ton profil ("' + expected + '"). Signer quand même ?')) return;
+  // Normalisation : casse et espaces ignorés, mais orthographe strictement vérifiée
+  const norm = (s) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (norm(name) !== norm(expected)) {
+    alert('❌ Le nom saisi ne correspond pas à ton profil.\n\nTu dois saisir EXACTEMENT :\n\n  ' + expected + '\n\nCette vérification est obligatoire pour la validité juridique de ta signature.');
+    return;
+  }
   const btn = document.getElementById('btnSignContract');
   btn.disabled = true; btn.textContent = '⏳ Signature en cours…';
   const ip = await fetchClientIP();
