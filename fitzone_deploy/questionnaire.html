@@ -1288,11 +1288,93 @@ async function submitForm() {
     });
     const result = await resp.json();
     if (!resp.ok || result.error) { throw new Error(result.error || 'Erreur serveur'); }
-    showState('done');
+    // Check if client has a pending contract to sign
+    const { data: contracts } = await db.from('client_contracts').select('*').eq('client_id', clientData.id).is('signed_at', null).limit(1);
+    if (contracts && contracts.length) {
+      showContractSigning(contracts[0]);
+    } else {
+      showState('done');
+    }
   } catch (e) {
     btn.disabled = false; btn.textContent = '✅ Envoyer mon questionnaire';
     alert('Erreur : ' + e.message);
   }
+}
+
+let pendingContract = null;
+function showContractSigning(contract) {
+  pendingContract = contract;
+  document.getElementById('appState').style.display = 'none';
+  let el = document.getElementById('contractState');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'contractState';
+    el.style.cssText = 'min-height:100vh;padding:24px 20px 40px;max-width:800px;margin:0 auto';
+    document.body.appendChild(el);
+  }
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:40px;margin-bottom:8px">📄</div>
+      <div style="font-size:22px;font-weight:800;color:#0f172a">Signature du contrat</div>
+      <div style="font-size:13px;color:#64748b;margin-top:4px">Questionnaire reçu ✓ — Dernière étape : signer ton contrat de coaching</div>
+    </div>
+    <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:24px;margin-bottom:20px;max-height:50vh;overflow-y:auto;line-height:1.6">${contract.content_snapshot || '<em>Contrat vide</em>'}</div>
+    <div style="background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:10px">✍️ SIGNATURE ÉLECTRONIQUE</div>
+      <div style="font-size:13px;color:#334155;margin-bottom:10px;line-height:1.5">En cliquant sur "Je signe", je reconnais avoir pris connaissance des termes du contrat et j'accepte leur application pleine et entière.</div>
+      <div style="margin-bottom:10px"><input type="text" id="signerName" placeholder="Tape ton nom complet pour confirmer" style="width:100%;padding:12px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:inherit"></div>
+      <div style="font-size:11px;color:#64748b">Ta signature sera horodatée et accompagnée de ton adresse IP pour garantir sa valeur probante.</div>
+    </div>
+    <button id="btnSignContract" onclick="signContract()" style="width:100%;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,#c49a2a,#e8b84a);color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">✍️ Je signe électroniquement</button>
+  `;
+}
+
+async function fetchClientIP() {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json');
+    const j = await r.json();
+    return j.ip || '';
+  } catch { return ''; }
+}
+async function sha256(str) {
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function signContract() {
+  const name = document.getElementById('signerName').value.trim();
+  const expected = ((clientData.first_name || '') + ' ' + (clientData.last_name || '')).trim().toLowerCase();
+  if (!name) { alert('Merci de taper ton nom complet pour signer.'); return; }
+  if (name.toLowerCase() !== expected && !confirm('Le nom tapé ne correspond pas exactement à ton profil ("' + expected + '"). Signer quand même ?')) return;
+  const btn = document.getElementById('btnSignContract');
+  btn.disabled = true; btn.textContent = '⏳ Signature en cours…';
+  const ip = await fetchClientIP();
+  const ua = navigator.userAgent;
+  const now = new Date().toISOString();
+  const hash = await sha256((pendingContract.content_snapshot || '') + '|' + name + '|' + ip + '|' + now);
+  const { error } = await db.from('client_contracts').update({
+    signed_at: now, signer_name: name, signer_ip: ip, signer_ua: ua, signer_hash: hash, signer_email: clientData.email || null
+  }).eq('id', pendingContract.id);
+  if (error) {
+    btn.disabled = false; btn.textContent = '✍️ Je signe électroniquement';
+    alert('Erreur : ' + error.message);
+    return;
+  }
+  document.getElementById('contractState').innerHTML = `
+    <div style="text-align:center;padding:40px 20px;max-width:500px;margin:0 auto">
+      <div style="font-size:56px;margin-bottom:16px">✅</div>
+      <div style="font-size:24px;font-weight:800;color:#0f172a;margin-bottom:8px">Contrat signé !</div>
+      <div style="font-size:14px;color:#64748b;line-height:1.6;margin-bottom:20px">Ton questionnaire et ton contrat ont bien été enregistrés.</div>
+      <div style="background:#f8fafc;border-radius:12px;padding:16px;text-align:left;font-size:12px;color:#475569;line-height:1.8">
+        <div><strong>Signataire :</strong> ${name}</div>
+        <div><strong>Date :</strong> ${new Date(now).toLocaleString('fr-FR')}</div>
+        <div><strong>IP :</strong> ${ip || 'non détectée'}</div>
+        <div><strong>Hash :</strong> <span style="font-family:ui-monospace,monospace;font-size:10px">${hash.slice(0,32)}…</span></div>
+      </div>
+      <div style="font-size:13px;color:#64748b;margin-top:20px">Tu recevras bientôt ton accès à l'application. À très vite !</div>
+    </div>
+  `;
 }
 
 function selectChoice(el, name, value) {

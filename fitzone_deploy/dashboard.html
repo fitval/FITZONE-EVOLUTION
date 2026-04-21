@@ -516,6 +516,8 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div class="sb-item" onclick="showPage('reward-requests',this)" id="nav-rr"><span class="sb-ico">🎁</span>Récompenses<span class="sb-badge" id="rrBadge" style="display:none">0</span></div>
     <div class="sb-item" onclick="showPage('equipe',this)" id="nav-eq"><span class="sb-ico">👨‍💼</span>Équipe</div>
     <div class="sb-item" onclick="showPage('q-editor',this)" id="nav-qe"><span class="sb-ico">📝</span>Questionnaires</div>
+    <div class="sb-item" onclick="showPage('contracts',this)" id="nav-ct"><span class="sb-ico">📄</span>Contrats</div>
+    <div class="sb-item" onclick="showPage('payments',this)" id="nav-pm"><span class="sb-ico">💰</span>Suivi paiements</div>
     <div class="sb-item" onclick="showPage('settings',this)" id="nav-st"><span class="sb-ico">⚙️</span>Paramètres</div>
   </nav>
   <div class="sb-bot">
@@ -538,7 +540,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <span style="font-size:20px">🔔</span>
         <span id="notifBadge" style="display:none;position:absolute;top:-4px;right:-6px;width:16px;height:16px;background:#e53e3e;border-radius:50%;font-size:9px;font-weight:800;color:white;display:flex;align-items:center;justify-content:center">0</span>
       </div>
-      <button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>
+      <button class="btn btn-dark" onclick="openNewClientModal()">+ Nouveau client</button>
     </div>
   </div>
 
@@ -554,7 +556,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
       <button class="btn btn-sm" style="color:white;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15)" onclick="showPage('settings',document.getElementById('nav-st'))">✏️ Modifier</button>
     </div>
     <div class="qa-grid">
-      <div class="qa" onclick="openM('mNewClient')"><div class="qa-ico">👤</div><div class="qa-lbl">Nouveau client</div><div class="qa-sub">Créer &amp; inviter</div></div>
+      <div class="qa" onclick="openNewClientModal()"><div class="qa-ico">👤</div><div class="qa-lbl">Nouveau client</div><div class="qa-sub">Créer &amp; inviter</div></div>
       <div class="qa" onclick="showPage('nut-plans',document.getElementById('nav-nut-plans'));openSub('sub-nut','arr-nut')"><div class="qa-ico">🥗</div><div class="qa-lbl">Plan alimentaire</div><div class="qa-sub">Créer un plan</div></div>
       <div class="qa" onclick="showPage('tr-progs',document.getElementById('nav-tr-progs'));openSub('sub-train','arr-tr')"><div class="qa-ico">💪</div><div class="qa-lbl">Programme</div><div class="qa-sub">Créer</div></div>
       <div class="qa" onclick="showPage('learning',document.getElementById('nav-lr'))"><div class="qa-ico">🎓</div><div class="qa-lbl">Learning</div><div class="qa-sub">Créer module</div></div>
@@ -966,6 +968,49 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     </div>
   </div>
 
+  <!-- PAGE: CONTRACTS -->
+  <div class="page" id="page-contracts">
+    <div class="sh"><div class="st">Modèles de contrat</div><button class="btn btn-dark" onclick="openContractTplEditor()">+ Nouveau modèle</button></div>
+    <div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)">
+      <strong style="color:var(--gold)">ℹ️ Variables disponibles dans le HTML :</strong>
+      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{first_name}}</code>
+      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{last_name}}</code>
+      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{email}}</code>
+      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{amount}}</code>
+      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{plan_description}}</code>
+      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{duration}}</code>
+      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{start_date}}</code>
+      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{coach_name}}</code>
+    </div>
+    <div id="contractsList"></div>
+  </div>
+
+  <!-- PAGE: PAYMENTS -->
+  <div class="page" id="page-payments">
+    <div class="sh"><div class="st">Suivi des paiements</div></div>
+    <div id="paymentsStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" id="paymentsFilters"></div>
+    <div id="paymentsList"></div>
+  </div>
+
+  <!-- MODAL: CONTRACT TEMPLATE EDITOR -->
+  <div class="overlay" id="mContractTpl"><div class="modal" style="max-width:820px">
+    <div class="mh"><div class="mt" id="ctplMT">Nouveau modèle de contrat</div><button class="mc" onclick="closeM('mContractTpl')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label class="fl">Nom du modèle *</label><input class="fi" id="ctplName" placeholder="Ex: Coaching 3 mois standard"></div>
+      <div class="fg"><label class="fl">Contenu HTML du contrat *</label><textarea class="fi" id="ctplContent" rows="18" style="font-family:ui-monospace,monospace;font-size:12px;min-height:360px" placeholder="<h1>Contrat de coaching</h1>&#10;<p>Entre {{coach_name}} et {{first_name}} {{last_name}}…</p>&#10;<p>Montant : {{amount}}€ — {{plan_description}}</p>&#10;<p>Durée : {{duration}} mois, à partir du {{start_date}}.</p>"></textarea></div>
+      <input type="hidden" id="ctplEditId">
+    </div>
+    <div class="mf"><button class="btn btn-ghost" onclick="closeM('mContractTpl')">Annuler</button><button class="btn btn-dark" onclick="saveContractTpl()">Enregistrer</button></div>
+  </div></div>
+
+  <!-- MODAL: VIEW CLIENT CONTRACT -->
+  <div class="overlay" id="mClientContract"><div class="modal" style="max-width:900px">
+    <div class="mh"><div class="mt">Contrat client</div><button class="mc" onclick="closeM('mClientContract')">✕</button></div>
+    <div class="mb" id="clientContractBody" style="max-height:70vh;overflow-y:auto"></div>
+    <div class="mf"><button class="btn btn-ghost" onclick="closeM('mClientContract')">Fermer</button></div>
+  </div></div>
+
   <!-- PAGE: QUESTIONNAIRE EDITOR -->
   <div class="page" id="page-q-editor">
     <div class="sh"><div class="st">Éditeur de questionnaires</div><div style="font-size:12px;color:var(--text3);margin-top:4px">Personnalise les questions que tes clients remplissent. Les changements s'appliquent en temps réel.</div></div>
@@ -1072,6 +1117,14 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
       <div class="ttog" onclick="togTag(this,'débutant')">Débutant</div><div class="ttog" onclick="togTag(this,'intermédiaire')">Intermédiaire</div><div class="ttog" onclick="togTag(this,'avancé')">Avancé</div>
       <div class="ttog" onclick="togTag(this,'salle')">Salle</div><div class="ttog" onclick="togTag(this,'maison')">Maison</div><div class="ttog" onclick="togTag(this,'hôtel')">Hôtel</div>
     </div></div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+    <div class="cl" style="font-size:11px;margin-bottom:10px">📄 CONTRAT & PAIEMENT <span style="font-weight:400;color:var(--text3)">(optionnel)</span></div>
+    <div class="fg"><label class="fl">Modèle de contrat</label><select class="fs" id="nfContractTpl" onchange="nfContractChange()"><option value="">— Aucun contrat —</option></select></div>
+    <div id="nfContractDetails" style="display:none">
+      <div class="fr2"><div class="fg"><label class="fl">Montant total (€)</label><input class="fi" type="number" step="0.01" id="nfContractAmount" placeholder="1200"></div><div class="fg"><label class="fl">Durée (mois)</label><input class="fi" type="number" id="nfContractDuration" placeholder="3"></div></div>
+      <div class="fr2"><div class="fg"><label class="fl">Date de début</label><input class="fi" type="date" id="nfContractStart"></div><div class="fg"><label class="fl">Plan de paiement</label><select class="fs" id="nfContractPlan" onchange="nfPlanChange()"><option value="one_shot">Paiement en 1 fois</option><option value="monthly">Mensuel pendant N mois</option><option value="installments">Échéances libres</option><option value="downpayment">Acompte + mensualités</option></select></div></div>
+      <div id="nfPlanDetails"></div>
+    </div>
     <div id="createdWrap" style="display:none"><hr style="border:none;border-top:1px solid var(--border);margin:11px 0"><div style="font-size:12px;color:var(--text3);margin-bottom:6px">✅ Client créé — lien d'invitation :</div><div class="lbox"><div class="lurl" id="createdLink"></div><button class="cbtn" onclick="copyT(document.getElementById('createdLink').textContent)">Copier</button></div></div>
   </div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeM('mNewClient')">Annuler</button><button class="btn btn-dark" id="btnCreate" onclick="doCreateClient()">Créer →</button></div>
@@ -1921,10 +1974,10 @@ function showPage(name,el){
   sessionStorage.removeItem('fz_current_client');
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','q-editor':'Éditeur questionnaires','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses',marketing:'Marketing & Finances'};
+  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','q-editor':'Éditeur questionnaires',contracts:'Contrats',payments:'Suivi paiements','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses',marketing:'Marketing & Finances'};
   document.getElementById('tbTitle').textContent=titles[name]||name;
   document.getElementById('backBtn').style.display='none';
-  const actMap={overview:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openM('mNewClient')">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`,'rec-forms':`<button class="btn btn-dark" onclick="openRecFormBuilder()">+ Questionnaire</button>`};
+  const actMap={overview:`<button class="btn btn-dark" onclick="openNewClientModal()">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openNewClientModal()">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`,'rec-forms':`<button class="btn btn-dark" onclick="openRecFormBuilder()">+ Questionnaire</button>`};
   document.getElementById('tbActs').innerHTML=actMap[name]||'';
   if(name==='bilans')renderBilans();
   if(name==='nut-plans'){closeProgBuilder();closePlanBuilder();renderPlansListPage();}
@@ -1941,6 +1994,8 @@ function showPage(name,el){
   if(name==='marketing'){renderMkTracking();renderMkFinance();}
   if(name==='settings')loadPartner();
   if(name==='q-editor')renderQEditor();
+  if(name==='contracts')renderContractTemplates();
+  if(name==='payments')renderPaymentsPage();
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
@@ -2023,6 +2078,12 @@ async function doCreateClient(){
     btn.textContent='Création du compte...';
     const uid=await createClientAccount(newClient.id,e,f,l);
     if(uid) toast('Compte client créé — email d\'invitation envoyé');
+  }
+  // Contrat optionnel
+  const tplId=document.getElementById('nfContractTpl')?.value;
+  if(tplId&&newClient){
+    btn.textContent='Création du contrat...';
+    try{await _attachContractToClient(newClient,tplId);}catch(e){console.error('[CONTRACT ATTACH]',e);toast('Client créé mais erreur contrat : '+e.message);}
   }
   btn.disabled=false;btn.textContent='Créer →';
   const link=QBASE+'?token='+tok;
@@ -8366,6 +8427,215 @@ function qeResetDefaults(){
   else if(tab==='daily')window._qeDraft.daily=JSON.parse(JSON.stringify(DEFAULT_Q_DAILY));
   else window._qeDraft.integration=[];
   _qeRender();
+}
+
+/* ===== CONTRATS : TEMPLATES ===== */
+let _contractTemplates=[];
+async function _loadContractTemplates(){
+  if(!currentCoach)return;
+  const{data}=await db.from('contract_templates').select('*').eq('coach_id',currentCoach.id).order('created_at',{ascending:false});
+  _contractTemplates=data||[];
+}
+async function renderContractTemplates(){
+  const el=document.getElementById('contractsList');if(!el)return;
+  el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3)">Chargement…</div>';
+  await _loadContractTemplates();
+  if(!_contractTemplates.length){el.innerHTML=`<div class="empty"><div class="ei">📄</div><div class="et">Aucun modèle de contrat</div><div class="es">Crée un modèle pour pouvoir l'utiliser à la création d'un client.</div></div>`;return;}
+  el.innerHTML=_contractTemplates.map(t=>{
+    const preview=(t.content_html||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180);
+    return`<div class="plan-card" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700">${t.name}</div><div style="font-size:11px;color:var(--text3);margin-top:3px;line-height:1.4">${preview||'<em>Contenu vide</em>'}…</div></div><button class="btn btn-ghost btn-xs" onclick="openContractTplEditor('${t.id}')">✏️ Modifier</button><button class="btn btn-danger btn-xs" onclick="deleteContractTpl('${t.id}')">🗑️</button></div></div>`;
+  }).join('');
+}
+function openContractTplEditor(id){
+  document.getElementById('ctplMT').textContent=id?'Modifier le modèle':'Nouveau modèle de contrat';
+  if(id){const t=_contractTemplates.find(x=>x.id===id);if(!t){toast('Modèle introuvable');return;}document.getElementById('ctplName').value=t.name||'';document.getElementById('ctplContent').value=t.content_html||'';document.getElementById('ctplEditId').value=id;}
+  else{document.getElementById('ctplName').value='';document.getElementById('ctplContent').value='';document.getElementById('ctplEditId').value='';}
+  openM('mContractTpl');
+}
+async function saveContractTpl(){
+  const name=document.getElementById('ctplName').value.trim();const content=document.getElementById('ctplContent').value;
+  if(!name||!content){toast('Nom et contenu requis');return;}
+  if(!currentCoach){toast('Non connecté');return;}
+  const id=document.getElementById('ctplEditId').value;
+  const row={coach_id:currentCoach.id,name,content_html:content,updated_at:new Date().toISOString()};
+  let error;
+  if(id){const r=await db.from('contract_templates').update(row).eq('id',id);error=r.error;}
+  else{const r=await db.from('contract_templates').insert(row);error=r.error;}
+  if(error){toast('Erreur: '+error.message);return;}
+  closeM('mContractTpl');toast('Modèle enregistré ✓');renderContractTemplates();
+}
+async function deleteContractTpl(id){
+  if(!confirm('Supprimer ce modèle ? Les contrats déjà signés ne seront pas affectés.'))return;
+  const{error}=await db.from('contract_templates').delete().eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Modèle supprimé');renderContractTemplates();
+}
+/* Populate template dropdown in New Client modal */
+async function populateContractTplSelect(){
+  const sel=document.getElementById('nfContractTpl');if(!sel)return;
+  await _loadContractTemplates();
+  sel.innerHTML='<option value="">— Aucun contrat —</option>'+_contractTemplates.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+}
+function nfContractChange(){
+  const tplId=document.getElementById('nfContractTpl').value;
+  document.getElementById('nfContractDetails').style.display=tplId?'block':'none';
+  if(tplId){
+    // default values
+    if(!document.getElementById('nfContractStart').value)document.getElementById('nfContractStart').value=new Date().toISOString().slice(0,10);
+    if(!document.getElementById('nfContractDuration').value)document.getElementById('nfContractDuration').value=3;
+    nfPlanChange();
+  }
+}
+function nfPlanChange(){
+  const plan=document.getElementById('nfContractPlan').value;
+  const pd=document.getElementById('nfPlanDetails');
+  if(plan==='monthly'){pd.innerHTML=`<div class="fr2"><div class="fg"><label class="fl">Nombre de mensualités</label><input class="fi" type="number" id="nfPlanN" value="3" min="1"></div><div class="fg"><label class="fl">Jour de prélèvement</label><input class="fi" type="number" id="nfPlanDay" value="1" min="1" max="28"></div></div>`;}
+  else if(plan==='downpayment'){pd.innerHTML=`<div class="fr2"><div class="fg"><label class="fl">Acompte (€)</label><input class="fi" type="number" step="0.01" id="nfPlanDown" placeholder="500"></div><div class="fg"><label class="fl">Nb mensualités restantes</label><input class="fi" type="number" id="nfPlanN" value="3" min="1"></div></div><div class="fr2"><div class="fg"><label class="fl">Délai avant 1ère mensualité (jours)</label><input class="fi" type="number" id="nfPlanDelay" value="12"></div><div class="fg"><label class="fl">Jour de prélèvement mensuel</label><input class="fi" type="number" id="nfPlanDay" value="1" min="1" max="28"></div></div>`;}
+  else if(plan==='installments'){pd.innerHTML=`<div class="fg"><label class="fl">Nb d'échéances</label><input class="fi" type="number" id="nfPlanN" value="3" min="1" oninput="nfInstallmentsRender()"></div><div id="nfInstallmentsList"></div>`;nfInstallmentsRender();}
+  else pd.innerHTML='<div style="font-size:12px;color:var(--text3);padding:6px 0">Paiement unique à la signature.</div>';
+}
+function nfInstallmentsRender(){
+  const n=parseInt(document.getElementById('nfPlanN')?.value)||3;const tot=parseFloat(document.getElementById('nfContractAmount')?.value)||0;
+  const per=(tot/n).toFixed(2);
+  const ctn=document.getElementById('nfInstallmentsList');if(!ctn)return;
+  let h='<div style="font-size:11px;color:var(--text3);margin:6px 0 3px">Dates et montants personnalisables :</div>';
+  const start=document.getElementById('nfContractStart')?.value||new Date().toISOString().slice(0,10);
+  for(let i=0;i<n;i++){
+    const d=new Date(start);d.setMonth(d.getMonth()+i);const ds=d.toISOString().slice(0,10);
+    h+=`<div class="fr2" style="gap:6px;margin-bottom:4px"><input class="fi" type="date" data-inst-date="${i}" value="${ds}"><input class="fi" type="number" step="0.01" data-inst-amt="${i}" value="${per}" placeholder="Montant"></div>`;
+  }
+  ctn.innerHTML=h;
+}
+/* Attach contract to newly-created client */
+async function _attachContractToClient(newClient,tplId){
+  const tpl=_contractTemplates.find(x=>x.id===tplId);if(!tpl)throw new Error('Template introuvable');
+  const amount=parseFloat(document.getElementById('nfContractAmount').value)||0;
+  const duration=parseInt(document.getElementById('nfContractDuration').value)||null;
+  const startDate=document.getElementById('nfContractStart').value||null;
+  const plan=document.getElementById('nfContractPlan').value;
+  let planData={};let planDesc='';
+  if(plan==='monthly'){const n=parseInt(document.getElementById('nfPlanN').value)||1;const day=parseInt(document.getElementById('nfPlanDay').value)||1;planData={n,day};planDesc=`${n} mensualités de ${(amount/n).toFixed(2)}€`;}
+  else if(plan==='downpayment'){const down=parseFloat(document.getElementById('nfPlanDown').value)||0;const n=parseInt(document.getElementById('nfPlanN').value)||1;const delay=parseInt(document.getElementById('nfPlanDelay').value)||12;const day=parseInt(document.getElementById('nfPlanDay').value)||1;planData={down,n,delay,day};planDesc=`${down}€ d'acompte puis ${n} mensualités de ${((amount-down)/n).toFixed(2)}€`;}
+  else if(plan==='installments'){const items=[];document.querySelectorAll('[data-inst-date]').forEach(el=>{const i=parseInt(el.dataset.instDate);const amt=parseFloat(document.querySelector(`[data-inst-amt="${i}"]`)?.value)||0;items.push({date:el.value,amount:amt});});planData={items};planDesc=`${items.length} échéances libres`;}
+  else{planDesc=`Paiement unique de ${amount}€`;}
+  // Rendu snapshot
+  const coachName=(currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'');
+  const rendered=(tpl.content_html||'')
+    .replace(/\{\{first_name\}\}/g,newClient.first_name||'')
+    .replace(/\{\{last_name\}\}/g,newClient.last_name||'')
+    .replace(/\{\{email\}\}/g,newClient.email||'')
+    .replace(/\{\{amount\}\}/g,amount?amount.toFixed(2):'')
+    .replace(/\{\{plan_description\}\}/g,planDesc)
+    .replace(/\{\{duration\}\}/g,duration||'')
+    .replace(/\{\{start_date\}\}/g,startDate?new Date(startDate).toLocaleDateString('fr-FR'):'')
+    .replace(/\{\{coach_name\}\}/g,coachName.trim());
+  const{data:cc,error}=await db.from('client_contracts').insert({
+    coach_id:currentCoach.id,client_id:newClient.id,template_id:tpl.id,template_name:tpl.name,
+    content_snapshot:rendered,amount_total:amount,plan_type:plan,plan_data:planData,
+    duration_months:duration,start_date:startDate
+  }).select().single();
+  if(error)throw error;
+  // Pre-generate payments
+  const pays=_generatePaymentSchedule(cc.id,newClient,plan,planData,amount,startDate);
+  if(pays.length){const{error:pe}=await db.from('payments').insert(pays);if(pe)console.error('[PAYMENTS]',pe);}
+}
+function _generatePaymentSchedule(ccId,cl,plan,planData,amount,startDate){
+  const base=new Date(startDate||new Date().toISOString().slice(0,10));
+  const rows=[];
+  if(plan==='one_shot'){rows.push({client_contract_id:ccId,coach_id:currentCoach.id,client_id:cl.id,due_date:base.toISOString().slice(0,10),amount});}
+  else if(plan==='monthly'){const n=planData.n||1;const day=planData.day||1;const per=amount/n;for(let i=0;i<n;i++){const d=new Date(base);d.setMonth(d.getMonth()+i);d.setDate(day);rows.push({client_contract_id:ccId,coach_id:currentCoach.id,client_id:cl.id,due_date:d.toISOString().slice(0,10),amount:Math.round(per*100)/100});}}
+  else if(plan==='downpayment'){const down=planData.down||0;const n=planData.n||1;const delay=planData.delay||12;const day=planData.day||1;const rest=amount-down;const per=rest/n;
+    rows.push({client_contract_id:ccId,coach_id:currentCoach.id,client_id:cl.id,due_date:base.toISOString().slice(0,10),amount:down,note:'Acompte'});
+    const start2=new Date(base);start2.setDate(start2.getDate()+delay);
+    for(let i=0;i<n;i++){const d=new Date(start2);d.setMonth(d.getMonth()+i);d.setDate(day);rows.push({client_contract_id:ccId,coach_id:currentCoach.id,client_id:cl.id,due_date:d.toISOString().slice(0,10),amount:Math.round(per*100)/100});}
+  }
+  else if(plan==='installments'){(planData.items||[]).forEach(it=>{rows.push({client_contract_id:ccId,coach_id:currentCoach.id,client_id:cl.id,due_date:it.date,amount:it.amount});});}
+  return rows;
+}
+
+/* ===== SUIVI PAIEMENTS ===== */
+let _allPayments=[];
+async function renderPaymentsPage(){
+  const el=document.getElementById('paymentsList');if(!el)return;
+  el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3)">Chargement…</div>';
+  const[{data:pays},{data:contracts}]=await Promise.all([
+    db.from('payments').select('*').eq('coach_id',currentCoach.id).order('due_date',{ascending:true}),
+    db.from('client_contracts').select('*').eq('coach_id',currentCoach.id)
+  ]);
+  _allPayments=pays||[];
+  // Enrich with client info
+  const clientsById={};allClients.forEach(c=>clientsById[c.id]=c);
+  const contractsById={};(contracts||[]).forEach(c=>contractsById[c.id]=c);
+  _allPayments.forEach(p=>{p._client=clientsById[p.client_id];p._contract=contractsById[p.client_contract_id];});
+  // Update overdue status visually
+  const todayStr=new Date().toISOString().slice(0,10);
+  _allPayments.forEach(p=>{if(p.status==='pending'&&p.due_date<todayStr)p._overdue=true;});
+  // Stats
+  const totalDue=_allPayments.filter(p=>p.status==='pending').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const totalPaid=_allPayments.filter(p=>p.status==='paid').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const totalOverdue=_allPayments.filter(p=>p._overdue).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const statsEl=document.getElementById('paymentsStats');
+  statsEl.innerHTML=`
+    <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">ENCAISSÉ</div><div style="font-size:22px;font-weight:900;color:#16a34a;margin-top:4px">${totalPaid.toFixed(2)}€</div></div>
+    <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">À VENIR</div><div style="font-size:22px;font-weight:900;color:var(--gold);margin-top:4px">${totalDue.toFixed(2)}€</div></div>
+    <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">EN RETARD</div><div style="font-size:22px;font-weight:900;color:#dc2626;margin-top:4px">${totalOverdue.toFixed(2)}€</div></div>
+    <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">TOTAL ÉCHÉANCES</div><div style="font-size:22px;font-weight:900;color:var(--dark);margin-top:4px">${_allPayments.length}</div></div>
+  `;
+  const filter=window._payFilter||'all';
+  let list=_allPayments.slice();
+  if(filter==='pending')list=list.filter(p=>p.status==='pending'&&!p._overdue);
+  else if(filter==='overdue')list=list.filter(p=>p._overdue);
+  else if(filter==='paid')list=list.filter(p=>p.status==='paid');
+  document.getElementById('paymentsFilters').innerHTML=[['all','Toutes',_allPayments.length],['pending','À venir',_allPayments.filter(p=>p.status==='pending'&&!p._overdue).length],['overdue','En retard',_allPayments.filter(p=>p._overdue).length],['paid','Payées',_allPayments.filter(p=>p.status==='paid').length]].map(([k,l,n])=>`<button class="btn btn-${filter===k?'dark':'ghost'} btn-sm" onclick="window._payFilter='${k}';renderPaymentsPage()">${l} <span style="opacity:.7;margin-left:4px">${n}</span></button>`).join('');
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="ei">💰</div><div class="et">Aucune échéance dans cette catégorie</div></div>`;return;}
+  el.innerHTML=`<div style="background:var(--white);border-radius:10px;box-shadow:var(--shadow);overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="background:var(--bg2);text-align:left"><th style="padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Échéance</th><th style="padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Client</th><th style="padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Montant</th><th style="padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Statut</th><th style="padding:10px 12px"></th></tr></thead>
+    <tbody>${list.map(p=>{
+      const dt=new Date(p.due_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+      const cname=p._client?((p._client.first_name||'')+' '+(p._client.last_name||'')).trim():'—';
+      const statusPill=p.status==='paid'?'<span style="background:rgba(34,197,94,.12);color:#16a34a;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800">✓ Payé</span>':(p._overdue?'<span style="background:rgba(239,68,68,.12);color:#dc2626;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800">⚠ En retard</span>':'<span style="background:rgba(196,154,42,.12);color:var(--gold);padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800">À venir</span>');
+      const actBtn=p.status!=='paid'?`<button class="btn btn-dark btn-xs" onclick="markPaymentPaid('${p.id}')">✓ Marquer payé</button>`:`<button class="btn btn-ghost btn-xs" onclick="unmarkPayment('${p.id}')">↺ Annuler</button>`;
+      const viewBtn=p._contract?`<button class="btn btn-ghost btn-xs" onclick="viewClientContract('${p.client_contract_id}')" title="Voir contrat">📄</button>`:'';
+      return`<tr style="border-top:1px solid var(--border)"><td style="padding:10px 12px;font-weight:700">${dt}</td><td style="padding:10px 12px">${cname}${p.note?`<div style="font-size:10px;color:var(--text3)">${p.note}</div>`:''}</td><td style="padding:10px 12px;font-weight:700;color:var(--gold)">${parseFloat(p.amount).toFixed(2)}€</td><td style="padding:10px 12px">${statusPill}</td><td style="padding:10px 12px;text-align:right;white-space:nowrap">${viewBtn} ${actBtn}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+async function markPaymentPaid(id){
+  const{error}=await db.from('payments').update({status:'paid',paid_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Paiement marqué payé ✓');renderPaymentsPage();
+}
+async function unmarkPayment(id){
+  const{error}=await db.from('payments').update({status:'pending',paid_at:null}).eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Paiement remis en attente');renderPaymentsPage();
+}
+async function viewClientContract(ccId){
+  const{data:c}=await db.from('client_contracts').select('*').eq('id',ccId).maybeSingle();
+  if(!c){toast('Contrat introuvable');return;}
+  const body=document.getElementById('clientContractBody');
+  let h=`<div style="padding:20px 24px">${c.content_snapshot||'<em>Contrat vide</em>'}</div>`;
+  h+=`<div style="margin:20px 24px 0;padding:16px;background:var(--bg2);border-radius:10px;font-size:12px;color:var(--text2);line-height:1.8">`;
+  if(c.signed_at){
+    h+=`<div style="color:#16a34a;font-weight:800;margin-bottom:6px">✅ Contrat signé</div>`;
+    h+=`<div><strong>Signataire :</strong> ${c.signer_name||'—'}</div>`;
+    h+=`<div><strong>Email :</strong> ${c.signer_email||'—'}</div>`;
+    h+=`<div><strong>Date :</strong> ${new Date(c.signed_at).toLocaleString('fr-FR')}</div>`;
+    h+=`<div><strong>IP :</strong> ${c.signer_ip||'—'}</div>`;
+    h+=`<div><strong>User agent :</strong> <span style="font-size:10px">${c.signer_ua||'—'}</span></div>`;
+    h+=`<div><strong>Hash SHA-256 :</strong> <span style="font-family:ui-monospace,monospace;font-size:10px;word-break:break-all">${c.signer_hash||'—'}</span></div>`;
+  } else {
+    h+=`<div style="color:#dc2626;font-weight:800">⚠ Contrat non signé</div>`;
+  }
+  h+=`</div>`;
+  body.innerHTML=h;
+  openM('mClientContract');
+}
+async function openNewClientModal(){
+  await populateContractTplSelect();
+  // Reset contract fields
+  const tpl=document.getElementById('nfContractTpl');if(tpl)tpl.value='';
+  const det=document.getElementById('nfContractDetails');if(det)det.style.display='none';
+  openM('mNewClient');
 }
 </script>
 </body>
