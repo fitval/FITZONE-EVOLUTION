@@ -972,15 +972,19 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
   <div class="page" id="page-contracts">
     <div class="sh"><div class="st">Modèles de contrat</div><button class="btn btn-dark" onclick="openContractTplEditor()">+ Nouveau modèle</button></div>
     <div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)">
-      <strong style="color:var(--gold)">ℹ️ Variables disponibles dans le HTML :</strong>
-      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{first_name}}</code>
-      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{last_name}}</code>
-      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{email}}</code>
-      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{amount}}</code>
-      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{plan_description}}</code>
-      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{duration}}</code>
-      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{start_date}}</code>
-      <code style="background:var(--white);padding:2px 6px;border-radius:4px;margin:0 3px">{{coach_name}}</code>
+      <strong style="color:var(--gold)">ℹ️ Variables disponibles</strong> (remplacées automatiquement à la signature) :<br>
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+        <code style="background:var(--white);padding:2px 6px;border-radius:4px">{{first_name}}</code>
+        <code style="background:var(--white);padding:2px 6px;border-radius:4px">{{last_name}}</code>
+        <code style="background:var(--white);padding:2px 6px;border-radius:4px">{{email}}</code>
+        <code style="background:var(--white);padding:2px 6px;border-radius:4px">{{birth_date}}</code>
+        <code style="background:var(--white);padding:2px 6px;border-radius:4px">{{address}}</code>
+        <code style="background:var(--white);padding:2px 6px;border-radius:4px">{{amount}}</code>
+        <code style="background:var(--white);padding:2px 6px;border-radius:4px">{{plan_description}}</code>
+        <code style="background:var(--white);padding:2px 6px;border-radius:4px">{{duration}}</code>
+        <code style="background:var(--white);padding:2px 6px;border-radius:4px">{{start_date}}</code>
+        <code style="background:var(--white);padding:2px 6px;border-radius:4px">{{coach_name}}</code>
+      </div>
     </div>
     <div id="contractsList"></div>
   </div>
@@ -1005,7 +1009,7 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <button class="btn btn-ghost btn-sm" onclick="ctplInsertStarter()" title="Insérer un modèle de départ">📄 Modèle de départ</button>
       </div>
       <div id="ctplEditPane">
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Colle ton contrat en texte normal. Les sauts de ligne sont conservés, et les variables <code>{{first_name}}</code>, <code>{{amount}}</code>, <code>{{plan_description}}</code>, <code>{{duration}}</code>, <code>{{start_date}}</code>, <code>{{coach_name}}</code>, <code>{{email}}</code> seront remplacées automatiquement.</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Colle ton contrat en texte normal. Sauts de ligne conservés. Variables dispo : <code>{{first_name}}</code> <code>{{last_name}}</code> <code>{{birth_date}}</code> <code>{{address}}</code> <code>{{email}}</code> <code>{{amount}}</code> <code>{{plan_description}}</code> <code>{{duration}}</code> <code>{{start_date}}</code> <code>{{coach_name}}</code></div>
         <textarea class="fi" id="ctplContent" rows="18" style="font-size:13px;min-height:400px;line-height:1.5" placeholder="CONTRAT DE COACHING&#10;&#10;Entre {{coach_name}} et {{first_name}} {{last_name}}…&#10;&#10;Article 1 — Objet&#10;Le présent contrat a pour objet de définir…&#10;&#10;Article 2 — Durée&#10;La prestation débute le {{start_date}} pour {{duration}} mois.&#10;&#10;Article 3 — Tarif&#10;Le montant total est de {{amount}}€ ({{plan_description}})."></textarea>
       </div>
       <div id="ctplPreviewPane" style="display:none;background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:20px 24px;min-height:400px;max-height:60vh;overflow-y:auto;line-height:1.6;font-size:14px"></div>
@@ -1144,7 +1148,8 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
         <div class="cl cl-gold" style="font-size:11px;margin-bottom:8px">👤 INFOS CLIENT</div>
         <div class="fr2"><div class="fg"><label class="fl">Prénom *</label><input class="fi" id="nfFirst" placeholder="Aurélien" oninput="nfPreviewUpdate()"></div><div class="fg"><label class="fl">Nom *</label><input class="fi" id="nfLast" placeholder="Richard" oninput="nfPreviewUpdate()"></div></div>
         <div class="fg"><label class="fl">Email *</label><input class="fi" id="nfEmail" placeholder="client@email.com" oninput="nfPreviewUpdate()"></div>
-        <div class="fg"><label class="fl">Téléphone <span class="fl-o">optionnel</span></label><input class="fi" id="nfPhone"></div>
+        <div class="fr2"><div class="fg"><label class="fl">Téléphone <span class="fl-o">optionnel</span></label><input class="fi" id="nfPhone"></div><div class="fg"><label class="fl">Date de naissance</label><input class="fi" type="date" id="nfBirthDate" oninput="nfPreviewUpdate()"></div></div>
+        <div class="fg"><label class="fl">Adresse postale <span class="fl-o">(pour le contrat)</span></label><textarea class="fi" id="nfAddress" rows="2" placeholder="12 rue de l'Exemple&#10;75001 Paris" oninput="nfPreviewUpdate()" style="resize:vertical"></textarea></div>
         <div class="fg"><label class="fl">Tags</label><div style="display:flex;flex-wrap:wrap;gap:6px">
           <div class="ttog" onclick="togTag(this,'débutant')">Débutant</div><div class="ttog" onclick="togTag(this,'intermédiaire')">Intermédiaire</div><div class="ttog" onclick="togTag(this,'avancé')">Avancé</div>
           <div class="ttog" onclick="togTag(this,'salle')">Salle</div><div class="ttog" onclick="togTag(this,'maison')">Maison</div><div class="ttog" onclick="togTag(this,'hôtel')">Hôtel</div>
@@ -2146,7 +2151,19 @@ async function doCreateClient(){
   const tplId=document.getElementById('nfContractTpl')?.value;
   // Status initial : si contrat, bloqué sur signature ; sinon bloqué sur questionnaire
   const initStatus=tplId?'contract_pending':'questionnaire_pending';
-  const{data,error}=await db.from('clients').insert([{first_name:f,last_name:l,email:e,phone:document.getElementById('nfPhone').value.trim(),token:tok,status:initStatus,tags:newClientTags,avatar_color:col,coach_id:currentCoach?.id||null}]).select();
+  const birthDate=document.getElementById('nfBirthDate')?.value||null;
+  const address=document.getElementById('nfAddress')?.value?.trim()||null;
+  const clientRow={first_name:f,last_name:l,email:e,phone:document.getElementById('nfPhone').value.trim(),token:tok,status:initStatus,tags:newClientTags,avatar_color:col,coach_id:currentCoach?.id||null};
+  if(birthDate)clientRow.birth_date=birthDate;
+  if(address)clientRow.address=address;
+  let{data,error}=await db.from('clients').insert([clientRow]).select();
+  if(error&&(error.message||'').includes('column')&&((error.message||'').includes('birth_date')||(error.message||'').includes('address'))){
+    // Fallback: migration non exécutée, insérer sans ces champs pour ne pas bloquer
+    alert("⚠️ La migration SQL n'a pas été exécutée.\n\nExécute le fichier :\nsupabase/clients_add_contract_fields.sql\n\npour sauvegarder la date de naissance et l'adresse sur le client. Pour l'instant, elles seront juste utilisées dans le contrat (non persistées).");
+    delete clientRow.birth_date;delete clientRow.address;
+    const r=await db.from('clients').insert([clientRow]).select();
+    data=r.data;error=r.error;
+  }
   if(error){btn.disabled=false;btn.textContent='Créer et envoyer le contrat →';toast('Erreur: '+error.message);return;}
   const newClient=data?.[0];
   // Contrat d'abord (pour qu'il soit attaché avant l'email d'invitation)
@@ -8577,7 +8594,7 @@ function ctplSwitchTab(tab){
     const raw=document.getElementById('ctplContent').value;
     if(!raw.trim()){prev.innerHTML='<em style="color:var(--text3)">Écris ton contrat dans l\'onglet Édition.</em>';return;}
     const coachName=((currentCoach?.first_name||'Coach')+' '+(currentCoach?.last_name||'')).trim();
-    const filled=_applyContractVars(raw,{first_name:'Julie',last_name:'Martin',email:'julie@example.com',amount:'1200.00',plan_description:'3 mensualités de 400€',duration:'3',start_date:new Date().toLocaleDateString('fr-FR'),coach_name:coachName});
+    const filled=_applyContractVars(raw,{first_name:'Julie',last_name:'Martin',email:'julie@example.com',birth_date:'15/06/1990',address:'12 rue de l\'Exemple, 75001 Paris',amount:'1200.00',plan_description:'3 mensualités de 400€',duration:'3',start_date:new Date().toLocaleDateString('fr-FR'),coach_name:coachName});
     prev.innerHTML=contractTextToHtml(filled);
   } else {
     edit.style.display='block';prev.style.display='none';
@@ -8592,7 +8609,7 @@ function ctplInsertStarter(){
 Entre les soussignés :
 {{coach_name}} (ci-après « le Coach »),
 et
-{{first_name}} {{last_name}} (ci-après « le Client »), contact : {{email}}.
+{{first_name}} {{last_name}}, né(e) le {{birth_date}}, demeurant {{address}}, contact : {{email}} (ci-après « le Client »).
 
 ARTICLE 1 — OBJET
 
@@ -8755,6 +8772,9 @@ function nfPreviewUpdate(){
   const first=document.getElementById('nfFirst')?.value||'Prénom';
   const last=document.getElementById('nfLast')?.value||'Nom';
   const email=document.getElementById('nfEmail')?.value||'email@exemple.com';
+  const bd=document.getElementById('nfBirthDate')?.value||'';
+  const birthStr=bd?new Date(bd).toLocaleDateString('fr-FR'):'—';
+  const address=document.getElementById('nfAddress')?.value||'—';
   const amount=parseFloat(document.getElementById('nfContractAmount')?.value)||0;
   const duration=parseInt(document.getElementById('nfContractDuration')?.value)||_nfCurrentDur||3;
   const startStr=document.getElementById('nfContractStart')?.value||'';
@@ -8776,7 +8796,7 @@ function nfPreviewUpdate(){
   const tpl=_contractTemplates.find(t=>t.id===tplId);if(!tpl){prev.innerHTML='<div style="color:var(--text3)">Modèle introuvable</div>';return;}
   const coachName=((currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'')).trim()||'Coach';
   const startFr=startStr?new Date(startStr).toLocaleDateString('fr-FR'):'';
-  const filled=_applyContractVars(tpl.content_html||'',{first_name:first,last_name:last,email:email,amount:amount?amount.toFixed(2):'—',plan_description:desc||'—',duration:duration||'—',start_date:startFr||'—',coach_name:coachName});
+  const filled=_applyContractVars(tpl.content_html||'',{first_name:first,last_name:last,email:email,birth_date:birthStr,address:address,amount:amount?amount.toFixed(2):'—',plan_description:desc||'—',duration:duration||'—',start_date:startFr||'—',coach_name:coachName});
   prev.innerHTML=contractTextToHtml(filled);
 }
 /* Attach contract to newly-created client */
@@ -8787,7 +8807,10 @@ async function _attachContractToClient(newClient,tplId){
   const startDate=document.getElementById('nfContractStart').value||null;
   const{data:planData,desc:planDesc,schedule}=_nfCollectPlanData();
   const coachName=((currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'')).trim();
-  const filled=_applyContractVars(tpl.content_html||'',{first_name:newClient.first_name||'',last_name:newClient.last_name||'',email:newClient.email||'',amount:amount?amount.toFixed(2):'',plan_description:planDesc,duration:duration||'',start_date:startDate?new Date(startDate).toLocaleDateString('fr-FR'):'',coach_name:coachName});
+  const birthDateRaw=document.getElementById('nfBirthDate')?.value||'';
+  const birthDateStr=birthDateRaw?new Date(birthDateRaw).toLocaleDateString('fr-FR'):'';
+  const address=document.getElementById('nfAddress')?.value?.trim()||'';
+  const filled=_applyContractVars(tpl.content_html||'',{first_name:newClient.first_name||'',last_name:newClient.last_name||'',email:newClient.email||'',birth_date:birthDateStr,address:address,amount:amount?amount.toFixed(2):'',plan_description:planDesc,duration:duration||'',start_date:startDate?new Date(startDate).toLocaleDateString('fr-FR'):'',coach_name:coachName});
   const rendered=contractTextToHtml(filled);
   const{data:cc,error}=await db.from('client_contracts').insert({
     coach_id:currentCoach.id,client_id:newClient.id,template_id:tpl.id,template_name:tpl.name,
@@ -8953,7 +8976,7 @@ async function viewClientContract(ccId){
 }
 async function openNewClientModal(){
   // Reset all fields
-  ['nfFirst','nfLast','nfEmail','nfPhone','nfContractAmount','nfContractDuration','nfContractStart','nfContractStart2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['nfFirst','nfLast','nfEmail','nfPhone','nfBirthDate','nfAddress','nfContractAmount','nfContractDuration','nfContractStart','nfContractStart2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   newClientTags=[];
   document.querySelectorAll('.ttog').forEach(t=>t.classList.remove('on'));
   document.getElementById('createdWrap').style.display='none';
