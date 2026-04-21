@@ -987,21 +987,31 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 
   <!-- PAGE: PAYMENTS -->
   <div class="page" id="page-payments">
-    <div class="sh"><div class="st">Suivi des paiements</div></div>
+    <div class="sh"><div class="st">Suivi des paiements</div><button class="btn btn-dark" onclick="openPaymentModal()">+ Ajouter une échéance</button></div>
     <div id="paymentsStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px"></div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" id="paymentsFilters"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center" id="paymentsFilters"></div>
     <div id="paymentsList"></div>
   </div>
 
   <!-- MODAL: CONTRACT TEMPLATE EDITOR -->
-  <div class="overlay" id="mContractTpl"><div class="modal" style="max-width:820px">
+  <div class="overlay" id="mContractTpl"><div class="modal" style="max-width:900px">
     <div class="mh"><div class="mt" id="ctplMT">Nouveau modèle de contrat</div><button class="mc" onclick="closeM('mContractTpl')">✕</button></div>
     <div class="mb">
       <div class="fg"><label class="fl">Nom du modèle *</label><input class="fi" id="ctplName" placeholder="Ex: Coaching 3 mois standard"></div>
-      <div class="fg"><label class="fl">Contenu HTML du contrat *</label><textarea class="fi" id="ctplContent" rows="18" style="font-family:ui-monospace,monospace;font-size:12px;min-height:360px" placeholder="<h1>Contrat de coaching</h1>&#10;<p>Entre {{coach_name}} et {{first_name}} {{last_name}}…</p>&#10;<p>Montant : {{amount}}€ — {{plan_description}}</p>&#10;<p>Durée : {{duration}} mois, à partir du {{start_date}}.</p>"></textarea></div>
+      <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:10px;padding-bottom:6px">
+        <button class="btn btn-dark btn-sm" id="ctplTabEdit" onclick="ctplSwitchTab('edit')">✏️ Édition</button>
+        <button class="btn btn-ghost btn-sm" id="ctplTabPreview" onclick="ctplSwitchTab('preview')">👁️ Aperçu</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" onclick="ctplInsertStarter()" title="Insérer un modèle de départ">📄 Modèle de départ</button>
+      </div>
+      <div id="ctplEditPane">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Écris ton contrat en HTML. Utilise les variables ci-dessous — elles seront remplacées automatiquement à la signature.</div>
+        <textarea class="fi" id="ctplContent" rows="18" style="font-family:ui-monospace,monospace;font-size:12px;min-height:400px" placeholder="<h1>Contrat de coaching</h1>&#10;<p>Entre {{coach_name}} et {{first_name}} {{last_name}}…</p>&#10;<p>Montant : {{amount}}€ — {{plan_description}}</p>&#10;<p>Durée : {{duration}} mois, à partir du {{start_date}}.</p>"></textarea>
+      </div>
+      <div id="ctplPreviewPane" style="display:none;background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:20px 24px;min-height:400px;max-height:60vh;overflow-y:auto;line-height:1.6"></div>
       <input type="hidden" id="ctplEditId">
     </div>
-    <div class="mf"><button class="btn btn-ghost" onclick="closeM('mContractTpl')">Annuler</button><button class="btn btn-dark" onclick="saveContractTpl()">Enregistrer</button></div>
+    <div class="mf"><button class="btn btn-ghost" onclick="closeM('mContractTpl')">Annuler</button><button class="btn btn-dark" onclick="saveContractTpl()">💾 Enregistrer</button></div>
   </div></div>
 
   <!-- MODAL: VIEW CLIENT CONTRACT -->
@@ -1009,6 +1019,24 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
     <div class="mh"><div class="mt">Contrat client</div><button class="mc" onclick="closeM('mClientContract')">✕</button></div>
     <div class="mb" id="clientContractBody" style="max-height:70vh;overflow-y:auto"></div>
     <div class="mf"><button class="btn btn-ghost" onclick="closeM('mClientContract')">Fermer</button></div>
+  </div></div>
+
+  <!-- MODAL: PAYMENT EDIT / CREATE -->
+  <div class="overlay" id="mPayment"><div class="modal">
+    <div class="mh"><div class="mt" id="payMT">Nouvelle échéance</div><button class="mc" onclick="closeM('mPayment')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label class="fl">Client *</label><select class="fs" id="payClient"></select></div>
+      <div class="fr2"><div class="fg"><label class="fl">Montant (€) *</label><input class="fi" type="number" step="0.01" id="payAmount"></div><div class="fg"><label class="fl">Date d'échéance *</label><input class="fi" type="date" id="payDueDate"></div></div>
+      <div class="fr2"><div class="fg"><label class="fl">Statut</label><select class="fs" id="payStatus"><option value="pending">⏳ À venir</option><option value="paid">✅ Payé</option><option value="canceled">✕ Annulé</option></select></div><div class="fg"><label class="fl">Libellé (optionnel)</label><input class="fi" id="payLabel" placeholder="Ex: Acompte, Relance…"></div></div>
+      <div class="fg"><label class="fl">Note interne (optionnel)</label><textarea class="fi" id="payNote" rows="2" placeholder="Moyen de paiement, commentaire…"></textarea></div>
+      <input type="hidden" id="payEditId">
+      <input type="hidden" id="payContractId">
+    </div>
+    <div class="mf">
+      <button class="btn btn-danger" id="payDelBtn" onclick="deletePayment()" style="display:none;margin-right:auto">🗑️ Supprimer</button>
+      <button class="btn btn-ghost" onclick="closeM('mPayment')">Annuler</button>
+      <button class="btn btn-dark" onclick="savePayment()">💾 Enregistrer</button>
+    </div>
   </div></div>
 
   <!-- PAGE: QUESTIONNAIRE EDITOR -->
@@ -8417,7 +8445,12 @@ async function qeSave(){
   if(!currentCoach){toast('Non connecté');return;}
   const payload={coach_id:currentCoach.id,q_bilan:window._qeDraft.bilan,q_daily:window._qeDraft.daily,q_integration:window._qeDraft.integration};
   const{error}=await db.from('settings').upsert(payload,{onConflict:'coach_id'});
-  if(error){console.error(error);toast('Erreur: '+error.message);return;}
+  if(error){
+    console.error(error);
+    if(_isMigrationError(error)||/q_bilan|q_daily|q_integration/i.test(error.message||'')){_showMigrationAlert('questionnaires');}
+    else{toast('Erreur: '+error.message);}
+    return;
+  }
   toast('Questionnaires enregistrés ✓');
 }
 function qeResetDefaults(){
@@ -8431,9 +8464,25 @@ function qeResetDefaults(){
 
 /* ===== CONTRATS : TEMPLATES ===== */
 let _contractTemplates=[];
+function _showMigrationAlert(which){
+  const msg={
+    questionnaires:"supabase/questionnaire_templates.sql\n\nIl ajoute 3 colonnes JSONB (q_bilan, q_daily, q_integration) à la table settings.",
+    food:"supabase/food_tracking.sql\n\nIl crée la table food_logs avec les policies RLS.",
+    contracts:"supabase/contracts_payments.sql\n\nIl crée les tables contract_templates, client_contracts et payments avec les policies RLS."
+  }[which];
+  alert("⚠️ La migration SQL n'a pas été exécutée.\n\nOuvre le SQL Editor de Supabase et exécute le fichier :\n"+msg);
+}
+function _isMigrationError(err){
+  const m=(err&&err.message||'').toLowerCase();
+  return m.includes('schema cache')||m.includes('does not exist')||m.includes('could not find')||(err&&(err.code==='42P01'||err.code==='PGRST204'));
+}
 async function _loadContractTemplates(){
   if(!currentCoach)return;
-  const{data}=await db.from('contract_templates').select('*').eq('coach_id',currentCoach.id).order('created_at',{ascending:false});
+  const{data,error}=await db.from('contract_templates').select('*').eq('coach_id',currentCoach.id).order('created_at',{ascending:false});
+  if(error){
+    if(_isMigrationError(error)){_showMigrationAlert('contracts');return;}
+    console.error('[CONTRACTS LOAD]',error);
+  }
   _contractTemplates=data||[];
 }
 async function renderContractTemplates(){
@@ -8450,7 +8499,72 @@ function openContractTplEditor(id){
   document.getElementById('ctplMT').textContent=id?'Modifier le modèle':'Nouveau modèle de contrat';
   if(id){const t=_contractTemplates.find(x=>x.id===id);if(!t){toast('Modèle introuvable');return;}document.getElementById('ctplName').value=t.name||'';document.getElementById('ctplContent').value=t.content_html||'';document.getElementById('ctplEditId').value=id;}
   else{document.getElementById('ctplName').value='';document.getElementById('ctplContent').value='';document.getElementById('ctplEditId').value='';}
+  ctplSwitchTab('edit');
   openM('mContractTpl');
+}
+function ctplSwitchTab(tab){
+  const edit=document.getElementById('ctplEditPane');const prev=document.getElementById('ctplPreviewPane');
+  const btnE=document.getElementById('ctplTabEdit');const btnP=document.getElementById('ctplTabPreview');
+  if(tab==='preview'){
+    edit.style.display='none';prev.style.display='block';
+    btnE.className='btn btn-ghost btn-sm';btnP.className='btn btn-dark btn-sm';
+    // Preview with fake sample data
+    const raw=document.getElementById('ctplContent').value||'<em style="color:var(--text3)">Écris ton contrat dans l\'onglet Édition.</em>';
+    const coachName=((currentCoach?.first_name||'Coach')+' '+(currentCoach?.last_name||'')).trim();
+    const rendered=raw
+      .replace(/\{\{first_name\}\}/g,'Julie')
+      .replace(/\{\{last_name\}\}/g,'Martin')
+      .replace(/\{\{email\}\}/g,'julie@example.com')
+      .replace(/\{\{amount\}\}/g,'1200.00')
+      .replace(/\{\{plan_description\}\}/g,'3 mensualités de 400€')
+      .replace(/\{\{duration\}\}/g,'3')
+      .replace(/\{\{start_date\}\}/g,new Date().toLocaleDateString('fr-FR'))
+      .replace(/\{\{coach_name\}\}/g,coachName);
+    prev.innerHTML=rendered;
+  } else {
+    edit.style.display='block';prev.style.display='none';
+    btnE.className='btn btn-dark btn-sm';btnP.className='btn btn-ghost btn-sm';
+  }
+}
+function ctplInsertStarter(){
+  const ta=document.getElementById('ctplContent');
+  if(ta.value.trim()&&!confirm('Remplacer le contenu actuel par le modèle de départ ?'))return;
+  ta.value=`<h1 style="text-align:center;color:#0f172a">Contrat de coaching personnalisé</h1>
+<p style="text-align:center;font-size:13px;color:#64748b">Conclu entre {{coach_name}} et {{first_name}} {{last_name}}</p>
+
+<h2>Article 1 — Objet</h2>
+<p>Le présent contrat a pour objet de définir les conditions de l'accompagnement de coaching sportif et/ou nutritionnel proposé par <strong>{{coach_name}}</strong> (ci-après « le Coach ») à <strong>{{first_name}} {{last_name}}</strong> (ci-après « le Client »).</p>
+
+<h2>Article 2 — Durée</h2>
+<p>L'accompagnement débute le <strong>{{start_date}}</strong> pour une durée de <strong>{{duration}} mois</strong>. Il inclut les services suivants :</p>
+<ul>
+  <li>Programme d'entraînement personnalisé, mis à jour chaque mois</li>
+  <li>Plan nutritionnel individualisé</li>
+  <li>Bilan hebdomadaire et suivi quotidien via l'application</li>
+  <li>Accès à la bibliothèque de contenus éducatifs</li>
+</ul>
+
+<h2>Article 3 — Tarif et modalités de paiement</h2>
+<p>Le montant total de la prestation est de <strong>{{amount}}€ TTC</strong>, selon le plan de paiement suivant : <em>{{plan_description}}</em>.</p>
+<p>Tout défaut de paiement à l'échéance prévue pourra entraîner la suspension immédiate de l'accompagnement, sans préjudice du recouvrement des sommes dues.</p>
+
+<h2>Article 4 — Engagements du Client</h2>
+<p>Le Client s'engage à :</p>
+<ul>
+  <li>Fournir des informations sincères lors du questionnaire d'intégration</li>
+  <li>Communiquer toute contre-indication médicale connue</li>
+  <li>Réaliser les séances et le suivi dans les conditions définies</li>
+  <li>Respecter les échéances de paiement convenues</li>
+</ul>
+
+<h2>Article 5 — Rétractation et résiliation</h2>
+<p>Conformément à l'article L221-28 du Code de la consommation, le droit de rétractation de 14 jours ne s'applique pas aux prestations pleinement exécutées avant l'expiration du délai. En cas de résiliation anticipée à l'initiative du Client après le début de l'accompagnement, aucun remboursement ne pourra être réclamé.</p>
+
+<h2>Article 6 — Signature électronique</h2>
+<p>Le Client reconnaît que sa signature électronique apposée ci-dessous, horodatée et associée à son adresse IP, a la même valeur probante qu'une signature manuscrite en application des articles 1366 et 1367 du Code civil.</p>
+
+<p style="margin-top:30px;font-size:12px;color:#64748b;text-align:center">Fait à ______________________, le {{start_date}}.</p>`;
+  toast('Modèle inséré — personnalise-le à ta convenance');
 }
 async function saveContractTpl(){
   const name=document.getElementById('ctplName').value.trim();const content=document.getElementById('ctplContent').value;
@@ -8461,7 +8575,10 @@ async function saveContractTpl(){
   let error;
   if(id){const r=await db.from('contract_templates').update(row).eq('id',id);error=r.error;}
   else{const r=await db.from('contract_templates').insert(row);error=r.error;}
-  if(error){toast('Erreur: '+error.message);return;}
+  if(error){
+    if(_isMigrationError(error)){_showMigrationAlert('contracts');return;}
+    console.error('[CONTRACT SAVE]',error);toast('Erreur: '+error.message);return;
+  }
   closeM('mContractTpl');toast('Modèle enregistré ✓');renderContractTemplates();
 }
 async function deleteContractTpl(id){
@@ -8534,7 +8651,10 @@ async function _attachContractToClient(newClient,tplId){
     content_snapshot:rendered,amount_total:amount,plan_type:plan,plan_data:planData,
     duration_months:duration,start_date:startDate
   }).select().single();
-  if(error)throw error;
+  if(error){
+    if(_isMigrationError(error)){_showMigrationAlert('contracts');throw new Error('Migration SQL contrats manquante');}
+    throw error;
+  }
   // Pre-generate payments
   const pays=_generatePaymentSchedule(cc.id,newClient,plan,planData,amount,startDate);
   if(pays.length){const{error:pe}=await db.from('payments').insert(pays);if(pe)console.error('[PAYMENTS]',pe);}
@@ -8594,9 +8714,11 @@ async function renderPaymentsPage(){
       const dt=new Date(p.due_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
       const cname=p._client?((p._client.first_name||'')+' '+(p._client.last_name||'')).trim():'—';
       const statusPill=p.status==='paid'?'<span style="background:rgba(34,197,94,.12);color:#16a34a;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800">✓ Payé</span>':(p._overdue?'<span style="background:rgba(239,68,68,.12);color:#dc2626;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800">⚠ En retard</span>':'<span style="background:rgba(196,154,42,.12);color:var(--gold);padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800">À venir</span>');
-      const actBtn=p.status!=='paid'?`<button class="btn btn-dark btn-xs" onclick="markPaymentPaid('${p.id}')">✓ Marquer payé</button>`:`<button class="btn btn-ghost btn-xs" onclick="unmarkPayment('${p.id}')">↺ Annuler</button>`;
+      const actBtn=p.status!=='paid'?`<button class="btn btn-dark btn-xs" onclick="markPaymentPaid('${p.id}')">✓ Payé</button>`:`<button class="btn btn-ghost btn-xs" onclick="unmarkPayment('${p.id}')">↺</button>`;
       const viewBtn=p._contract?`<button class="btn btn-ghost btn-xs" onclick="viewClientContract('${p.client_contract_id}')" title="Voir contrat">📄</button>`:'';
-      return`<tr style="border-top:1px solid var(--border)"><td style="padding:10px 12px;font-weight:700">${dt}</td><td style="padding:10px 12px">${cname}${p.note?`<div style="font-size:10px;color:var(--text3)">${p.note}</div>`:''}</td><td style="padding:10px 12px;font-weight:700;color:var(--gold)">${parseFloat(p.amount).toFixed(2)}€</td><td style="padding:10px 12px">${statusPill}</td><td style="padding:10px 12px;text-align:right;white-space:nowrap">${viewBtn} ${actBtn}</td></tr>`;
+      const editBtn=`<button class="btn btn-ghost btn-xs" onclick="openPaymentModal('${p.id}')" title="Modifier">✏️</button>`;
+      const label=p.label?`<div style="font-size:10px;color:var(--gold);font-weight:700">${p.label}</div>`:'';
+      return`<tr style="border-top:1px solid var(--border)"><td style="padding:10px 12px;font-weight:700">${dt}</td><td style="padding:10px 12px">${cname}${label}${p.note?`<div style="font-size:10px;color:var(--text3)">${p.note}</div>`:''}</td><td style="padding:10px 12px;font-weight:700;color:var(--gold)">${parseFloat(p.amount).toFixed(2)}€</td><td style="padding:10px 12px">${statusPill}</td><td style="padding:10px 12px;text-align:right;white-space:nowrap">${viewBtn} ${editBtn} ${actBtn}</td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
 async function markPaymentPaid(id){
@@ -8608,6 +8730,75 @@ async function unmarkPayment(id){
   const{error}=await db.from('payments').update({status:'pending',paid_at:null}).eq('id',id);
   if(error){toast('Erreur: '+error.message);return;}
   toast('Paiement remis en attente');renderPaymentsPage();
+}
+function openPaymentModal(id){
+  // Populate client select
+  const sel=document.getElementById('payClient');
+  sel.innerHTML=allClients.map(c=>`<option value="${c.id}">${(c.first_name||'')+' '+(c.last_name||'')}</option>`).join('');
+  if(id){
+    const p=_allPayments.find(x=>x.id===id);
+    if(!p){toast('Échéance introuvable');return;}
+    document.getElementById('payMT').textContent='Modifier l\'échéance';
+    document.getElementById('payClient').value=p.client_id;
+    document.getElementById('payAmount').value=p.amount;
+    document.getElementById('payDueDate').value=p.due_date;
+    document.getElementById('payStatus').value=p.status||'pending';
+    document.getElementById('payLabel').value=p.label||'';
+    document.getElementById('payNote').value=p.note||'';
+    document.getElementById('payEditId').value=p.id;
+    document.getElementById('payContractId').value=p.client_contract_id||'';
+    document.getElementById('payDelBtn').style.display='inline-block';
+  } else {
+    document.getElementById('payMT').textContent='Nouvelle échéance';
+    document.getElementById('payAmount').value='';
+    document.getElementById('payDueDate').value=new Date().toISOString().slice(0,10);
+    document.getElementById('payStatus').value='pending';
+    document.getElementById('payLabel').value='';
+    document.getElementById('payNote').value='';
+    document.getElementById('payEditId').value='';
+    document.getElementById('payContractId').value='';
+    document.getElementById('payDelBtn').style.display='none';
+  }
+  openM('mPayment');
+}
+async function savePayment(){
+  const clientId=document.getElementById('payClient').value;
+  const amount=parseFloat(document.getElementById('payAmount').value);
+  const dueDate=document.getElementById('payDueDate').value;
+  if(!clientId||!amount||!dueDate){toast('Client, montant et date requis');return;}
+  const status=document.getElementById('payStatus').value;
+  const row={
+    client_id:clientId,
+    coach_id:currentCoach.id,
+    amount:amount,
+    due_date:dueDate,
+    status:status,
+    label:document.getElementById('payLabel').value.trim()||null,
+    note:document.getElementById('payNote').value.trim()||null,
+    paid_at:status==='paid'?new Date().toISOString():null
+  };
+  const editId=document.getElementById('payEditId').value;
+  const contractId=document.getElementById('payContractId').value;
+  if(contractId)row.client_contract_id=contractId;
+  let error;
+  if(editId){const r=await db.from('payments').update(row).eq('id',editId);error=r.error;}
+  else{const r=await db.from('payments').insert(row);error=r.error;}
+  if(error){
+    if(_isMigrationError(error)){_showMigrationAlert('contracts');return;}
+    if(/null value in column "client_contract_id"|violates not-null/i.test(error.message||'')){
+      alert("⚠️ La colonne client_contract_id est encore NOT NULL.\n\nExécute le fichier :\nsupabase/payments_manual_mgmt.sql\n\npour permettre les paiements manuels sans contrat.");
+      return;
+    }
+    toast('Erreur: '+error.message);return;
+  }
+  closeM('mPayment');toast(editId?'Échéance modifiée ✓':'Échéance ajoutée ✓');renderPaymentsPage();
+}
+async function deletePayment(){
+  const id=document.getElementById('payEditId').value;if(!id)return;
+  if(!confirm('Supprimer définitivement cette échéance ?'))return;
+  const{error}=await db.from('payments').delete().eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  closeM('mPayment');toast('Échéance supprimée');renderPaymentsPage();
 }
 async function viewClientContract(ccId){
   const{data:c}=await db.from('client_contracts').select('*').eq('id',ccId).maybeSingle();
