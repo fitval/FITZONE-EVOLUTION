@@ -2175,8 +2175,9 @@ async function doCreateClient(){
   // Création compte auth + email d'invitation (inclut le lien vers le questionnaire/contrat)
   if(newClient&&e){
     btn.textContent='Envoi de l\'email...';
-    const uid=await createClientAccount(newClient.id,e,f,l);
+    const uid=await createClientAccount(newClient.id,e,f,l,{token:tok,hasContract:!!tplId});
     if(uid)toast(tplId?'Contrat envoyé au client par email ✓':'Client créé — invitation envoyée');
+    else toast('Client créé mais email non envoyé (vérifie RESEND_API_KEY)');
   }
   btn.disabled=false;btn.textContent='Créer et envoyer le contrat →';
   const link=QBASE+'?token='+tok;
@@ -6995,12 +6996,14 @@ function adminOpenClient(clientId,coachId){
 }
 
 /* ===== CLIENT ACCOUNT CREATION ===== */
-async function createClientAccount(clientId,email,firstName,lastName){
+async function createClientAccount(clientId,email,firstName,lastName,opts){
+  opts=opts||{};
   try{
+    const coachName=((currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'')).trim()||null;
     const resp=await fetch(SUPA+'/functions/v1/create-client-account',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
-      body:JSON.stringify({email,first_name:firstName,last_name:lastName})
+      body:JSON.stringify({email,first_name:firstName,last_name:lastName,token:opts.token||null,has_contract:!!opts.hasContract,coach_name:coachName})
     });
     const result=await resp.json();
     if(result.error){console.warn('Client account creation:',result.error);return null;}
@@ -7085,13 +7088,19 @@ async function resendClientInvite(clientId){
   const c=allClients.find(x=>x.id===clientId)||curClient;
   if(!c||!c.email){toast('Pas d\'email pour ce client');return;}
   toast('Envoi en cours...');
-  // If client has no auth account yet, create one
+  // Vérifie s'il y a un contrat non signé
+  let hasContract=false;
+  try{const{data:cc}=await db.from('client_contracts').select('id').eq('client_id',c.id).is('signed_at',null).limit(1);hasContract=!!(cc&&cc.length);}catch(e){}
+  // If client has no auth account yet, create one (et renvoie le mail avec contrat si applicable)
   if(!c.user_id){
-    const uid=await createClientAccount(c.id,c.email,c.first_name,c.last_name);
+    const uid=await createClientAccount(c.id,c.email,c.first_name,c.last_name,{token:c.token,hasContract});
     if(uid){c.user_id=uid;toast('Compte créé + invitation envoyée');}
     else toast('Erreur lors de la création du compte');
     return;
   }
+  // Client déjà compte : on réutilise createClientAccount qui supporte l'idempotence pour renvoyer l'email
+  const uid=await createClientAccount(c.id,c.email,c.first_name,c.last_name,{token:c.token,hasContract});
+  if(uid){toast('Email renvoyé à '+c.email);return;}
   // Client already has account — send password reset via Resend
   try{
     const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:c.email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/client-login.html'})});
