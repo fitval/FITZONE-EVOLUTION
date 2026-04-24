@@ -6950,8 +6950,9 @@ async function deleteCoachAccount(coachId,email){
   // Reassign clients to current coach (super admin)
   await db.from('clients').update({coach_id:currentCoach.id}).eq('coach_id',coachId);
   // Delete coach record
-  const{error}=await db.from('coaches').delete().eq('id',coachId);
+  const{data:del,error}=await db.from('coaches').delete().eq('id',coachId).select();
   if(error){toast('Erreur: '+error.message);return;}
+  if(!del||!del.length){toast('Suppression bloquée (RLS). Exécute supabase/coaches_delete_policy.sql');return;}
   // Remove from team list too
   const ti=team.findIndex(t=>t.email===email);
   if(ti>=0){team.splice(ti,1);lsSave('fz_team',team);renderTeam();}
