@@ -209,26 +209,28 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .qil{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px;font-weight:600}
 .qiv{font-size:13px;font-weight:500;color:var(--dark);line-height:1.5}
 
-/* ROADMAP */
-.road-wrap{overflow-x:auto;max-height:70vh;overflow-y:auto;border-radius:var(--radius);border:1.5px solid var(--border);box-shadow:var(--shadow-sm)}
+/* ROADMAP — style Google Sheets (aligné sur .mk-table) */
+.road-wrap{overflow-x:auto;max-height:75vh;overflow-y:auto;border-radius:var(--radius);border:1.5px solid var(--border);box-shadow:var(--shadow-sm)}
 .road-table{width:100%;background:var(--white)}
-.road-table table{width:100%;border-collapse:collapse;min-width:1100px}
-.road-table thead th{background:var(--dark);color:rgba(255,255,255,.5);font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;padding:9px 10px;text-align:left;border-right:1px solid rgba(255,255,255,.06);white-space:nowrap}
+.road-table table{width:100%;border-collapse:collapse;min-width:1400px}
+.road-table thead th{background:var(--dark);color:rgba(255,255,255,.55);font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:8px 8px;text-align:center;border-right:1px solid rgba(255,255,255,.06);white-space:nowrap;position:sticky;top:0;z-index:2}
 .road-table thead th.th-gold{background:var(--gold);color:rgba(0,0,0,.7)}
 .road-table thead th.th-gold2{background:#b8882a;color:rgba(255,255,255,.75)}
-.road-table td{padding:7px 8px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:11px;vertical-align:middle}
+.road-table tbody td{padding:4px 6px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:11px;vertical-align:middle;text-align:center;background:var(--row-phase-bg,transparent)}
 .road-table tr:last-child td{border-bottom:none}
-.road-table tbody tr:nth-child(even):not(.rw-cur) td{background:rgba(0,0,0,.015)}
-.road-table tr.rw-cur td{background:var(--gold-pale)}
-.road-table tr.rw-cur td:first-child{box-shadow:inset 4px 0 0 var(--gold)}
+.road-table tbody tr:nth-child(even) td{background:var(--row-phase-bg,rgba(0,0,0,.018))}
+.road-table tbody tr.rw-cur td{background:var(--gold-pale)}
+.road-table tbody tr.rw-cur td:first-child{box-shadow:inset 4px 0 0 var(--gold)}
 .road-summary{display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap}
 .road-summary-card{flex:1;min-width:160px;padding:14px 16px;background:var(--white);border-radius:var(--radius);border:1.5px solid var(--border);box-shadow:var(--shadow-sm)}
 .road-summary-card .rs-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:4px}
 .road-summary-card .rs-val{font-size:20px;font-weight:800;color:var(--dark)}
-.rsel{background:var(--bg);border:1.5px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:11px;outline:none;color:var(--text);font-family:var(--font);cursor:pointer;width:100%;min-width:90px}
-.rsel:focus{border-color:var(--gold)}
-.rin{background:var(--bg);border:1.5px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;outline:none;font-family:var(--font);width:100%;color:var(--text)}
-.rin:focus{border-color:var(--gold);background:var(--white);box-shadow:0 0 0 3px var(--gold-pale)}
+.rsel{background:transparent;border:1.5px solid transparent;border-radius:5px;padding:3px 18px 3px 5px;font-size:11px;outline:none;color:var(--text);font-family:var(--font);cursor:pointer;width:100%;min-width:80px;text-align:center;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='M0 2l4 4 4-4' fill='%23999'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 4px center}
+.rsel:hover{background-color:rgba(255,255,255,.7)}
+.rsel:focus{border-color:var(--gold);background-color:var(--white);box-shadow:0 0 0 2px var(--gold-pale)}
+.rin{background:transparent;border:1.5px solid transparent;border-radius:5px;padding:4px 6px;font-size:11px;outline:none;font-family:var(--font);width:100%;color:var(--text);text-align:center}
+.rin:focus{border-color:var(--gold);background:var(--white);box-shadow:0 0 0 2px var(--gold-pale)}
+textarea.rin{text-align:left;resize:vertical;line-height:1.4}
 .road-table td.rcopy-src{outline:2px solid var(--gold);outline-offset:-1px;position:relative}
 .road-table td.rcopy-src::after{content:'COPIÉ';position:absolute;top:1px;right:2px;font-size:7px;font-weight:800;color:var(--gold);letter-spacing:.5px}
 .road-table td.rcopy-sel{outline:2px dashed var(--gold);outline-offset:-1px;background:rgba(196,154,42,.12) !important}
@@ -2742,8 +2744,7 @@ function renderRoadTab(){
     const isCur=d<=now&&now<=de;
     const hasAutoWeight=weekAvgWeight[i]&&r.poids==weekAvgWeight[i].avg;
     const phaseColor=r.phase?roadPhaseColors[r.phase]||'':'';
-    const rowBg=isCur?'var(--gold-pale)':phaseColor;
-    rows+=`<tr${isCur?' class="rw-cur"':''} style="${!isCur&&phaseColor?'background:'+phaseColor:''}">
+    rows+=`<tr${isCur?' class="rw-cur"':''}${!isCur&&phaseColor?' style="--row-phase-bg:'+phaseColor+'"':''}>
       <td style="font-weight:700;text-align:center;color:var(--dark)">${i}</td>
       <td style="font-size:11px;color:var(--text3);white-space:nowrap">${fmt(d)}</td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='phase'?'rcopy-src':''} ${roadSelected.has(i+'-phase')?'rcopy-sel':''}" onclick="roadCellClick(${i},'phase',event)"><select class="rsel" onchange="sRoad(${i},'phase',this.value);renderRoadTab()">${phases.map(p=>`<option${r.phase===p?' selected':''}>${p}</option>`).join('')}</select></td>
