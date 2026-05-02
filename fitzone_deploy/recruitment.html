@@ -245,13 +245,15 @@ async function submitForm() {
   btn.disabled = true;
   btn.textContent = 'Envoi en cours...';
 
+  const email = document.getElementById('rEmail').value.trim() || null;
+  const phone = document.getElementById('rPhone').value.trim() || null;
   const { error } = await db.from('recruitment_responses').insert([{
     form_id: formId,
     coach_id: formData.coach_id,
     first_name: firstName,
     last_name: lastName,
-    email: document.getElementById('rEmail').value.trim() || null,
-    phone: document.getElementById('rPhone').value.trim() || null,
+    email,
+    phone,
     answers
   }]);
 
@@ -263,6 +265,21 @@ async function submitForm() {
     console.error(error);
     return;
   }
+
+  // Discord notification (fire-and-forget; ne bloque pas l'UX si échec)
+  fetch(SUPA + '/functions/v1/notify-discord', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + KEY },
+    body: JSON.stringify({
+      form_title: formData.title,
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      phone,
+      answers,
+      questions: formData.questions || []
+    })
+  }).catch(e => console.warn('[discord notify]', e));
 
   document.getElementById('formView').style.display = 'none';
   if(formData.success_button_url){
