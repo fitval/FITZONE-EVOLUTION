@@ -2761,7 +2761,7 @@ function renderRoadTab(){
   }
   // Toolbar
   let toolbar=`<div class="road-toolbar">
-    <div style="display:flex;align-items:center;gap:10px"><label class="fl" style="margin:0">Date de départ :</label><input type="date" class="fi" style="width:175px" value="${sd}" onchange="curClient.start_date=this.value;renderRoadTab()"></div>
+    <div style="display:flex;align-items:center;gap:10px"><label class="fl" style="margin:0">Date de départ :</label><input type="date" class="fi" style="width:175px" value="${sd}" onchange="updateRoadStartDate(this.value)"></div>
     <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3)">${totalWeeks} sem.</span><button class="rbtn" onclick="addRoadWeeks()">+ Ajouter semaines</button></div>
     <div style="flex:1"></div>`;
   if(roadCopy){
@@ -2905,6 +2905,18 @@ async function saveRoadmap(){
     if(error){toast('Erreur: '+error.message);return;}
   }
   toast('Roadmap enregistrée ✓');
+}
+async function updateRoadStartDate(val){
+  if(!curClient||!val)return;
+  curClient.start_date=val;
+  const idx=allClients.findIndex(c=>c.id===curClient.id);
+  if(idx>=0)allClients[idx].start_date=val;
+  if(currentCoach){
+    const{error}=await db.from('clients').update({start_date:val}).eq('id',curClient.id);
+    if(error){toast('Erreur date: '+error.message);return;}
+  }
+  renderRoadTab();
+  toast('Date de départ enregistrée ✓');
 }
 
 /* ===== ROADMAP GOOGLE SHEET IMPORT ===== */
@@ -5816,6 +5828,21 @@ function openDrop(id){document.getElementById(id)?.classList.add('open');}
 /* ===== UTILS ===== */
 function openM(id){document.getElementById(id)?.classList.add('show');}
 function closeM(id){document.getElementById(id)?.classList.remove('show');}
+function openModal(html){
+  let m=document.getElementById('mAdHoc');
+  if(!m){
+    m=document.createElement('div');
+    m.id='mAdHoc';m.className='overlay';
+    m.addEventListener('click',function(e){if(e.target===m)closeModal();});
+    document.body.appendChild(m);
+  }
+  m.innerHTML=html;
+  m.classList.add('show');
+}
+function closeModal(){
+  const m=document.getElementById('mAdHoc');
+  if(m){m.classList.remove('show');m.innerHTML='';}
+}
 function copyT(t){navigator.clipboard.writeText(t).then(()=>toast('Copié ✓')).catch(()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Copié ✓');});}
 let toastTimer;
 function toast(msg){clearTimeout(toastTimer);const t=document.getElementById('toast');const tx=document.getElementById('toastTxt');if(!t||!tx)return;tx.textContent=msg;t.classList.add('show');toastTimer=setTimeout(()=>t.classList.remove('show'),2800);}
