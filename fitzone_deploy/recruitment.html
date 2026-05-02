@@ -266,20 +266,24 @@ async function submitForm() {
     return;
   }
 
-  // Discord notification (fire-and-forget; ne bloque pas l'UX si échec)
-  fetch(SUPA + '/functions/v1/notify-discord', {
+  // Notification webhooks (fire-and-forget; ne bloque pas l'UX si échec)
+  fetch(SUPA + '/functions/v1/notify-webhook', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + KEY },
     body: JSON.stringify({
-      form_title: formData.title,
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      phone,
-      answers,
-      questions: formData.questions || []
+      coach_id: formData.coach_id,
+      event: 'recruitment_response',
+      data: {
+        form_title: formData.title,
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        phone,
+        answers,
+        questions: formData.questions || []
+      }
     })
-  }).catch(e => console.warn('[discord notify]', e));
+  }).catch(e => console.warn('[notify]', e));
 
   document.getElementById('formView').style.display = 'none';
   if(formData.success_button_url){

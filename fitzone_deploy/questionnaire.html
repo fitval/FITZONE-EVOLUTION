@@ -1301,6 +1301,27 @@ async function submitForm() {
     });
     const result = await resp.json();
     if (!resp.ok || result.error) { throw new Error(result.error || 'Erreur serveur'); }
+    // Notification webhooks (fire-and-forget)
+    if (clientData && clientData.coach_id) {
+      fetch(SUPABASE_URL + '/functions/v1/notify-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+        body: JSON.stringify({
+          coach_id: clientData.coach_id,
+          event: 'questionnaire_submitted',
+          data: {
+            first_name: clientData.first_name,
+            last_name: clientData.last_name,
+            email: clientData.email,
+            goal: payload.goal,
+            weight_kg: payload.weight_kg,
+            weight_goal: payload.weight_goal,
+            activity_level: payload.activity_level,
+            experience_level: payload.experience_level
+          }
+        })
+      }).catch(e => console.warn('[notify]', e));
+    }
     // Redirection directe vers l'app client (accès aux modules en attente de validation coach)
     window.location.href = 'client.html';
   } catch (e) {

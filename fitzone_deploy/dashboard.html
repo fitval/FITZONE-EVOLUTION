@@ -520,6 +520,7 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
     <div class="sb-item" onclick="showPage('q-editor',this)" id="nav-qe"><span class="sb-ico">📝</span>Questionnaires</div>
     <div class="sb-item" onclick="showPage('contracts',this)" id="nav-ct"><span class="sb-ico">📄</span>Contrats</div>
     <div class="sb-item" onclick="showPage('payments',this)" id="nav-pm"><span class="sb-ico">💰</span>Suivi paiements</div>
+    <div class="sb-item" onclick="showPage('notifications',this)" id="nav-nf"><span class="sb-ico">🔔</span>Notifications</div>
     <div class="sb-item" onclick="showPage('settings',this)" id="nav-st"><span class="sb-ico">⚙️</span>Paramètres</div>
   </nav>
   <div class="sb-bot">
@@ -1116,6 +1117,10 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
     </div>
     <div id="mk-tracking"></div>
     <div id="mk-finance" style="display:none"></div>
+  </div>
+
+  <div class="page" id="page-notifications">
+    <div id="notificationsContent"></div>
   </div>
 
   <!-- DETAIL CLIENT -->
@@ -2060,7 +2065,7 @@ function showPage(name,el){
   sessionStorage.removeItem('fz_current_client');
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
-  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','q-editor':'Éditeur questionnaires',contracts:'Contrats',payments:'Suivi paiements','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses',marketing:'Marketing & Finances'};
+  const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','q-editor':'Éditeur questionnaires',contracts:'Contrats',payments:'Suivi paiements',notifications:'Notifications','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses',marketing:'Marketing & Finances'};
   document.getElementById('tbTitle').textContent=titles[name]||name;
   document.getElementById('backBtn').style.display='none';
   const actMap={overview:`<button class="btn btn-dark" onclick="openNewClientModal()">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openNewClientModal()">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`,'rec-forms':`<button class="btn btn-dark" onclick="openRecFormBuilder()">+ Questionnaire</button>`};
@@ -2082,6 +2087,7 @@ function showPage(name,el){
   if(name==='q-editor')renderQEditor();
   if(name==='contracts')renderContractTemplates();
   if(name==='payments')renderPaymentsPage();
+  if(name==='notifications')renderNotifications();
 }
 function goBack(){
   document.getElementById('detPage').classList.remove('show');
@@ -8613,6 +8619,137 @@ function qeResetDefaults(){
   else if(tab==='daily')window._qeDraft.daily=JSON.parse(JSON.stringify(DEFAULT_Q_DAILY));
   else window._qeDraft.integration=[];
   _qeRender();
+}
+
+/* ===== NOTIFICATIONS / WEBHOOKS ===== */
+const NOTIF_EVENTS=[
+  {key:'recruitment_response',label:'Pré-diagnostic complété',icon:'🆕',desc:'Un candidat soumet un questionnaire de recrutement'},
+  {key:'questionnaire_submitted',label:"Questionnaire d'intégration soumis",icon:'📋',desc:'Un nouveau client termine son questionnaire d\'intégration'},
+  {key:'bilan_submitted',label:'Bilan hebdomadaire soumis',icon:'📊',desc:'Un client envoie son bilan de la semaine'},
+  {key:'contract_signed',label:'Contrat signé',icon:'✍️',desc:'Un client signe un contrat'}
+];
+let _notifWebhooks=[];
+
+async function loadNotifWebhooks(){
+  if(!currentCoach)return;
+  const{data,error}=await db.from('settings').select('notifications').eq('coach_id',currentCoach.id).maybeSingle();
+  if(error&&_isMigrationError(error)){_notifWebhooks=[];return false;}
+  _notifWebhooks=Array.isArray(data?.notifications)?data.notifications:[];
+  return true;
+}
+async function saveNotifWebhooks(){
+  if(!currentCoach)return false;
+  const{error}=await db.from('settings').upsert({coach_id:currentCoach.id,notifications:_notifWebhooks},{onConflict:'coach_id'});
+  if(error){
+    if(_isMigrationError(error)||/notifications/i.test(error.message||'')){
+      alert("⚠️ La migration SQL n'a pas été exécutée.\n\nOuvre le SQL Editor de Supabase et exécute :\nsupabase/settings_notifications.sql");
+    }else{toast('Erreur: '+error.message);}
+    return false;
+  }
+  return true;
+}
+async function renderNotifications(){
+  const el=document.getElementById('notificationsContent');if(!el)return;
+  el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3)">Chargement…</div>';
+  await loadNotifWebhooks();
+  let h=`<div style="background:var(--bg2);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.55">
+    <strong style="color:var(--gold)">🔔 Comment ça marche</strong><br>
+    Configure des webhooks (Discord, Make.com, Zapier, n8n, ou n'importe quelle URL HTTP) pour recevoir une notification dès qu'un événement se produit. Une URL Discord est formatée automatiquement en embed ; les autres reçoivent un JSON brut <code style="background:var(--white);padding:1px 5px;border-radius:4px;font-size:11px">{event, event_label, timestamp, data}</code>.
+  </div>`;
+  h+=`<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn btn-dark" onclick="openNotifEditor()">+ Ajouter un webhook</button></div>`;
+  if(!_notifWebhooks.length){
+    h+=`<div class="empty" style="padding:50px 20px;text-align:center;background:var(--white);border:1.5px dashed var(--border);border-radius:12px"><div class="ei" style="font-size:42px;margin-bottom:12px">🔕</div><div class="et" style="font-size:15px;font-weight:700;margin-bottom:6px">Aucun webhook configuré</div><div class="es" style="font-size:13px;color:var(--text3)">Ajoute ton premier webhook pour commencer à recevoir des notifications dans Discord, Make ou ailleurs.</div></div>`;
+  } else {
+    h+=`<div style="display:flex;flex-direction:column;gap:10px">`;
+    _notifWebhooks.forEach((w,i)=>{
+      const events=Array.isArray(w.events)?w.events:[];
+      const evChips=events.map(ek=>{const e=NOTIF_EVENTS.find(x=>x.key===ek);return e?`<span style="font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:3px 9px;color:var(--text2)">${e.icon} ${e.label}</span>`:'';}).join(' ');
+      const url=w.url||'';
+      const isDisc=/discord(?:app)?\.com\/api\/webhooks\//.test(url);
+      const provider=isDisc?'💬 Discord':url.includes('make.com')?'🔗 Make':url.includes('zapier')?'⚡ Zapier':url.includes('n8n')?'🧩 n8n':'🔧 Webhook';
+      h+=`<div style="background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;${w.enabled===false?'opacity:.55':''}">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <div style="font-size:14px;font-weight:700;flex:1;min-width:180px">${(w.label||'Sans label').replace(/</g,'&lt;')}</div>
+          <span style="font-size:11px;color:var(--text2);background:var(--bg);padding:3px 9px;border-radius:6px;font-weight:600">${provider}</span>
+          <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;font-weight:600;color:${w.enabled!==false?'var(--text)':'var(--text3)'}">
+            <input type="checkbox" ${w.enabled!==false?'checked':''} onchange="toggleNotif(${i},this.checked)" style="width:16px;height:16px;accent-color:var(--gold)">
+            ${w.enabled!==false?'Actif':'Désactivé'}
+          </label>
+        </div>
+        <div style="font-size:11px;color:var(--text3);font-family:monospace;word-break:break-all;margin-bottom:10px;background:var(--bg);padding:6px 10px;border-radius:6px">${url.slice(0,100)}${url.length>100?'…':''}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">${evChips||'<span style="font-size:11px;color:var(--text3);font-style:italic">Aucun événement coché — ce webhook ne sera jamais déclenché</span>'}</div>
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+          <button class="btn btn-ghost btn-xs" onclick="testNotif(${i})">🧪 Tester</button>
+          <button class="btn btn-ghost btn-xs" onclick="openNotifEditor(${i})">✏️ Éditer</button>
+          <button class="btn btn-ghost btn-xs" style="color:#dc2626" onclick="deleteNotif(${i})">🗑 Supprimer</button>
+        </div>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  el.innerHTML=h;
+}
+function openNotifEditor(idx){
+  const w=idx!=null&&idx>=0?_notifWebhooks[idx]:{label:'',url:'',events:[],enabled:true};
+  if(idx!=null&&idx>=0&&!w)return;
+  const isEdit=idx!=null&&idx>=0;
+  const evCheckboxes=NOTIF_EVENTS.map(e=>`<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg);border-radius:8px;font-size:13px;cursor:pointer">
+    <input type="checkbox" data-event="${e.key}" ${(w.events||[]).includes(e.key)?'checked':''} style="width:18px;height:18px;accent-color:var(--gold);margin-top:1px;flex-shrink:0">
+    <span style="flex:1"><span style="font-weight:700">${e.icon} ${e.label}</span><br><span style="font-size:11px;color:var(--text3);font-weight:400">${e.desc}</span></span>
+  </label>`).join('');
+  const html=`<div class="modal" style="max-width:580px" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt">${isEdit?'Modifier':'Ajouter'} un webhook</div><button class="mc" onclick="closeModal()">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label class="fl">Label</label><input class="fi" id="nfLabel" value="${(w.label||'').replace(/"/g,'&quot;')}" placeholder="Ex: Discord recrutement"></div>
+      <div class="fg"><label class="fl">URL du webhook</label><input class="fi" id="nfUrl" value="${(w.url||'').replace(/"/g,'&quot;')}" placeholder="https://discord.com/api/webhooks/... ou https://hook.eu1.make.com/..."><div style="font-size:11px;color:var(--text3);margin-top:4px">Discord, Make.com, Zapier, n8n, ou n'importe quelle URL qui accepte du POST JSON.</div></div>
+      <div class="fg"><label class="fl">Événements à notifier</label><div id="nfEvents" style="display:flex;flex-direction:column;gap:6px">${evCheckboxes}</div></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-dark" onclick="saveNotifFromEditor(${isEdit?idx:-1})">${isEdit?'Mettre à jour':'Créer'}</button>
+    </div>
+  </div>`;
+  openModal(html);
+}
+async function saveNotifFromEditor(idx){
+  const label=document.getElementById('nfLabel').value.trim();
+  const url=document.getElementById('nfUrl').value.trim();
+  if(!url){toast('URL requise');return;}
+  if(!/^https?:\/\//i.test(url)){toast('URL invalide (doit commencer par https://)');return;}
+  const events=[...document.querySelectorAll('#nfEvents input[type=checkbox]:checked')].map(c=>c.dataset.event);
+  const entry={
+    id:idx>=0?_notifWebhooks[idx].id:('w_'+Date.now()),
+    label:label||'Webhook',
+    url,events,
+    enabled:idx>=0?(_notifWebhooks[idx].enabled!==false):true
+  };
+  if(idx>=0)_notifWebhooks[idx]=entry;else _notifWebhooks.push(entry);
+  if(await saveNotifWebhooks()){closeModal();renderNotifications();toast(idx>=0?'Webhook mis à jour ✓':'Webhook ajouté ✓');}
+}
+async function toggleNotif(idx,enabled){
+  if(!_notifWebhooks[idx])return;
+  _notifWebhooks[idx].enabled=enabled;
+  if(await saveNotifWebhooks())renderNotifications();
+}
+async function deleteNotif(idx){
+  if(!_notifWebhooks[idx])return;
+  if(!confirm(`Supprimer le webhook "${_notifWebhooks[idx].label||'(sans label)'}" ?`))return;
+  _notifWebhooks.splice(idx,1);
+  if(await saveNotifWebhooks()){renderNotifications();toast('Webhook supprimé ✓');}
+}
+async function testNotif(idx){
+  const w=_notifWebhooks[idx];if(!w||!w.url){toast('URL manquante');return;}
+  toast('Envoi du test…');
+  try{
+    const resp=await fetch(SUPA+'/functions/v1/notify-webhook',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      body:JSON.stringify({event:'test',test_webhook_url:w.url})
+    });
+    const j=await resp.json();
+    if(resp.ok&&j.ok)toast('Test envoyé ✓');
+    else toast('Échec test : '+(j.error||resp.status));
+  }catch(e){toast('Erreur : '+e.message);}
 }
 
 /* ===== CONTRATS : TEMPLATES ===== */

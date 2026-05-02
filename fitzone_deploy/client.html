@@ -2286,6 +2286,22 @@ async function submitBilan(){
   if(!wasEdit){
     await awardPoints('bilan_submit',75,{date:d});
     if(uploadedPhotos.length>0) await awardPoints('bilan_photo',50,{photos:uploadedPhotos.length});
+    // Notification webhooks (fire-and-forget)
+    fetch(SUPA+'/functions/v1/notify-webhook',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      body:JSON.stringify({
+        coach_id:clientData.coach_id,
+        event:'bilan_submitted',
+        data:{
+          first_name:clientData.first_name,
+          last_name:clientData.last_name,
+          date:d,
+          attitude:bilanAttitude||rep.attitude,
+          weight:rep['Poids']||rep.poids||null
+        }
+      })
+    }).catch(e=>console.warn('[notify]',e));
   }
   switchTab('Home');
 }
