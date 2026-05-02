@@ -1131,6 +1131,10 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
       <div class="tab" onclick="swDet('galerie',this);renderGalerieTab()">📸 Galerie</div>
       <div class="tab" onclick="swDet('gamification',this);renderGamifTab()">🏆 Gamification</div>
     </div>
+    <div id="detQuickbar" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 0 12px;border-bottom:1px solid var(--border);margin-bottom:14px">
+      <span style="font-size:11px;color:var(--text3);margin-right:auto">Accès rapide :</span>
+      <button class="btn btn-dark btn-sm" onclick="openProgressionPopup()">📊 Progression</button>
+    </div>
     <div class="tc active" id="tc-questionnaire"></div>
     <div class="tc" id="tc-nutrition"></div>
     <div class="tc" id="tc-roadmap"></div>
@@ -3049,6 +3053,28 @@ function renderProgressionTab(){
     }).catch(()=>{_renderProgressionContent(el);});
   } else {_renderProgressionContent(el);}
 }
+function openProgressionPopup(){
+  if(!curClient){toast('Aucun client sélectionné');return;}
+  const name=(curClient.first_name||'')+' '+(curClient.last_name||'');
+  const html=`<div class="modal modal-xl" style="max-width:920px" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt">📊 Progression — ${name.trim()||'Client'}</div><button class="mc" onclick="closeModal()">✕</button></div>
+    <div class="mb" id="progPopupContent"></div>
+  </div>`;
+  openModal(html);
+  renderProgressionPopup();
+}
+function renderProgressionPopup(){
+  const el=document.getElementById('progPopupContent');if(!el||!curClient)return;
+  if(currentCoach){
+    db.from('daily_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).then(({data})=>{
+      if(data&&data.length>0){
+        const supaLogs=data.map(d=>({...d.data,date:d.date}));
+        lsSave('daily_'+curClient.id,supaLogs);
+      }
+      _renderProgressionContent(el,'renderProgressionPopup()');
+    }).catch(()=>{_renderProgressionContent(el,'renderProgressionPopup()');});
+  } else {_renderProgressionContent(el,'renderProgressionPopup()');}
+}
 function showChartTip(evt,val,date){
   const tip=document.getElementById('chartTip');if(!tip)return;
   const svg=evt.target.closest('svg');if(!svg)return;
@@ -3058,8 +3084,9 @@ function showChartTip(evt,val,date){
   tip.innerHTML=`<span style="color:#c49a2a">${val}</span> <span style="font-weight:400;opacity:.7">· ${date}</span>`;
 }
 function hideChartTip(){const tip=document.getElementById('chartTip');if(tip)tip.style.display='none';}
-function _renderProgressionContent(el){
+function _renderProgressionContent(el,reRenderFn){
   if(!el||!curClient)return;
+  const reRender=reRenderFn||'renderProgressionTab()';
   let logs=lsGet('daily_'+curClient.id,[]);
   const metrics=['Poids','Énergie','Faim','Stress','Sommeil (h)','Pas','Alimentation suivie (%)','Note attitude (/10)'];
   const selMetric=window._progMetric||'Poids';
@@ -3099,11 +3126,11 @@ function _renderProgressionContent(el){
   // Build sub-period selector HTML
   let subPeriodHtml='';
   if(period==='week'&&weekOptions.length){
-    subPeriodHtml='<select class="fs" style="min-width:220px;font-size:12px" onchange="window._progWeek=this.value;renderProgressionTab()">';
+    subPeriodHtml='<select class="fs" style="min-width:220px;font-size:12px" onchange="window._progWeek=this.value;'+reRender+'">';
     weekOptions.forEach(function(w){subPeriodHtml+='<option value="'+w.start+'"'+(w.start===window._progWeek?' selected':'')+'>'+w.label+'</option>';});
     subPeriodHtml+='</select>';
   } else if(period==='month'&&monthOptions.length){
-    subPeriodHtml='<select class="fs" style="min-width:180px;font-size:12px" onchange="window._progMonth=this.value;renderProgressionTab()">';
+    subPeriodHtml='<select class="fs" style="min-width:180px;font-size:12px" onchange="window._progMonth=this.value;'+reRender+'">';
     monthOptions.forEach(function(m){subPeriodHtml+='<option value="'+m.key+'"'+(m.key===window._progMonth?' selected':'')+'>'+m.label+'</option>';});
     subPeriodHtml+='</select>';
   }
@@ -3130,9 +3157,9 @@ function _renderProgressionContent(el){
   }
   el.innerHTML=`
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      <select class="fs" style="min-width:200px" onchange="window._progMetric=this.value;renderProgressionTab()">${optHtml}</select>
+      <select class="fs" style="min-width:200px" onchange="window._progMetric=this.value;${reRender}">${optHtml}</select>
       <div style="display:flex;gap:4px">
-        ${['week','month','year','all'].map(p=>`<button class="btn btn-${p===period?'dark':'ghost'} btn-xs" onclick="window._progPeriod='${p}';window._progWeek=null;window._progMonth=null;renderProgressionTab()">${p==='week'?'Semaine':p==='month'?'Mois':p==='year'?'Année':'Tout'}</button>`).join('')}
+        ${['week','month','year','all'].map(p=>`<button class="btn btn-${p===period?'dark':'ghost'} btn-xs" onclick="window._progPeriod='${p}';window._progWeek=null;window._progMonth=null;${reRender}">${p==='week'?'Semaine':p==='month'?'Mois':p==='year'?'Année':'Tout'}</button>`).join('')}
       </div>
       ${subPeriodHtml}
     </div>
@@ -3167,7 +3194,9 @@ function saveDailyLog(){
   if(existing>=0)logs[existing]={...logs[existing],...entry};else logs.push(entry);
   lsSave(key,logs);
   if(currentCoach)db.from('daily_logs').upsert({coach_id:currentCoach.id,client_id:curClient.id,date:date,data:entry},{onConflict:'id'}).catch(e=>console.warn('daily save:',e));
-  closeM('mDailyLog');renderProgressionTab();toast('Entrée enregistrée ✓');
+  closeM('mDailyLog');renderProgressionTab();
+  if(document.getElementById('progPopupContent'))renderProgressionPopup();
+  toast('Entrée enregistrée ✓');
 }
 
 /* ===== TRAINING TAB (Cycles de progression) ===== */
