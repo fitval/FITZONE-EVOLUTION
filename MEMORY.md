@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-03-12 (dashboard fixes + sync training client→dashboard)
+**Dernière mise à jour** : 2026-05-03 (notifications par formulaire de recrutement)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -51,6 +51,7 @@
 - [x] **Bilan hebdo sur page Accueil** (bulle grisée/dorée selon jour de bilan, cliquable pour remplir)
 - [x] **Icônes app client** : Accueil = maison, Nutrition = bol fumant, onglet Bilan retiré de la nav
 - [x] **UI nutrition améliorée** (barre macros colorée P/G/L, icônes repas, pastilles source macro, instructions affichées)
+- [x] **Notifications webhooks par formulaire de recrutement** : éditeur de webhook liste tous les `recruitment_forms` du coach comme cases à cocher individuelles (clé `recruitment_response:<form_id>`), filtrage côté Edge Function `notify-webhook`
 
 ### Ce qui reste à faire (prochaines priorités)
 - [ ] **Amélioration UX** : responsive, animations, feedback visuel

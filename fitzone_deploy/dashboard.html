@@ -8652,6 +8652,7 @@ async function renderNotifications(){
   const el=document.getElementById('notificationsContent');if(!el)return;
   el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3)">Chargement…</div>';
   await loadNotifWebhooks();
+  if(!recForms||!recForms.length)await loadRecForms();
   let h=`<div style="background:var(--bg2);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.55">
     <strong style="color:var(--gold)">🔔 Comment ça marche</strong><br>
     Configure des webhooks (Discord, Make.com, Zapier, n8n, ou n'importe quelle URL HTTP) pour recevoir une notification dès qu'un événement se produit. Une URL Discord est formatée automatiquement en embed ; les autres reçoivent un JSON brut <code style="background:var(--white);padding:1px 5px;border-radius:4px;font-size:11px">{event, event_label, timestamp, data}</code>.
@@ -8663,7 +8664,17 @@ async function renderNotifications(){
     h+=`<div style="display:flex;flex-direction:column;gap:10px">`;
     _notifWebhooks.forEach((w,i)=>{
       const events=Array.isArray(w.events)?w.events:[];
-      const evChips=events.map(ek=>{const e=NOTIF_EVENTS.find(x=>x.key===ek);return e?`<span style="font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:3px 9px;color:var(--text2)">${e.icon} ${e.label}</span>`:'';}).join(' ');
+      const evChips=events.map(ek=>{
+        const e=NOTIF_EVENTS.find(x=>x.key===ek);
+        if(e)return`<span style="font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:3px 9px;color:var(--text2)">${e.icon} ${e.label}</span>`;
+        if(typeof ek==='string'&&ek.startsWith('recruitment_response:')){
+          const fid=ek.slice('recruitment_response:'.length);
+          const form=(recForms||[]).find(f=>f.id===fid);
+          const title=form?form.title:'Formulaire supprimé';
+          return`<span style="font-size:11px;background:rgba(196,154,42,.12);border:1px solid var(--gold-border,rgba(196,154,42,.25));border-radius:10px;padding:3px 9px;color:var(--text2)" title="${esc(title)}">📋 ${esc(title.length>40?title.slice(0,40)+'…':title)}</span>`;
+        }
+        return'';
+      }).join(' ');
       const url=w.url||'';
       const isDisc=/discord(?:app)?\.com\/api\/webhooks\//.test(url);
       const provider=isDisc?'💬 Discord':url.includes('make.com')?'🔗 Make':url.includes('zapier')?'⚡ Zapier':url.includes('n8n')?'🧩 n8n':'🔧 Webhook';
@@ -8689,20 +8700,31 @@ async function renderNotifications(){
   }
   el.innerHTML=h;
 }
-function openNotifEditor(idx){
+async function openNotifEditor(idx){
   const w=idx!=null&&idx>=0?_notifWebhooks[idx]:{label:'',url:'',events:[],enabled:true};
   if(idx!=null&&idx>=0&&!w)return;
   const isEdit=idx!=null&&idx>=0;
+  if(!recForms||!recForms.length)await loadRecForms();
+  const checked=new Set(w.events||[]);
   const evCheckboxes=NOTIF_EVENTS.map(e=>`<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg);border-radius:8px;font-size:13px;cursor:pointer">
-    <input type="checkbox" data-event="${e.key}" ${(w.events||[]).includes(e.key)?'checked':''} style="width:18px;height:18px;accent-color:var(--gold);margin-top:1px;flex-shrink:0">
+    <input type="checkbox" data-event="${e.key}" ${checked.has(e.key)?'checked':''} style="width:18px;height:18px;accent-color:var(--gold);margin-top:1px;flex-shrink:0">
     <span style="flex:1"><span style="font-weight:700">${e.icon} ${e.label}</span><br><span style="font-size:11px;color:var(--text3);font-weight:400">${e.desc}</span></span>
   </label>`).join('');
+  const activeForms=(recForms||[]).filter(f=>f.status!=='archived');
+  const formCheckboxes=activeForms.length?activeForms.map(f=>{
+    const key='recruitment_response:'+f.id;
+    return`<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg);border-radius:8px;font-size:13px;cursor:pointer">
+      <input type="checkbox" data-event="${key}" ${checked.has(key)?'checked':''} style="width:18px;height:18px;accent-color:var(--gold);margin-top:1px;flex-shrink:0">
+      <span style="flex:1"><span style="font-weight:700">📋 ${esc(f.title)}</span><br><span style="font-size:11px;color:var(--text3);font-weight:400">Notif déclenchée uniquement à la soumission de ce formulaire</span></span>
+    </label>`;
+  }).join(''):'<div style="font-size:12px;color:var(--text3);padding:8px 4px;font-style:italic">Aucun formulaire de recrutement créé pour le moment. Utilise l\'événement générique "Pré-diagnostic complété" ci-dessus, ou crée un formulaire dans l\'onglet Recrutement.</div>';
   const html=`<div class="modal" style="max-width:580px" onclick="event.stopPropagation()">
     <div class="mh"><div class="mt">${isEdit?'Modifier':'Ajouter'} un webhook</div><button class="mc" onclick="closeModal()">✕</button></div>
     <div class="mb">
       <div class="fg"><label class="fl">Label</label><input class="fi" id="nfLabel" value="${(w.label||'').replace(/"/g,'&quot;')}" placeholder="Ex: Discord recrutement"></div>
       <div class="fg"><label class="fl">URL du webhook</label><input class="fi" id="nfUrl" value="${(w.url||'').replace(/"/g,'&quot;')}" placeholder="https://discord.com/api/webhooks/... ou https://hook.eu1.make.com/..."><div style="font-size:11px;color:var(--text3);margin-top:4px">Discord, Make.com, Zapier, n8n, ou n'importe quelle URL qui accepte du POST JSON.</div></div>
-      <div class="fg"><label class="fl">Événements à notifier</label><div id="nfEvents" style="display:flex;flex-direction:column;gap:6px">${evCheckboxes}</div></div>
+      <div class="fg"><label class="fl">Événements génériques</label><div id="nfEvents" style="display:flex;flex-direction:column;gap:6px">${evCheckboxes}</div></div>
+      <div class="fg"><label class="fl">Formulaires de recrutement spécifiques</label><div style="font-size:11px;color:var(--text3);margin-bottom:6px">Coche un formulaire pour recevoir uniquement les soumissions de celui-ci. Si tu coches aussi "Pré-diagnostic complété" plus haut, le webhook recevra TOUTES les soumissions (le filtre par formulaire est ignoré).</div><div id="nfForms" style="display:flex;flex-direction:column;gap:6px">${formCheckboxes}</div></div>
     </div>
     <div class="mf">
       <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
@@ -8716,7 +8738,7 @@ async function saveNotifFromEditor(idx){
   const url=document.getElementById('nfUrl').value.trim();
   if(!url){toast('URL requise');return;}
   if(!/^https?:\/\//i.test(url)){toast('URL invalide (doit commencer par https://)');return;}
-  const events=[...document.querySelectorAll('#nfEvents input[type=checkbox]:checked')].map(c=>c.dataset.event);
+  const events=[...document.querySelectorAll('#nfEvents input[type=checkbox]:checked,#nfForms input[type=checkbox]:checked')].map(c=>c.dataset.event);
   const entry={
     id:idx>=0?_notifWebhooks[idx].id:('w_'+Date.now()),
     label:label||'Webhook',

@@ -168,9 +168,14 @@ Deno.serve(async (req: Request) => {
     }
 
     const all = Array.isArray(settings?.notifications) ? settings!.notifications : [];
-    const targets = all.filter((w: any) =>
-      w && w.enabled !== false && Array.isArray(w.events) && w.events.includes(event) && typeof w.url === "string" && w.url.length > 0
-    );
+    const formId: string | undefined = typeof data?.form_id === "string" ? data.form_id : undefined;
+    const targets = all.filter((w: any) => {
+      if (!w || w.enabled === false || !Array.isArray(w.events) || typeof w.url !== "string" || !w.url) return false;
+      // Match the bare event (catch-all) OR a per-form variant `event:form_id`
+      if (w.events.includes(event)) return true;
+      if (formId && w.events.includes(`${event}:${formId}`)) return true;
+      return false;
+    });
 
     if (!targets.length) {
       return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no matching webhook" }), {
