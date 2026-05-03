@@ -1574,11 +1574,11 @@ function renderFoodTracker(){
   let h=`<button class="back-btn" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Tracking alimentaire</div>`;
   h+=`<div style="font-size:13px;color:var(--text3);margin-bottom:14px">Logge tout ce que tu manges pour un suivi précis.</div>`;
-  h+=`<div class="card" style="padding:14px;margin-bottom:14px"><input type="date" value="${ftDate}" onchange="ftDate=this.value;renderFoodTracker()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font)"></div>`;
+  h+=`<div class="card" style="padding:14px;margin-bottom:14px"><input type="date" value="${ftDate}" onchange="ftDate=this.value;renderFoodTracker()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);text-align:center"></div>`;
   // Totals bar
   const pct=v=>tgtK?Math.min(100,Math.round(v)):0;
   h+=`<div class="card" style="padding:16px;margin-bottom:14px">
-    <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px">TOTAL DU JOUR${tgtK?' / OBJECTIF':''}</div>
+    <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px;text-align:center">TOTAL DU JOUR${tgtK?' / OBJECTIF':''}</div>
     <div style="text-align:center;margin-bottom:12px"><span style="font-size:30px;font-weight:900;color:var(--gold)">${Math.round(tK)}</span>${tgtK?`<span style="font-size:14px;color:var(--text3);margin-left:4px">/ ${Math.round(tgtK)} kcal</span>`:`<span style="font-size:14px;color:var(--text3);margin-left:4px">kcal</span>`}</div>
     ${tgtK?`<div style="height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;margin-bottom:12px"><div style="height:100%;background:linear-gradient(90deg,var(--gold),#e8b84a);width:${pct(tK/tgtK*100)}%"></div></div>`:''}
     <div style="display:flex;justify-content:space-around">
@@ -1623,25 +1623,33 @@ function openAddFood(meal){
   renderAddFoodPage();
 }
 function renderAddFoodPage(){
-  const term=(_ftSearchTerm||'').toLowerCase().trim();
-  const matches=coachAlims.filter(a=>!term||(a.nom||'').toLowerCase().includes(term)).slice(0,30);
+  const term=(_ftSearchTerm||'').replace(/"/g,'&quot;');
   let h=`<button class="back-btn" onclick="renderFoodTracker()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Ajouter un aliment</div>`;
   h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${_ftCurrentMeal} · ${fmtDate(ftDate)}</div>`;
   h+=`<div class="card" style="padding:14px;margin-bottom:12px">
-    <input type="text" id="ftSearch" value="${term}" oninput="_ftSearchTerm=this.value;renderAddFoodPage();setTimeout(()=>{const f=document.getElementById('ftSearch');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length)}},0)" placeholder="Rechercher un aliment (poulet, riz, pomme…)" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none">
+    <input type="text" id="ftSearch" value="${term}" oninput="_ftSearchTerm=this.value;_ftRenderResults()" placeholder="Rechercher un aliment (poulet, riz, pomme…)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none">
     <button class="btn-gold" style="margin-top:10px;width:100%" onclick="openManualFood()">+ Aliment manuel (hors liste)</button>
   </div>`;
+  h+=`<div id="ftResults"></div>`;
+  document.getElementById('nutriContent').innerHTML=h;
+  _ftRenderResults();
+  setTimeout(()=>{const f=document.getElementById('ftSearch');if(f)f.focus();},50);
+}
+function _ftRenderResults(){
+  const el=document.getElementById('ftResults');if(!el)return;
+  const term=(_ftSearchTerm||'').toLowerCase().trim();
+  const matches=coachAlims.filter(a=>!term||(a.nom||'').toLowerCase().includes(term)).slice(0,30);
+  let h='';
   if(!matches.length){
-    h+=`<div class="empty" style="padding:30px"><div class="empty-icon">🔍</div><div class="empty-text">${term?'Aucun aliment trouvé pour "'+term+'"':'Commence à taper pour rechercher'}</div></div>`;
+    h=`<div class="empty" style="padding:30px"><div class="empty-icon">🔍</div><div class="empty-text">${term?'Aucun aliment trouvé pour "'+term.replace(/"/g,'&quot;')+'"':'Commence à taper pour rechercher'}</div></div>`;
   } else {
-    h+=matches.map(a=>`<div class="card" style="padding:12px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px" onclick="pickFoodAliment(${JSON.stringify(a).replace(/"/g,'&quot;')})">
+    h=matches.map(a=>`<div class="card" style="padding:12px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px" onclick="pickFoodAliment(${JSON.stringify(a).replace(/"/g,'&quot;')})">
       <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.nom}</div><div style="font-size:10px;color:var(--text3)">100g: ${Math.round(a.kcal||0)} kcal · P${Math.round(a.prot||0)} G${Math.round(a.carb||0)} L${Math.round(a.fat||0)}</div></div>
       <div style="font-size:18px;color:var(--gold)">+</div>
     </div>`).join('');
   }
-  document.getElementById('nutriContent').innerHTML=h;
-  setTimeout(()=>{const f=document.getElementById('ftSearch');if(f)f.focus();},50);
+  el.innerHTML=h;
 }
 function pickFoodAliment(a){
   const qte=prompt('Quantité en grammes pour "'+a.nom+'" ?','100');
