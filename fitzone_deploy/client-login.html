@@ -342,9 +342,31 @@ body {
 const SUPA = 'https://wsrykmutyhjxdnhnyexl.supabase.co';
 const KEY = 'sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
 const { createClient } = supabase;
+// flowType:'implicit' parce que admin.generateLink renvoie une URL implicite
+// (hash tokens). La valeur 'pkce' bloquait le SDK qui ignorait les tokens.
 const db = createClient(SUPA, KEY, {
-  auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
+  auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
 });
+
+// Fallback manuel : si la SDK n'a pas créé de session automatiquement
+// (cache, double init, hash déjà consommé), on essaie de parser l'URL
+// nous-même.
+async function ensureSession() {
+  let { data: { session } } = await db.auth.getSession();
+  if (session) return session;
+  const hp = new URLSearchParams(window.location.hash.substring(1));
+  const at = hp.get('access_token');
+  const rt = hp.get('refresh_token');
+  if (at && rt) {
+    const { data } = await db.auth.setSession({ access_token: at, refresh_token: rt });
+    if (data && data.session) return data.session;
+  }
+  const code = new URLSearchParams(window.location.search).get('code');
+  if (code) {
+    try { const { data } = await db.auth.exchangeCodeForSession(code); if (data && data.session) return data.session; } catch (e) { console.warn('[exchangeCodeForSession]', e); }
+  }
+  return null;
+}
 
 // Check URL for password recovery flow FIRST (before session redirect)
 const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -362,16 +384,13 @@ db.auth.onAuthStateChange((event) => {
 
 if (isRecovery) {
   showView('newpw');
-  // Si la SDK n'a pas pu établir de session (lien expiré, scanner email
-  // qui a consommé le token, redirect URL non whitelist…) on prévient.
-  if (!hasHashTokens && !hasPkceCode) {
-    setTimeout(async () => {
-      const { data: { session } } = await db.auth.getSession();
-      if (!session) {
-        showError('newpw-error', "Lien invalide ou expiré. Le token a été consommé (scanner d'email) ou le lien a plus de 24h. Demande à ton coach de te renvoyer un lien.");
-      }
-    }, 1200);
-  }
+  // Tente d'établir la session immédiatement (force la SDK + fallback manuel)
+  setTimeout(async () => {
+    const s = await ensureSession();
+    if (!s) {
+      showError('newpw-error', "Lien invalide ou expiré. Demande à ton coach de te renvoyer un lien d'invitation.");
+    }
+  }, 600);
 } else {
   // Only redirect if NOT in recovery mode
   db.auth.getSession().then(async ({ data: { session } }) => {
@@ -493,7 +512,7 @@ async function doNewPassword() {
   showPwdOverlay('loading', 'Enregistrement de ton mot de passe…');
 
   // Vérifie qu'une session de récupération existe avant updateUser
-  const { data: { session: recSession } } = await db.auth.getSession();
+  const recSession = await ensureSession();
   if (!recSession) {
     hidePwdOverlay();
     btn.disabled = false;
