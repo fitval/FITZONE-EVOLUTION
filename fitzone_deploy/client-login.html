@@ -342,22 +342,36 @@ body {
 const SUPA = 'https://wsrykmutyhjxdnhnyexl.supabase.co';
 const KEY = 'sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
 const { createClient } = supabase;
-const db = createClient(SUPA, KEY);
+const db = createClient(SUPA, KEY, {
+  auth: { flowType: 'pkce', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
+});
 
 // Check URL for password recovery flow FIRST (before session redirect)
 const hashParams = new URLSearchParams(window.location.hash.substring(1));
 const urlParams = new URLSearchParams(window.location.search);
-const isRecovery = hashParams.get('type') === 'recovery' || urlParams.get('type') === 'recovery' || urlParams.get('mode') === 'reset';
+const hasHashTokens = !!hashParams.get('access_token');
+const hasPkceCode = !!urlParams.get('code');
+const isRecovery = hashParams.get('type') === 'recovery' || urlParams.get('type') === 'recovery' || urlParams.get('mode') === 'reset' || hasHashTokens || hasPkceCode;
 
-// Supabase also fires an auth event on recovery — listen for it
-db.auth.onAuthStateChange((event, session) => {
-  if (event === 'PASSWORD_RECOVERY') {
-    showView('newpw');
+// Supabase fires an auth event when the recovery session is established
+db.auth.onAuthStateChange((event) => {
+  if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+    if (isRecovery) showView('newpw');
   }
 });
 
 if (isRecovery) {
   showView('newpw');
+  // Si la SDK n'a pas pu établir de session (lien expiré, scanner email
+  // qui a consommé le token, redirect URL non whitelist…) on prévient.
+  if (!hasHashTokens && !hasPkceCode) {
+    setTimeout(async () => {
+      const { data: { session } } = await db.auth.getSession();
+      if (!session) {
+        showError('newpw-error', "Lien invalide ou expiré. Le token a été consommé (scanner d'email) ou le lien a plus de 24h. Demande à ton coach de te renvoyer un lien.");
+      }
+    }, 1200);
+  }
 } else {
   // Only redirect if NOT in recovery mode
   db.auth.getSession().then(async ({ data: { session } }) => {
@@ -478,13 +492,23 @@ async function doNewPassword() {
   // Overlay de chargement pleine page
   showPwdOverlay('loading', 'Enregistrement de ton mot de passe…');
 
+  // Vérifie qu'une session de récupération existe avant updateUser
+  const { data: { session: recSession } } = await db.auth.getSession();
+  if (!recSession) {
+    hidePwdOverlay();
+    btn.disabled = false;
+    btn.textContent = 'Definir mon mot de passe';
+    showError('newpw-error', "Session expirée. Le lien d'invitation est probablement expiré ou a déjà été utilisé. Demande à ton coach un nouveau lien.");
+    return;
+  }
+
   const { error } = await db.auth.updateUser({ password });
 
   if (error) {
     hidePwdOverlay();
     btn.disabled = false;
     btn.textContent = 'Definir mon mot de passe';
-    showError('newpw-error', error.message);
+    showError('newpw-error', error.message === 'Auth session missing!' ? "Session expirée. Demande à ton coach un nouveau lien d'invitation." : error.message);
     return;
   }
 
