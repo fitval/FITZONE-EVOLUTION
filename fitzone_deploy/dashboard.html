@@ -804,6 +804,10 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
       </div>
       <div class="prog-builder">
         <div class="prog-main">
+          <div style="display:flex;gap:6px;margin-bottom:14px">
+            <button id="seanceTypeMuscu" type="button" onclick="seanceSetType('muscu')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--gold);background:var(--gold-pale);color:var(--gold);font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font)">💪 Musculation</button>
+            <button id="seanceTypeRunning" type="button" onclick="seanceSetType('running')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">🏃 Running</button>
+          </div>
           <div class="fr2" style="margin-bottom:14px">
             <div class="fg"><label class="fl">Nom de la séance *</label><input class="fi" id="seanceNom" placeholder="Push A — Poitrine/Épaules"></div>
             <div class="fg"><label class="fl">Tags</label><input class="fi" id="seanceTags" placeholder="Push, Haut du corps…"></div>
@@ -831,13 +835,13 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
           </div>
           <div class="sec-label" style="border-top:none;margin-top:0">🔥 Échauffement</div>
           <div id="seanceSec-warmup" ondragover="event.preventDefault()" ondrop="seanceDropSec(event,'warmup')"></div>
-          <button class="add-exo-zone" id="seanceAddBtn_warmup" onclick="seanceSetTarget('warmup')">+ Ajouter dans Échauffement</button>
-          <div class="sec-label">💪 Entraînement</div>
+          <button class="add-exo-zone" id="seanceAddBtn_warmup" onclick="seanceAddTo('warmup')">+ Ajouter dans Échauffement</button>
+          <div class="sec-label" id="seanceLabel-workout">💪 Entraînement</div>
           <div id="seanceSec-workout" ondragover="event.preventDefault()" ondrop="seanceDropSec(event,'workout')"></div>
-          <button class="add-exo-zone" id="seanceAddBtn_workout" onclick="seanceSetTarget('workout')">+ Ajouter dans Entraînement</button>
+          <button class="add-exo-zone" id="seanceAddBtn_workout" onclick="seanceAddTo('workout')">+ Ajouter dans Entraînement</button>
           <div class="sec-label">❄️ Retour au calme</div>
           <div id="seanceSec-cooldown" ondragover="event.preventDefault()" ondrop="seanceDropSec(event,'cooldown')"></div>
-          <button class="add-exo-zone" id="seanceAddBtn_cooldown" onclick="seanceSetTarget('cooldown')">+ Ajouter dans Retour au calme</button>
+          <button class="add-exo-zone" id="seanceAddBtn_cooldown" onclick="seanceAddTo('cooldown')">+ Ajouter dans Retour au calme</button>
           <div style="margin-top:12px"><label class="fl">Notes de séance</label><textarea class="fta" id="seanceNotes" placeholder="Instructions générales…" style="min-height:60px"></textarea></div>
         </div>
         <div class="prog-side">
@@ -4709,6 +4713,199 @@ function renderRepasList(){
 }
 function delRepas(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ?'))return;dbDelete('repas',id);renderRepasList();toast('Supprimé');}
 
+/* ===== RUNNING BLOCKS (modèle partagé builder/jour) =====
+   Un bloc running vit dans warmup/workout/cooldown comme un exo muscu.
+   Discriminé par e.kind === 'run'. Champs :
+   {
+     kind:'run', id, label,
+     mode:'duration'|'distance'|'intervals',
+     duration_min?, distance_m?,
+     intensity:{kind:'pace'|'hr'|'vma'|'rpe', value?, min?, max?},
+     intervals?:{sets, reps, rep_distance_m?, rep_duration_s?, rep_intensity, rest_rep_s, rest_set_s},
+     notes?
+   }
+*/
+function runBlockEmpty(label){
+  return{kind:'run',id:'rb_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),label:label||'Course facile',mode:'duration',duration_min:30,distance_m:null,intensity:{kind:'pace',value:'5:30',min:'',max:''},intervals:null,notes:''};
+}
+function paceMinPerKmToKmh(paceStr){
+  if(!paceStr)return 0;
+  const m=String(paceStr).match(/^(\d+)[:.](\d+)$/);
+  if(!m)return 0;
+  const min=parseInt(m[1])||0,sec=parseInt(m[2])||0;
+  const totalMin=min+sec/60;
+  return totalMin>0?60/totalMin:0;
+}
+function kmhToPaceStr(kmh){
+  if(!kmh||kmh<=0)return'—';
+  const minPerKm=60/kmh;
+  const min=Math.floor(minPerKm);
+  const sec=Math.round((minPerKm-min)*60);
+  return`${min}:${String(sec).padStart(2,'0')}`;
+}
+function runIntensityLabel(intensity,vmaKmh){
+  if(!intensity)return'';
+  const i=intensity;
+  if(i.kind==='pace'){
+    if(i.min&&i.max)return`${i.min}–${i.max}/km`;
+    return(i.value||'—')+'/km';
+  }
+  if(i.kind==='hr'){
+    if(i.min&&i.max)return`FC ${i.min}–${i.max} bpm`;
+    if(i.value)return`Z${i.value}`;
+    return'—';
+  }
+  if(i.kind==='vma'){
+    const pct=parseFloat(i.value)||0;
+    let s=`${pct}% VMA`;
+    if(vmaKmh&&pct>0){const kmh=vmaKmh*pct/100;s+=` (~${kmhToPaceStr(kmh)}/km)`;}
+    return s;
+  }
+  if(i.kind==='rpe'){
+    if(i.min&&i.max)return`RPE ${i.min}–${i.max}`;
+    return`RPE ${i.value||'—'}`;
+  }
+  return'';
+}
+function runBlockSummary(b,vmaKmh){
+  if(!b||b.kind!=='run')return'';
+  const intLabel=runIntensityLabel(b.intensity,vmaKmh);
+  if(b.mode==='intervals'&&b.intervals){
+    const iv=b.intervals;
+    const sets=parseInt(iv.sets)||1,reps=parseInt(iv.reps)||1;
+    const distOrDur=iv.rep_distance_m?(iv.rep_distance_m+'m'):(iv.rep_duration_s?_secToMmSs(iv.rep_duration_s):'?');
+    const intensityRep=runIntensityLabel(iv.rep_intensity||b.intensity,vmaKmh);
+    const restRep=iv.rest_rep_s?` · récup ${_secToMmSs(iv.rest_rep_s)}`:'';
+    const restSet=(sets>1&&iv.rest_set_s)?` · pause inter-séries ${_secToMmSs(iv.rest_set_s)}`:'';
+    if(sets>1)return`${sets} séries × ${reps}×${distOrDur} à ${intensityRep}${restRep}${restSet}`;
+    return`${reps}×${distOrDur} à ${intensityRep}${restRep}`;
+  }
+  if(b.mode==='distance'&&b.distance_m){
+    const dist=b.distance_m>=1000?(b.distance_m/1000).toFixed(b.distance_m%1000?1:0)+' km':b.distance_m+' m';
+    return`${dist} à ${intLabel}`;
+  }
+  if(b.mode==='duration'&&b.duration_min){
+    return`${b.duration_min} min à ${intLabel}`;
+  }
+  return intLabel||'(bloc à compléter)';
+}
+function _secToMmSs(s){const n=parseInt(s)||0;if(n<60)return n+'s';const m=Math.floor(n/60),sc=n%60;return sc?`${m}:${String(sc).padStart(2,'0')}`:m+' min';}
+function _mmSsToSec(str){if(!str)return 0;const s=String(str).trim();const m=s.match(/^(\d+):(\d+)$/);if(m)return(parseInt(m[1])*60)+parseInt(m[2]);const m2=s.match(/^(\d+)\s*(min|m)?$/i);if(m2)return parseInt(m2[1])*60;const m3=s.match(/^(\d+)\s*s$/i);if(m3)return parseInt(m3[1]);return parseInt(s)||0;}
+
+let _rbEditing=null;// {sec, idx, sourceArr, onSave, draft}
+function openRunBlockModal(sourceArr,sec,idx,onSave){
+  const isNew=idx==null||idx<0;
+  const b=isNew?runBlockEmpty():JSON.parse(JSON.stringify(sourceArr[idx]));
+  if(!b.intensity)b.intensity={kind:'pace',value:'',min:'',max:''};
+  if(!b.intervals)b.intervals={sets:1,reps:5,rep_distance_m:400,rep_duration_s:null,rep_intensity:{kind:'pace',value:'',min:'',max:''},rest_rep_s:90,rest_set_s:180};
+  _rbEditing={sourceArr,sec,idx,onSave,draft:b};
+  _rbRenderModal();
+}
+function _rbRenderModal(){
+  const b=_rbEditing.draft;
+  const intensityForm=(prefix,intensity)=>`
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+      ${['pace','vma','hr','rpe'].map(k=>`<button type="button" class="rb-i-btn" onclick="_rbSetIntKind('${prefix}','${k}')" style="padding:6px 12px;border-radius:8px;border:1.5px solid ${intensity.kind===k?'var(--gold)':'var(--border)'};background:${intensity.kind===k?'var(--gold-pale)':'var(--white)'};color:${intensity.kind===k?'var(--gold)':'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)">${k==='pace'?'Allure':k==='vma'?'%VMA':k==='hr'?'FC':'RPE'}</button>`).join('')}
+    </div>
+    ${intensity.kind==='pace'?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div class="ef-lbl">Min (mm:ss/km)</div><input class="fi" data-${prefix}-min value="${intensity.min||intensity.value||''}" placeholder="5:00"></div><div><div class="ef-lbl">Max (mm:ss/km)</div><input class="fi" data-${prefix}-max value="${intensity.max||''}" placeholder="5:30"></div></div><div style="font-size:10px;color:var(--text3);margin-top:4px">Laisse Max vide pour une allure cible précise.</div>`:
+    intensity.kind==='vma'?`<div><div class="ef-lbl">% VMA</div><input class="fi" data-${prefix}-value value="${intensity.value||''}" placeholder="90"><div style="font-size:10px;color:var(--text3);margin-top:4px">Converti en allure côté client si VMA renseignée sur la fiche client.</div></div>`:
+    intensity.kind==='hr'?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div class="ef-lbl">FC min (bpm)</div><input class="fi" data-${prefix}-min value="${intensity.min||''}" placeholder="155"></div><div><div class="ef-lbl">FC max (bpm)</div><input class="fi" data-${prefix}-max value="${intensity.max||''}" placeholder="170"></div></div><div style="margin-top:8px"><div class="ef-lbl">Ou zone (1-5)</div><input class="fi" data-${prefix}-value value="${intensity.value||''}" placeholder="3"></div>`:
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div class="ef-lbl">RPE min (1-10)</div><input class="fi" data-${prefix}-min value="${intensity.min||''}" placeholder="6"></div><div><div class="ef-lbl">RPE max (1-10)</div><input class="fi" data-${prefix}-max value="${intensity.max||''}" placeholder="8"></div></div>`}
+  `;
+  const html=`<div class="modal" style="max-width:560px" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt">${_rbEditing.idx==null||_rbEditing.idx<0?'Ajouter':'Modifier'} un bloc running</div><button class="mc" onclick="_rbCancel()">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label class="fl">Label</label><input class="fi" id="rbLabel" value="${(b.label||'').replace(/"/g,'&quot;')}" placeholder="Ex: Échauffement, Tempo, Intervalles 400m"></div>
+      <div class="fg">
+        <label class="fl">Mode</label>
+        <div style="display:flex;gap:6px">
+          ${['duration','distance','intervals'].map(m=>`<button type="button" onclick="_rbSetMode('${m}')" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid ${b.mode===m?'var(--gold)':'var(--border)'};background:${b.mode===m?'var(--gold-pale)':'var(--white)'};color:${b.mode===m?'var(--gold)':'var(--text2)'};font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">${m==='duration'?'⏱️ Durée':m==='distance'?'📏 Distance':'⚡ Intervalles'}</button>`).join('')}
+        </div>
+      </div>
+      ${b.mode==='duration'?`<div class="fg"><label class="fl">Durée (min)</label><input class="fi" type="number" id="rbDuration" value="${b.duration_min||''}" min="1" placeholder="30"></div>
+        <div class="fg"><label class="fl">Intensité</label>${intensityForm('main',b.intensity)}</div>`:
+      b.mode==='distance'?`<div class="fg"><label class="fl">Distance (m)</label><input class="fi" type="number" id="rbDistance" value="${b.distance_m||''}" min="1" placeholder="5000"><div style="font-size:10px;color:var(--text3);margin-top:4px">En mètres : 5000 = 5 km.</div></div>
+        <div class="fg"><label class="fl">Intensité</label>${intensityForm('main',b.intensity)}</div>`:
+      `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div><div class="ef-lbl">Nb séries</div><input class="fi" type="number" id="rbSets" value="${b.intervals.sets||1}" min="1"></div>
+          <div><div class="ef-lbl">Reps / série</div><input class="fi" type="number" id="rbReps" value="${b.intervals.reps||1}" min="1"></div>
+        </div>
+        <div class="fg"><label class="fl">Format de la rep</label>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <button type="button" onclick="_rbSetRepType('distance')" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid ${b.intervals.rep_distance_m?'var(--gold)':'var(--border)'};background:${b.intervals.rep_distance_m?'var(--gold-pale)':'var(--white)'};color:${b.intervals.rep_distance_m?'var(--gold)':'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)">Distance</button>
+            <button type="button" onclick="_rbSetRepType('duration')" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid ${b.intervals.rep_duration_s?'var(--gold)':'var(--border)'};background:${b.intervals.rep_duration_s?'var(--gold-pale)':'var(--white)'};color:${b.intervals.rep_duration_s?'var(--gold)':'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)">Durée</button>
+          </div>
+          ${b.intervals.rep_distance_m?`<input class="fi" type="number" id="rbRepDist" value="${b.intervals.rep_distance_m||''}" min="1" placeholder="400 (en mètres)">`:`<input class="fi" id="rbRepDur" value="${b.intervals.rep_duration_s?_secToMmSs(b.intervals.rep_duration_s):''}" placeholder="1:30 (mm:ss)">`}
+        </div>
+        <div class="fg"><label class="fl">Intensité par rep</label>${intensityForm('rep',b.intervals.rep_intensity||{kind:'pace',value:'',min:'',max:''})}</div>
+        <div class="fg"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div class="ef-lbl">Récup entre reps</div><input class="fi" id="rbRestRep" value="${b.intervals.rest_rep_s?_secToMmSs(b.intervals.rest_rep_s):''}" placeholder="1:30"></div><div><div class="ef-lbl">Pause inter-séries</div><input class="fi" id="rbRestSet" value="${b.intervals.rest_set_s?_secToMmSs(b.intervals.rest_set_s):''}" placeholder="3:00"></div></div></div>`}
+      <div class="fg"><label class="fl">Notes (optionnel)</label><textarea class="fi" id="rbNotes" rows="2" style="resize:vertical">${(b.notes||'').replace(/</g,'&lt;')}</textarea></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="_rbCancel()">Annuler</button>
+      <button class="btn btn-dark" onclick="saveRunBlockFromModal()">${_rbEditing.idx==null||_rbEditing.idx<0?'Ajouter':'Mettre à jour'}</button>
+    </div>
+  </div>`;
+  openModal(html);
+}
+function _rbCancel(){closeModal();_rbEditing=null;}
+function _rbSetMode(m){_rbCommitFields();_rbEditing.draft.mode=m;_rbRenderModal();}
+function _rbSetIntKind(prefix,k){_rbCommitFields();const t=prefix==='main'?_rbEditing.draft.intensity:(_rbEditing.draft.intervals.rep_intensity||(_rbEditing.draft.intervals.rep_intensity={kind:'pace'}));t.kind=k;t.value='';t.min='';t.max='';_rbRenderModal();}
+function _rbSetRepType(t){_rbCommitFields();const iv=_rbEditing.draft.intervals;if(t==='distance'){iv.rep_duration_s=null;if(!iv.rep_distance_m)iv.rep_distance_m=400;}else{iv.rep_distance_m=null;if(!iv.rep_duration_s)iv.rep_duration_s=90;}_rbRenderModal();}
+function _rbCommitFields(){
+  if(!_rbEditing)return;const d=_rbEditing.draft;
+  const v=id=>document.getElementById(id)?.value;
+  if(v('rbLabel')!=null)d.label=v('rbLabel');
+  if(v('rbDuration')!=null)d.duration_min=parseFloat(v('rbDuration'))||null;
+  if(v('rbDistance')!=null)d.distance_m=parseFloat(v('rbDistance'))||null;
+  if(v('rbNotes')!=null)d.notes=v('rbNotes');
+  const setIntensity=(target,prefix)=>{
+    document.querySelectorAll(`#mAdHoc [data-${prefix}-min]`).forEach(i=>target.min=i.value);
+    document.querySelectorAll(`#mAdHoc [data-${prefix}-max]`).forEach(i=>target.max=i.value);
+    document.querySelectorAll(`#mAdHoc [data-${prefix}-value]`).forEach(i=>target.value=i.value);
+  };
+  setIntensity(d.intensity,'main');
+  if(d.mode==='intervals'){
+    if(!d.intervals)d.intervals={};
+    if(v('rbSets')!=null)d.intervals.sets=parseInt(v('rbSets'))||1;
+    if(v('rbReps')!=null)d.intervals.reps=parseInt(v('rbReps'))||1;
+    if(v('rbRepDist')!=null)d.intervals.rep_distance_m=parseFloat(v('rbRepDist'))||null;
+    if(v('rbRepDur')!=null)d.intervals.rep_duration_s=_mmSsToSec(v('rbRepDur'));
+    if(v('rbRestRep')!=null)d.intervals.rest_rep_s=_mmSsToSec(v('rbRestRep'));
+    if(v('rbRestSet')!=null)d.intervals.rest_set_s=_mmSsToSec(v('rbRestSet'));
+    if(!d.intervals.rep_intensity)d.intervals.rep_intensity={kind:'pace',value:'',min:'',max:''};
+    setIntensity(d.intervals.rep_intensity,'rep');
+  }
+}
+function saveRunBlockFromModal(){
+  if(!_rbEditing)return;
+  _rbCommitFields();
+  const{sourceArr,idx,onSave,draft}=_rbEditing;
+  if(idx==null||idx<0)sourceArr.push(draft);else sourceArr[idx]=draft;
+  closeModal();
+  const cb=onSave;_rbEditing=null;
+  if(typeof cb==='function')cb();
+}
+function runBlockCard(b,onEdit,onDel,onMoveUp,onMoveDown){
+  const sum=runBlockSummary(b,window._curEditingClientVma||0);
+  const labelHtml=b.label?`<div style="font-size:13px;font-weight:700">${b.label.replace(/</g,'&lt;')}</div>`:'';
+  const sumHtml=sum?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${sum.replace(/</g,'&lt;')}</div>`:'';
+  const notesHtml=b.notes?`<div style="font-size:11px;color:var(--text2);margin-top:6px;padding:6px 8px;background:var(--bg);border-radius:6px;line-height:1.5">${b.notes.replace(/</g,'&lt;')}</div>`:'';
+  return`<div class="exo-block" style="border-left:3px solid var(--gold)">
+    <div class="exo-block-hdr">
+      <div style="width:34px;height:28px;background:var(--gold-pale);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🏃</div>
+      <div style="flex:1;min-width:0">${labelHtml}${sumHtml}</div>
+      <div style="display:flex;gap:4px">
+        <button onclick="${onMoveUp}" title="Monter" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3);padding:2px 6px">↑</button>
+        <button onclick="${onMoveDown}" title="Descendre" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3);padding:2px 6px">↓</button>
+        <button onclick="${onEdit}" title="Éditer" style="background:none;border:none;cursor:pointer;font-size:13px;padding:3px 6px">✏️</button>
+        <button onclick="${onDel}" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:14px">🗑</button>
+      </div>
+    </div>
+    ${notesHtml?`<div style="padding:0 12px 9px">${notesHtml}</div>`:''}
+  </div>`;
+}
+
 /* ===== PROGRAMME BUILDER ===== */
 function setsGrid(showRIR,showTempo){const n=2+(showRIR?1:0)+(showTempo?1:0);return`32px repeat(${n},1fr)`;}
 function setsHdrHtml(showRIR,showTempo){return`<span></span><span>Reps</span><span>Repos</span>${showRIR?'<span>RIR</span>':''}${showTempo?'<span>Tempo</span>':''}`;}
@@ -4756,17 +4953,56 @@ function openProgBuilderForClient(){
 function progRenderDays(){
   const c=document.getElementById('progDaysTabs');if(!c)return;
   c.innerHTML=progDays.map((d,i)=>{
-    const tots=['warmup','workout','cooldown'].reduce((acc,sec)=>{
-      (d[sec]||[]).forEach(e=>{const exos=e.superset?(e.exercises||[]):[e];exos.forEach(ex=>acc+=(ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0)));});return acc;},0);
-    return`<div class="prog-day-tab${i===progDayIdx?' active':''}" onclick="progSelDay(${i})">${d.nom}${tots?`<span style="font-size:9px;color:var(--text3);margin-left:4px">${tots}s</span>`:''}</div>`;
+    const isRun=d.type==='running';
+    const ico=isRun?'🏃':'💪';
+    let badge='';
+    if(isRun){const nb=(d.warmup||[]).length+(d.workout||[]).length+(d.cooldown||[]).length;badge=nb?`<span style="font-size:9px;color:var(--gold);margin-left:4px;font-weight:800">${nb} bloc${nb>1?'s':''}</span>`:'';}
+    else{const tots=['warmup','workout','cooldown'].reduce((acc,sec)=>{(d[sec]||[]).forEach(e=>{const exos=e.superset?(e.exercises||[]):[e];exos.forEach(ex=>acc+=(ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0)));});return acc;},0);badge=tots?`<span style="font-size:9px;color:var(--text3);margin-left:4px">${tots}s</span>`:'';}
+    return`<div class="prog-day-tab${i===progDayIdx?' active':''}${isRun?' is-run':''}" onclick="progSelDay(${i})" style="${isRun?'border-color:var(--gold-border);':''}">${ico} ${d.nom}${badge}</div>`;
   }).join('')+`<div class="add-day-btn" onclick="progAddDay()" title="Ajouter un jour">+</div>`;
   progRenderDay();
 }
 function progSelDay(i){progDayIdx=i;progRenderDays();}
-function progAddDay(){progDays.push({nom:'Jour '+(progDays.length+1),warmup:[],workout:[],cooldown:[]});progSelDay(progDays.length-1);}
+function progAddDay(){progDays.push({nom:'Jour '+(progDays.length+1),type:'muscu',warmup:[],workout:[],cooldown:[]});progSelDay(progDays.length-1);}
+function progSetDayType(t){
+  const d=progDays[progDayIdx];if(!d||d.type===t)return;
+  const total=(d.warmup||[]).length+(d.workout||[]).length+(d.cooldown||[]).length;
+  if(total>0&&!confirm('Basculer ce jour en '+(t==='running'?'running':'musculation')+' va vider son contenu actuel. Continuer ?'))return;
+  if(total>0){d.warmup=[];d.workout=[];d.cooldown=[];}
+  d.type=t;progRenderDays();
+}
+function progAddRunBlockTo(sec){if(!progDays[progDayIdx])return;if(!progDays[progDayIdx][sec])progDays[progDayIdx][sec]=[];openRunBlockModal(progDays[progDayIdx][sec],sec,-1,progRenderDay);}
+function progEditRunBlock(sec,idx){const a=progDays[progDayIdx]?.[sec];if(!a||!a[idx])return;openRunBlockModal(a,sec,idx,progRenderDay);}
+function progDelRunBlock(sec,idx){if(!confirm('Supprimer ce bloc ?'))return;progDays[progDayIdx][sec].splice(idx,1);progRenderDay();}
+function progMoveRunBlock(sec,idx,delta){const arr=progDays[progDayIdx]?.[sec];if(!arr)return;const j=idx+delta;if(j<0||j>=arr.length)return;[arr[idx],arr[j]]=[arr[j],arr[idx]];progRenderDay();}
 function progRenderDay(){
   const el=document.getElementById('progDayContent');if(!el)return;
   const d=progDays[progDayIdx];if(!d)return;
+  if(!d.type)d.type='muscu';
+
+  // Mode running : layout simplifié (blocs)
+  if(d.type==='running'){
+    const renderRunSec=(sec,label,emoji)=>{
+      const arr=d[sec]||[];
+      const cards=arr.length?arr.map((b,i)=>{
+        if(b.kind!=='run')return`<div style="padding:8px;border:1.5px dashed var(--red);border-radius:8px;font-size:11px;color:var(--red);margin-bottom:6px">⚠️ Item incompatible. <button class="btn btn-xs btn-ghost" onclick="progDelRunBlock('${sec}',${i})">Supprimer</button></div>`;
+        return runBlockCard(b,`progEditRunBlock('${sec}',${i})`,`progDelRunBlock('${sec}',${i})`,`progMoveRunBlock('${sec}',${i},-1)`,`progMoveRunBlock('${sec}',${i},1)`);
+      }).join(''):'<div style="font-size:11px;color:var(--text3);padding:6px 10px;font-style:italic">Aucun bloc</div>';
+      return`<div class="sec-label" style="margin-top:10px">${emoji} ${label}</div>${cards}<button class="add-exo-zone" onclick="progAddRunBlockTo('${sec}')">+ Ajouter un bloc</button>`;
+    };
+    el.innerHTML=`<div class="fg" style="margin-bottom:10px">
+      <label class="fl">Nom de la séance *</label>
+      <input class="fi" id="dayNom" value="${d.nom}" onchange="progDays[progDayIdx].nom=this.value;progRenderDays()">
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px">
+      <button type="button" onclick="progSetDayType('muscu')" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">💪 Musculation</button>
+      <button type="button" onclick="progSetDayType('running')" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--gold);background:var(--gold-pale);color:var(--gold);font-size:12px;font-weight:800;cursor:pointer;font-family:var(--font)">🏃 Running</button>
+    </div>
+    ${renderRunSec('warmup','Échauffement','🔥')}
+    ${renderRunSec('workout','Corps de séance','🏃')}
+    ${renderRunSec('cooldown','Retour au calme','❄️')}`;
+    return;
+  }
 
   // Récap volume total programme (toutes séances)
   const totalVolMap={};
@@ -4880,7 +5116,11 @@ function progRenderDay(){
   el.innerHTML=`
     <div class="fg" style="margin-bottom:10px">
       <label class="fl">Nom de la séance *</label>
-      <input class="fi" id="dayNom" value="${d.nom}" onchange="progDays[progDayIdx].nom=this.value;document.querySelectorAll('.prog-day-tab')[progDayIdx].textContent=this.value">
+      <input class="fi" id="dayNom" value="${d.nom}" onchange="progDays[progDayIdx].nom=this.value;progRenderDays()">
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px">
+      <button type="button" onclick="progSetDayType('muscu')" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--gold);background:var(--gold-pale);color:var(--gold);font-size:12px;font-weight:800;cursor:pointer;font-family:var(--font)">💪 Musculation</button>
+      <button type="button" onclick="progSetDayType('running')" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">🏃 Running</button>
     </div>
     ${totalVolHtml?`<div style="margin-bottom:10px;padding:8px 12px;background:var(--dark);border-radius:8px">
       <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:5px">📊 Volume total programme (${progDays.length} séance${progDays.length>1?'s':''})</div>
@@ -4941,7 +5181,7 @@ function progDropSec(e,targetSec){
 function progImportSeance(){
   const selId=document.getElementById('progImportSel')?.value;if(!selId)return;
   const s=seances.find(x=>x.id===parseInt(selId));if(!s)return;
-  progDays.push({nom:s.nom,warmup:JSON.parse(JSON.stringify(s.warmup||[])),workout:JSON.parse(JSON.stringify(s.workout||[])),cooldown:JSON.parse(JSON.stringify(s.cooldown||[]))});
+  progDays.push({nom:s.nom,type:s.type||'muscu',warmup:JSON.parse(JSON.stringify(s.warmup||[])),workout:JSON.parse(JSON.stringify(s.workout||[])),cooldown:JSON.parse(JSON.stringify(s.cooldown||[]))});
   progSelDay(progDays.length-1);toast(s.nom+' importé comme jour '+progDays.length+' ✓');
 }
 function progSetTarget(sec){
@@ -5169,22 +5409,77 @@ let seanceData={warmup:[],workout:[],cooldown:[]};
 let seanceEditId=null,seanceClient=null,seanceExoTarget={sec:'workout'};
 
 function openSeanceBuilder(id){
-  seanceData={warmup:[],workout:[],cooldown:[]};seanceClient=null;seanceEditId=null;
-  if(id){const s=seances.find(x=>x.id===id);if(!s)return;seanceData=JSON.parse(JSON.stringify({warmup:s.warmup||[],workout:s.workout||[],cooldown:s.cooldown||[]}));seanceEditId=id;document.getElementById('seanceNom').value=s.nom;document.getElementById('seanceTags').value=(s.tags||[]).join(', ');document.getElementById('seanceNotes').value=s.notes||'';document.getElementById('seanceBuilderTitle').textContent='Modifier: '+s.nom;}
+  seanceData={type:'muscu',warmup:[],workout:[],cooldown:[]};seanceClient=null;seanceEditId=null;
+  if(id){const s=seances.find(x=>x.id===id);if(!s)return;seanceData=JSON.parse(JSON.stringify({type:s.type||'muscu',warmup:s.warmup||[],workout:s.workout||[],cooldown:s.cooldown||[]}));seanceEditId=id;document.getElementById('seanceNom').value=s.nom;document.getElementById('seanceTags').value=(s.tags||[]).join(', ');document.getElementById('seanceNotes').value=s.notes||'';document.getElementById('seanceBuilderTitle').textContent='Modifier: '+s.nom;}
   else{['seanceNom','seanceTags','seanceNotes'].forEach(x=>document.getElementById(x).value='');document.getElementById('seanceBuilderTitle').textContent='Nouvelle séance';}
   // Populate prog select
   const sel=document.getElementById('seanceProgSel');sel.innerHTML='<option value="">— Indépendante —</option>'+progs.map(p=>`<option value="${p.id}">${p.nom}</option>`).join('');
   document.getElementById('seanceClIn').value='';document.getElementById('seanceClLbl').textContent='Aucun';
+  _seanceApplyTypeUI();
   seanceRenderAll();seanceFilterLib('');
   document.getElementById('seanceListWrap').style.display='none';document.getElementById('seanceBuilderWrap').style.display='block';
   document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="closeSeanceBuilder()">← Retour</button><button class="btn btn-gold btn-sm" onclick="saveSeance()">💾 Enregistrer</button>`;
 }
+function seanceSetType(t){
+  if(seanceData.type===t)return;
+  // Avertir si on bascule alors qu'il y a déjà des items
+  const total=(seanceData.warmup||[]).length+(seanceData.workout||[]).length+(seanceData.cooldown||[]).length;
+  if(total>0&&!confirm('Basculer en '+(t==='running'?'running':'musculation')+' va vider les exercices/blocs actuels de cette séance. Continuer ?'))return;
+  if(total>0){seanceData.warmup=[];seanceData.workout=[];seanceData.cooldown=[];}
+  seanceData.type=t;
+  _seanceApplyTypeUI();
+  seanceRenderAll();
+}
+function _seanceApplyTypeUI(){
+  const isRun=seanceData.type==='running';
+  const mu=document.getElementById('seanceTypeMuscu'),ru=document.getElementById('seanceTypeRunning');
+  if(mu){mu.style.borderColor=isRun?'var(--border)':'var(--gold)';mu.style.background=isRun?'var(--white)':'var(--gold-pale)';mu.style.color=isRun?'var(--text2)':'var(--gold)';mu.style.fontWeight=isRun?'700':'800';}
+  if(ru){ru.style.borderColor=isRun?'var(--gold)':'var(--border)';ru.style.background=isRun?'var(--gold-pale)':'var(--white)';ru.style.color=isRun?'var(--gold)':'var(--text2)';ru.style.fontWeight=isRun?'800':'700';}
+  // Hide muscu side panel + RIR/Tempo toggles + volume in running mode
+  document.querySelectorAll('.prog-side').forEach(el=>{if(el.closest('#seanceBuilderWrap'))el.style.display=isRun?'none':'';});
+  const rirBtn=document.getElementById('seanceTogRIR'),tempoBtn=document.getElementById('seanceTogTempo'),volEl=document.getElementById('seanceVolume');
+  [rirBtn,tempoBtn].forEach(b=>{if(b)b.style.display=isRun?'none':'';});
+  if(volEl)volEl.style.display=isRun?'none':'';
+  // Update section label for "Entraînement"
+  const lbl=document.getElementById('seanceLabel-workout');
+  if(lbl)lbl.textContent=isRun?'🏃 Corps de séance':'💪 Entraînement';
+  // Update add button labels
+  ['warmup','workout','cooldown'].forEach(sec=>{
+    const btn=document.getElementById('seanceAddBtn_'+sec);
+    if(!btn)return;
+    if(isRun){btn.textContent='+ Ajouter un bloc';}
+    else{btn.textContent='+ Ajouter dans '+(sec==='warmup'?'Échauffement':sec==='workout'?'Entraînement':'Retour au calme');}
+  });
+}
+function seanceAddTo(sec){
+  if(seanceData.type==='running'){
+    if(!seanceData[sec])seanceData[sec]=[];
+    openRunBlockModal(seanceData[sec],sec,-1,seanceRenderAll);
+  } else {
+    seanceSetTarget(sec);
+  }
+}
+function seanceEditRunBlock(sec,idx){if(!seanceData[sec]?.[idx])return;openRunBlockModal(seanceData[sec],sec,idx,seanceRenderAll);}
+function seanceDelRunBlock(sec,idx){if(!confirm('Supprimer ce bloc ?'))return;seanceData[sec].splice(idx,1);seanceRenderAll();}
+function seanceMoveRunBlock(sec,idx,delta){const arr=seanceData[sec];if(!arr)return;const j=idx+delta;if(j<0||j>=arr.length)return;[arr[idx],arr[j]]=[arr[j],arr[idx]];seanceRenderAll();}
 function closeSeanceBuilder(){
   document.getElementById('seanceBuilderWrap').style.display='none';document.getElementById('seanceListWrap').style.display='block';
   document.getElementById('tbActs').innerHTML=`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`;
   renderSeanceList();
 }
 function seanceRenderAll(){
+  if(seanceData.type==='running'){
+    ['warmup','workout','cooldown'].forEach(sec=>{
+      const el=document.getElementById('seanceSec-'+sec);if(!el)return;
+      const arr=seanceData[sec]||[];
+      if(!arr.length){el.innerHTML='<div style="font-size:11px;color:var(--text3);padding:6px 10px;font-style:italic">Aucun bloc — ajoute un bloc ci-dessous</div>';return;}
+      el.innerHTML=arr.map((b,i)=>{
+        if(b.kind!=='run')return`<div style="padding:8px;border:1.5px dashed var(--red);border-radius:8px;font-size:11px;color:var(--red);margin-bottom:6px">⚠️ Item incompatible (muscu) dans une séance running. <button class="btn btn-xs btn-ghost" onclick="seanceDelRunBlock('${sec}',${i})">Supprimer</button></div>`;
+        return runBlockCard(b,`seanceEditRunBlock('${sec}',${i})`,`seanceDelRunBlock('${sec}',${i})`,`seanceMoveRunBlock('${sec}',${i},-1)`,`seanceMoveRunBlock('${sec}',${i},1)`);
+      }).join('');
+    });
+    return;
+  }
   ['warmup','workout','cooldown'].forEach(sec=>{
     const el=document.getElementById('seanceSec-'+sec);if(!el)return;
     el.innerHTML=(seanceData[sec]||[]).map((e,i)=>{
@@ -5334,7 +5629,7 @@ function seanceAddExo(idx){
 function saveSeance(){
   const nom=document.getElementById('seanceNom')?.value.trim();if(!nom){toast('Nom requis');return;}
   const tags=document.getElementById('seanceTags')?.value.split(',').map(t=>t.trim()).filter(Boolean);
-  const s={id:seanceEditId||Date.now(),nom,tags,notes:document.getElementById('seanceNotes')?.value||'',warmup:JSON.parse(JSON.stringify(seanceData.warmup||[])),workout:JSON.parse(JSON.stringify(seanceData.workout||[])),cooldown:JSON.parse(JSON.stringify(seanceData.cooldown||[])),clientId:seanceClient?.id||null,clientNom:seanceClient?(seanceClient.first_name+' '+seanceClient.last_name):null,progId:document.getElementById('seanceProgSel')?.value||null,createdAt:new Date().toISOString()};
+  const s={id:seanceEditId||Date.now(),nom,type:seanceData.type||'muscu',tags,notes:document.getElementById('seanceNotes')?.value||'',warmup:JSON.parse(JSON.stringify(seanceData.warmup||[])),workout:JSON.parse(JSON.stringify(seanceData.workout||[])),cooldown:JSON.parse(JSON.stringify(seanceData.cooldown||[])),clientId:seanceClient?.id||null,clientNom:seanceClient?(seanceClient.first_name+' '+seanceClient.last_name):null,progId:document.getElementById('seanceProgSel')?.value||null,createdAt:new Date().toISOString()};
   if(seanceEditId){const i=seances.findIndex(x=>x.id===seanceEditId);if(i>=0)seances[i]=s;else seances.push(s);}else seances.push(s);
   lsSave('fz_seances',seances);dbSave('seances',s);closeSeanceBuilder();toast('Séance enregistrée ✓');
 }
@@ -5342,12 +5637,13 @@ function renderSeanceList(){
   const el=document.getElementById('seanceListWrap');if(!el)return;
   if(!seances.length){el.innerHTML=`<div class="empty"><div class="ei">🏋️</div><div class="et">Aucune séance</div><div class="es">Crée ta première séance d'entraînement</div></div>`;return;}
   el.innerHTML=seances.slice().reverse().map(s=>{
-    const tot=['warmup','workout','cooldown'].reduce((a,sec)=>(s[sec]||[]).reduce((b,e)=>b+(parseInt(e.sets)||0),a),0);
+    const isRun=s.type==='running';
+    const tot=isRun?(s.warmup||[]).length+(s.workout||[]).length+(s.cooldown||[]).length:['warmup','workout','cooldown'].reduce((a,sec)=>(s[sec]||[]).reduce((b,e)=>b+(parseInt(e.sets)||0),a),0);
     return`<div class="plan-card">
       <div class="plan-hdr" onclick="openSeanceBuilder(${s.id})">
-        <div style="width:38px;height:38px;border-radius:10px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🏋️</div>
-        <div style="flex:1"><div style="font-size:14px;font-weight:700">${s.nom}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${tot} séries · ${(s.warmup||[]).length+(s.workout||[]).length+(s.cooldown||[]).length} exercices${s.clientNom?' · '+s.clientNom:''}</div>
+        <div style="width:38px;height:38px;border-radius:10px;background:${isRun?'var(--gold)':'var(--dark)'};color:${isRun?'var(--dark)':'#fff'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${isRun?'🏃':'🏋️'}</div>
+        <div style="flex:1"><div style="font-size:14px;font-weight:700">${s.nom}${isRun?' <span style="font-size:9px;font-weight:800;letter-spacing:1px;background:var(--gold-pale);color:var(--gold);padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle">RUNNING</span>':''}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${isRun?tot+' bloc'+(tot>1?'s':''):tot+' séries · '+((s.warmup||[]).length+(s.workout||[]).length+(s.cooldown||[]).length)+' exercices'}${s.clientNom?' · '+s.clientNom:''}</div>
         <div style="margin-top:4px">${(s.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div></div>
         <div style="display:flex;gap:5px" onclick="event.stopPropagation()">
           <button class="btn btn-ghost btn-xs" onclick="openSeanceBuilder(${s.id})">✏️</button>

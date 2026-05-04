@@ -1078,6 +1078,48 @@ function renderDetailWidget(metric,unit){
 }
 
 /* ===== TRAINING PREVIEW ===== */
+/* ===== RUNNING HELPERS (côté client) ===== */
+function _cliKmhToPaceStr(kmh){if(!kmh||kmh<=0)return'—';const m=60/kmh;const min=Math.floor(m);const sec=Math.round((m-min)*60);return`${min}:${String(sec).padStart(2,'0')}`;}
+function _cliSecToMmSs(s){const n=parseInt(s)||0;if(n<60)return n+'s';const m=Math.floor(n/60),sc=n%60;return sc?`${m}:${String(sc).padStart(2,'0')}`:m+' min';}
+function _cliRunIntensityLabel(intensity,vmaKmh){
+  if(!intensity)return'';
+  const i=intensity;
+  if(i.kind==='pace'){if(i.min&&i.max)return`${i.min}–${i.max}/km`;return(i.value||i.min||'—')+'/km';}
+  if(i.kind==='hr'){if(i.min&&i.max)return`FC ${i.min}–${i.max} bpm`;if(i.value)return`Zone ${i.value}`;return'—';}
+  if(i.kind==='vma'){const pct=parseFloat(i.value)||0;let s=`${pct}% VMA`;if(vmaKmh&&pct>0){const kmh=vmaKmh*pct/100;s+=` (~${_cliKmhToPaceStr(kmh)}/km)`;}return s;}
+  if(i.kind==='rpe'){if(i.min&&i.max)return`RPE ${i.min}–${i.max}`;return`RPE ${i.value||'—'}`;}
+  return'';
+}
+function _cliRunBlockSummary(b,vmaKmh){
+  if(!b||b.kind!=='run')return'';
+  const intLabel=_cliRunIntensityLabel(b.intensity,vmaKmh);
+  if(b.mode==='intervals'&&b.intervals){
+    const iv=b.intervals;const sets=parseInt(iv.sets)||1,reps=parseInt(iv.reps)||1;
+    const distOrDur=iv.rep_distance_m?(iv.rep_distance_m+'m'):(iv.rep_duration_s?_cliSecToMmSs(iv.rep_duration_s):'?');
+    const intensityRep=_cliRunIntensityLabel(iv.rep_intensity||b.intensity,vmaKmh);
+    const restRep=iv.rest_rep_s?` · récup ${_cliSecToMmSs(iv.rest_rep_s)}`:'';
+    const restSet=(sets>1&&iv.rest_set_s)?` · pause inter-séries ${_cliSecToMmSs(iv.rest_set_s)}`:'';
+    if(sets>1)return`${sets} séries × ${reps}×${distOrDur} à ${intensityRep}${restRep}${restSet}`;
+    return`${reps}×${distOrDur} à ${intensityRep}${restRep}`;
+  }
+  if(b.mode==='distance'&&b.distance_m){const dist=b.distance_m>=1000?(b.distance_m/1000).toFixed(b.distance_m%1000?1:0)+' km':b.distance_m+' m';return`${dist} à ${intLabel}`;}
+  if(b.mode==='duration'&&b.duration_min)return`${b.duration_min} min à ${intLabel}`;
+  return intLabel||'(bloc à compléter)';
+}
+function _cliRunBlockCard(b,sectionEmoji){
+  const vma=parseFloat(clientData?.vma_kmh)||0;
+  const sum=_cliRunBlockSummary(b,vma);
+  const labelHtml=b.label?`<div style="font-size:14px;font-weight:800;color:var(--dark)">${(b.label||'').replace(/</g,'&lt;')}</div>`:'';
+  const sumHtml=sum?`<div style="font-size:13px;color:var(--text2);margin-top:4px;line-height:1.45">${sum.replace(/</g,'&lt;')}</div>`:'';
+  const notesHtml=b.notes?`<div style="font-size:12px;color:var(--text2);margin-top:8px;padding:8px 10px;background:var(--bg);border-radius:8px;line-height:1.5">💬 ${b.notes.replace(/</g,'&lt;')}</div>`:'';
+  return`<div class="card" style="padding:14px;margin-bottom:10px;border-left:4px solid var(--gold)">
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <div style="width:36px;height:36px;background:var(--gold-pale);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${sectionEmoji||'🏃'}</div>
+      <div style="flex:1;min-width:0">${labelHtml}${sumHtml}${notesHtml}</div>
+    </div>
+  </div>`;
+}
+
 function renderTrainPreview(){
   workoutActive=false;
   if(!programs.length){document.getElementById('trainContent').innerHTML=`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;return;}
@@ -1085,9 +1127,28 @@ function renderTrainPreview(){
   document.getElementById('trainTitle').textContent=p.nom||'Entraînement';
   if(!jours.length){document.getElementById('trainContent').innerHTML=`<div class="empty"><div class="empty-text">Ce programme n'a pas encore de séances.</div></div>`;return;}
 
-  let h=`<div class="day-tabs">${jours.map((j,i)=>`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderTrainPreview()">${j.nom||'Jour '+(i+1)}</button>`).join('')}</div>`;
+  let h=`<div class="day-tabs">${jours.map((j,i)=>{const ico=j.type==='running'?'🏃':'💪';return`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderTrainPreview()">${ico} ${j.nom||'Jour '+(i+1)}</button>`;}).join('')}</div>`;
 
   const day=jours[currentDayIdx];
+
+  if(day.type==='running'){
+    h+=`<div style="margin:10px 0 16px;padding:10px 12px;background:var(--gold-pale);border-radius:10px;display:flex;align-items:center;gap:10px"><span style="font-size:20px">🏃</span><span style="font-size:13px;font-weight:700;color:#8a6010">Séance running</span></div>`;
+    const SEC_LABELS={warmup:['🔥 Échauffement','🔥'],workout:['🏃 Corps de séance','🏃'],cooldown:['❄️ Retour au calme','❄️']};
+    let totalBlocks=0;
+    ['warmup','workout','cooldown'].forEach(sec=>{
+      const blocks=day[sec]||[];
+      if(!blocks.length)return;
+      h+=`<div class="section-hdr">${SEC_LABELS[sec][0]}</div>`;
+      blocks.forEach(b=>{if(b.kind==='run'){h+=_cliRunBlockCard(b,SEC_LABELS[sec][1]);totalBlocks++;}});
+    });
+    if(!totalBlocks){h+=`<div class="empty"><div class="empty-text">Aucun bloc défini pour cette séance.</div></div>`;}
+    else{
+      h+=`<div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(196,154,42,.4);font-size:15px" onclick="openRunDoneModal()">✓ Séance terminée</button></div>`;
+    }
+    document.getElementById('trainContent').innerHTML=h;
+    return;
+  }
+
   let letterIdx=0;
   ['warmup','workout','cooldown'].forEach(sec=>{
     const exos=day[sec]||[];
@@ -1105,6 +1166,45 @@ function renderTrainPreview(){
 
   h+=`<div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(196,154,42,.4);font-size:15px" onclick="startWorkout()">Lancer la séance</button></div>`;
   document.getElementById('trainContent').innerHTML=h;
+}
+
+function openRunDoneModal(){
+  const p=programs[0],day=(p.jours||[])[currentDayIdx];if(!day)return;
+  const inputStyle='width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;font-family:var(--font);outline:none;background:var(--white);color:var(--text);box-sizing:border-box';
+  const labelStyle='display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px';
+  const html=`<div style="background:var(--white);border-radius:18px;width:100%;max-width:460px;max-height:88vh;overflow-y:auto;padding:0">
+    <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><div style="font-size:16px;font-weight:800;color:var(--dark)">Séance running terminée</div></div>
+    <div style="padding:18px 20px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.5">Bravo pour cette séance ! Note rapidement comment ça s'est passé.</div>
+      <div style="margin-bottom:12px"><label style="${labelStyle}">Durée totale (min)</label><input style="${inputStyle}" id="rdDur" type="number" min="1" placeholder="45" inputmode="numeric"></div>
+      <div style="margin-bottom:12px"><label style="${labelStyle}">Distance (km, optionnel)</label><input style="${inputStyle}" id="rdDist" type="number" step="0.1" placeholder="8.5" inputmode="decimal"></div>
+      <div style="margin-bottom:12px"><label style="${labelStyle}">Difficulté ressentie (RPE 1-10)</label><input style="${inputStyle}" id="rdRpe" type="number" min="1" max="10" placeholder="7" inputmode="numeric"></div>
+      <div style="margin-bottom:14px"><label style="${labelStyle}">Commentaire (optionnel)</label><textarea style="${inputStyle};resize:vertical" id="rdComment" rows="3" placeholder="Sensations, fatigue, météo, blessure ressentie…"></textarea></div>
+      <div style="display:flex;gap:8px"><button class="btn-gold" style="flex:1;background:var(--bg2);color:var(--text);font-weight:700" onclick="closeModal()">Annuler</button><button class="btn-gold" style="flex:1;font-weight:800" onclick="saveRunDone()">✓ Enregistrer</button></div>
+    </div>
+  </div>`;
+  openModal(html);
+}
+async function saveRunDone(){
+  const p=programs[0],day=(p.jours||[])[currentDayIdx];if(!day)return;
+  const dur=parseFloat(document.getElementById('rdDur')?.value)||0;
+  const dist=parseFloat(document.getElementById('rdDist')?.value)||0;
+  const rpe=parseInt(document.getElementById('rdRpe')?.value)||null;
+  const comment=document.getElementById('rdComment')?.value?.trim()||'';
+  const sessionName=day.nom||'Run';
+  const blocksSnapshot=['warmup','workout','cooldown'].flatMap(sec=>(day[sec]||[]).filter(b=>b.kind==='run').map(b=>({section:sec,...b})));
+  const row={
+    coach_id:clientData.coach_id,client_id:clientData.id,
+    session_name:sessionName,date:today(),
+    exercises:[{type:'running',duration_min:dur,distance_km:dist,rpe,comment,blocks:blocksSnapshot}]
+  };
+  try{
+    const{data,error}=await db.from('train_logs').insert(row).select().single();
+    if(error){toast('Erreur: '+error.message);return;}
+    if(data)trainLogs.unshift(data);
+    closeModal();toast('Séance running enregistrée ✓');
+    renderTrainPreview();
+  }catch(e){console.error('[RUN DONE]',e);toast('Erreur: '+e.message);}
 }
 
 function renderExoPreview(ex,idx){
