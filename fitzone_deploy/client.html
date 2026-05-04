@@ -10,6 +10,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Fitzone Evolution</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 html, body { overflow-x:hidden; overscroll-behavior-x:none; touch-action:pan-y; }
 :root {
@@ -800,6 +801,7 @@ async function loadData(){
 /* ===== TABS ===== */
 function switchTab(name){
   if(workoutActive&&name!=='Train'){if(!confirm('Quitter la séance en cours ?'))return;endWorkout(false);}
+  if(typeof closeBarcodeScanner==='function')closeBarcodeScanner();
   const swb=document.getElementById('startWorkoutBtn');if(swb)swb.style.display=name==='Train'&&!workoutActive?'block':'none';
   document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -1629,7 +1631,8 @@ function renderAddFoodPage(){
   h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${_ftCurrentMeal} · ${fmtDate(ftDate)}</div>`;
   h+=`<div class="card" style="padding:14px;margin-bottom:12px">
     <input type="text" id="ftSearch" value="${term}" oninput="_ftSearchTerm=this.value;_ftRenderResults()" placeholder="Rechercher un aliment (poulet, riz, pomme…)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none">
-    <button class="btn-gold" style="margin-top:10px;width:100%" onclick="openManualFood()">+ Aliment manuel (hors liste)</button>
+    <button class="btn-gold" style="margin-top:10px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px" onclick="openBarcodeScanner()"><span style="font-size:18px">📷</span> Scanner un code-barres</button>
+    <button class="btn-gold" style="margin-top:8px;width:100%;background:var(--bg2);color:var(--text)" onclick="openManualFood()">+ Aliment manuel (hors liste)</button>
   </div>`;
   h+=`<div id="ftResults"></div>`;
   document.getElementById('nutriContent').innerHTML=h;
@@ -1670,10 +1673,203 @@ function openManualFood(){
 async function _saveFoodEntry(entry){
   const row={coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,...entry};
   const{data,error}=await db.from('food_logs').insert(row).select().single();
-  if(error){toast('Erreur: '+error.message);return;}
+  if(error){
+    if(/extra/i.test(error.message||'')&&entry.extra){
+      // Fallback : la migration food_logs_extra.sql n'est pas encore appliquée
+      delete row.extra;
+      const r=await db.from('food_logs').insert(row).select().single();
+      if(r.error){toast('Erreur: '+r.error.message);return;}
+      if(r.data)foodLogs.unshift(r.data);
+      toast('Aliment ajouté ✓ (micros non sauvegardés — migration SQL requise)');
+      renderFoodTracker();return;
+    }
+    toast('Erreur: '+error.message);return;
+  }
   if(data)foodLogs.unshift(data);
   toast('Aliment ajouté ✓');
   renderFoodTracker();
+}
+
+/* ===== BARCODE SCANNER (OpenFoodFacts) ===== */
+let _bcScanner=null;
+let _bcLastScan=null;
+function openBarcodeScanner(){
+  if(typeof Html5Qrcode==='undefined'){toast('Lib scan non chargée — réessaie dans 2 sec');return;}
+  let h=`<button class="back-btn" onclick="closeBarcodeScanner();renderAddFoodPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
+  h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Scanner un code-barres</div>`;
+  h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Vise le code-barres avec ta caméra. Le produit sera automatiquement reconnu via OpenFoodFacts.</div>`;
+  h+=`<div id="bcReader" style="width:100%;max-width:480px;margin:0 auto;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:1/1"></div>`;
+  h+=`<div id="bcStatus" style="text-align:center;padding:14px;color:var(--text3);font-size:13px">Initialisation de la caméra…</div>`;
+  h+=`<div style="margin-top:14px"><button class="btn-gold" style="width:100%;background:var(--bg2);color:var(--text)" onclick="openManualBarcode()">⌨️ Saisir le code à la main</button></div>`;
+  document.getElementById('nutriContent').innerHTML=h;
+  _bcStartCamera();
+}
+async function _bcStartCamera(){
+  const status=document.getElementById('bcStatus');
+  try{
+    _bcScanner=new Html5Qrcode('bcReader');
+    await _bcScanner.start(
+      {facingMode:'environment'},
+      {fps:10,qrbox:{width:260,height:140},aspectRatio:1.0,formatsToSupport:[
+        Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39
+      ]},
+      (decodedText)=>{
+        if(_bcLastScan===decodedText)return;
+        _bcLastScan=decodedText;
+        if(status)status.textContent='Code détecté : '+decodedText;
+        closeBarcodeScanner();
+        lookupBarcode(decodedText);
+      },
+      ()=>{}
+    );
+    if(status)status.textContent='📷 Vise un code-barres…';
+  }catch(e){
+    console.error('[BARCODE]',e);
+    if(status)status.innerHTML='<span style="color:var(--red)">Caméra inaccessible. Vérifie les permissions ou utilise la saisie manuelle.</span>';
+  }
+}
+async function closeBarcodeScanner(){
+  _bcLastScan=null;
+  if(_bcScanner){
+    try{await _bcScanner.stop();await _bcScanner.clear();}catch(e){}
+    _bcScanner=null;
+  }
+}
+function openManualBarcode(){
+  const code=prompt('Saisis le code-barres (EAN-13 ou UPC) :','');
+  if(!code||!code.trim())return;
+  const clean=code.trim().replace(/\D/g,'');
+  if(clean.length<6){toast('Code invalide');return;}
+  closeBarcodeScanner();
+  lookupBarcode(clean);
+}
+async function lookupBarcode(barcode){
+  const c=document.getElementById('nutriContent');
+  if(c)c.innerHTML=`<div style="padding:60px 20px;text-align:center"><div style="font-size:42px;margin-bottom:14px">🔎</div><div style="font-size:16px;font-weight:700;margin-bottom:6px">Recherche du produit…</div><div style="font-size:12px;color:var(--text3)">Code : ${barcode}</div></div>`;
+  try{
+    const url='https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(barcode)+'.json?fields=product_name,product_name_fr,generic_name_fr,brands,nutriments,image_small_url,image_front_small_url,quantity,serving_size,serving_quantity,nutriscore_grade';
+    const resp=await fetch(url);
+    const j=await resp.json();
+    if(!j||j.status!==1||!j.product){
+      renderBarcodeNotFound(barcode);return;
+    }
+    renderBarcodeProduct(barcode,j.product);
+  }catch(e){
+    console.error('[OFF]',e);
+    renderBarcodeNotFound(barcode,e.message);
+  }
+}
+function renderBarcodeNotFound(barcode,errMsg){
+  let h=`<button class="back-btn" onclick="renderAddFoodPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
+  h+=`<div class="card" style="padding:30px 20px;text-align:center">
+    <div style="font-size:48px;margin-bottom:12px;opacity:.4">📭</div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:8px">Produit introuvable</div>
+    <div style="font-size:13px;color:var(--text3);line-height:1.55;margin-bottom:18px">Le code <strong>${barcode}</strong> n'est pas répertorié dans OpenFoodFacts. Tu peux l'ajouter manuellement.${errMsg?'<br><span style="color:var(--red);font-size:11px">'+errMsg+'</span>':''}</div>
+    <button class="btn-gold" style="width:100%;margin-bottom:8px" onclick="openBarcodeScanner()">📷 Re-scanner</button>
+    <button class="btn-gold" style="width:100%;background:var(--bg2);color:var(--text)" onclick="openManualFood()">+ Aliment manuel</button>
+  </div>`;
+  document.getElementById('nutriContent').innerHTML=h;
+}
+let _bcCurrent=null;
+function renderBarcodeProduct(barcode,product){
+  const n=product.nutriments||{};
+  const num=v=>{const x=parseFloat(v);return isNaN(x)?0:x;};
+  const kcal=num(n['energy-kcal_100g'])||(num(n['energy_100g'])?num(n['energy_100g'])/4.184:0);
+  const prot=num(n['proteins_100g']);
+  const carb=num(n['carbohydrates_100g']);
+  const fat=num(n['fat_100g']);
+  const sucre=num(n['sugars_100g']);
+  const fibres=num(n['fiber_100g']);
+  const satFat=num(n['saturated-fat_100g']);
+  const sodium=num(n['sodium_100g']);
+  const sel=num(n['salt_100g']);
+  const nom=product.product_name_fr||product.product_name||product.generic_name_fr||'Produit '+barcode;
+  const brand=product.brands||'';
+  const img=product.image_small_url||product.image_front_small_url||'';
+  const servingG=parseFloat((product.serving_quantity||'').toString())||parseFloat((product.serving_size||'').replace(/[^\d.]/g,''))||0;
+  const defaultQty=servingG>0?Math.round(servingG):100;
+  _bcCurrent={
+    barcode,nom,brand,kcal,prot,carb,fat,
+    image_url:img,
+    micros:{sucre,fibres,sat_fat:satFat,sodium,salt:sel},
+    nutriscore:product.nutriscore_grade||''
+  };
+  let h=`<button class="back-btn" onclick="renderAddFoodPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
+  h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Produit scanné</div>`;
+  h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${_ftCurrentMeal} · ${fmtDate(ftDate)} · code ${barcode}</div>`;
+  h+=`<div class="card" style="padding:16px;margin-bottom:12px">
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      ${img?`<img src="${img}" style="width:84px;height:84px;border-radius:10px;object-fit:cover;background:var(--bg2);flex-shrink:0">`:`<div style="width:84px;height:84px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">🥫</div>`}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:800;line-height:1.3">${nom}</div>
+        ${brand?`<div style="font-size:12px;color:var(--text3);margin-top:3px">${brand}</div>`:''}
+        ${product.nutriscore_grade?`<div style="display:inline-block;margin-top:6px;padding:3px 8px;background:var(--gold-pale);color:var(--gold);border-radius:6px;font-size:10px;font-weight:800;letter-spacing:1px">Nutri-Score ${product.nutriscore_grade.toUpperCase()}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+  h+=`<div class="card" style="padding:16px;margin-bottom:12px">
+    <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px">VALEURS POUR 100g</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+      <div><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(kcal)}</div><div style="font-size:10px;color:var(--text3);font-weight:600">Kcal</div></div>
+      <div><div style="font-size:18px;font-weight:800;color:#4a90d9">${prot.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Prot</div></div>
+      <div><div style="font-size:18px;font-weight:800;color:var(--gold)">${carb.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Gluc</div></div>
+      <div><div style="font-size:18px;font-weight:800;color:#e07c5a">${fat.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Lip</div></div>
+    </div>
+    ${(sucre||fibres||satFat||sel)?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text2);display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+      ${sucre?`<span>🍯 Sucres ${sucre.toFixed(1)}g</span>`:''}
+      ${fibres?`<span>🌾 Fibres ${fibres.toFixed(1)}g</span>`:''}
+      ${satFat?`<span>🧈 Sat. ${satFat.toFixed(1)}g</span>`:''}
+      ${sel?`<span>🧂 Sel ${sel.toFixed(2)}g</span>`:''}
+    </div>`:''}
+  </div>`;
+  h+=`<div class="card" style="padding:16px;margin-bottom:12px">
+    <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Quantité consommée</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="number" id="bcQty" value="${defaultQty}" min="1" inputmode="numeric" style="flex:1;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;text-align:center;font-weight:700" oninput="_bcUpdateTotals()">
+      <span style="font-size:14px;font-weight:700;color:var(--text3)">g</span>
+    </div>
+    ${servingG>0?`<div style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center">Portion suggérée : ${Math.round(servingG)}g</div>`:''}
+    <div id="bcTotals" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);text-align:center"></div>
+  </div>`;
+  h+=`<button class="btn-gold" style="width:100%;padding:14px;font-size:15px" onclick="saveBarcodeFood()">Enregistrer dans mon suivi</button>`;
+  document.getElementById('nutriContent').innerHTML=h;
+  _bcUpdateTotals();
+}
+function _bcUpdateTotals(){
+  if(!_bcCurrent)return;
+  const el=document.getElementById('bcTotals');if(!el)return;
+  const q=parseFloat(document.getElementById('bcQty')?.value||'0')||0;
+  const r=q/100;
+  el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">POUR ${q}g</div>
+    <div style="display:flex;justify-content:space-around;font-size:13px;font-weight:700">
+      <span style="color:var(--gold)">${Math.round(_bcCurrent.kcal*r)} kcal</span>
+      <span style="color:#4a90d9">P${(_bcCurrent.prot*r).toFixed(1)}</span>
+      <span style="color:var(--gold)">G${(_bcCurrent.carb*r).toFixed(1)}</span>
+      <span style="color:#e07c5a">L${(_bcCurrent.fat*r).toFixed(1)}</span>
+    </div>`;
+}
+function saveBarcodeFood(){
+  if(!_bcCurrent){toast('Aucun produit en mémoire');return;}
+  const q=parseFloat(document.getElementById('bcQty')?.value||'0');
+  if(!q||q<=0){toast('Quantité invalide');return;}
+  const c=_bcCurrent;
+  _saveFoodEntry({
+    aliment_nom:c.brand?(c.brand+' — '+c.nom):c.nom,
+    aliment_id:null,
+    qte_g:q,
+    kcal:c.kcal,prot:c.prot,carb:c.carb,fat:c.fat,
+    extra:{
+      source:'off',
+      barcode:c.barcode,
+      brand:c.brand||null,
+      image_url:c.image_url||null,
+      nutriscore:c.nutriscore||null,
+      micros:c.micros||{}
+    }
+  });
+  _bcCurrent=null;
 }
 async function deleteFoodLog(id){
   if(!confirm('Supprimer cet aliment ?'))return;
