@@ -1576,7 +1576,8 @@ function renderFoodTracker(){
   let h=`<button class="back-btn" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Tracking alimentaire</div>`;
   h+=`<div style="font-size:13px;color:var(--text3);margin-bottom:14px">Logge tout ce que tu manges pour un suivi précis.</div>`;
-  h+=`<div class="card" style="padding:14px;margin-bottom:14px"><input type="date" value="${ftDate}" onchange="ftDate=this.value;renderFoodTracker()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);text-align:center"></div>`;
+  h+=`<div class="card" style="padding:14px;margin-bottom:10px"><input type="date" value="${ftDate}" onchange="ftDate=this.value;renderFoodTracker()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);text-align:center"></div>`;
+  h+=`<button class="btn-gold" style="width:100%;margin-bottom:14px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px" onclick="openBarcodeScanner(true)"><span style="font-size:18px">📷</span> Scanner un code-barres</button>`;
   // Totals bar
   const pct=v=>tgtK?Math.min(100,Math.round(v)):0;
   h+=`<div class="card" style="padding:16px;margin-bottom:14px">
@@ -1693,9 +1694,12 @@ async function _saveFoodEntry(entry){
 /* ===== BARCODE SCANNER (OpenFoodFacts) ===== */
 let _bcScanner=null;
 let _bcLastScan=null;
-function openBarcodeScanner(){
+let _bcReturnTo='addFood';
+function _bcGoBack(){closeBarcodeScanner();if(_bcReturnTo==='tracker')renderFoodTracker();else renderAddFoodPage();}
+function openBarcodeScanner(fromTracker){
+  _bcReturnTo=fromTracker?'tracker':'addFood';
   if(typeof Html5Qrcode==='undefined'){toast('Lib scan non chargée — réessaie dans 2 sec');return;}
-  let h=`<button class="back-btn" onclick="closeBarcodeScanner();renderAddFoodPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
+  let h=`<button class="back-btn" onclick="_bcGoBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Scanner un code-barres</div>`;
   h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Vise le code-barres avec ta caméra. Le produit sera automatiquement reconnu via OpenFoodFacts.</div>`;
   h+=`<div id="bcReader" style="width:100%;max-width:480px;margin:0 auto;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:1/1"></div>`;
@@ -1762,12 +1766,12 @@ async function lookupBarcode(barcode){
   }
 }
 function renderBarcodeNotFound(barcode,errMsg){
-  let h=`<button class="back-btn" onclick="renderAddFoodPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
+  let h=`<button class="back-btn" onclick="_bcGoBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div class="card" style="padding:30px 20px;text-align:center">
     <div style="font-size:48px;margin-bottom:12px;opacity:.4">📭</div>
     <div style="font-size:17px;font-weight:800;margin-bottom:8px">Produit introuvable</div>
     <div style="font-size:13px;color:var(--text3);line-height:1.55;margin-bottom:18px">Le code <strong>${barcode}</strong> n'est pas répertorié dans OpenFoodFacts. Tu peux l'ajouter manuellement.${errMsg?'<br><span style="color:var(--red);font-size:11px">'+errMsg+'</span>':''}</div>
-    <button class="btn-gold" style="width:100%;margin-bottom:8px" onclick="openBarcodeScanner()">📷 Re-scanner</button>
+    <button class="btn-gold" style="width:100%;margin-bottom:8px" onclick="openBarcodeScanner(${_bcReturnTo==='tracker'?'true':'false'})">📷 Re-scanner</button>
     <button class="btn-gold" style="width:100%;background:var(--bg2);color:var(--text)" onclick="openManualFood()">+ Aliment manuel</button>
   </div>`;
   document.getElementById('nutriContent').innerHTML=h;
@@ -1796,9 +1800,9 @@ function renderBarcodeProduct(barcode,product){
     micros:{sucre,fibres,sat_fat:satFat,sodium,salt:sel},
     nutriscore:product.nutriscore_grade||''
   };
-  let h=`<button class="back-btn" onclick="renderAddFoodPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
+  let h=`<button class="back-btn" onclick="_bcGoBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Produit scanné</div>`;
-  h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${_ftCurrentMeal} · ${fmtDate(ftDate)} · code ${barcode}</div>`;
+  h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${fmtDate(ftDate)} · code ${barcode}</div>`;
   h+=`<div class="card" style="padding:16px;margin-bottom:12px">
     <div style="display:flex;gap:14px;align-items:flex-start">
       ${img?`<img src="${img}" style="width:84px;height:84px;border-radius:10px;object-fit:cover;background:var(--bg2);flex-shrink:0">`:`<div style="width:84px;height:84px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">🥫</div>`}
@@ -1825,6 +1829,10 @@ function renderBarcodeProduct(barcode,product){
     </div>`:''}
   </div>`;
   h+=`<div class="card" style="padding:16px;margin-bottom:12px">
+    <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Repas</label>
+    <select id="bcMeal" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none;background:var(--white);font-weight:600;margin-bottom:14px">
+      ${FT_MEALS.map(m=>`<option value="${m}" ${m===_ftCurrentMeal?'selected':''}>${m}</option>`).join('')}
+    </select>
     <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Quantité consommée</label>
     <div style="display:flex;gap:8px;align-items:center">
       <input type="number" id="bcQty" value="${defaultQty}" min="1" inputmode="numeric" style="flex:1;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;text-align:center;font-weight:700" oninput="_bcUpdateTotals()">
@@ -1854,6 +1862,8 @@ function saveBarcodeFood(){
   if(!_bcCurrent){toast('Aucun produit en mémoire');return;}
   const q=parseFloat(document.getElementById('bcQty')?.value||'0');
   if(!q||q<=0){toast('Quantité invalide');return;}
+  const meal=document.getElementById('bcMeal')?.value;
+  if(meal&&FT_MEALS.includes(meal))_ftCurrentMeal=meal;
   const c=_bcCurrent;
   _saveFoodEntry({
     aliment_nom:c.brand?(c.brand+' — '+c.nom):c.nom,
