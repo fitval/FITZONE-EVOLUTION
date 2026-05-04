@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-05-03 (notifications par formulaire de recrutement)
+**Dernière mise à jour** : 2026-05-04 (scan code-barres app client + fix plan IA dupliqué)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -52,6 +52,7 @@
 - [x] **Icônes app client** : Accueil = maison, Nutrition = bol fumant, onglet Bilan retiré de la nav
 - [x] **UI nutrition améliorée** (barre macros colorée P/G/L, icônes repas, pastilles source macro, instructions affichées)
 - [x] **Notifications webhooks par formulaire de recrutement** : éditeur de webhook liste tous les `recruitment_forms` du coach comme cases à cocher individuelles (clé `recruitment_response:<form_id>`), filtrage côté Edge Function `notify-webhook`
+- [x] **Scan code-barres app client (Nutrition)** : lib `html5-qrcode` + lookup OpenFoodFacts (~3M produits), preview macros+micros (sucre/fibres/sat_fat/sel), insert `food_logs` avec colonne JSONB `extra` (migration `food_logs_extra.sql`). Visible coach via les requêtes food_logs existantes (pas de duplication daily_logs)
 
 ### Ce qui reste à faire (prochaines priorités)
 - [ ] **Amélioration UX** : responsive, animations, feedback visuel
