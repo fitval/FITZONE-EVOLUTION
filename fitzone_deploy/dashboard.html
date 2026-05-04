@@ -4138,15 +4138,23 @@ function savePlanFull(){
   if(pfEditId){const i=plans.findIndex(p=>p.id===pfEditId);if(i>=0)plans[i]=plan;else plans.push(plan);}else plans.push(plan);
   lsSave('fz_plans',plans);dbSave('plans_full',plan);closePlanBuilder();renderPlansListPage();toast('Plan enregistré ✓');
 }
+function _planDailyAvg(p){
+  const jours=p.jours||[];
+  if(!jours.length)return{k:p.kcal||0,prot:p.prot||0,carb:p.carb||0,fat:p.fat||0};
+  let k=0,pr=0,c=0,f=0;
+  jours.forEach(d=>(d.repas||[]).forEach(r=>(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;k+=(a.kcal||0)*q;pr+=(a.prot||0)*q;c+=(a.carb||0)*q;f+=(a.fat||0)*q;})));
+  const n=jours.length;
+  return{k:Math.round(k/n),prot:Math.round(pr/n),carb:Math.round(c/n),fat:Math.round(f/n)};
+}
 function renderPlansListPage(){
   const el=document.getElementById('plansPageList');if(!el)return;
   if(!plans.length){el.innerHTML=`<div class="empty"><div class="ei">🥗</div><div class="et">Aucun plan alimentaire</div><div class="es">Crée un plan macros ou un plan complet</div></div>`;return;}
-  el.innerHTML=plans.slice().reverse().map(p=>`<div class="plan-card">
+  el.innerHTML=plans.slice().reverse().map(p=>{const avg=_planDailyAvg(p);return`<div class="plan-card">
     <div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
       <div style="width:38px;height:38px;border-radius:10px;background:${p.type==='full'?'var(--dark)':'var(--gold-pale)'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${p.type==='full'?'🍽️':'📊'}</div>
       <div style="flex:1">
         <div style="font-size:14px;font-weight:700;color:var(--dark)">${p.nom}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${(p.clientNoms||p.client_noms||[]).length?(p.clientNoms||p.client_noms).join(', '):(p.clientNom||p.client_nom||'Sans client')} · ${p.kcal||'?'} kcal · P:${p.prot}g G:${p.carb}g L:${p.fat}g</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${(p.clientNoms||p.client_noms||[]).length?(p.clientNoms||p.client_noms).join(', '):(p.clientNom||p.client_nom||'Sans client')} · ${avg.k||'?'} kcal/j · P:${avg.prot}g G:${avg.carb}g L:${avg.fat}g</div>
       </div>
       <div style="display:flex;gap:5px" onclick="event.stopPropagation()">
         ${p.type==='full'?`<button class="btn btn-ghost btn-xs" onclick="openGroceryList(${p.id})" title="Liste de courses">🛒</button>`:``}
@@ -4171,7 +4179,7 @@ function renderPlansListPage(){
         </div>`;
       }).join('')}</div>
     `:`<div style="font-size:12px;color:var(--text3)">${p.notes||'Plan macros — aucun détail de repas'}</div>`}</div>
-  </div>`).join('');
+  </div>`;}).join('');
 }
 function editFullPlan(id){
   const p=plans.find(x=>x.id===id);if(!p)return;

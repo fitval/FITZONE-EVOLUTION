@@ -1539,12 +1539,21 @@ function endWorkout(save){
 }
 
 /* ===== NUTRITION ===== */
+function _planDailyAvg(p){
+  const jours=p.jours||[];
+  if(!jours.length)return{k:p.kcal||0,prot:p.prot||0,carb:p.carb||0,fat:p.fat||0};
+  let k=0,pr=0,c=0,f=0;
+  jours.forEach(d=>(d.repas||[]).forEach(r=>(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;k+=(a.kcal||0)*q;pr+=(a.prot||0)*q;c+=(a.carb||0)*q;f+=(a.fat||0)*q;})));
+  const n=jours.length;
+  return{k:Math.round(k/n),prot:Math.round(pr/n),carb:Math.round(c/n),fat:Math.round(f/n)};
+}
 function renderNutriList(){
   currentPlanIdx=null;
   let h=`<div style="display:flex;gap:8px;margin-bottom:16px"><button class="btn-gold" style="flex:1;padding:14px 16px;font-size:14px" onclick="openFoodTracker()">📝 Tracking alimentaire</button></div>`;
   if(!plans.length){h+=`<div class="empty"><div class="empty-icon">🍽️</div><div class="empty-text">Aucun plan nutrition assigné.</div></div>`;document.getElementById('nutriContent').innerHTML=h;return;}
   plans.forEach((p,i)=>{
-    h+=`<div class="plan-card fade-up" style="animation-delay:${i*.05}s" onclick="openPlan(${i})"><div class="plan-name">${p.nom||'Plan'}</div><div class="plan-macros"><div class="plan-macro kcal"><div class="plan-macro-val">${Math.round(p.kcal||0)}</div><div class="plan-macro-label">Kcal</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(p.prot||0)}g</div><div class="plan-macro-label">Prot</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(p.carb||0)}g</div><div class="plan-macro-label">Gluc</div></div><div class="plan-macro"><div class="plan-macro-val">${Math.round(p.fat||0)}g</div><div class="plan-macro-label">Lip</div></div></div>${p.notes?`<div style="font-size:13px;color:var(--text2);margin-top:10px">${p.notes}</div>`:''}</div>`;
+    const avg=_planDailyAvg(p);
+    h+=`<div class="plan-card fade-up" style="animation-delay:${i*.05}s" onclick="openPlan(${i})"><div class="plan-name">${p.nom||'Plan'}</div><div class="plan-macros"><div class="plan-macro kcal"><div class="plan-macro-val">${avg.k}</div><div class="plan-macro-label">Kcal/j</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.prot}g</div><div class="plan-macro-label">Prot</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.carb}g</div><div class="plan-macro-label">Gluc</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.fat}g</div><div class="plan-macro-label">Lip</div></div></div>${p.notes?`<div style="font-size:13px;color:var(--text2);margin-top:10px">${p.notes}</div>`:''}</div>`;
   });
   document.getElementById('nutriContent').innerHTML=h;
 }
@@ -1565,60 +1574,117 @@ async function loadFoodLogs(){
     foodLogs=data||[];
   }catch(e){console.error('[FOOD LOGS]',e);foodLogs=[];}
 }
+const FT_MEAL_ICONS={'Petit-déjeuner':'🍳','Collation AM':'🥨','Déjeuner':'🍽️','Goûter':'🍪','Dîner':'🌙','Collation nuit':'🌃'};
+function _ftIsoOf(d){return d.toISOString().slice(0,10);}
+function _ftDayLabel(iso){
+  const t=today();
+  if(iso===t)return"Aujourd'hui";
+  const y=new Date(t);y.setDate(y.getDate()-1);
+  if(iso===_ftIsoOf(y))return'Hier';
+  const tm=new Date(t);tm.setDate(tm.getDate()+1);
+  if(iso===_ftIsoOf(tm))return'Demain';
+  return new Date(iso).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+}
+function ftShiftDate(delta){
+  const d=new Date(ftDate);d.setDate(d.getDate()+delta);
+  ftDate=_ftIsoOf(d);renderFoodTracker();
+}
 function renderFoodTracker(){
   const dayLogs=foodLogs.filter(l=>l.date===ftDate);
-  // Totals
   let tK=0,tP=0,tC=0,tF=0;
   dayLogs.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;tK+=(parseFloat(l.kcal)||0)*q;tP+=(parseFloat(l.prot)||0)*q;tC+=(parseFloat(l.carb)||0)*q;tF+=(parseFloat(l.fat)||0)*q;});
-  // Daily macros target from latest plan (if any)
   let tgtK=0,tgtP=0,tgtC=0,tgtF=0;
-  if(plans.length){const p=plans[0];tgtK=p.kcal||0;tgtP=p.prot||0;tgtC=p.carb||0;tgtF=p.fat||0;}
+  if(plans.length){const avg=_planDailyAvg(plans[0]);tgtK=avg.k;tgtP=avg.prot;tgtC=avg.carb;tgtF=avg.fat;}
+  const pctK=tgtK?Math.min(100,tK/tgtK*100):0;
+  const radius=68,circ=2*Math.PI*radius,off=circ-(Math.min(100,pctK)/100)*circ;
+  const isFuture=ftDate>today();
   let h=`<button class="back-btn" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Tracking alimentaire</div>`;
-  h+=`<div style="font-size:13px;color:var(--text3);margin-bottom:14px">Logge tout ce que tu manges pour un suivi précis.</div>`;
-  h+=`<div class="card" style="padding:14px;margin-bottom:10px"><input type="date" value="${ftDate}" onchange="ftDate=this.value;renderFoodTracker()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);text-align:center"></div>`;
+  h+=`<div style="font-size:13px;color:var(--text3);margin-bottom:14px">${tgtK?'Vise <strong>'+Math.round(tgtK)+' kcal/jour</strong> selon ton plan.':'Logge tout ce que tu manges pour un suivi précis.'}</div>`;
+  // Date strip prev / clickable label / next
+  h+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+    <button onclick="ftShiftDate(-1)" style="width:42px;height:42px;background:var(--white);border:1.5px solid var(--border);border-radius:12px;font-size:18px;color:var(--text2);cursor:pointer;font-family:var(--font)">‹</button>
+    <label style="flex:1;background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:12px;text-align:center;font-weight:700;font-size:14px;cursor:pointer;position:relative;overflow:hidden">
+      <span>${_ftDayLabel(ftDate)}</span>
+      <input type="date" value="${ftDate}" onchange="ftDate=this.value;renderFoodTracker()" style="position:absolute;inset:0;opacity:0;cursor:pointer;font-size:16px">
+    </label>
+    <button onclick="ftShiftDate(1)" ${isFuture?'disabled style="opacity:.35;cursor:not-allowed;"':''} style="width:42px;height:42px;background:var(--white);border:1.5px solid var(--border);border-radius:12px;font-size:18px;color:var(--text2);cursor:pointer;font-family:var(--font)">›</button>
+  </div>`;
+  // Scan button
   h+=`<button class="btn-gold" style="width:100%;margin-bottom:14px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px" onclick="openBarcodeScanner(true)"><span style="font-size:18px">📷</span> Scanner un code-barres</button>`;
-  // Totals bar
-  const pct=v=>tgtK?Math.min(100,Math.round(v)):0;
-  h+=`<div class="card" style="padding:16px;margin-bottom:14px">
-    <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px;text-align:center">TOTAL DU JOUR${tgtK?' / OBJECTIF':''}</div>
-    <div style="text-align:center;margin-bottom:12px"><span style="font-size:30px;font-weight:900;color:var(--gold)">${Math.round(tK)}</span>${tgtK?`<span style="font-size:14px;color:var(--text3);margin-left:4px">/ ${Math.round(tgtK)} kcal</span>`:`<span style="font-size:14px;color:var(--text3);margin-left:4px">kcal</span>`}</div>
-    ${tgtK?`<div style="height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;margin-bottom:12px"><div style="height:100%;background:linear-gradient(90deg,var(--gold),#e8b84a);width:${pct(tK/tgtK*100)}%"></div></div>`:''}
-    <div style="display:flex;justify-content:space-around">
-      ${_ftMacroChip('P',Math.round(tP),tgtP,'#4a90d9')}
-      ${_ftMacroChip('G',Math.round(tC),tgtC,'var(--gold)')}
-      ${_ftMacroChip('L',Math.round(tF),tgtF,'#e07c5a')}
+  // Big total card with circular ring + macro bars
+  const restMsg=tgtK?(tK<=tgtK?`Reste <strong style="color:var(--dark)">${Math.round(tgtK-tK)} kcal</strong>`:`Dépassé de <strong style="color:var(--red)">${Math.round(tK-tgtK)} kcal</strong>`):'';
+  h+=`<div class="card" style="padding:18px;margin-bottom:16px;display:flex;align-items:center;gap:16px">
+    <div style="position:relative;width:140px;height:140px;flex-shrink:0">
+      <svg width="140" height="140" viewBox="0 0 160 160" style="transform:rotate(-90deg)">
+        <circle cx="80" cy="80" r="${radius}" fill="none" stroke="var(--bg2)" stroke-width="14"></circle>
+        ${tgtK?`<circle cx="80" cy="80" r="${radius}" fill="none" stroke="${pctK>110?'var(--red)':'var(--gold)'}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}" style="transition:stroke-dashoffset .35s"></circle>`:''}
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+        <div style="font-size:30px;font-weight:900;color:var(--dark);line-height:1">${Math.round(tK)}</div>
+        <div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;margin-top:2px">KCAL</div>
+        ${tgtK?`<div style="font-size:11px;color:var(--gold);font-weight:800;margin-top:5px">${Math.round(pctK)}%</div>`:''}
+      </div>
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">CONSOMMÉ${tgtK?' / '+Math.round(tgtK)+' KCAL':''}</div>
+      ${restMsg?`<div style="font-size:13px;color:var(--text2);margin-bottom:12px">${restMsg}</div>`:'<div style="height:8px"></div>'}
+      ${_ftMacroBar('P',tP,tgtP,'#4a90d9')}
+      ${_ftMacroBar('G',tC,tgtC,'var(--gold)')}
+      ${_ftMacroBar('L',tF,tgtF,'#e07c5a')}
     </div>
   </div>`;
   // Meals
   FT_MEALS.forEach(m=>{
     const items=dayLogs.filter(l=>l.meal===m);
-    let mK=0,mP=0,mC=0,mF=0;
-    items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;mP+=(parseFloat(l.prot)||0)*q;mC+=(parseFloat(l.carb)||0)*q;mF+=(parseFloat(l.fat)||0)*q;});
-    h+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:linear-gradient(135deg,rgba(196,154,42,.06),rgba(196,154,42,.02))">
-        <div style="flex:1"><div style="font-size:14px;font-weight:800">${m}</div>${items.length?`<div style="font-size:10px;color:var(--text3);margin-top:2px">${items.length} aliment${items.length>1?'s':''} · P${Math.round(mP)} · G${Math.round(mC)} · L${Math.round(mF)}</div>`:'<div style="font-size:10px;color:var(--text3);margin-top:2px">Aucun aliment</div>'}</div>
-        <div style="font-size:14px;font-weight:800;color:var(--gold)">${Math.round(mK)} <span style="font-size:10px;color:var(--text3)">kcal</span></div>
-        <button onclick="openAddFood('${m.replace(/'/g,"\\'")}')" style="background:var(--dark);color:white;border:none;border-radius:10px;width:32px;height:32px;font-size:18px;font-weight:800;cursor:pointer">+</button>
+    let mK=0;
+    items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;});
+    const escMeal=m.replace(/'/g,"\\'");
+    h+=`<div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:0 4px">
+        <span style="font-size:22px">${FT_MEAL_ICONS[m]||'🍽️'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:800">${m}</div>
+          ${items.length?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${items.length} aliment${items.length>1?'s':''}</div>`:''}
+        </div>
+        ${items.length?`<div style="font-size:14px;font-weight:800;color:var(--gold);white-space:nowrap">${Math.round(mK)} <span style="font-size:10px;color:var(--text3);font-weight:600">kcal</span></div>`:''}
       </div>`;
-    if(items.length){
-      h+=`<div style="padding:6px 12px 10px">`;
-      items.forEach(it=>{
-        const q=(parseFloat(it.qte_g)||0)/100;const k=(parseFloat(it.kcal)||0)*q;
-        h+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border)">
-          <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.aliment_nom}</div><div style="font-size:10px;color:var(--text3)">${it.qte_g}g · ${Math.round(k)} kcal</div></div>
-          <button onclick="deleteFoodLog('${it.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:4px" title="Supprimer">✕</button>
+    if(!items.length){
+      h+=`<button onclick="openAddFood('${escMeal}')" style="width:100%;padding:16px;border:1.5px dashed var(--border);background:transparent;border-radius:14px;color:var(--text3);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">
+        <span style="font-size:18px;color:var(--gold);font-weight:900">+</span> Ajouter un aliment
+      </button>`;
+    } else {
+      h+=`<div class="card" style="padding:0;overflow:hidden">`;
+      items.forEach((it,idx)=>{
+        const q=(parseFloat(it.qte_g)||0)/100;
+        const k=(parseFloat(it.kcal)||0)*q;
+        const img=(it.extra&&it.extra.image_url)||'';
+        const isLast=idx===items.length-1;
+        h+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;${!isLast?'border-bottom:1px solid var(--border);':''}">
+          ${img?`<img src="${img}" style="width:40px;height:40px;border-radius:9px;object-fit:cover;background:var(--bg2);flex-shrink:0">`:`<div style="width:40px;height:40px;border-radius:9px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🍴</div>`}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.aliment_nom}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:1px">${it.qte_g}g · ${Math.round(k)} kcal</div>
+          </div>
+          <button onclick="deleteFoodLog('${it.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:8px;flex-shrink:0;font-family:var(--font)" title="Supprimer">✕</button>
         </div>`;
       });
+      h+=`<button onclick="openAddFood('${escMeal}')" style="width:100%;padding:11px;background:var(--bg);border:none;border-top:1px solid var(--border);font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">+ Ajouter un aliment</button>`;
       h+=`</div>`;
     }
     h+=`</div>`;
   });
   document.getElementById('nutriContent').innerHTML=h;
 }
-function _ftMacroChip(label,cur,tgt,color){
-  const pct=tgt?Math.min(100,Math.round(cur/tgt*100)):0;
-  return`<div style="text-align:center;flex:1"><div style="font-size:16px;font-weight:800;color:${color}">${cur}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">${label}${tgt?` / ${Math.round(tgt)}g`:''}</div>${tgt?`<div style="height:3px;background:var(--bg2);border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color};border-radius:2px"></div></div>`:''}</div>`;
+function _ftMacroBar(label,cur,tgt,color){
+  const pct=tgt?Math.min(100,cur/tgt*100):0;
+  return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+    <span style="font-size:11px;font-weight:800;color:${color};width:12px;flex-shrink:0">${label}</span>
+    <div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
+      ${tgt?`<div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width .3s"></div>`:''}
+    </div>
+    <span style="font-size:11px;color:var(--text2);font-weight:600;min-width:62px;text-align:right;font-variant-numeric:tabular-nums">${Math.round(cur)}${tgt?'/'+Math.round(tgt):''}g</span>
+  </div>`;
 }
 let _ftCurrentMeal='Déjeuner';let _ftSearchTerm='';
 function openAddFood(meal){
