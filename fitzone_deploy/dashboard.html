@@ -4132,8 +4132,9 @@ function pfSaveInlineRepas(){
 function savePlanFull(){
   const nom=document.getElementById('pfNom')?.value.trim();if(!nom){toast('Nom du plan requis');return;}
   const t=pfCalcTotal();
+  const nDays=Math.max(1,pfDays.length);
   const firstCl=pfClients[0]||null;
-  const plan={id:pfEditId||Date.now(),type:'full',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pfClients.map(c=>c.id),clientNoms:pfClients.map(c=>c.first_name+' '+c.last_name),kcal:Math.round(t.k),prot:Math.round(t.p),carb:Math.round(t.g),fat:Math.round(t.l),jours:JSON.parse(JSON.stringify(pfDays)),createdAt:new Date().toISOString()};
+  const plan={id:pfEditId||Date.now(),type:'full',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pfClients.map(c=>c.id),clientNoms:pfClients.map(c=>c.first_name+' '+c.last_name),kcal:Math.round(t.k/nDays),prot:Math.round(t.p/nDays),carb:Math.round(t.g/nDays),fat:Math.round(t.l/nDays),jours:JSON.parse(JSON.stringify(pfDays)),createdAt:new Date().toISOString()};
   if(pfEditId){const i=plans.findIndex(p=>p.id===pfEditId);if(i>=0)plans[i]=plan;else plans.push(plan);}else plans.push(plan);
   lsSave('fz_plans',plans);dbSave('plans_full',plan);closePlanBuilder();renderPlansListPage();toast('Plan enregistré ✓');
 }
@@ -6775,8 +6776,10 @@ function validateAIPlan(plan,config){
 function saveAIPlanToPlans(){
   if(!aiPlanData||!aiPlanData.jours){toast('Pas de plan à sauvegarder');return;}
   const config=aiPlanData.config||{};
+  const existingIdx=aiPlanData.savedAsId?plans.findIndex(p=>p.id===aiPlanData.savedAsId):-1;
+  const planId=(existingIdx>=0)?aiPlanData.savedAsId:Date.now();
   const plan={
-    id:Date.now(),
+    id:planId,
     type:'full',
     source:'ai',
     nom:'Plan IA — '+(curClient?curClient.first_name+' '+curClient.last_name:'Client')+' — '+config.kcal+' kcal',
@@ -6814,10 +6817,11 @@ function saveAIPlanToPlans(){
     })),
     createdAt:new Date().toISOString()
   };
-  plans.push(plan);
+  if(existingIdx>=0)plans[existingIdx]=plan;else plans.push(plan);
+  aiPlanData.savedAsId=planId;
   lsSave('fz_plans',plans);dbSave('plans_full',plan);
   renderPlansListPage();
-  toast('Plan IA sauvegardé ✓');
+  toast(existingIdx>=0?'Plan IA mis à jour ✓':'Plan IA sauvegardé ✓');
   return plan.id;
 }
 function saveAndEditAIPlan(){
