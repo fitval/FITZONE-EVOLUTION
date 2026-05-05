@@ -1836,9 +1836,25 @@ async function dbSave(table,item){
     delete row.first;delete row.last;delete row.clients;
   }
   try{
-    const{error}=await db.from(table).upsert(row,{onConflict:'id'});
-    if(error){console.error('❌ dbSave error:',table,error.message,error.details,error.hint,JSON.stringify(row));toast('⚠️ Erreur Supabase: '+error.message);}
-    else console.log('✅ dbSave OK:',table,row.id);
+    let{error}=await db.from(table).upsert(row,{onConflict:'id'});
+    // Si l'erreur est RLS et que la session a peut-être expiré, on rafraîchit et réessaie une fois
+    if(error&&/row-level security/i.test(error.message||'')){
+      try{
+        const{data:sess}=await db.auth.getSession();
+        if(!sess?.session){await db.auth.refreshSession();}
+        else if(sess.session.expires_at&&sess.session.expires_at*1000<Date.now()+30000){await db.auth.refreshSession();}
+        const retry=await db.from(table).upsert(row,{onConflict:'id'});
+        error=retry.error;
+      }catch(e){console.warn('dbSave refresh failed:',e);}
+    }
+    if(error){
+      console.error('❌ dbSave error:',table,'msg=',error.message,'details=',error.details,'hint=',error.hint,'row=',row);
+      if(/row-level security/i.test(error.message||'')){
+        toast('⚠️ Permission refusée. Vérifie que tu es bien connecté (déconnecte/reconnecte si besoin).');
+      } else {
+        toast('⚠️ Erreur Supabase: '+error.message);
+      }
+    } else console.log('✅ dbSave OK:',table,row.id);
   }catch(e){console.warn('dbSave exception:',table,e);}
   // Always update localStorage too
   const arr=window[m.arr]||[];
@@ -4135,10 +4151,13 @@ function pfSaveInlineRepas(){
 }
 function savePlanFull(){
   const nom=document.getElementById('pfNom')?.value.trim();if(!nom){toast('Nom du plan requis');return;}
+  if(!currentCoach||!currentCoach.id){toast('Session expirée — reconnecte-toi');return;}
   const t=pfCalcTotal();
   const nDays=Math.max(1,pfDays.length);
   const firstCl=pfClients[0]||null;
-  const plan={id:pfEditId||Date.now(),type:'full',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pfClients.map(c=>c.id),clientNoms:pfClients.map(c=>c.first_name+' '+c.last_name),kcal:Math.round(t.k/nDays),prot:Math.round(t.p/nDays),carb:Math.round(t.g/nDays),fat:Math.round(t.l/nDays),jours:JSON.parse(JSON.stringify(pfDays)),createdAt:new Date().toISOString()};
+  const existing=pfEditId?plans.find(p=>p.id===pfEditId):null;
+  const coachId=existing?.coach_id||currentCoach.id;
+  const plan={id:pfEditId||Date.now(),coach_id:coachId,type:'full',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pfClients.map(c=>c.id),clientNoms:pfClients.map(c=>c.first_name+' '+c.last_name),kcal:Math.round(t.k/nDays),prot:Math.round(t.p/nDays),carb:Math.round(t.g/nDays),fat:Math.round(t.l/nDays),jours:JSON.parse(JSON.stringify(pfDays)),createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
   if(pfEditId){const i=plans.findIndex(p=>p.id===pfEditId);if(i>=0)plans[i]=plan;else plans.push(plan);}else plans.push(plan);
   lsSave('fz_plans',plans);dbSave('plans_full',plan);closePlanBuilder();renderPlansListPage();toast('Plan enregistré ✓');
 }
@@ -5363,9 +5382,13 @@ function libAddExo(idx){
 }
 function saveProg(){
   const nom=document.getElementById('progNom')?.value.trim();if(!nom){toast('Titre requis');return;}
+  if(!currentCoach||!currentCoach.id){toast('Session expirée — reconnecte-toi');return;}
   const tags=document.getElementById('progTags')?.value.split(',').map(t=>t.trim()).filter(Boolean);
   const firstCl=progClients[0]||null;
-  const prog={id:progEditId||Date.now(),nom,tags,desc:document.getElementById('progDesc')?.value||'',jours:JSON.parse(JSON.stringify(progDays)),clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:progClients.map(c=>c.id),clientNoms:progClients.map(c=>c.first_name+' '+c.last_name),createdAt:new Date().toISOString()};
+  // Préserve coach_id du programme existant (cas admin qui édite un prog d'un autre coach), sinon currentCoach
+  const existing=progEditId?progs.find(p=>p.id===progEditId):null;
+  const coachId=existing?.coach_id||currentCoach.id;
+  const prog={id:progEditId||Date.now(),coach_id:coachId,nom,tags,desc:document.getElementById('progDesc')?.value||'',jours:JSON.parse(JSON.stringify(progDays)),clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:progClients.map(c=>c.id),clientNoms:progClients.map(c=>c.first_name+' '+c.last_name),createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
   if(progEditId){const i=progs.findIndex(p=>p.id===progEditId);if(i>=0)progs[i]=prog;else progs.push(prog);}else progs.push(prog);
   lsSave('fz_progs',progs);dbSave('programs',prog);closeProgBuilder();toast('Programme enregistré ✓');
 }
@@ -5628,8 +5651,11 @@ function seanceAddExo(idx){
 }
 function saveSeance(){
   const nom=document.getElementById('seanceNom')?.value.trim();if(!nom){toast('Nom requis');return;}
+  if(!currentCoach||!currentCoach.id){toast('Session expirée — reconnecte-toi');return;}
   const tags=document.getElementById('seanceTags')?.value.split(',').map(t=>t.trim()).filter(Boolean);
-  const s={id:seanceEditId||Date.now(),nom,type:seanceData.type||'muscu',tags,notes:document.getElementById('seanceNotes')?.value||'',warmup:JSON.parse(JSON.stringify(seanceData.warmup||[])),workout:JSON.parse(JSON.stringify(seanceData.workout||[])),cooldown:JSON.parse(JSON.stringify(seanceData.cooldown||[])),clientId:seanceClient?.id||null,clientNom:seanceClient?(seanceClient.first_name+' '+seanceClient.last_name):null,progId:document.getElementById('seanceProgSel')?.value||null,createdAt:new Date().toISOString()};
+  const existing=seanceEditId?seances.find(x=>x.id===seanceEditId):null;
+  const coachId=existing?.coach_id||currentCoach.id;
+  const s={id:seanceEditId||Date.now(),coach_id:coachId,nom,type:seanceData.type||'muscu',tags,notes:document.getElementById('seanceNotes')?.value||'',warmup:JSON.parse(JSON.stringify(seanceData.warmup||[])),workout:JSON.parse(JSON.stringify(seanceData.workout||[])),cooldown:JSON.parse(JSON.stringify(seanceData.cooldown||[])),clientId:seanceClient?.id||null,clientNom:seanceClient?(seanceClient.first_name+' '+seanceClient.last_name):null,progId:document.getElementById('seanceProgSel')?.value||null,createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
   if(seanceEditId){const i=seances.findIndex(x=>x.id===seanceEditId);if(i>=0)seances[i]=s;else seances.push(s);}else seances.push(s);
   lsSave('fz_seances',seances);dbSave('seances',s);closeSeanceBuilder();toast('Séance enregistrée ✓');
 }
