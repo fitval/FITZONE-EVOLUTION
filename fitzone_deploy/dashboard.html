@@ -3266,7 +3266,7 @@ function _renderTrainingContent(el,logs){
             ${Object.entries(tVol).map(([m,s])=>`<span>${m}: ${s}s</span>`).join('<span style="opacity:.3">·</span>')}
           </div>
         </div>
-        <button class="btn btn-ghost btn-xs" style="color:var(--gold);border-color:rgba(255,255,255,.2)" onclick="event.stopPropagation();openProgBuilder(${latestProg.id})">Modifier</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--gold);border-color:rgba(255,255,255,.2)" onclick="event.stopPropagation();editClientProgram(${latestProg.id})">Modifier</button>
       </div>
       <div class="plan-body${window._clientProgOpen?' open':''}">
         <div style="display:flex;overflow-x:auto;border-bottom:1px solid var(--border);margin:-14px -16px 12px;padding:0 16px">
@@ -4968,6 +4968,13 @@ function openProgBuilderForClient(){
     document.getElementById('progClIn').value='';
     renderClientBadges(progClients,'progClBadges','progRemoveClient');
   },200);
+}
+function editClientProgram(progId){
+  // Ouvre l'éditeur de programme depuis la fiche client : ferme la fiche, navigue vers la page Programmes, puis charge le builder
+  document.getElementById('detPage').classList.remove('show');
+  showPage('tr-progs',document.getElementById('nav-tr-progs'));
+  openSub('sub-train','arr-tr');
+  setTimeout(()=>openProgBuilder(progId),200);
 }
 function progRenderDays(){
   const c=document.getElementById('progDaysTabs');if(!c)return;
