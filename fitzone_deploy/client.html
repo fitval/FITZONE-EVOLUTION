@@ -2081,26 +2081,51 @@ async function _bcStartCamera(){
   }
   setStatus('🔍 Recherche…');
   // Moteur 1 : BarcodeDetector natif (si dispo) — boucle setInterval (toujours fire, même si rVFC se bloque)
+  // Alterne entre frame normale et frame rotée 90° pour détecter aussi les codes verticaux
   if(_bcDetector){
-    let scanCount=0;
+    let scanCount=0,rotateNext=false;
+    const canvas=document.createElement('canvas');
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
     _bcScanInterval=setInterval(async()=>{
       if(_bcStopped||!_bcDetector){clearInterval(_bcScanInterval);return;}
-      if(video.readyState<2)return;
+      if(video.readyState<2||!video.videoWidth)return;
       scanCount++;
+      let target=video;
+      if(rotateNext){
+        // Rotation 90° via canvas pour aider la détection verticale (au cas où BarcodeDetector
+        // ne gère pas la rotation nativement)
+        canvas.width=video.videoHeight;
+        canvas.height=video.videoWidth;
+        ctx.save();
+        ctx.translate(canvas.width/2,canvas.height/2);
+        ctx.rotate(Math.PI/2);
+        ctx.drawImage(video,-video.videoWidth/2,-video.videoHeight/2);
+        ctx.restore();
+        target=canvas;
+      }
+      rotateNext=!rotateNext;
       try{
-        const codes=await _bcDetector.detect(video);
+        const codes=await _bcDetector.detect(target);
         if(codes&&codes.length){
           const code=codes[0].rawValue;
-          if(code&&code!==_bcLastScan){_bcLastScan=code;_bcOnDetected(code,'natif');return;}
+          if(code&&code!==_bcLastScan){_bcLastScan=code;_bcOnDetected(code,target===canvas?'natif-90':'natif');return;}
         }
       }catch(e){console.warn('[bc] detect error',e.message);}
-      if(scanCount%10===0)setStatus('🔍 Recherche… ('+scanCount+' frames analysées · natif'+(zxingAvailable?'+ZXing':'')+')');
+      if(scanCount%10===0)setStatus('🔍 Recherche… ('+scanCount+' frames · natif H+V'+(zxingAvailable?' + ZXing':'')+')');
     },80);
   }
-  // Moteur 2 : ZXing en parallèle (couvre tous les navigateurs, super fiable pour 1D)
+  // Moteur 2 : ZXing en parallèle (couvre tous les navigateurs, fiable + détecte horizontal ET vertical)
   if(zxingAvailable){
     try{
-      _bcZxingReader=new window.ZXingBrowser.BrowserMultiFormatReader();
+      const hints=new Map();
+      // TRY_HARDER : détection plus poussée incluant rotations 90°/180°/270° → codes verticaux OK
+      const HintType=window.ZXingBrowser.DecodeHintType||(window.ZXing&&window.ZXing.DecodeHintType);
+      if(HintType){
+        hints.set(HintType.TRY_HARDER,true);
+        // ALSO_INVERTED : tente aussi avec couleurs inversées (codes blanc-sur-noir)
+        if(HintType.ALSO_INVERTED!=null)hints.set(HintType.ALSO_INVERTED,true);
+      }
+      _bcZxingReader=new window.ZXingBrowser.BrowserMultiFormatReader(hints,{delayBetweenScanAttempts:60,delayBetweenScanSuccess:500});
       _bcZxingControls=await _bcZxingReader.decodeFromVideoElement(video,(result,err)=>{
         if(_bcStopped)return;
         if(result){
@@ -2108,7 +2133,7 @@ async function _bcStartCamera(){
           if(code&&code!==_bcLastScan){_bcLastScan=code;_bcOnDetected(code,'ZXing');}
         }
       });
-      console.log('[bc] ZXing started');
+      console.log('[bc] ZXing started (TRY_HARDER, codes verticaux OK)');
     }catch(e){console.warn('[bc] ZXing start failed',e);}
   }
   if(!_bcDetector&&!zxingAvailable){
