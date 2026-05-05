@@ -11,6 +11,7 @@
 <title>Fitzone Evolution</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
 <style>
 html, body { overflow-x:hidden; overscroll-behavior-x:none; touch-action:pan-y; }
 :root {
@@ -1995,6 +1996,9 @@ let _bcReturnTo='addFood';
 let _bcTorchOn=false;
 let _bcZoomMin=1,_bcZoomMax=1,_bcZoomStep=0.5,_bcZoomCur=1;
 let _bcFrameId=null;
+let _bcScanInterval=null;
+let _bcZxingReader=null;
+let _bcZxingControls=null;
 const _BC_FORMATS=['ean_13','ean_8','upc_a','upc_e','code_128','code_39','code_93','itf','codabar'];
 function _bcGoBack(){closeBarcodeScanner();if(_bcReturnTo==='tracker')renderFoodTracker();else renderAddFoodPage();}
 async function openBarcodeScanner(fromTracker){
@@ -2068,65 +2072,60 @@ async function _bcStartCamera(){
   }catch(e){console.warn('[bc] zoom check failed',e);}
   // 3. Auto-focus au centre dès la caméra prête (force le focus sur la zone du code)
   setTimeout(()=>{const w=document.getElementById('bcWrap');if(!w)return;const r=w.getBoundingClientRect();bcTapFocus({clientX:r.left+r.width/2,clientY:r.top+r.height/2});},900);
-  // 4. Démarre la détection
-  if(nativeFormats.length){
-    setStatus('🔍 Recherche du code-barres…');
-    _bcDetector=new window.BarcodeDetector({formats:nativeFormats});
-    _bcStartScanLoop();
-  } else if(typeof Html5Qrcode!=='undefined'){
-    // Fallback html5-qrcode (rare : iOS<17 ou navigateur ancien)
-    _bcStream.getTracks().forEach(t=>t.stop());_bcStream=null;_bcVideoTrack=null;video.srcObject=null;video.style.display='none';
-    setStatus('🔍 Recherche du code-barres… (mode JS)');
-    try{
-      _bcScanner=new Html5Qrcode('bcWrap');
-      await _bcScanner.start(
-        {facingMode:'environment'},
-        {fps:15,videoConstraints:{facingMode:'environment',advanced:[{focusMode:'continuous'}]},experimentalFeatures:{useBarCodeDetectorIfSupported:true},formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]},
-        (decodedText)=>{if(_bcLastScan===decodedText||_bcStopped)return;_bcLastScan=decodedText;_bcOnDetected(decodedText);},
-        ()=>{}
-      );
-    }catch(e){
-      console.error('[bc] html5-qrcode failed',e);
-      setStatus('<span style="color:#ff7a7a">Scanner indisponible. Utilise la saisie manuelle.</span>');
-    }
-  } else {
-    setStatus('<span style="color:#ff7a7a">Ton navigateur ne supporte pas le scan. iOS 17+ ou Chrome récent requis.</span>');
+  // 4. Démarre la détection — DEUX moteurs en parallèle pour maximum de chance de détecter
+  if(nativeFormats.length){_bcDetector=new window.BarcodeDetector({formats:nativeFormats});}
+  const zxingAvailable=typeof window.ZXingBrowser!=='undefined'&&window.ZXingBrowser.BrowserMultiFormatReader;
+  if(!_bcDetector&&!zxingAvailable&&typeof Html5Qrcode==='undefined'){
+    setStatus('<span style="color:#ff7a7a">Aucun moteur de scan. Mets à jour ton navigateur (iOS 17+ ou Chrome récent).</span>');
+    return;
   }
-}
-function _bcStartScanLoop(){
-  const video=document.getElementById('bcVideo');
-  if(!video)return;
-  // requestVideoFrameCallback : callback à chaque nouvelle frame caméra (instantané, ~30fps natif)
-  if('requestVideoFrameCallback' in HTMLVideoElement.prototype){
-    const onFrame=async(_now,_meta)=>{
-      if(_bcStopped||!_bcDetector)return;
+  setStatus('🔍 Recherche…');
+  // Moteur 1 : BarcodeDetector natif (si dispo) — boucle setInterval (toujours fire, même si rVFC se bloque)
+  if(_bcDetector){
+    let scanCount=0;
+    _bcScanInterval=setInterval(async()=>{
+      if(_bcStopped||!_bcDetector){clearInterval(_bcScanInterval);return;}
+      if(video.readyState<2)return;
+      scanCount++;
       try{
         const codes=await _bcDetector.detect(video);
         if(codes&&codes.length){
           const code=codes[0].rawValue;
-          if(code&&code!==_bcLastScan){_bcLastScan=code;_bcOnDetected(code);return;}
+          if(code&&code!==_bcLastScan){_bcLastScan=code;_bcOnDetected(code,'natif');return;}
         }
-      }catch(e){/* erreur détection ponctuelle */}
-      if(!_bcStopped)_bcFrameId=video.requestVideoFrameCallback(onFrame);
-    };
-    _bcFrameId=video.requestVideoFrameCallback(onFrame);
-  } else {
-    // Fallback : setInterval ~25fps
-    const tick=async()=>{
-      if(_bcStopped||!_bcDetector)return;
-      if(video.readyState>=2){
-        try{
-          const codes=await _bcDetector.detect(video);
-          if(codes&&codes.length){const code=codes[0].rawValue;if(code&&code!==_bcLastScan){_bcLastScan=code;_bcOnDetected(code);return;}}
-        }catch(e){}
-      }
-      if(!_bcStopped)setTimeout(tick,40);
-    };
-    tick();
+      }catch(e){console.warn('[bc] detect error',e.message);}
+      if(scanCount%10===0)setStatus('🔍 Recherche… ('+scanCount+' frames analysées · natif'+(zxingAvailable?'+ZXing':'')+')');
+    },80);
+  }
+  // Moteur 2 : ZXing en parallèle (couvre tous les navigateurs, super fiable pour 1D)
+  if(zxingAvailable){
+    try{
+      _bcZxingReader=new window.ZXingBrowser.BrowserMultiFormatReader();
+      _bcZxingControls=await _bcZxingReader.decodeFromVideoElement(video,(result,err)=>{
+        if(_bcStopped)return;
+        if(result){
+          const code=result.getText();
+          if(code&&code!==_bcLastScan){_bcLastScan=code;_bcOnDetected(code,'ZXing');}
+        }
+      });
+      console.log('[bc] ZXing started');
+    }catch(e){console.warn('[bc] ZXing start failed',e);}
+  }
+  if(!_bcDetector&&!zxingAvailable){
+    // Tout dernier fallback : html5-qrcode
+    _bcStream.getTracks().forEach(t=>t.stop());_bcStream=null;_bcVideoTrack=null;video.srcObject=null;video.style.display='none';
+    setStatus('🔍 Recherche… (mode legacy)');
+    try{
+      _bcScanner=new Html5Qrcode('bcWrap');
+      await _bcScanner.start({facingMode:'environment'},{fps:15,experimentalFeatures:{useBarCodeDetectorIfSupported:true}},
+        (txt)=>{if(_bcLastScan===txt||_bcStopped)return;_bcLastScan=txt;_bcOnDetected(txt,'legacy');},()=>{});
+    }catch(e){console.error('[bc] legacy failed',e);setStatus('<span style="color:#ff7a7a">Scanner indisponible.</span>');}
   }
 }
-function _bcOnDetected(code){
+function _bcOnDetected(code,engine){
+  if(_bcStopped)return;
   _bcStopped=true;
+  console.log('[bc] DETECTED via',engine||'?',':',code);
   try{navigator.vibrate?.(50);}catch(e){}
   const laser=document.getElementById('bcLaser');if(laser)laser.style.background='linear-gradient(90deg,transparent 0%,#22c55e 12%,#22c55e 88%,transparent 100%)';
   const status=document.getElementById('bcStatus');if(status)status.innerHTML='✓ Code détecté : <strong>'+code+'</strong>';
@@ -2166,6 +2165,9 @@ async function bcTapFocus(ev){
 }
 async function closeBarcodeScanner(){
   _bcStopped=true;_bcLastScan=null;_bcDetector=null;
+  if(_bcScanInterval){clearInterval(_bcScanInterval);_bcScanInterval=null;}
+  if(_bcZxingControls){try{_bcZxingControls.stop();}catch(e){}_bcZxingControls=null;}
+  _bcZxingReader=null;
   if(_bcStream){try{_bcStream.getTracks().forEach(t=>t.stop());}catch(e){}_bcStream=null;_bcVideoTrack=null;}
   if(_bcScanner){try{await _bcScanner.stop();await _bcScanner.clear();}catch(e){}_bcScanner=null;}
 }
