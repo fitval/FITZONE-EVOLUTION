@@ -1157,8 +1157,17 @@ function renderTrainPreview(){
     const label={warmup:'Échauffement',workout:'Workout',cooldown:'Retour au calme'}[sec];
     h+=`<div class="section-hdr">${label}</div>`;
     exos.forEach(ex=>{
-      if(ex.superset&&ex.exercises){
-        (ex.exercises||[]).forEach(subEx=>{h+=renderExoPreview(subEx,letterIdx++);});
+      if(ex.superset&&ex.exercises&&ex.exercises.length){
+        const groupLetter=String.fromCharCode(65+letterIdx);
+        h+=`<div style="background:var(--gold-pale);border:1.5px solid var(--gold-border);border-radius:12px;padding:10px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="background:var(--gold);color:var(--dark);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px">${groupLetter}</div>
+            <div style="font-size:12px;font-weight:800;color:#8a6010;letter-spacing:1px">⚡ SUPERSET</div>
+            <div style="font-size:11px;color:var(--text2);margin-left:auto">Alterne entre les exercices</div>
+          </div>`;
+        (ex.exercises||[]).forEach((subEx,si)=>{h+=renderExoPreview(subEx,null,groupLetter+(si+1));});
+        h+=`</div>`;
+        letterIdx++;
       } else {
         h+=renderExoPreview(ex,letterIdx++);
       }
@@ -1335,10 +1344,10 @@ async function saveRunDone(){
   }catch(e){console.error('[RUN DONE]',e);toast('Erreur: '+e.message);}
 }
 
-function renderExoPreview(ex,idx){
+function renderExoPreview(ex,idx,explicitLetter){
   const vid=ytId(ex.video);
   const sets=ex.setsData||ex.sets_data||[];
-  const letter=String.fromCharCode(65+idx);
+  const letter=explicitLetter!=null?explicitLetter:String.fromCharCode(65+idx);
   const nSets=sets.length||parseInt(ex.sets)||0;
   const repsStr=sets.length?sets.map(s=>s.reps||'?').join(' '):(ex.reps||'?');
   const restStr=sets.length&&sets[0].rest?sets[0].rest:(ex.rest||'');
@@ -1368,13 +1377,21 @@ function startWorkout(){
   const p=programs[0],day=(p.jours||[])[currentDayIdx];
   if(!day)return;
 
-  // Build workout data
+  // Build workout data — préserve les supersets en marquant chaque exo avec un supersetId + position
   workoutData=[];
   let allExos=[];
+  let groupCounter=0;
   ['warmup','workout','cooldown'].forEach(sec=>{
     (day[sec]||[]).forEach(ex=>{
-      if(ex.superset&&ex.exercises)(ex.exercises||[]).forEach(sub=>allExos.push({...sub,section:sec}));
-      else allExos.push({...ex,section:sec});
+      if(ex.superset&&ex.exercises&&ex.exercises.length){
+        const groupId='ss_'+(++groupCounter);
+        const groupLetter=String.fromCharCode(64+groupCounter);// A, B, C...
+        (ex.exercises||[]).forEach((sub,si)=>{
+          allExos.push({...sub,section:sec,supersetId:groupId,supersetLetter:groupLetter,supersetPosition:si+1,supersetTotal:ex.exercises.length});
+        });
+      } else {
+        allExos.push({...ex,section:sec});
+      }
     });
   });
 
@@ -1428,10 +1445,29 @@ function renderActiveWorkout(){
   const dayName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
   let h=`<div class="wo-header"><button class="wo-back" onclick="endWorkout(false)">←</button><div class="wo-title">${dayName}</div><div class="wo-timer-wrap"><div class="wo-timer" id="woTimer">00:00</div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>`;
 
-  let curSec='';
+  let curSec='',curGroup=null;
   workoutData.forEach((ex,ei)=>{
-    if(ex.section!==curSec){curSec=ex.section;const lb={warmup:'Échauffement',workout:'Workout',cooldown:'Retour au calme'}[curSec];h+=`<div class="section-hdr">${lb}</div>`;}
-    const letter=String.fromCharCode(65+ei);
+    if(ex.section!==curSec){
+      // Ferme un éventuel superset ouvert avant de changer de section
+      if(curGroup){h+=`</div>`;curGroup=null;}
+      curSec=ex.section;
+      const lb={warmup:'Échauffement',workout:'Workout',cooldown:'Retour au calme'}[curSec];
+      h+=`<div class="section-hdr">${lb}</div>`;
+    }
+    // Gestion superset : ouvre une carte groupée au début, ferme à la fin
+    if(ex.supersetId&&ex.supersetId!==curGroup){
+      if(curGroup)h+=`</div>`;// ferme le précédent
+      curGroup=ex.supersetId;
+      h+=`<div style="background:var(--gold-pale);border:1.5px solid var(--gold-border);border-radius:14px;padding:10px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:0 4px">
+          <div style="background:var(--gold);color:var(--dark);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px">${ex.supersetLetter}</div>
+          <div style="font-size:12px;font-weight:800;color:#8a6010;letter-spacing:1px">⚡ SUPERSET — ${ex.supersetTotal} EXOS</div>
+          <div style="font-size:11px;color:var(--text2);margin-left:auto;font-style:italic">Alterne, repos après le dernier</div>
+        </div>`;
+    } else if(!ex.supersetId&&curGroup){
+      h+=`</div>`;curGroup=null;// sortie d'un superset vers exo simple
+    }
+    const letter=ex.supersetId?(ex.supersetLetter+ex.supersetPosition):String.fromCharCode(65+ei);
     const vid=ytId(ex.video);
     const sets0=ex.sets[0]||{};
     const nSets=ex.sets.length;
@@ -1512,6 +1548,8 @@ function renderActiveWorkout(){
 
     h+=`</div>`;
   });
+  // Ferme un superset éventuellement ouvert à la fin
+  if(curGroup)h+=`</div>`;
 
   h+=`<button class="btn-gold" style="margin-top:16px" onclick="showPostWorkout()">Terminer la séance</button>`;
   document.getElementById('trainContent').innerHTML=h;
