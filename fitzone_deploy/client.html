@@ -800,7 +800,7 @@ async function loadData(){
 
 /* ===== TABS ===== */
 function switchTab(name){
-  if(workoutActive&&name!=='Train'){if(!confirm('Quitter la séance en cours ?'))return;endWorkout(false);}
+  if(workoutActive&&name!=='Train'){if(!confirm('Quitter la séance en cours ?'))return;if(runningActive)endRunningWorkout(false);else endWorkout(false);}
   if(typeof closeBarcodeScanner==='function')closeBarcodeScanner();
   const swb=document.getElementById('startWorkoutBtn');if(swb)swb.style.display=name==='Train'&&!workoutActive?'block':'none';
   document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
@@ -1143,7 +1143,7 @@ function renderTrainPreview(){
     });
     if(!totalBlocks){h+=`<div class="empty"><div class="empty-text">Aucun bloc défini pour cette séance.</div></div>`;}
     else{
-      h+=`<div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(196,154,42,.4);font-size:15px" onclick="openRunDoneModal()">✓ Séance terminée</button></div>`;
+      h+=`<div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(196,154,42,.4);font-size:15px" onclick="startRunningWorkout()">▶ Lancer la séance</button></div>`;
     }
     document.getElementById('trainContent').innerHTML=h;
     return;
@@ -1168,15 +1168,139 @@ function renderTrainPreview(){
   document.getElementById('trainContent').innerHTML=h;
 }
 
-function openRunDoneModal(){
+/* ===== ACTIVE RUNNING WORKOUT ===== */
+let runningActive=false, runningBlocks=[], runningStart=null, runningTimerInterval=null, runningRestInterval=null;
+function startRunningWorkout(){
+  const p=programs[0],day=(p.jours||[])[currentDayIdx];if(!day)return;
+  workoutActive=true;runningActive=true;runningStart=Date.now();
+  const swb=document.getElementById('startWorkoutBtn');if(swb)swb.remove();
+  // Build flat block state
+  runningBlocks=[];
+  ['warmup','workout','cooldown'].forEach(sec=>{
+    (day[sec]||[]).filter(b=>b.kind==='run').forEach(b=>{
+      const block={section:sec,...JSON.parse(JSON.stringify(b)),done:false};
+      if(b.mode==='intervals'&&b.intervals){
+        const sets=parseInt(b.intervals.sets)||1,reps=parseInt(b.intervals.reps)||1;
+        block.setsState=Array.from({length:sets},()=>({done:false,repsState:Array.from({length:reps},()=>({done:false}))}));
+      }
+      runningBlocks.push(block);
+    });
+  });
+  runningTimerInterval=setInterval(updateRunningTimer,1000);
+  renderActiveRunning();
+}
+function updateRunningTimer(){
+  if(!runningStart)return;
+  const el=document.getElementById('woTimer');
+  if(el)el.textContent=fmtTimer(Math.floor((Date.now()-runningStart)/1000));
+}
+const _RUN_SEC_LBL={warmup:'🔥 Échauffement',workout:'🏃 Corps de séance',cooldown:'❄️ Retour au calme'};
+function renderActiveRunning(){
+  const p=programs[0],day=(p.jours||[])[currentDayIdx];
+  const dayName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
+  const vma=parseFloat(clientData?.vma_kmh)||0;
+  let h=`<div class="wo-header"><button class="wo-back" onclick="endRunningWorkout(false)">←</button><div class="wo-title">${dayName}</div><div class="wo-timer-wrap"><div class="wo-timer" id="woTimer">00:00</div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>`;
+  let curSec='';
+  runningBlocks.forEach((b,bi)=>{
+    if(b.section!==curSec){curSec=b.section;h+=`<div class="section-hdr">${_RUN_SEC_LBL[curSec]||curSec}</div>`;}
+    const sum=_cliRunBlockSummary(b,vma);
+    const isInt=b.mode==='intervals'&&b.setsState;
+    const allDone=isInt?b.setsState.every(s=>s.repsState.every(r=>r.done)):b.done;
+    h+=`<div class="card" style="padding:14px;margin-bottom:12px;border-left:4px solid ${allDone?'var(--green)':'var(--gold)'};${allDone?'opacity:.7':''}">
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:${isInt?'12':'10'}px">
+        <div style="width:36px;height:36px;background:${allDone?'#dcf5e3':'var(--gold-pale)'};border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${allDone?'✓':'🏃'}</div>
+        <div style="flex:1;min-width:0">
+          ${b.label?`<div style="font-size:14px;font-weight:800">${b.label.replace(/</g,'&lt;')}</div>`:''}
+          ${sum?`<div style="font-size:12px;color:var(--text2);margin-top:3px;line-height:1.4">${sum.replace(/</g,'&lt;')}</div>`:''}
+          ${b.notes?`<div style="font-size:11px;color:var(--text3);margin-top:4px;font-style:italic">💬 ${b.notes.replace(/</g,'&lt;')}</div>`:''}
+        </div>
+      </div>`;
+    if(isInt){
+      // Render sets/reps grid
+      const iv=b.intervals;
+      const repLabel=iv.rep_distance_m?(iv.rep_distance_m+'m'):iv.rep_duration_s?_cliSecToMmSs(iv.rep_duration_s):'rep';
+      b.setsState.forEach((sst,si)=>{
+        const setDone=sst.repsState.every(r=>r.done);
+        h+=`<div style="margin-bottom:10px;${si>0?'padding-top:10px;border-top:1px dashed var(--border);':''}">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:11px;font-weight:800;color:${setDone?'var(--green)':'var(--gold)'};letter-spacing:1px">SÉRIE ${si+1}/${b.setsState.length}</div>
+            <div style="flex:1;font-size:11px;color:var(--text3)">${sst.repsState.length}× ${repLabel}</div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">`;
+        sst.repsState.forEach((r,ri)=>{
+          h+=`<button onclick="toggleRunRep(${bi},${si},${ri})" style="min-width:54px;padding:9px 8px;border-radius:10px;border:1.5px solid ${r.done?'var(--green)':'var(--border)'};background:${r.done?'#dcf5e3':'var(--white)'};color:${r.done?'#1a7a3a':'var(--text2)'};font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:5px">${r.done?'<span style="font-size:14px">✓</span>':''}${ri+1}</button>`;
+        });
+        h+=`</div>`;
+        if(iv.rest_rep_s&&!setDone){h+=`<button onclick="startRestTimer(${iv.rest_rep_s},'récup rep')" style="margin-top:8px;padding:8px 14px;border-radius:8px;border:1.5px solid var(--gold-border);background:var(--gold-pale);color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)">⏱ Récup ${_cliSecToMmSs(iv.rest_rep_s)}</button>`;}
+        if(iv.rest_set_s&&setDone&&si<b.setsState.length-1){h+=`<button onclick="startRestTimer(${iv.rest_set_s},'pause inter-séries')" style="margin-top:8px;padding:8px 14px;border-radius:8px;border:1.5px solid var(--gold-border);background:var(--gold-pale);color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)">⏱ Pause inter-séries ${_cliSecToMmSs(iv.rest_set_s)}</button>`;}
+        h+=`</div>`;
+      });
+    } else {
+      // Single check button for duration/distance blocks
+      h+=`<button onclick="toggleRunBlock(${bi})" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid ${b.done?'var(--green)':'var(--gold)'};background:${b.done?'#dcf5e3':'var(--gold-pale)'};color:${b.done?'#1a7a3a':'var(--gold)'};font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:8px">${b.done?'✓ Bloc terminé':'Marquer comme terminé'}</button>`;
+    }
+    h+=`</div>`;
+  });
+  h+=`<div id="restTimerOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;align-items:center;justify-content:center;flex-direction:column;color:white" onclick="cancelRestTimer()"><div id="restTimerLabel" style="font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:18px;color:var(--gold)"></div><div id="restTimerVal" style="font-size:88px;font-weight:900;letter-spacing:-2px;line-height:1">00:00</div><div style="font-size:13px;color:rgba(255,255,255,.6);margin-top:24px">Tape pour fermer</div></div>`;
+  h+=`<button class="btn-gold" style="margin-top:16px" onclick="finishRunningSession()">Terminer la séance</button>`;
+  document.getElementById('trainContent').innerHTML=h;
+}
+function toggleRunBlock(bi){if(!runningBlocks[bi])return;runningBlocks[bi].done=!runningBlocks[bi].done;renderActiveRunning();}
+function toggleRunRep(bi,si,ri){const b=runningBlocks[bi];if(!b||!b.setsState?.[si]?.repsState?.[ri])return;b.setsState[si].repsState[ri].done=!b.setsState[si].repsState[ri].done;b.setsState[si].done=b.setsState[si].repsState.every(r=>r.done);renderActiveRunning();}
+function startRestTimer(sec,label){
+  const ov=document.getElementById('restTimerOverlay');if(!ov)return;
+  const lbl=document.getElementById('restTimerLabel');if(lbl)lbl.textContent=label||'Récup';
+  let remaining=parseInt(sec)||0;
+  const valEl=document.getElementById('restTimerVal');
+  if(valEl)valEl.textContent=fmtTimer(remaining);
+  ov.style.display='flex';
+  if(runningRestInterval)clearInterval(runningRestInterval);
+  runningRestInterval=setInterval(()=>{
+    remaining--;
+    if(valEl)valEl.textContent=fmtTimer(Math.max(0,remaining));
+    if(remaining<=0){clearInterval(runningRestInterval);runningRestInterval=null;try{navigator.vibrate?.([200,100,200]);}catch(e){}setTimeout(cancelRestTimer,800);}
+  },1000);
+}
+function cancelRestTimer(){if(runningRestInterval){clearInterval(runningRestInterval);runningRestInterval=null;}const ov=document.getElementById('restTimerOverlay');if(ov)ov.style.display='none';}
+function endRunningWorkout(save){
+  if(!save&&runningActive){if(!confirm('Quitter la séance en cours ? Ta progression sera perdue.'))return;}
+  if(runningTimerInterval){clearInterval(runningTimerInterval);runningTimerInterval=null;}
+  cancelRestTimer();
+  runningActive=false;workoutActive=false;
+  if(!save){runningBlocks=[];runningStart=null;renderTrainPreview();}
+}
+function finishRunningSession(){
+  // Pré-rempli la durée avec le chrono actuel
+  const elapsed=runningStart?Math.floor((Date.now()-runningStart)/1000):0;
+  const elapsedMin=Math.max(1,Math.round(elapsed/60));
+  cancelRestTimer();
+  if(runningTimerInterval){clearInterval(runningTimerInterval);runningTimerInterval=null;}
+  openRunDoneModal(elapsedMin);
+}
+
+function openRunDoneModal(prefilledDurMin){
   const p=programs[0],day=(p.jours||[])[currentDayIdx];if(!day)return;
   const inputStyle='width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;font-family:var(--font);outline:none;background:var(--white);color:var(--text);box-sizing:border-box';
   const labelStyle='display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px';
+  // Récap des reps validées en mode actif
+  let recap='';
+  if(runningBlocks.length){
+    const totals=runningBlocks.reduce((a,b)=>{
+      if(b.mode==='intervals'&&b.setsState){const totRep=b.setsState.reduce((s,st)=>s+st.repsState.length,0);const doneRep=b.setsState.reduce((s,st)=>s+st.repsState.filter(r=>r.done).length,0);a.totReps+=totRep;a.doneReps+=doneRep;}
+      else{a.totBlk++;if(b.done)a.doneBlk++;}return a;
+    },{totBlk:0,doneBlk:0,totReps:0,doneReps:0});
+    const lines=[];
+    if(totals.totBlk)lines.push(`${totals.doneBlk}/${totals.totBlk} blocs validés`);
+    if(totals.totReps)lines.push(`${totals.doneReps}/${totals.totReps} reps validées`);
+    if(lines.length)recap=`<div style="padding:10px 12px;background:var(--gold-pale);border-radius:10px;font-size:12px;font-weight:700;color:#8a6010;margin-bottom:14px">📊 ${lines.join(' · ')}</div>`;
+  }
+  const dur=prefilledDurMin||'';
   const html=`<div style="background:var(--white);border-radius:18px;width:100%;max-width:460px;max-height:88vh;overflow-y:auto;padding:0">
     <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><div style="font-size:16px;font-weight:800;color:var(--dark)">Séance running terminée</div></div>
     <div style="padding:18px 20px">
       <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.5">Bravo pour cette séance ! Note rapidement comment ça s'est passé.</div>
-      <div style="margin-bottom:12px"><label style="${labelStyle}">Durée totale (min)</label><input style="${inputStyle}" id="rdDur" type="number" min="1" placeholder="45" inputmode="numeric"></div>
+      ${recap}
+      <div style="margin-bottom:12px"><label style="${labelStyle}">Durée totale (min)</label><input style="${inputStyle}" id="rdDur" type="number" min="1" placeholder="45" value="${dur}" inputmode="numeric"></div>
       <div style="margin-bottom:12px"><label style="${labelStyle}">Distance (km, optionnel)</label><input style="${inputStyle}" id="rdDist" type="number" step="0.1" placeholder="8.5" inputmode="decimal"></div>
       <div style="margin-bottom:12px"><label style="${labelStyle}">Difficulté ressentie (RPE 1-10)</label><input style="${inputStyle}" id="rdRpe" type="number" min="1" max="10" placeholder="7" inputmode="numeric"></div>
       <div style="margin-bottom:14px"><label style="${labelStyle}">Commentaire (optionnel)</label><textarea style="${inputStyle};resize:vertical" id="rdComment" rows="3" placeholder="Sensations, fatigue, météo, blessure ressentie…"></textarea></div>
@@ -1192,7 +1316,9 @@ async function saveRunDone(){
   const rpe=parseInt(document.getElementById('rdRpe')?.value)||null;
   const comment=document.getElementById('rdComment')?.value?.trim()||'';
   const sessionName=day.nom||'Run';
-  const blocksSnapshot=['warmup','workout','cooldown'].flatMap(sec=>(day[sec]||[]).filter(b=>b.kind==='run').map(b=>({section:sec,...b})));
+  // Snapshot des blocs : si on a des runningBlocks (session active), on les utilise (avec done/setsState),
+  // sinon on prend le programme du jour comme avant.
+  const blocksSnapshot=runningBlocks.length?runningBlocks.map(b=>JSON.parse(JSON.stringify(b))):['warmup','workout','cooldown'].flatMap(sec=>(day[sec]||[]).filter(b=>b.kind==='run').map(b=>({section:sec,...b})));
   const row={
     coach_id:clientData.coach_id,client_id:clientData.id,
     session_name:sessionName,date:today(),
@@ -1203,6 +1329,7 @@ async function saveRunDone(){
     if(error){toast('Erreur: '+error.message);return;}
     if(data)trainLogs.unshift(data);
     closeModal();toast('Séance running enregistrée ✓');
+    endRunningWorkout(true);
     renderTrainPreview();
   }catch(e){console.error('[RUN DONE]',e);toast('Erreur: '+e.message);}
 }
