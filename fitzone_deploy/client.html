@@ -1995,7 +1995,7 @@ function openBarcodeScanner(fromTracker){
   let h=`<button class="back-btn" onclick="_bcGoBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Scanner un code-barres</div>`;
   h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Vise le code-barres avec ta caméra. Le produit sera automatiquement reconnu via OpenFoodFacts.</div>`;
-  h+=`<div id="bcReader" style="width:100%;max-width:480px;margin:0 auto;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:1/1"></div>`;
+  h+=`<div id="bcReader" style="width:100%;max-width:640px;margin:0 auto;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:3/4"></div>`;
   h+=`<div id="bcStatus" style="text-align:center;padding:14px;color:var(--text3);font-size:13px">Initialisation de la caméra…</div>`;
   h+=`<div style="margin-top:14px"><button class="btn-gold" style="width:100%;background:var(--bg2);color:var(--text)" onclick="openManualBarcode()">⌨️ Saisir le code à la main</button></div>`;
   document.getElementById('nutriContent').innerHTML=h;
@@ -2007,11 +2007,15 @@ async function _bcStartCamera(){
     _bcScanner=new Html5Qrcode('bcReader');
     await _bcScanner.start(
       {facingMode:'environment'},
-      {fps:10,qrbox:{width:260,height:140},aspectRatio:1.0,formatsToSupport:[
-        Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39
-      ]},
+      {fps:10,
+        qrbox:(vfW,vfH)=>{const w=Math.round(Math.min(vfW,vfH)*0.92);const h=Math.round(w*0.55);return{width:w,height:h};},
+        aspectRatio:1.3333,
+        formatsToSupport:[
+          Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39
+        ]
+      },
       (decodedText)=>{
         if(_bcLastScan===decodedText)return;
         _bcLastScan=decodedText;
