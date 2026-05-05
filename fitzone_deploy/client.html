@@ -1984,7 +1984,7 @@ async function _saveFoodEntry(entry){
   renderFoodTracker();
 }
 
-/* ===== BARCODE SCANNER (BarcodeDetector natif + html5-qrcode fallback) ===== */
+/* ===== BARCODE SCANNER (BarcodeDetector + html5-qrcode fallback) ===== */
 let _bcScanner=null;
 let _bcStream=null;
 let _bcDetector=null;
@@ -1994,49 +1994,51 @@ let _bcLastScan=null;
 let _bcReturnTo='addFood';
 let _bcTorchOn=false;
 let _bcZoomMin=1,_bcZoomMax=1,_bcZoomStep=0.5,_bcZoomCur=1;
-const _BC_FORMATS=['ean_13','ean_8','upc_a','upc_e','code_128','code_39'];
+let _bcFrameId=null;
+const _BC_FORMATS=['ean_13','ean_8','upc_a','upc_e','code_128','code_39','code_93','itf','codabar'];
 function _bcGoBack(){closeBarcodeScanner();if(_bcReturnTo==='tracker')renderFoodTracker();else renderAddFoodPage();}
 async function openBarcodeScanner(fromTracker){
   _bcReturnTo=fromTracker?'tracker':'addFood';
-  _bcStopped=false;_bcLastScan=null;_bcTorchOn=false;
+  _bcStopped=false;_bcLastScan=null;_bcTorchOn=false;_bcFrameId=null;
   let h=`<button class="back-btn" onclick="_bcGoBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Scanner un code-barres</div>`;
-  h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px">Approche le code à 10–20 cm. Toute la zone est scannée.</div>`;
+  h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px">Vise le code-barres avec le trait rouge. Tape l'écran pour faire la mise au point.</div>`;
   h+=`<div id="bcWrap" style="position:relative;width:100%;margin:0 auto;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:3/4" onclick="bcTapFocus(event)">
-    <div id="bcReader" style="position:absolute;inset:0;background:#000">
-      <video id="bcVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;display:block"></video>
-    </div>
-    <div id="bcGuide" style="position:absolute;top:50%;left:5%;right:5%;height:32%;transform:translateY(-50%);border:2px solid rgba(255,255,255,.4);border-radius:14px;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.35);transition:border-color .2s;z-index:5"></div>
-    <div id="bcLaser" style="position:absolute;top:50%;left:7%;right:7%;height:3px;transform:translateY(-50%);background:linear-gradient(90deg,transparent 0%,#ff2b2b 15%,#ff2b2b 85%,transparent 100%);box-shadow:0 0 12px rgba(255,43,43,.9),0 0 4px rgba(255,43,43,1);pointer-events:none;animation:bcPulse 1.4s ease-in-out infinite;z-index:6"></div>
-    <button id="bcTorch" onclick="event.stopPropagation();toggleBcTorch()" style="display:none;position:absolute;top:12px;right:12px;width:42px;height:42px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:white;font-size:20px;cursor:pointer;backdrop-filter:blur(6px);z-index:10">🔦</button>
-    <div id="bcZoom" style="display:none;position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);border-radius:24px;padding:4px;align-items:center;gap:2px;backdrop-filter:blur(6px);z-index:10">
+    <video id="bcVideo" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:#000"></video>
+    <div id="bcLaser" style="position:absolute;top:50%;left:6%;right:6%;height:3px;transform:translateY(-50%);background:linear-gradient(90deg,transparent 0%,#ff2b2b 12%,#ff2b2b 88%,transparent 100%);box-shadow:0 0 16px rgba(255,43,43,1),0 0 5px rgba(255,43,43,1);pointer-events:none;animation:bcPulse 1.4s ease-in-out infinite;z-index:6"></div>
+    <button id="bcTorch" onclick="event.stopPropagation();toggleBcTorch()" style="display:none;position:absolute;top:12px;right:12px;width:42px;height:42px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:white;font-size:20px;cursor:pointer;backdrop-filter:blur(6px);z-index:10">🔦</button>
+    <div id="bcZoom" style="display:none;position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border-radius:24px;padding:4px;align-items:center;gap:2px;backdrop-filter:blur(6px);z-index:10">
       <button onclick="event.stopPropagation();bcSetZoom(-1)" style="width:38px;height:38px;border-radius:50%;border:none;background:transparent;color:white;font-size:20px;font-weight:700;cursor:pointer">−</button>
       <span id="bcZoomVal" style="color:white;font-size:12px;font-weight:700;padding:0 8px;min-width:42px;text-align:center">1.0×</span>
       <button onclick="event.stopPropagation();bcSetZoom(1)" style="width:38px;height:38px;border-radius:50%;border:none;background:transparent;color:white;font-size:20px;font-weight:700;cursor:pointer">+</button>
     </div>
-    <div id="bcFocusDot" style="display:none;position:absolute;width:60px;height:60px;border:2px solid var(--gold);border-radius:50%;pointer-events:none;z-index:8;animation:bcFocusFade .8s ease-out"></div>
+    <div id="bcFocusDot" style="display:none;position:absolute;width:60px;height:60px;border:2px solid var(--gold);border-radius:50%;pointer-events:none;z-index:8"></div>
+    <div id="bcStatus" style="position:absolute;bottom:0;left:0;right:0;padding:9px 12px;background:linear-gradient(0deg,rgba(0,0,0,.7),transparent);color:white;font-size:12px;text-align:center;z-index:7;font-weight:600">Initialisation de la caméra…</div>
   </div>
-  <style>@keyframes bcPulse{0%,100%{opacity:.7}50%{opacity:1}}@keyframes bcFocusFade{0%{opacity:1;transform:scale(1.6)}100%{opacity:0;transform:scale(1)}}</style>`;
-  h+=`<div id="bcStatus" style="text-align:center;padding:12px;color:var(--text3);font-size:12px">Initialisation de la caméra…</div>`;
-  h+=`<div style="margin-top:8px"><button class="btn-gold" style="width:100%;background:var(--bg2);color:var(--text)" onclick="openManualBarcode()">⌨️ Saisir le code à la main</button></div>`;
+  <style>@keyframes bcPulse{0%,100%{opacity:.6}50%{opacity:1}}@keyframes bcFocusFade{0%{opacity:1;transform:scale(1.6)}100%{opacity:0;transform:scale(1)}}</style>`;
+  h+=`<div style="margin-top:10px;font-size:11px;color:var(--text3);text-align:center">💡 Astuce : tape sur le code-barres dans l'image pour forcer la mise au point. Utilise + pour zoomer.</div>`;
+  h+=`<div style="margin-top:10px"><button class="btn-gold" style="width:100%;background:var(--bg2);color:var(--text)" onclick="openManualBarcode()">⌨️ Saisir le code à la main</button></div>`;
   document.getElementById('nutriContent').innerHTML=h;
   await _bcStartCamera();
 }
 async function _bcStartCamera(){
-  const status=document.getElementById('bcStatus');
+  const setStatus=(html)=>{const s=document.getElementById('bcStatus');if(s)s.innerHTML=html;};
   const video=document.getElementById('bcVideo');
-  if(!video){return;}
-  // 1. Détecte le support natif
+  if(!video)return;
+  // 1. Détecte le support natif (toutes les formats 1D + QR pour bonus)
   let nativeFormats=[];
   if('BarcodeDetector' in window){
     try{
       const supported=await window.BarcodeDetector.getSupportedFormats();
       nativeFormats=_BC_FORMATS.filter(f=>supported.includes(f));
-    }catch(e){console.warn('[bc] BarcodeDetector.getSupportedFormats error',e);}
+      console.log('[bc] BarcodeDetector formats supported:',nativeFormats);
+    }catch(e){console.warn('[bc] getSupportedFormats error',e);}
+  } else {
+    console.warn('[bc] BarcodeDetector non dispo (iOS<17 ou navigateur ancien)');
   }
-  // 2. Démarre la caméra — chaîne de fallback résolution × focusMode
-  const tryConstraints=async(c)=>{try{return await navigator.mediaDevices.getUserMedia({video:c,audio:false});}catch(e){console.warn('[bc] constraint refused',c,e.message);return null;}};
-  const advFocus=[{focusMode:'continuous'}];
+  // 2. Démarre la caméra avec autofocus + résolution maximale
+  const tryConstraints=async(c)=>{try{return await navigator.mediaDevices.getUserMedia({video:c,audio:false});}catch(e){console.warn('[bc] constraint refused',e.message,c);return null;}};
+  const advFocus=[{focusMode:'continuous'},{focusDistance:0.1}];
   _bcStream=
     await tryConstraints({facingMode:{ideal:'environment'},width:{ideal:2560},height:{ideal:1440},frameRate:{ideal:30},advanced:advFocus})
     ||await tryConstraints({facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},advanced:advFocus})
@@ -2044,7 +2046,7 @@ async function _bcStartCamera(){
     ||await tryConstraints({facingMode:{ideal:'environment'}})
     ||await tryConstraints(true);
   if(!_bcStream){
-    if(status)status.innerHTML='<span style="color:var(--red)">Caméra inaccessible. Autorise l\'accès dans les réglages du navigateur.</span>';
+    setStatus('<span style="color:#ff7a7a">Caméra inaccessible. Autorise l\'accès dans les réglages.</span>');
     return;
   }
   video.srcObject=_bcStream;
@@ -2052,9 +2054,9 @@ async function _bcStartCamera(){
   _bcVideoTrack=_bcStream.getVideoTracks()[0];
   const settings=_bcVideoTrack?.getSettings?.()||{};
   console.log('[bc] camera ready',settings.width+'x'+settings.height+'@'+settings.frameRate+'fps');
-  // Active la torche si dispo
+  // Torche
   try{const caps=_bcVideoTrack?.getCapabilities?.();if(caps?.torch){const tb=document.getElementById('bcTorch');if(tb)tb.style.display='flex';}}catch(e){}
-  // Affiche les boutons zoom si dispo, mais reste à 1× par défaut (le 2× cassait le focus à courte distance)
+  // Zoom
   try{
     const caps=_bcVideoTrack?.getCapabilities?.();
     if(caps?.zoom){
@@ -2064,18 +2066,19 @@ async function _bcStartCamera(){
       const zv=document.getElementById('bcZoomVal');if(zv)zv.textContent=_bcZoomCur.toFixed(1)+'×';
     }
   }catch(e){console.warn('[bc] zoom check failed',e);}
-  // 3. Choisit le moteur de scan
+  // 3. Auto-focus au centre dès la caméra prête (force le focus sur la zone du code)
+  setTimeout(()=>{const w=document.getElementById('bcWrap');if(!w)return;const r=w.getBoundingClientRect();bcTapFocus({clientX:r.left+r.width/2,clientY:r.top+r.height/2});},900);
+  // 4. Démarre la détection
   if(nativeFormats.length){
-    if(status)status.innerHTML=`📷 Vise un code-barres… <span style="opacity:.55">(détection native, ${nativeFormats.length} formats)</span>`;
+    setStatus('🔍 Recherche du code-barres…');
     _bcDetector=new window.BarcodeDetector({formats:nativeFormats});
-    _bcScanLoopNative();
+    _bcStartScanLoop();
   } else if(typeof Html5Qrcode!=='undefined'){
-    // Fallback : on stoppe NOTRE stream et on laisse html5-qrcode gérer le sien
-    _bcStream.getTracks().forEach(t=>t.stop());_bcStream=null;_bcVideoTrack=null;
-    video.srcObject=null;video.style.display='none';
-    if(status)status.innerHTML='📷 Vise un code-barres… <span style="opacity:.55">(détection JS)</span>';
+    // Fallback html5-qrcode (rare : iOS<17 ou navigateur ancien)
+    _bcStream.getTracks().forEach(t=>t.stop());_bcStream=null;_bcVideoTrack=null;video.srcObject=null;video.style.display='none';
+    setStatus('🔍 Recherche du code-barres… (mode JS)');
     try{
-      _bcScanner=new Html5Qrcode('bcReader');
+      _bcScanner=new Html5Qrcode('bcWrap');
       await _bcScanner.start(
         {facingMode:'environment'},
         {fps:15,videoConstraints:{facingMode:'environment',advanced:[{focusMode:'continuous'}]},experimentalFeatures:{useBarCodeDetectorIfSupported:true},formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39]},
@@ -2084,30 +2087,48 @@ async function _bcStartCamera(){
       );
     }catch(e){
       console.error('[bc] html5-qrcode failed',e);
-      if(status)status.innerHTML='<span style="color:var(--red)">Scanner indisponible. Utilise la saisie manuelle.</span>';
+      setStatus('<span style="color:#ff7a7a">Scanner indisponible. Utilise la saisie manuelle.</span>');
     }
   } else {
-    if(status)status.innerHTML='<span style="color:var(--red)">Aucun moteur de scan disponible — utilise la saisie manuelle.</span>';
+    setStatus('<span style="color:#ff7a7a">Ton navigateur ne supporte pas le scan. iOS 17+ ou Chrome récent requis.</span>');
   }
 }
-async function _bcScanLoopNative(){
-  if(_bcStopped||!_bcDetector)return;
+function _bcStartScanLoop(){
   const video=document.getElementById('bcVideo');
-  if(!video||video.readyState<2){requestAnimationFrame(_bcScanLoopNative);return;}
-  try{
-    const codes=await _bcDetector.detect(video);
-    if(codes&&codes.length){
-      const code=codes[0].rawValue;
-      if(code&&code!==_bcLastScan){_bcLastScan=code;_bcOnDetected(code);return;}
-    }
-  }catch(e){/* erreur détection ponctuelle, on continue */}
-  // Throttle léger pour économiser le CPU/batterie sans perdre en réactivité
-  if(!_bcStopped)setTimeout(()=>requestAnimationFrame(_bcScanLoopNative),60);
+  if(!video)return;
+  // requestVideoFrameCallback : callback à chaque nouvelle frame caméra (instantané, ~30fps natif)
+  if('requestVideoFrameCallback' in HTMLVideoElement.prototype){
+    const onFrame=async(_now,_meta)=>{
+      if(_bcStopped||!_bcDetector)return;
+      try{
+        const codes=await _bcDetector.detect(video);
+        if(codes&&codes.length){
+          const code=codes[0].rawValue;
+          if(code&&code!==_bcLastScan){_bcLastScan=code;_bcOnDetected(code);return;}
+        }
+      }catch(e){/* erreur détection ponctuelle */}
+      if(!_bcStopped)_bcFrameId=video.requestVideoFrameCallback(onFrame);
+    };
+    _bcFrameId=video.requestVideoFrameCallback(onFrame);
+  } else {
+    // Fallback : setInterval ~25fps
+    const tick=async()=>{
+      if(_bcStopped||!_bcDetector)return;
+      if(video.readyState>=2){
+        try{
+          const codes=await _bcDetector.detect(video);
+          if(codes&&codes.length){const code=codes[0].rawValue;if(code&&code!==_bcLastScan){_bcLastScan=code;_bcOnDetected(code);return;}}
+        }catch(e){}
+      }
+      if(!_bcStopped)setTimeout(tick,40);
+    };
+    tick();
+  }
 }
 function _bcOnDetected(code){
   _bcStopped=true;
   try{navigator.vibrate?.(50);}catch(e){}
-  const guide=document.getElementById('bcGuide');if(guide)guide.style.borderColor='#22c55e';
+  const laser=document.getElementById('bcLaser');if(laser)laser.style.background='linear-gradient(90deg,transparent 0%,#22c55e 12%,#22c55e 88%,transparent 100%)';
   const status=document.getElementById('bcStatus');if(status)status.innerHTML='✓ Code détecté : <strong>'+code+'</strong>';
   closeBarcodeScanner();
   lookupBarcode(code);
