@@ -4952,13 +4952,16 @@ function openProgBuilder(id){
   document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="closeProgBuilder()">← Retour</button><button class="btn btn-gold btn-sm" onclick="saveProg()">💾 Enregistrer</button>`;
 }
 function closeProgBuilder(){
+  if(_maybeReturnToClientFromProg())return;
   document.getElementById('progBuilderWrap').style.display='none';document.getElementById('progListWrap').style.display='block';
   document.getElementById('tbActs').innerHTML=`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`;
   renderProgList();
 }
+let progFromClientId=null;
 function openProgBuilderForClient(){
   if(!curClient)return;
   const cl=curClient;
+  progFromClientId=cl.id;
   document.getElementById('detPage').classList.remove('show');
   showPage('tr-progs',document.getElementById('nav-tr-progs'));
   openSub('sub-train','arr-tr');
@@ -4970,11 +4973,23 @@ function openProgBuilderForClient(){
   },200);
 }
 function editClientProgram(progId){
-  // Ouvre l'éditeur de programme depuis la fiche client : ferme la fiche, navigue vers la page Programmes, puis charge le builder
+  // Ouvre l'éditeur de programme depuis la fiche client + mémorise le client pour retour auto
+  if(curClient)progFromClientId=curClient.id;
   document.getElementById('detPage').classList.remove('show');
   showPage('tr-progs',document.getElementById('nav-tr-progs'));
   openSub('sub-train','arr-tr');
   setTimeout(()=>openProgBuilder(progId),200);
+}
+function _maybeReturnToClientFromProg(){
+  if(!progFromClientId)return false;
+  const c=allClients.find(x=>x.id===progFromClientId);
+  progFromClientId=null;
+  if(!c)return false;
+  document.getElementById('progBuilderWrap').style.display='none';
+  document.getElementById('progListWrap').style.display='block';
+  document.getElementById('tbActs').innerHTML=`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`;
+  setTimeout(()=>{if(typeof openDet==='function')openDet(c.id);},80);
+  return true;
 }
 function progRenderDays(){
   const c=document.getElementById('progDaysTabs');if(!c)return;
@@ -7798,22 +7813,42 @@ async function openRecResp(id){
   document.getElementById('recRespDetail').innerHTML=h;
   document.getElementById('recRespStatus').value=r.status||'en_attente';
   openM('mRecResp');
+  // Auto-marquer comme "lu" à l'ouverture si encore en attente
+  if(r.status==='en_attente'){
+    db.from('recruitment_responses').update({status:'lu'}).eq('id',r.id).then(({error})=>{
+      if(error){console.warn('[auto-lu] update failed (la migration SQL recruitment_status_lu.sql doit être exécutée) :',error.message);return;}
+      r.status='lu';
+      const sel=document.getElementById('recRespStatus');if(sel)sel.value='lu';
+      renderRecResponses();
+    });
+  }
 }
 
 async function updateRecRespStatus(){
   if(!recCurrentRespId)return;
   const status=document.getElementById('recRespStatus').value;
   const notes=document.getElementById('recRespNotes')?.value||'';
-  await db.from('recruitment_responses').update({status,notes}).eq('id',recCurrentRespId);
+  const{error}=await db.from('recruitment_responses').update({status,notes}).eq('id',recCurrentRespId);
+  if(error){
+    console.error('[updateRecRespStatus]',error);
+    if(/check constraint|recruitment_responses_status_check/i.test(error.message||''))toast('⚠️ Statut "'+status+'" non autorisé. Exécute supabase/recruitment_status_lu.sql.');
+    else toast('Erreur: '+error.message);
+    return;
+  }
   const r=recResponses.find(x=>x.id===recCurrentRespId);
   if(r){r.status=status;r.notes=notes;}
-  toast('Statut mis à jour');
+  toast('Statut mis à jour ✓');
   renderRecResponses();
 }
 
 async function updRecRespStatusInline(id,status){
   const{error}=await db.from('recruitment_responses').update({status}).eq('id',id);
-  if(error){toast('Erreur: '+error.message);return;}
+  if(error){
+    console.error('[updRecRespStatusInline]',error);
+    if(/check constraint|recruitment_responses_status_check/i.test(error.message||''))toast('⚠️ Statut "'+status+'" non autorisé. Exécute supabase/recruitment_status_lu.sql.');
+    else toast('Erreur: '+error.message);
+    return;
+  }
   const r=recResponses.find(x=>x.id===id);
   if(r)r.status=status;
   toast('Statut mis à jour ✓');
