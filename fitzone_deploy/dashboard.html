@@ -7731,23 +7731,39 @@ function setRecStatus(s,el){
 
 let _selectedRecResps=new Set();
 async function renderRecResponses(){
-  await loadRecForms();await loadRecResponses();
+  try{await loadRecForms();}catch(e){console.error('[rec-resp] loadRecForms',e);}
+  try{await loadRecResponses();}catch(e){console.error('[rec-resp] loadRecResponses',e);}
+  console.log('[rec-resp] loaded',recForms.length,'forms,',recResponses.length,'responses');
   // Populate form filter
   const sel=document.getElementById('recRespFormFilter');
+  if(!sel){console.warn('[rec-resp] recRespFormFilter introuvable — page pas encore montée');return;}
   const cur=sel.value;
   sel.innerHTML='<option value="all">Tous les questionnaires</option>';
   recForms.forEach(f=>{sel.innerHTML+=`<option value="${f.id}">${esc(f.title)}</option>`;});
-  sel.value=cur;
+  sel.value=cur||'all';
   // Filter
   let filtered=recResponses;
   if(sel.value!=='all')filtered=filtered.filter(r=>r.form_id===sel.value);
   if(recStatusFilter!=='all')filtered=filtered.filter(r=>r.status===recStatusFilter);
   const el=document.getElementById('recResponsesList');
-  if(!filtered.length){el.innerHTML='<div class="empty"><div class="ei">📬</div><div class="et">Aucune candidature</div><div class="es">Les candidatures apparaîtront ici</div></div>';return;}
-  // Nettoie les selections qui ne sont plus dans la liste filtrée
-  _selectedRecResps=new Set([..._selectedRecResps].filter(id=>filtered.some(r=>r.id===id)));
+  if(!el){console.warn('[rec-resp] recResponsesList introuvable');return;}
   const statusLabels={en_attente:'À lire',lu:'Lu',contacte:'Contacté',reserve:'Réservé',accepte:'Validé',refuse:'Refusé'};
   const statusOpts=['en_attente','lu','contacte','accepte','refuse'];
+  if(!filtered.length){
+    let emptyMsg='Aucune candidature';
+    let emptySub='Les candidatures apparaîtront ici';
+    if(recResponses.length>0){
+      emptyMsg='Aucune candidature avec ces filtres';
+      const filters=[];
+      if(sel.value!=='all'){const f=recForms.find(x=>x.id===sel.value);if(f)filters.push('formulaire « '+esc(f.title)+' »');}
+      if(recStatusFilter!=='all')filters.push('statut « '+(statusLabels[recStatusFilter]||recStatusFilter)+' »');
+      emptySub=filters.length?'Filtre actif : '+filters.join(' + ')+'. Clique « Tous » pour réinitialiser.':'';
+    }
+    el.innerHTML='<div class="empty"><div class="ei">📬</div><div class="et">'+emptyMsg+'</div><div class="es">'+emptySub+'</div>'+(recResponses.length>0?'<button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="resetRecRespFilters()">Réinitialiser les filtres</button>':'')+'</div>';
+    return;
+  }
+  // Nettoie les selections qui ne sont plus dans la liste filtrée
+  _selectedRecResps=new Set([..._selectedRecResps].filter(id=>filtered.some(r=>r.id===id)));
   const allSelected=filtered.length>0&&filtered.every(r=>_selectedRecResps.has(r.id));
   let h='<div id="recRespBulkBar" style="display:'+(_selectedRecResps.size?'flex':'none')+';align-items:center;gap:10px;padding:10px 14px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:10px;margin-bottom:12px;font-size:13px;flex-wrap:wrap"><span style="font-weight:700;color:#8a6010"><span id="recRespSelCount">'+_selectedRecResps.size+'</span> sélectionné(s)</span><button class="btn btn-dark btn-sm" onclick="downloadRecRespsJSON()">⬇ JSON (pour IA)</button><button class="btn btn-ghost btn-sm" onclick="downloadRecRespsCSV()">⬇ CSV</button><button class="btn btn-ghost btn-sm" onclick="copyRecRespsForAI()">📋 Copier pour IA</button><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="clearRecRespSelection()">Désélectionner</button></div>';
   h+='<div class="tw"><table><thead><tr><th style="width:36px;text-align:center"><input type="checkbox" '+(allSelected?'checked':'')+' onclick="toggleAllRecResps(this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--gold)"></th><th>Candidat</th><th>Email</th><th>Questionnaire</th><th>Statut</th><th>Date</th><th style="width:110px;text-align:center">Actions</th></tr></thead><tbody>';
@@ -7788,6 +7804,12 @@ function toggleAllRecResps(checked){
   renderRecResponses();
 }
 function clearRecRespSelection(){_selectedRecResps.clear();renderRecResponses();}
+function resetRecRespFilters(){
+  recStatusFilter='all';
+  const sel=document.getElementById('recRespFormFilter');if(sel)sel.value='all';
+  document.querySelectorAll('#recStatusChips .chip').forEach((c,i)=>{c.classList.toggle('active',i===0);});
+  renderRecResponses();
+}
 function _buildSelectedRecRespsExport(){
   const items=[];
   _selectedRecResps.forEach(id=>{

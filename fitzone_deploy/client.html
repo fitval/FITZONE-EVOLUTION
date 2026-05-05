@@ -2004,14 +2004,16 @@ async function openBarcodeScanner(fromTracker){
   h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px">Approche le code à 10–20 cm. Toute la zone est scannée.</div>`;
   h+=`<div id="bcReader" style="position:relative;width:100%;margin:0 auto;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:3/4">
     <video id="bcVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;display:block"></video>
-    <div id="bcGuide" style="position:absolute;top:50%;left:5%;right:5%;height:32%;transform:translateY(-50%);border:3px solid var(--gold);border-radius:14px;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.35);transition:border-color .2s"></div>
+    <div id="bcGuide" style="position:absolute;top:50%;left:5%;right:5%;height:32%;transform:translateY(-50%);border:2px solid rgba(255,255,255,.4);border-radius:14px;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.35);transition:border-color .2s"></div>
+    <div id="bcLaser" style="position:absolute;top:50%;left:7%;right:7%;height:3px;transform:translateY(-50%);background:linear-gradient(90deg,transparent 0%,#ff2b2b 15%,#ff2b2b 85%,transparent 100%);box-shadow:0 0 12px rgba(255,43,43,.9),0 0 4px rgba(255,43,43,1);pointer-events:none;animation:bcPulse 1.4s ease-in-out infinite"></div>
     <button id="bcTorch" onclick="toggleBcTorch()" style="display:none;position:absolute;top:12px;right:12px;width:42px;height:42px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:white;font-size:20px;cursor:pointer;backdrop-filter:blur(6px)">🔦</button>
-    <div id="bcZoom" style="display:none;position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);border-radius:24px;padding:4px;display:flex;align-items:center;gap:2px;backdrop-filter:blur(6px)">
+    <div id="bcZoom" style="display:none;position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);border-radius:24px;padding:4px;align-items:center;gap:2px;backdrop-filter:blur(6px)">
       <button onclick="bcSetZoom(-1)" style="width:38px;height:38px;border-radius:50%;border:none;background:transparent;color:white;font-size:20px;font-weight:700;cursor:pointer">−</button>
       <span id="bcZoomVal" style="color:white;font-size:12px;font-weight:700;padding:0 8px;min-width:42px;text-align:center">1.0×</span>
       <button onclick="bcSetZoom(1)" style="width:38px;height:38px;border-radius:50%;border:none;background:transparent;color:white;font-size:20px;font-weight:700;cursor:pointer">+</button>
     </div>
-  </div>`;
+  </div>
+  <style>@keyframes bcPulse{0%,100%{opacity:.7}50%{opacity:1}}</style>`;
   h+=`<div id="bcStatus" style="text-align:center;padding:12px;color:var(--text3);font-size:12px">Initialisation de la caméra…</div>`;
   h+=`<div style="margin-top:8px"><button class="btn-gold" style="width:100%;background:var(--bg2);color:var(--text)" onclick="openManualBarcode()">⌨️ Saisir le code à la main</button></div>`;
   document.getElementById('nutriContent').innerHTML=h;
@@ -2029,11 +2031,15 @@ async function _bcStartCamera(){
       nativeFormats=_BC_FORMATS.filter(f=>supported.includes(f));
     }catch(e){console.warn('[bc] BarcodeDetector.getSupportedFormats error',e);}
   }
-  // 2. Démarre la caméra — résolution max possible (essai 4K, repli 1080p)
-  const tryConstraints=async(c)=>{try{return await navigator.mediaDevices.getUserMedia({video:c,audio:false});}catch(e){return null;}};
-  _bcStream=await tryConstraints({facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160},frameRate:{ideal:30},focusMode:'continuous'});
-  if(!_bcStream)_bcStream=await tryConstraints({facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},focusMode:'continuous'});
-  if(!_bcStream)_bcStream=await tryConstraints({facingMode:{ideal:'environment'}});
+  // 2. Démarre la caméra — chaîne de fallback résolution × focusMode
+  const tryConstraints=async(c)=>{try{return await navigator.mediaDevices.getUserMedia({video:c,audio:false});}catch(e){console.warn('[bc] constraint refused',c,e.message);return null;}};
+  const advFocus=[{focusMode:'continuous'}];
+  _bcStream=
+    await tryConstraints({facingMode:{ideal:'environment'},width:{ideal:2560},height:{ideal:1440},frameRate:{ideal:30},advanced:advFocus})
+    ||await tryConstraints({facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},advanced:advFocus})
+    ||await tryConstraints({facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}})
+    ||await tryConstraints({facingMode:{ideal:'environment'}})
+    ||await tryConstraints(true);
   if(!_bcStream){
     if(status)status.innerHTML='<span style="color:var(--red)">Caméra inaccessible. Autorise l\'accès dans les réglages du navigateur.</span>';
     return;
@@ -2045,13 +2051,12 @@ async function _bcStartCamera(){
   console.log('[bc] camera ready',settings.width+'x'+settings.height+'@'+settings.frameRate+'fps');
   // Active la torche si dispo
   try{const caps=_bcVideoTrack?.getCapabilities?.();if(caps?.torch){const tb=document.getElementById('bcTorch');if(tb)tb.style.display='flex';}}catch(e){}
-  // Active le zoom si dispo + applique un zoom optique 2x par défaut (utile pour les codes lointains)
+  // Affiche les boutons zoom si dispo, mais reste à 1× par défaut (le 2× cassait le focus à courte distance)
   try{
     const caps=_bcVideoTrack?.getCapabilities?.();
     if(caps?.zoom){
       _bcZoomMin=caps.zoom.min||1;_bcZoomMax=caps.zoom.max||1;_bcZoomStep=caps.zoom.step||0.5;
-      _bcZoomCur=Math.min(2,_bcZoomMax);// 2x par défaut si dispo
-      try{await _bcVideoTrack.applyConstraints({advanced:[{zoom:_bcZoomCur}]});}catch(e){_bcZoomCur=_bcZoomMin;}
+      _bcZoomCur=_bcZoomMin;
       const zb=document.getElementById('bcZoom');if(zb)zb.style.display='flex';
       const zv=document.getElementById('bcZoomVal');if(zv)zv.textContent=_bcZoomCur.toFixed(1)+'×';
     }
@@ -2093,7 +2098,8 @@ async function _bcScanLoopNative(){
       if(code&&code!==_bcLastScan){_bcLastScan=code;_bcOnDetected(code);return;}
     }
   }catch(e){/* erreur détection ponctuelle, on continue */}
-  if(!_bcStopped)requestAnimationFrame(_bcScanLoopNative);
+  // Throttle léger pour économiser le CPU/batterie sans perdre en réactivité
+  if(!_bcStopped)setTimeout(()=>requestAnimationFrame(_bcScanLoopNative),60);
 }
 function _bcOnDetected(code){
   _bcStopped=true;
