@@ -4960,8 +4960,7 @@ function closeProgBuilder(){
 let progFromClientId=null;
 function openProgBuilderForClient(){
   if(!curClient)return;
-  const cl=curClient;
-  progFromClientId=cl.id;
+  const cl=curClient,clId=cl.id;
   document.getElementById('detPage').classList.remove('show');
   showPage('tr-progs',document.getElementById('nav-tr-progs'));
   openSub('sub-train','arr-tr');
@@ -4970,15 +4969,19 @@ function openProgBuilderForClient(){
     progClients=[cl];
     document.getElementById('progClIn').value='';
     renderClientBadges(progClients,'progClBadges','progRemoveClient');
-  },200);
+    progFromClientId=clId;// Set APRÈS l'ouverture pour ne pas être consommé par closeProgBuilder de showPage()
+  },220);
 }
 function editClientProgram(progId){
-  // Ouvre l'éditeur de programme depuis la fiche client + mémorise le client pour retour auto
-  if(curClient)progFromClientId=curClient.id;
+  if(!curClient)return;
+  const clId=curClient.id;
   document.getElementById('detPage').classList.remove('show');
   showPage('tr-progs',document.getElementById('nav-tr-progs'));
   openSub('sub-train','arr-tr');
-  setTimeout(()=>openProgBuilder(progId),200);
+  setTimeout(()=>{
+    openProgBuilder(progId);
+    progFromClientId=clId;// Idem : après l'ouverture
+  },220);
 }
 function _maybeReturnToClientFromProg(){
   if(!progFromClientId)return false;
@@ -7726,6 +7729,7 @@ function setRecStatus(s,el){
   renderRecResponses();
 }
 
+let _selectedRecResps=new Set();
 async function renderRecResponses(){
   await loadRecForms();await loadRecResponses();
   // Populate form filter
@@ -7740,15 +7744,21 @@ async function renderRecResponses(){
   if(recStatusFilter!=='all')filtered=filtered.filter(r=>r.status===recStatusFilter);
   const el=document.getElementById('recResponsesList');
   if(!filtered.length){el.innerHTML='<div class="empty"><div class="ei">📬</div><div class="et">Aucune candidature</div><div class="es">Les candidatures apparaîtront ici</div></div>';return;}
+  // Nettoie les selections qui ne sont plus dans la liste filtrée
+  _selectedRecResps=new Set([..._selectedRecResps].filter(id=>filtered.some(r=>r.id===id)));
   const statusLabels={en_attente:'À lire',lu:'Lu',contacte:'Contacté',reserve:'Réservé',accepte:'Validé',refuse:'Refusé'};
   const statusOpts=['en_attente','lu','contacte','accepte','refuse'];
-  let h='<div class="tw"><table><thead><tr><th>Candidat</th><th>Email</th><th>Questionnaire</th><th>Statut</th><th>Date</th><th style="width:110px;text-align:center">Actions</th></tr></thead><tbody>';
+  const allSelected=filtered.length>0&&filtered.every(r=>_selectedRecResps.has(r.id));
+  let h='<div id="recRespBulkBar" style="display:'+(_selectedRecResps.size?'flex':'none')+';align-items:center;gap:10px;padding:10px 14px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:10px;margin-bottom:12px;font-size:13px;flex-wrap:wrap"><span style="font-weight:700;color:#8a6010"><span id="recRespSelCount">'+_selectedRecResps.size+'</span> sélectionné(s)</span><button class="btn btn-dark btn-sm" onclick="downloadRecRespsJSON()">⬇ JSON (pour IA)</button><button class="btn btn-ghost btn-sm" onclick="downloadRecRespsCSV()">⬇ CSV</button><button class="btn btn-ghost btn-sm" onclick="copyRecRespsForAI()">📋 Copier pour IA</button><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="clearRecRespSelection()">Désélectionner</button></div>';
+  h+='<div class="tw"><table><thead><tr><th style="width:36px;text-align:center"><input type="checkbox" '+(allSelected?'checked':'')+' onclick="toggleAllRecResps(this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--gold)"></th><th>Candidat</th><th>Email</th><th>Questionnaire</th><th>Statut</th><th>Date</th><th style="width:110px;text-align:center">Actions</th></tr></thead><tbody>';
   filtered.forEach(r=>{
     const form=recForms.find(f=>f.id===r.form_id);
     const d=new Date(r.created_at).toLocaleDateString('fr-FR');
     const curStatus=statusOpts.includes(r.status)?r.status:'en_attente';
     const selOpts=statusOpts.map(s=>`<option value="${s}"${s===curStatus?' selected':''}>${statusLabels[s]}</option>`).join('');
-    h+=`<tr class="crow">
+    const checked=_selectedRecResps.has(r.id);
+    h+=`<tr class="crow"${checked?' style="background:var(--gold-pale)"':''}>
+      <td style="text-align:center" onclick="event.stopPropagation()"><input type="checkbox" ${checked?'checked':''} onclick="toggleRecRespSel('${r.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--gold)"></td>
       <td onclick="openRecResp('${r.id}')" style="cursor:pointer"><div class="c-cell"><div class="c-av" style="background:var(--gold)">${(r.first_name||'?')[0].toUpperCase()}</div><div><div class="c-nm">${esc(r.first_name)} ${esc(r.last_name)}</div>${r.phone?`<div class="c-sb">${esc(r.phone)}</div>`:''}</div></div></td>
       <td onclick="openRecResp('${r.id}')" style="cursor:pointer;font-size:12px">${esc(r.email||'—')}</td>
       <td onclick="openRecResp('${r.id}')" style="cursor:pointer;font-size:12px">${form?esc(form.title):'—'}</td>
@@ -7762,6 +7772,101 @@ async function renderRecResponses(){
   });
   h+='</tbody></table></div>';
   el.innerHTML=h;
+}
+
+function toggleRecRespSel(id,checked){
+  if(checked)_selectedRecResps.add(id);else _selectedRecResps.delete(id);
+  renderRecResponses();
+}
+function toggleAllRecResps(checked){
+  const sel=document.getElementById('recRespFormFilter');
+  let filtered=recResponses;
+  if(sel?.value&&sel.value!=='all')filtered=filtered.filter(r=>r.form_id===sel.value);
+  if(recStatusFilter!=='all')filtered=filtered.filter(r=>r.status===recStatusFilter);
+  if(checked)filtered.forEach(r=>_selectedRecResps.add(r.id));
+  else filtered.forEach(r=>_selectedRecResps.delete(r.id));
+  renderRecResponses();
+}
+function clearRecRespSelection(){_selectedRecResps.clear();renderRecResponses();}
+function _buildSelectedRecRespsExport(){
+  const items=[];
+  _selectedRecResps.forEach(id=>{
+    const r=recResponses.find(x=>x.id===id);if(!r)return;
+    const form=recForms.find(f=>f.id===r.form_id);
+    let ans=r.answers;if(typeof ans==='string'){try{ans=JSON.parse(ans);}catch(e){ans={};}}
+    if(!ans||typeof ans!=='object')ans={};
+    const questions=form?(form.questions||[]):[];
+    const qa=[];
+    const seen=new Set();
+    questions.forEach(q=>{
+      if(!q||!q.id)return;seen.add(q.id);
+      const v=ans[q.id];
+      qa.push({question:q.label||q.id,type:q.type||'text',answer:v==null?'':(Array.isArray(v)?v.join(', '):typeof v==='object'?JSON.stringify(v):String(v))});
+    });
+    Object.keys(ans).forEach(k=>{if(seen.has(k))return;const v=ans[k];qa.push({question:'(non lié) '+k,type:'orphan',answer:v==null?'':(Array.isArray(v)?v.join(', '):typeof v==='object'?JSON.stringify(v):String(v))});});
+    items.push({id:r.id,questionnaire:form?form.title:'(supprimé)',date:r.created_at,statut:r.status,prenom:r.first_name||'',nom:r.last_name||'',email:r.email||'',telephone:r.phone||'',notes_coach:r.notes||'',questions_reponses:qa});
+  });
+  return items;
+}
+function _downloadBlob(blob,filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+function downloadRecRespsJSON(){
+  const items=_buildSelectedRecRespsExport();
+  if(!items.length){toast('Aucune candidature sélectionnée');return;}
+  const blob=new Blob([JSON.stringify(items,null,2)],{type:'application/json'});
+  const ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  _downloadBlob(blob,'candidatures_'+ts+'.json');
+  toast(items.length+' candidature(s) téléchargée(s)');
+}
+function downloadRecRespsCSV(){
+  const items=_buildSelectedRecRespsExport();
+  if(!items.length){toast('Aucune candidature sélectionnée');return;}
+  // Récupère la liste unique des questions présentes
+  const questionSet=new Set();
+  items.forEach(it=>it.questions_reponses.forEach(qa=>questionSet.add(qa.question)));
+  const questionsCols=[...questionSet];
+  const headers=['ID','Questionnaire','Date','Statut','Prénom','Nom','Email','Téléphone','Notes coach',...questionsCols];
+  const escCsv=v=>{const s=String(v==null?'':v);return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const rows=[headers.map(escCsv).join(',')];
+  items.forEach(it=>{
+    const qaMap={};it.questions_reponses.forEach(qa=>{qaMap[qa.question]=qa.answer;});
+    const row=[it.id,it.questionnaire,it.date,it.statut,it.prenom,it.nom,it.email,it.telephone,it.notes_coach,...questionsCols.map(q=>qaMap[q]||'')];
+    rows.push(row.map(escCsv).join(','));
+  });
+  const blob=new Blob(['﻿'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
+  const ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  _downloadBlob(blob,'candidatures_'+ts+'.csv');
+  toast(items.length+' candidature(s) en CSV');
+}
+async function copyRecRespsForAI(){
+  const items=_buildSelectedRecRespsExport();
+  if(!items.length){toast('Aucune candidature sélectionnée');return;}
+  // Format texte structuré, lisible direct par une IA
+  const lines=[];
+  items.forEach((it,i)=>{
+    lines.push('=== CANDIDATURE '+(i+1)+'/'+items.length+' ===');
+    lines.push('Nom : '+it.prenom+' '+it.nom);
+    if(it.email)lines.push('Email : '+it.email);
+    if(it.telephone)lines.push('Téléphone : '+it.telephone);
+    lines.push('Questionnaire : '+it.questionnaire);
+    lines.push('Date : '+new Date(it.date).toLocaleString('fr-FR'));
+    lines.push('Statut : '+it.statut);
+    if(it.notes_coach)lines.push('Notes coach : '+it.notes_coach);
+    lines.push('');
+    lines.push('Réponses :');
+    it.questions_reponses.forEach(qa=>{lines.push('  - '+qa.question+' : '+(qa.answer||'(vide)'));});
+    lines.push('');
+  });
+  const text=lines.join('\n');
+  try{await navigator.clipboard.writeText(text);toast('Copié — colle dans ChatGPT/Claude');}
+  catch(e){
+    // Fallback : ouvre une textarea modale
+    const html='<div style="background:var(--white);border-radius:14px;padding:14px;max-width:640px;width:100%;max-height:90vh;display:flex;flex-direction:column"><div style="font-size:14px;font-weight:800;margin-bottom:8px">Copie ce texte pour ton IA</div><textarea readonly style="flex:1;min-height:300px;font-family:monospace;font-size:11px;padding:10px;border:1.5px solid var(--border);border-radius:8px;resize:vertical">'+text.replace(/</g,'&lt;')+'</textarea><div style="text-align:right;margin-top:8px"><button class="btn btn-dark btn-sm" onclick="closeModal()">Fermer</button></div></div>';
+    openModal(html);
+  }
 }
 
 async function openRecResp(id){
