@@ -7719,24 +7719,51 @@ async function renderRecResponses(){
 async function openRecResp(id){
   const r=recResponses.find(x=>x.id===id);if(!r)return;
   recCurrentRespId=id;
+  // S'assurer qu'on a la liste des forms (au cas où la modale est ouverte avant le chargement)
+  if(!recForms.length)try{await loadRecForms();}catch(e){console.warn('[openRecResp] loadRecForms failed',e);}
   const form=recForms.find(f=>f.id===r.form_id);
-  const questions=form?form.questions:[];
+  const questions=form?(form.questions||[]):[];
+  // Parser answers si stocké comme string (devrait être un objet JSONB)
+  let answers=r.answers;
+  if(typeof answers==='string'){try{answers=JSON.parse(answers);}catch(e){console.warn('[openRecResp] answers parse failed',e);answers={};}}
+  if(!answers||typeof answers!=='object')answers={};
+  console.log('[openRecResp] response',{id:r.id,form_id:r.form_id,formFound:!!form,questionsCount:questions.length,answerKeys:Object.keys(answers),answers});
+  const fmtAns=v=>{if(v==null||v==='')return'—';if(Array.isArray(v))return v.length?v.map(String).join(', '):'—';if(typeof v==='object')return JSON.stringify(v);return String(v);};
   let h=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
     <div class="c-av" style="width:44px;height:44px;font-size:16px;background:var(--gold)">${(r.first_name||'?')[0].toUpperCase()}</div>
     <div><div style="font-size:16px;font-weight:800">${esc(r.first_name)} ${esc(r.last_name)}</div>
     <div style="font-size:12px;color:var(--text3)">${esc(r.email||'')} ${r.phone?' · '+esc(r.phone):''}</div></div>
   </div>`;
   if(form)h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Questionnaire : <strong>${esc(form.title)}</strong> · ${new Date(r.created_at).toLocaleDateString('fr-FR')}</div>`;
-  h+='<div class="qgrid">';
-  questions.forEach(q=>{
-    const ans=r.answers[q.id]||'—';
-    const val=Array.isArray(ans)?ans.join(', '):ans;
-    h+=`<div class="qi"><div class="qil">${esc(q.label)}</div><div class="qiv">${esc(val)}</div></div>`;
-  });
-  h+='</div>';
+  else h+=`<div style="font-size:12px;color:#c03030;margin-bottom:14px;padding:8px 10px;background:#fff0f0;border-radius:8px">⚠️ Questionnaire d'origine introuvable (peut-être supprimé). Les réponses sont quand même affichées ci-dessous.</div>`;
+  // Set des q.id déjà rendues pour pouvoir afficher les réponses orphelines (ex. question supprimée du form après soumission)
+  const renderedKeys=new Set();
+  if(questions.length){
+    h+='<div class="qgrid">';
+    questions.forEach(q=>{
+      if(!q||!q.id)return;
+      renderedKeys.add(q.id);
+      const val=fmtAns(answers[q.id]);
+      h+=`<div class="qi"><div class="qil">${esc(q.label||q.id)}</div><div class="qiv">${esc(val)}</div></div>`;
+    });
+    h+='</div>';
+  }
+  // Réponses orphelines (clés présentes dans answers mais pas dans questions actuelles) — fréquent quand le form a été édité
+  const orphanKeys=Object.keys(answers).filter(k=>!renderedKeys.has(k));
+  if(orphanKeys.length){
+    h+=`<div style="font-size:11px;color:var(--text3);margin:14px 0 6px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Autres réponses</div>`;
+    h+='<div class="qgrid">';
+    orphanKeys.forEach(k=>{
+      h+=`<div class="qi"><div class="qil">${esc(k)}</div><div class="qiv">${esc(fmtAns(answers[k]))}</div></div>`;
+    });
+    h+='</div>';
+  }
+  if(!questions.length&&!orphanKeys.length){
+    h+='<div style="font-size:13px;color:var(--text3);padding:14px;text-align:center;font-style:italic">Aucune réponse enregistrée pour cette candidature.</div>';
+  }
   h+=`<div class="fg" style="margin-top:16px"><label class="fl">Notes internes</label><textarea class="fta" id="recRespNotes" rows="3" placeholder="Notes privées...">${esc(r.notes||'')}</textarea></div>`;
   document.getElementById('recRespDetail').innerHTML=h;
-  document.getElementById('recRespStatus').value=r.status;
+  document.getElementById('recRespStatus').value=r.status||'en_attente';
   openM('mRecResp');
 }
 
