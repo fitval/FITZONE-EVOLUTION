@@ -1991,7 +1991,8 @@ function pickFoodAliment(a){
   const qte=prompt('Quantité en grammes pour "'+a.nom+'" ?','100');
   if(!qte)return;
   const q=parseFloat(qte);if(!q||q<=0){toast('Quantité invalide');return;}
-  _saveFoodEntry({aliment_nom:a.nom,aliment_id:a.id||null,qte_g:q,kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat});
+  const isUuid=typeof a.id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a.id);
+  _saveFoodEntry({aliment_nom:a.nom,aliment_id:isUuid?a.id:null,qte_g:q,kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat});
 }
 function openManualFood(){
   const nom=prompt('Nom de l\'aliment :');if(!nom||!nom.trim())return;

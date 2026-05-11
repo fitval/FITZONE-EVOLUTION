@@ -731,6 +731,7 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
   <div class="page" id="page-nut-alim">
     <div class="sh"><div class="st">Base de données aliments</div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="openGSheet('aliments')">📊 Google Sheets</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('importAlimFile').click()">📥 Importer CSV</button><button class="btn btn-dark btn-sm" onclick="openAlim()">+ Aliment</button></div></div>
     <input type="file" id="importAlimFile" accept=".csv,.json,.tsv,.txt" style="display:none" onchange="importAlimsFile(this)">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><div class="si" style="flex:1;max-width:340px"><span class="si-ico">🔍</span><input id="alimSearch" placeholder="Rechercher un aliment…" oninput="renderAlims()"></div></div>
     <div style="font-size:10px;color:var(--text3);margin-bottom:8px">⚖️ Tous les aliments sont pesés <strong>cru</strong> (valeurs nutritionnelles pour 100g cru)</div>
     <div class="tw"><table><thead><tr><th>Aliment</th><th>Catégorie</th><th>Kcal/100g</th><th>Prot.</th><th>Gluc.</th><th>Lip.</th><th>Actions</th></tr></thead>
     <tbody id="alimBody"></tbody></table></div>
@@ -739,6 +740,7 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
   <!-- PAGE: NUTRITION — REPAS -->
   <div class="page" id="page-nut-repas">
     <div class="sh"><div class="st">Repas / Recettes</div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="openImportRecipes()" style="font-size:12px">📸 Importer (photos)</button><button class="btn btn-dark btn-sm" onclick="openRepas()">+ Repas</button></div></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><div class="si" style="flex:1;max-width:340px"><span class="si-ico">🔍</span><input id="repasSearch" placeholder="Rechercher un repas / recette…" oninput="renderRepasList()"></div></div>
     <div id="repasList"></div>
   </div>
 
@@ -901,7 +903,8 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
 
   <!-- PAGE: ADMIN CLIENTS -->
   <div class="page" id="page-admin-clients">
-    <div style="margin-bottom:12px">
+    <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div class="si" style="flex:1;max-width:340px"><span class="si-ico">🔍</span><input id="adminClientSearch" placeholder="Rechercher un client…" oninput="renderAdminClients()"></div>
       <select class="fi" id="adminClientFilter" oninput="renderAdminClients()" style="max-width:300px">
         <option value="all">Tous les coachs</option>
       </select>
@@ -3665,6 +3668,7 @@ function _buildBilanCard(o){
   c+=`</div></div>`;
   // Status badge + actions
   c+=`<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">`;
+  if(clientName)c+=`<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openDet('${clientId}')" title="Ouvrir la fiche client">👤 Profil</button>`;
   if(showValidate&&!validated)c+=`<button class="btn btn-dark btn-xs" onclick="event.stopPropagation();validateBilanByKey('${clientId}','${rawDate}','${supaId||''}',this)">Valider</button>`;
   if(validated)c+=`<span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(72,187,120,.12);color:#38a169">Validé</span>`;
   if(showDelete)c+=`<button style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3);padding:4px" onclick="event.stopPropagation();deleteBilanByKey('${clientId}','${rawDate}','${supaId||''}')" title="Supprimer">✕</button>`;
@@ -4392,7 +4396,10 @@ function renderAlims(){
   const tb=document.getElementById('alimBody');if(!tb)return;
   if(!alims.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">🥦</div><div class="et">Aucun aliment</div><div class="es">Ajoute tes premiers aliments</div></div></td></tr>`;return;}
   const srcBadge=s=>{const c={proteines:'#c49a2a',glucides:'#f59e0b',lipides:'#c49a2a'};const l={proteines:'P',glucides:'G',lipides:'L'};return`<span style="display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:800;background:${c[s]||'#999'}22;color:${c[s]||'#999'}">${l[s]||'—'}</span>`;};
-  tb.innerHTML=alims.map(a=>`<tr><td style="font-weight:600">${a.nom} ${srcBadge(a.source)}</td><td><span class="tag">${a.cat}</span></td><td>${a.kcal}</td><td>${a.prot}g</td><td>${a.carb}g</td><td>${a.fat}g</td><td style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openAlim(${a.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delAlim(${a.id})">✕</button></td></tr>`).join('');
+  const q=(document.getElementById('alimSearch')?.value||'').toLowerCase().trim();
+  const list=q?alims.filter(a=>((a.nom||'')+' '+(a.cat||'')+' '+(a.source||'')).toLowerCase().includes(q)):alims;
+  if(!list.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="ei">🔍</div><div class="et">Aucun aliment ne correspond</div></div></td></tr>`;return;}
+  tb.innerHTML=list.map(a=>`<tr><td style="font-weight:600">${a.nom} ${srcBadge(a.source)}</td><td><span class="tag">${a.cat}</span></td><td>${a.kcal}</td><td>${a.prot}g</td><td>${a.carb}g</td><td>${a.fat}g</td><td style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openAlim(${a.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delAlim(${a.id})">✕</button></td></tr>`).join('');
 }
 function delAlim(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ?'))return;dbDelete('aliments',id);renderAlims();toast('Supprimé');}
 function importAlimsFile(input){
@@ -4723,7 +4730,13 @@ function saveRepas(){
 function renderRepasList(){
   const el=document.getElementById('repasList');if(!el)return;
   if(!repas.length){el.innerHTML=`<div class="empty"><div class="ei">🍽️</div><div class="et">Aucun repas</div><div class="es">Crée ton premier repas/recette</div></div>`;return;}
-  el.innerHTML=repas.map(r=>`<div class="plan-card"><div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')"><div style="width:36px;height:36px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🍽️</div><div style="flex:1"><div style="font-size:14px;font-weight:700">${r.nom}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${r.type} · ${r.kcal||0} kcal · P:${r.prot||0}g G:${r.carb||0}g L:${r.fat||0}g · ${(r.items||[]).length} aliments</div></div><div style="display:flex;gap:5px" onclick="event.stopPropagation()"><button class="btn btn-ghost btn-xs" onclick="openRepas(${r.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delRepas(${r.id})">✕</button></div></div>
+  const q=(document.getElementById('repasSearch')?.value||'').toLowerCase().trim();
+  const list=q?repas.filter(r=>{
+    const ingr=(r.items||[]).map(it=>it.nom||'').join(' ');
+    return ((r.nom||'')+' '+(r.type||'')+' '+ingr).toLowerCase().includes(q);
+  }):repas;
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="ei">🔍</div><div class="et">Aucun repas ne correspond</div></div>`;return;}
+  el.innerHTML=list.map(r=>`<div class="plan-card"><div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')"><div style="width:36px;height:36px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🍽️</div><div style="flex:1"><div style="font-size:14px;font-weight:700">${r.nom}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${r.type} · ${r.kcal||0} kcal · P:${r.prot||0}g G:${r.carb||0}g L:${r.fat||0}g · ${(r.items||[]).length} aliments</div></div><div style="display:flex;gap:5px" onclick="event.stopPropagation()"><button class="btn btn-ghost btn-xs" onclick="openRepas(${r.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delRepas(${r.id})">✕</button></div></div>
     <div class="plan-body">
       ${(r.items||[]).length?`<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:5px">Ingrédients</div>${(r.items||[]).map(it=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-weight:600">${it.nom}</span><span style="color:var(--text3)">${it.qte||100}g cru · ${it.kcal||0} kcal · P:${it.prot||0}g G:${it.carb||0}g L:${it.fat||0}g</span></div>`).join('')}</div>`:''}
       ${r.instr?`<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px">Instructions</div><div style="font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-line">${r.instr}</div></div>`:''}
@@ -7406,7 +7419,9 @@ async function renderAdminClients(){
   adminAllClients=data||[];
 
   const filterCoach=sel.value;
-  const filtered=filterCoach==='all'?adminAllClients:adminAllClients.filter(c=>c.coach_id===filterCoach);
+  let filtered=filterCoach==='all'?adminAllClients:adminAllClients.filter(c=>c.coach_id===filterCoach);
+  const q=(document.getElementById('adminClientSearch')?.value||'').toLowerCase().trim();
+  if(q)filtered=filtered.filter(c=>((c.first_name||'')+' '+(c.last_name||'')+' '+(c.email||'')).toLowerCase().includes(q));
   const coachMap={};adminCoaches.forEach(c=>{coachMap[c.id]=(c.first_name||'')+' '+(c.last_name||'');});
 
   const ct=document.getElementById('adminClientsList');
