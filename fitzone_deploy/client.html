@@ -2697,7 +2697,7 @@ function showFoodSwap(planIdx,dayIdx,ri,ai){
       </div>
       <div style="font-size:11px;color:var(--text3)">Quantité actuelle: ${origQte}g · ${Math.round(origKcalTotal)} kcal</div>
       ${src?`<div style="display:inline-block;font-size:10px;font-weight:700;background:var(--gold-pale);color:var(--gold);padding:3px 8px;border-radius:12px;margin-top:4px">Source : ${srcLabel}</div>`:''}
-      <input type="text" placeholder="Rechercher un aliment…" oninput="filterFoodSwap(this.value,${planIdx},${dayIdx},${ri},${ai})" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-top:8px;box-sizing:border-box">
+      <input type="text" placeholder="Rechercher un aliment dans toute la base…" oninput="filterFoodSwap(this.value,${planIdx},${dayIdx},${ri},${ai})" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-top:8px;box-sizing:border-box">
     </div>
     <div id="foodSwapList" style="overflow-y:auto;flex:1;padding:4px 8px">`;
   alternatives.forEach(a=>{
@@ -2719,11 +2719,12 @@ function filterFoodSwap(q,planIdx,dayIdx,ri,ai){
   const src=alim.source||'';
   const sub=foodSubCategory(alim);
   const origKcalTotal=(alim.kcal||0)*(alim.qte||100)/100;
-  const low=q.toLowerCase();
-  // Filter strictly by same sub-category (cohérence) ; fallback à la même source
+  const low=q.toLowerCase().trim();
+  // Avec un terme de recherche → on ignore la catégorie (l'utilisateur sait ce qu'il veut)
+  // Sans terme → on filtre strictement par sous-catégorie pour suggérer des équivalences cohérentes
   let filtered=coachAlims.filter(a=>{
     if(a.nom===alim.nom)return false;
-    if(q&&!a.nom.toLowerCase().includes(low))return false;
+    if(low)return a.nom.toLowerCase().includes(low);
     if(sub.cat){
       const s=foodSubCategory(a);
       return s.cat===sub.cat;
