@@ -1926,13 +1926,13 @@ function renderFoodTracker(){
         const k=(parseFloat(it.kcal)||0)*q;
         const img=(it.extra&&it.extra.image_url)||'';
         const isLast=idx===items.length-1;
-        h+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;${!isLast?'border-bottom:1px solid var(--border);':''}">
+        h+=`<div onclick="editFoodLog('${it.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;${!isLast?'border-bottom:1px solid var(--border);':''}">
           ${img?`<img src="${img}" style="width:40px;height:40px;border-radius:9px;object-fit:cover;background:var(--bg2);flex-shrink:0">`:`<div style="width:40px;height:40px;border-radius:9px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🍴</div>`}
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.aliment_nom}</div>
             <div style="font-size:11px;color:var(--text3);margin-top:1px">${it.qte_g}g · ${Math.round(k)} kcal</div>
           </div>
-          <button onclick="deleteFoodLog('${it.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:8px;flex-shrink:0;font-family:var(--font)" title="Supprimer">✕</button>
+          <button onclick="event.stopPropagation();deleteFoodLog('${it.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:8px;flex-shrink:0;font-family:var(--font)" title="Supprimer">✕</button>
         </div>`;
       });
       h+=`<button onclick="openAddFood('${escMeal}')" style="width:100%;padding:11px;background:var(--bg);border:none;border-top:1px solid var(--border);font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">+ Ajouter un aliment</button>`;
@@ -2390,7 +2390,23 @@ async function deleteFoodLog(id){
   if(!confirm('Supprimer cet aliment ?'))return;
   const{error}=await db.from('food_logs').delete().eq('id',id);
   if(error){toast('Erreur: '+error.message);return;}
-  foodLogs=foodLogs.filter(l=>l.id!==id);
+  foodLogs=foodLogs.filter(l=>String(l.id)!==String(id));
+  renderFoodTracker();
+}
+async function editFoodLog(id){
+  const log=foodLogs.find(l=>String(l.id)===String(id));
+  if(!log)return;
+  const cur=parseFloat(log.qte_g)||0;
+  const v=prompt('Quantité en grammes pour "'+log.aliment_nom+'" :',cur);
+  if(v==null)return;
+  const q=parseFloat(v);
+  if(!q||q<=0){toast('Quantité invalide');return;}
+  if(q===cur)return;
+  const{data,error}=await db.from('food_logs').update({qte_g:q}).eq('id',id).select().single();
+  if(error){toast('Erreur: '+error.message);return;}
+  const idx=foodLogs.findIndex(l=>String(l.id)===String(id));
+  if(idx>=0&&data)foodLogs[idx]=data;
+  toast('Quantité mise à jour ✓');
   renderFoodTracker();
 }
 function openPlan(idx){currentPlanIdx=idx;currentDayIdx=0;renderPlanDetail();}
