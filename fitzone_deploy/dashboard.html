@@ -8668,7 +8668,7 @@ function mkRowSummary(label,row,style){
 function mkSummaryCards(rows){
   const s=mkSumRows(rows);
   const c=mkCalc(s);
-  const roi=s.depense>0?((s.revenus/s.depense)*100):0;
+  const roi=s.depense>0?(s.revenus/s.depense):0;
   return`<div class="mk-summary">
     <div class="mk-summary-card"><div class="mk-label">Dépense totale</div><div class="mk-val">${s.depense.toFixed(0)}€</div></div>
     <div class="mk-summary-card"><div class="mk-label">Total leads</div><div class="mk-val">${Math.round(s.leads)}</div></div>
@@ -8676,7 +8676,7 @@ function mkSummaryCards(rows){
     <div class="mk-summary-card"><div class="mk-label">Ventes</div><div class="mk-val">${Math.round(s.ventes)}</div></div>
     <div class="mk-summary-card"><div class="mk-label">Revenus</div><div class="mk-val">${s.revenus.toFixed(0)}€</div></div>
     <div class="mk-summary-card"><div class="mk-label">Cash collecté</div><div class="mk-val">${s.cash.toFixed(0)}€</div></div>
-    <div class="mk-summary-card"><div class="mk-label">ROI</div><div class="mk-val ${roi>=200?'mk-calc-good':roi>=100?'mk-calc-warn':'mk-calc-bad'}">${roi.toFixed(0)}%</div></div>
+    <div class="mk-summary-card"><div class="mk-label">ROI</div><div class="mk-val ${roi>=2?'mk-calc-good':roi>=1?'mk-calc-warn':'mk-calc-bad'}">${roi.toFixed(2).replace('.',',')}</div></div>
   </div>`;
 }
 
