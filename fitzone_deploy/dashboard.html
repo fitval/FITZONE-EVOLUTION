@@ -1061,7 +1061,7 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
     <div style="display:flex;gap:6px;border-bottom:1.5px solid var(--border);margin-bottom:16px;padding-bottom:8px">
       <button class="btn btn-dark btn-sm" id="qe-tab-bilan" onclick="switchQEditor('bilan')">📋 Bilan hebdomadaire</button>
       <button class="btn btn-ghost btn-sm" id="qe-tab-daily" onclick="switchQEditor('daily')">📊 Quotidien</button>
-      <button class="btn btn-ghost btn-sm" id="qe-tab-integration" onclick="switchQEditor('integration')">🎯 Intégration (extras)</button>
+      <button class="btn btn-ghost btn-sm" id="qe-tab-integration" onclick="switchQEditor('integration')">🎯 Intégration</button>
     </div>
     <div id="qEditorContent"></div>
   </div>
@@ -9060,15 +9060,70 @@ const DEFAULT_Q_DAILY=[
   {id:'Note attitude (/10)',section:'ATTITUDE',icon:'fa-star',label:'Note attitude',type:'rating',scale:10,required:false}
 ];
 const DEFAULT_Q_INTEGRATION=[]; // extras ajoutés en plus du questionnaire standard
+// Liste des champs natifs du questionnaire d'intégration (doit rester en miroir de
+// INTEGRATION_FIELDS dans questionnaire.html). Lock 'all'=non éditable, 'key'=label/hint
+// éditables mais pas masquable (utilisé par le calcul macros), absent=tout libre.
+const INTEG_NATIVE_FIELDS=[
+  {fid:'firstName',step:1,lock:'all',label:'Prénom'},
+  {fid:'lastName',step:1,lock:'all',label:'Nom'},
+  {fid:'email',step:1,lock:'all',label:'Email'},
+  {fid:'phone',step:1,label:'Téléphone'},
+  {fid:'birthDate',step:1,lock:'key',label:'Date de naissance'},
+  {fid:'sex',step:1,lock:'key',label:'Sexe'},
+  {fid:'height',step:1,lock:'key',label:'Taille (cm)'},
+  {fid:'weight',step:1,lock:'key',label:'Poids (kg)'},
+  {fid:'weightGoal',step:1,label:'Poids cible'},
+  {fid:'profession',step:1,label:'Profession & rythme de vie'},
+  {fid:'children',step:1,label:'Enfants ou responsabilités impactant ton emploi du temps ?'},
+  {fid:'mainGoal',step:2,lock:'key',label:'Objectif principal'},
+  {fid:'goalDeadline',step:2,label:'Échéance ou événement cible'},
+  {fid:'motivation',step:2,label:'Ta motivation sur 10'},
+  {fid:'motivationDetail',step:2,label:'Pourquoi ce chiffre ?'},
+  {fid:'whyFitzone',step:2,label:'Pourquoi rejoindre FITZONE ?'},
+  {fid:'whyCoach',step:2,label:"Qu'est-ce qui t'a donné envie de me faire confiance ?"},
+  {fid:'injuries',step:3,label:'Pathologies, douleurs, blessures ou restrictions médicales'},
+  {fid:'medications',step:3,label:'Traitement médical régulier'},
+  {fid:'previousProgram',step:3,label:"As-tu déjà suivi un programme d'entraînement ?"},
+  {fid:'previousDiet',step:3,label:'As-tu déjà suivi un régime ou plan nutritionnel ?'},
+  {fid:'supplementsCurrent',step:3,label:'Compléments alimentaires actuels'},
+  {fid:'supplementsOpen',step:3,label:'Ouvert(e) à prendre des compléments si recommandé ?'},
+  {fid:'experienceLevel',step:4,label:"Niveau d'expérience"},
+  {fid:'activityLevel',step:4,lock:'key',label:"Niveau d'activité physique quotidien"},
+  {fid:'gymName',step:4,label:'Salle de sport'},
+  {fid:'homeEquipment',step:4,label:'Matériel à domicile'},
+  {fid:'trainingDays',step:4,label:"Jours disponibles pour t'entraîner"},
+  {fid:'sessionDuration',step:4,label:'Durée disponible par séance'},
+  {fid:'dislikedExercises',step:4,label:'Exercices ou mouvements à éviter'},
+  {fid:'dietType',step:5,label:'Régime alimentaire'},
+  {fid:'mealsPerDay',step:5,label:'Repas par jour'},
+  {fid:'prepTime',step:5,label:'Temps de préparation max'},
+  {fid:'mealHabits',step:5,label:'Habitudes alimentaires actuelles'},
+  {fid:'favoriteFoods',step:5,label:'Aliments préférés & aliments détestés'},
+  {fid:'foodRelationship',step:5,label:'Ton rapport à la nourriture'},
+  {fid:'dietVariations',step:5,label:'Variations alimentaires dans la semaine'},
+  {fid:'dailySteps',step:5,label:'Pas quotidiens moy.'},
+  {fid:'sleepHours',step:5,label:'Heures de sommeil'},
+  {fid:'sleepQuality',step:5,label:'Sommeil réparateur ?'},
+  {fid:'exclSection_viandes',step:5,label:'🥩 Viandes & Volailles',isExcl:true},
+  {fid:'exclSection_poissons',step:5,label:'🐟 Poissons & Crustacés',isExcl:true},
+  {fid:'exclSection_laitiers',step:5,label:'🥛 Laitiers & Œufs',isExcl:true},
+  {fid:'exclSection_fruitsLegumes',step:5,label:'🥦 Fruits & Légumes',isExcl:true},
+  {fid:'exclSection_autres',step:5,label:'🌾 Autres',isExcl:true},
+  {fid:'exclSection_ustensiles',step:5,label:'🍳 Ustensiles',isExcl:true},
+  {fid:'extraInfo',step:6,label:'Autre chose à partager ?'}
+];
+const INTEG_STEP_TITLES={1:'Qui es-tu ?',2:'Tes objectifs',3:'Santé & historique',4:'Entraînement',5:'Nutrition',6:'Dernière ligne droite'};
 window._qeCurrentTab='bilan';
-window._qeDraft={bilan:null,daily:null,integration:null};
+window._qeDraft={bilan:null,daily:null,integration:null,integration_v2:null};
 async function _qeLoadAll(){
   if(!currentCoach)return;
-  const{data}=await db.from('settings').select('q_bilan,q_daily,q_integration').eq('coach_id',currentCoach.id).maybeSingle();
+  const{data}=await db.from('settings').select('q_bilan,q_daily,q_integration,q_integration_v2').eq('coach_id',currentCoach.id).maybeSingle();
   const s=data||{};
   window._qeDraft.bilan=Array.isArray(s.q_bilan)&&s.q_bilan.length?JSON.parse(JSON.stringify(s.q_bilan)):JSON.parse(JSON.stringify(DEFAULT_Q_BILAN));
   window._qeDraft.daily=Array.isArray(s.q_daily)&&s.q_daily.length?JSON.parse(JSON.stringify(s.q_daily)):JSON.parse(JSON.stringify(DEFAULT_Q_DAILY));
   window._qeDraft.integration=Array.isArray(s.q_integration)?JSON.parse(JSON.stringify(s.q_integration)):JSON.parse(JSON.stringify(DEFAULT_Q_INTEGRATION));
+  const v2=s.q_integration_v2&&typeof s.q_integration_v2==='object'?s.q_integration_v2:{};
+  window._qeDraft.integration_v2={overrides:v2.overrides&&typeof v2.overrides==='object'?JSON.parse(JSON.stringify(v2.overrides)):{},custom:v2.custom&&typeof v2.custom==='object'?JSON.parse(JSON.stringify(v2.custom)):{}};
 }
 async function renderQEditor(){
   const el=document.getElementById('qEditorContent');if(!el)return;
@@ -9087,8 +9142,9 @@ function switchQEditor(tab){
 function _qeRender(){
   const el=document.getElementById('qEditorContent');if(!el)return;
   const tab=window._qeCurrentTab||'bilan';
+  if(tab==='integration'){_qeRenderIntegration(el);return;}
   const list=window._qeDraft[tab]||[];
-  const info={bilan:'Questions affichées après la note d\'attitude /10 (qui est toujours la 1ère question).',daily:'Métriques affichées dans le rapport quotidien du client.',integration:'Questions supplémentaires ajoutées à la fin du questionnaire d\'intégration standard.'}[tab];
+  const info={bilan:'Questions affichées après la note d\'attitude /10 (qui est toujours la 1ère question).',daily:'Métriques affichées dans le rapport quotidien du client.'}[tab];
   let h=`<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)"><strong style="color:var(--gold)">ℹ️</strong> ${info}</div>`;
   h+=`<div id="qeList" style="display:flex;flex-direction:column;gap:10px">`;
   list.forEach((q,i)=>{
@@ -9097,6 +9153,122 @@ function _qeRender(){
   h+=`</div>`;
   h+=`<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><button class="btn btn-dark" onclick="qeAddItem()">+ Ajouter une question</button><button class="btn btn-gold" onclick="qeSave()">💾 Enregistrer</button><button class="btn btn-ghost" onclick="qeResetDefaults()">↺ Restaurer défauts</button></div>`;
   el.innerHTML=h;
+}
+
+/* ===== INTEGRATION EDITOR (V2) ===== */
+function _qeRenderIntegration(el){
+  const v2=window._qeDraft.integration_v2||{overrides:{},custom:{}};
+  const overrides=v2.overrides||{};
+  const custom=v2.custom||{};
+  let h=`<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)"><strong style="color:var(--gold)">ℹ️</strong> Personnalise le questionnaire d'intégration que le client remplit après signature. Tu peux renommer les libellés, modifier les aides, masquer des questions non-essentielles, et ajouter tes propres questions dans chaque étape. <strong>Les champs verrouillés 🔒</strong> sont utilisés par le calcul des macros : tu peux modifier leur libellé mais pas les masquer.</div>`;
+  for(let step=1;step<=6;step++){
+    const stepId='step-'+step;
+    const stepFields=INTEG_NATIVE_FIELDS.filter(f=>f.step===step);
+    h+=`<details ${step===1?'open':''} style="background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:0;margin-bottom:12px;overflow:hidden">`;
+    h+=`<summary style="padding:14px 16px;cursor:pointer;font-weight:800;font-size:14px;display:flex;align-items:center;gap:10px;background:var(--bg2)"><span style="background:var(--dark);color:white;border-radius:8px;padding:3px 10px;font-size:12px">Étape ${step}</span> ${INTEG_STEP_TITLES[step]||''}</summary>`;
+    h+=`<div style="padding:14px 16px">`;
+    // Native fields
+    h+=`<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;font-weight:800;margin-bottom:10px">Champs natifs</div>`;
+    stepFields.forEach(f=>{
+      h+=_qeIntegFieldRow(f,overrides[f.fid]||{});
+    });
+    // Custom questions per step
+    const customList=Array.isArray(custom[stepId])?custom[stepId]:[];
+    h+=`<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;font-weight:800;margin-top:18px;margin-bottom:10px">Questions custom (${customList.length})</div>`;
+    customList.forEach((q,i)=>{h+=_qeIntegCustomCard(stepId,q,i,customList.length);});
+    h+=`<button class="btn btn-ghost btn-sm" onclick="qeIntegAddCustom('${stepId}')" style="margin-top:8px">+ Ajouter une question custom à l'étape ${step}</button>`;
+    h+=`</div></details>`;
+  }
+  h+=`<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;position:sticky;bottom:0;background:var(--bg);padding:12px 0;border-top:1px solid var(--border);z-index:5"><button class="btn btn-gold" onclick="qeSave()">💾 Enregistrer toutes les modifications</button><button class="btn btn-ghost" onclick="qeIntegResetAll()">↺ Tout réinitialiser</button></div>`;
+  el.innerHTML=h;
+}
+function _qeIntegFieldRow(f,ov){
+  const lockIcon=f.lock==='all'?'🔒 identité':(f.lock==='key'?'🔒 macros':'');
+  const labelVal=(ov.label!=null?ov.label:f.label).replace(/"/g,'&quot;');
+  const hintVal=(ov.hint||'').replace(/"/g,'&quot;');
+  const canHide=!f.lock;
+  const isHidden=!!ov.hidden;
+  const isOptional=!!ov.optional;
+  const disabled=f.lock==='all';
+  return`<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;${disabled?'opacity:.6':''}">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <code style="font-size:10px;color:var(--text3);background:var(--bg2);padding:2px 6px;border-radius:4px">${f.fid}</code>
+      ${lockIcon?`<span style="font-size:10px;color:var(--gold);font-weight:700">${lockIcon}</span>`:''}
+      <div style="flex:1"></div>
+      ${canHide?`<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" ${isHidden?'checked':''} onchange="qeIntegSetOverride('${f.fid}','hidden',this.checked)">Masquer</label>`:''}
+      ${!disabled?`<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" ${isOptional?'checked':''} onchange="qeIntegSetOverride('${f.fid}','optional',this.checked)">Optionnel</label>`:''}
+    </div>
+    <div class="fr2">
+      <div class="fg" style="margin-bottom:0"><label class="fl" style="font-size:10px">Libellé affiché</label><input class="fi" ${disabled?'disabled':''} value="${labelVal}" oninput="qeIntegSetOverride('${f.fid}','label',this.value)" style="font-size:13px;padding:8px 10px"></div>
+      <div class="fg" style="margin-bottom:0"><label class="fl" style="font-size:10px">Aide (optionnel)</label><input class="fi" ${disabled?'disabled':''} value="${hintVal}" oninput="qeIntegSetOverride('${f.fid}','hint',this.value)" placeholder="Texte d'aide affiché sous le libellé" style="font-size:13px;padding:8px 10px"></div>
+    </div>
+  </div>`;
+}
+function _qeIntegCustomCard(stepId,q,i,total){
+  const types={text:'Texte court',textarea:'Texte long',number:'Nombre',yesno:'Oui / Non',choice:'Choix multiples',rating:'Note (1-10)'};
+  let h=`<div style="background:var(--white);border:1.5px solid var(--gold);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <div style="width:24px;height:24px;border-radius:6px;background:var(--gold);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">${i+1}</div>
+      <div style="flex:1;font-size:13px;font-weight:700">${q.label||'<em style="color:var(--text3)">Sans titre</em>'}</div>
+      <button class="btn btn-ghost btn-xs" ${i===0?'disabled style="opacity:.3"':''} onclick="qeIntegMoveCustom('${stepId}',${i},-1)">↑</button>
+      <button class="btn btn-ghost btn-xs" ${i===total-1?'disabled style="opacity:.3"':''} onclick="qeIntegMoveCustom('${stepId}',${i},1)">↓</button>
+      <button class="btn btn-danger btn-xs" onclick="qeIntegDelCustom('${stepId}',${i})">✕</button>
+    </div>
+    <div class="fr2">
+      <div class="fg" style="margin-bottom:6px"><label class="fl" style="font-size:10px">Libellé</label><input class="fi" value="${(q.label||'').replace(/"/g,'&quot;')}" oninput="qeIntegEditCustom('${stepId}',${i},'label',this.value)" style="font-size:13px;padding:8px 10px"></div>
+      <div class="fg" style="margin-bottom:6px"><label class="fl" style="font-size:10px">Section / Sous-titre</label><input class="fi" value="${(q.section_header||'').replace(/"/g,'&quot;')}" oninput="qeIntegEditCustom('${stepId}',${i},'section_header',this.value)" placeholder="Ex: Habitudes resto" style="font-size:13px;padding:8px 10px"></div>
+    </div>
+    <div class="fr2">
+      <div class="fg" style="margin-bottom:6px"><label class="fl" style="font-size:10px">Type</label><select class="fs" onchange="qeIntegEditCustom('${stepId}',${i},'type',this.value);_qeRender()" style="font-size:13px;padding:8px 10px">${Object.entries(types).map(([k,l])=>`<option value="${k}" ${q.type===k?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="fg" style="margin-bottom:6px"><label class="fl" style="font-size:10px">Obligatoire</label><label style="display:flex;align-items:center;gap:6px;padding:8px 0;font-size:12px;cursor:pointer"><input type="checkbox" ${q.required?'checked':''} onchange="qeIntegEditCustom('${stepId}',${i},'required',this.checked)">Réponse requise</label></div>
+    </div>
+    <div class="fg" style="margin-bottom:6px"><label class="fl" style="font-size:10px">Aide (optionnel)</label><input class="fi" value="${(q.hint||'').replace(/"/g,'&quot;')}" oninput="qeIntegEditCustom('${stepId}',${i},'hint',this.value)" placeholder="Texte d'aide sous le libellé" style="font-size:13px;padding:8px 10px"></div>`;
+  if(q.type==='choice'){
+    h+=`<div class="fg" style="margin-bottom:0"><label class="fl" style="font-size:10px">Options (une par ligne)</label><textarea class="fi" rows="3" oninput="qeIntegEditCustom('${stepId}',${i},'options',this.value.split('\\n').map(s=>s.trim()).filter(Boolean))" style="font-size:13px;padding:8px 10px">${(q.options||[]).join('\n')}</textarea></div>`;
+  } else if(q.type==='number'){
+    h+=`<div class="fr2"><div class="fg" style="margin-bottom:0"><label class="fl" style="font-size:10px">Unité</label><input class="fi" value="${q.unit||''}" oninput="qeIntegEditCustom('${stepId}',${i},'unit',this.value)" placeholder="kg, cm, h…" style="font-size:13px;padding:8px 10px"></div><div class="fg" style="margin-bottom:0"><label class="fl" style="font-size:10px">Pas</label><input class="fi" type="number" step="0.01" value="${q.step||1}" oninput="qeIntegEditCustom('${stepId}',${i},'step',parseFloat(this.value)||1)" style="font-size:13px;padding:8px 10px"></div></div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+function qeIntegSetOverride(fid,field,val){
+  const v2=window._qeDraft.integration_v2;if(!v2)return;
+  if(!v2.overrides[fid])v2.overrides[fid]={};
+  // Empty value → remove the override key so default takes back over
+  if(val===''||val===false){
+    delete v2.overrides[fid][field];
+    if(!Object.keys(v2.overrides[fid]).length)delete v2.overrides[fid];
+  } else {
+    v2.overrides[fid][field]=val;
+  }
+}
+function qeIntegAddCustom(stepId){
+  const v2=window._qeDraft.integration_v2;if(!v2)return;
+  if(!v2.custom[stepId])v2.custom[stepId]=[];
+  v2.custom[stepId].push({id:'cust_'+Date.now(),type:'textarea',label:'Nouvelle question',hint:'',required:false});
+  _qeRender();
+}
+function qeIntegEditCustom(stepId,i,field,val){
+  const arr=window._qeDraft.integration_v2&&window._qeDraft.integration_v2.custom&&window._qeDraft.integration_v2.custom[stepId];
+  if(!arr||!arr[i])return;
+  arr[i][field]=val;
+}
+function qeIntegMoveCustom(stepId,i,dir){
+  const arr=window._qeDraft.integration_v2&&window._qeDraft.integration_v2.custom&&window._qeDraft.integration_v2.custom[stepId];
+  if(!arr)return;
+  const j=i+dir;if(j<0||j>=arr.length)return;
+  [arr[i],arr[j]]=[arr[j],arr[i]];_qeRender();
+}
+function qeIntegDelCustom(stepId,i){
+  if(!confirm('Supprimer cette question custom ?'))return;
+  const arr=window._qeDraft.integration_v2&&window._qeDraft.integration_v2.custom&&window._qeDraft.integration_v2.custom[stepId];
+  if(!arr)return;
+  arr.splice(i,1);_qeRender();
+}
+function qeIntegResetAll(){
+  if(!confirm('Réinitialiser TOUTES les personnalisations du questionnaire d\'intégration (overrides + questions custom) ? Les modifications non enregistrées seront perdues.'))return;
+  window._qeDraft.integration_v2={overrides:{},custom:{}};
+  _qeRender();
 }
 function _qeItemCard(q,i,total){
   const types={text:'Texte court',textarea:'Texte long',rating:'Note (dots)',number:'Nombre',percent:'Pourcentage 0-100%',yesno:'Oui / Non',choice:'Choix multiples'};
@@ -9149,10 +9321,13 @@ function qeAddItem(){
 }
 async function qeSave(){
   if(!currentCoach){toast('Non connecté');return;}
-  const payload={coach_id:currentCoach.id,q_bilan:window._qeDraft.bilan,q_daily:window._qeDraft.daily,q_integration:window._qeDraft.integration};
+  const payload={coach_id:currentCoach.id,q_bilan:window._qeDraft.bilan,q_daily:window._qeDraft.daily,q_integration:window._qeDraft.integration,q_integration_v2:window._qeDraft.integration_v2||{overrides:{},custom:{}}};
   const{error}=await db.from('settings').upsert(payload,{onConflict:'coach_id'});
   if(error){
     console.error(error);
+    if(/q_integration_v2/i.test(error.message||'')&&/column|schema|cache/i.test(error.message||'')){
+      alert("⚠️ La colonne q_integration_v2 n'existe pas encore.\n\nOuvre le SQL Editor de Supabase et exécute :\nsupabase/q_integration_v2.sql");return;
+    }
     if(_isMigrationError(error)||/q_bilan|q_daily|q_integration/i.test(error.message||'')){_showMigrationAlert('questionnaires');}
     else{toast('Erreur: '+error.message);}
     return;
