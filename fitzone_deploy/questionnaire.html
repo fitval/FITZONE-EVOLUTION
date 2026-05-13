@@ -1031,12 +1031,34 @@ const SUPABASE_KEY = 'sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const DRIVE_UPLOAD_URL = 'https://script.google.com/macros/s/AKfycbwyZmpo87o-gypfO9herhhsJ1_5YELTICidFLeennSt-OH1sLym9Ytoo45MXybZbgAp/exec';
+async function uploadToDrive(base64, fileName, mimeType){
+  try{
+    mimeType = mimeType || 'image/jpeg';
+    const res = await fetch(DRIVE_UPLOAD_URL, {method:'POST', redirect:'follow', body: JSON.stringify({base64, fileName, mimeType})});
+    const text = await res.text();
+    const json = JSON.parse(text);
+    if (json.success && json.files && json.files[0]) return json.files[0].url;
+    console.error('[DRIVE]', json.error); return null;
+  } catch(e){ console.error('[DRIVE]', e); return null; }
+}
+function fileToBase64(file){
+  return new Promise((resolve,reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
 const TOTAL_STEPS = 6;
 let currentStep = 1;
 let clientData = null;
 let selectedValues = {};
 let selectedDays = [];
 let selectedExclusions = [];
+// qid -> [{base64, name, mime}] avant upload, puis URLs après submit
+window._qPhotos = {};
 
 window.addEventListener('DOMContentLoaded', async () => {
   const token = new URLSearchParams(window.location.search).get('token');
@@ -1208,7 +1230,20 @@ function _renderCustomQuestion(q){
   const req = q.required ? '<span style="color:#dc2626;font-weight:800">*</span>' : '<span class="form-optional">optionnel</span>';
   let inner = `<label class="form-label">${(q.label||'')} ${req}</label>`;
   if (q.hint) inner += `<div class="form-hint">${q.hint}</div>`;
-  if (q.type === 'textarea') {
+  // Attachement (image ou PDF) joint par le coach pour illustrer la question
+  if (q.attachment_url) {
+    if (q.attachment_type === 'pdf') {
+      inner += `<a href="${q.attachment_url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;margin:8px 0 12px;text-decoration:none;color:#0f172a;font-size:13px;font-weight:600">📄 Voir le document joint</a>`;
+    } else {
+      inner += `<div style="margin:8px 0 12px"><img src="${q.attachment_url}" alt="Exemple" style="max-width:100%;border-radius:10px;border:1px solid #e2e8f0;display:block"></div>`;
+    }
+  }
+  if (q.type === 'photo') {
+    inner += `<input type="file" accept="image/*" multiple id="${id}_input" data-qid="${q.id}" data-required="${q.required?1:0}" style="display:none" onchange="qPhotoPick('${q.id}','${id}',this)">
+      <div id="${id}_grid" class="photo-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;margin-bottom:6px"></div>
+      <button type="button" class="choice-card" onclick="document.getElementById('${id}_input').click()" style="padding:14px 16px;width:100%;justify-content:center;display:flex;gap:8px;align-items:center"><span style="font-size:20px">📷</span> Ajouter des photos (caméra ou galerie)</button>
+      <input type="hidden" id="${id}" data-qid="${q.id}" data-required="${q.required?1:0}" value="">`;
+  } else if (q.type === 'textarea') {
     inner += `<textarea class="form-textarea" id="${id}" data-qid="${q.id}" data-required="${q.required?1:0}" placeholder="${q.placeholder||''}"></textarea>`;
   } else if (q.type === 'number') {
     inner += `<input type="number" step="${q.step||1}" class="form-input" id="${id}" data-qid="${q.id}" data-required="${q.required?1:0}" placeholder="${q.placeholder||q.unit||''}">`;
@@ -1235,9 +1270,59 @@ function collectCustomAnswers(){
   const out = {};
   document.querySelectorAll('.form-group[data-custom] [data-qid]').forEach(el => {
     const qid = el.dataset.qid;
+    if (el.type === 'file') return; // photos sont gérées séparément (upload + URLs)
     const val = (el.value || '').trim();
     if (val !== '') out[qid] = val;
   });
+  return out;
+}
+
+/* Photo question helpers */
+async function qPhotoPick(qid, idPrefix, input){
+  if (!input.files || !input.files.length) return;
+  if (!window._qPhotos[qid]) window._qPhotos[qid] = [];
+  const list = window._qPhotos[qid];
+  for (const f of input.files) {
+    const b64 = await fileToBase64(f);
+    list.push({base64: b64, name: f.name || ('photo_'+Date.now()+'.jpg'), mime: f.type || 'image/jpeg'});
+  }
+  input.value = ''; // reset so user can re-pick same file
+  _qPhotoRenderGrid(qid, idPrefix);
+}
+function qPhotoRemove(qid, idPrefix, i){
+  if (!window._qPhotos[qid]) return;
+  window._qPhotos[qid].splice(i, 1);
+  _qPhotoRenderGrid(qid, idPrefix);
+}
+function _qPhotoRenderGrid(qid, idPrefix){
+  const grid = document.getElementById(idPrefix + '_grid');
+  if (!grid) return;
+  const list = window._qPhotos[qid] || [];
+  // Update hidden input for validation (any value if there's at least one photo)
+  const hidden = document.getElementById(idPrefix);
+  if (hidden) hidden.value = list.length ? String(list.length) : '';
+  grid.innerHTML = list.map((p, i) => `
+    <div style="position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;border:1.5px solid #e2e8f0">
+      <img src="data:${p.mime};base64,${p.base64}" style="width:100%;height:100%;object-fit:cover">
+      <button type="button" onclick="qPhotoRemove('${qid}','${idPrefix}',${i})" style="position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.6);color:white;border:none;font-size:13px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>`).join('');
+}
+async function _uploadPendingPhotos(){
+  // Upload all queued photos to Drive, return map { qid: [urls] }
+  const out = {};
+  const nom = (clientData && ((clientData.first_name||'')+'_'+(clientData.last_name||'')).replace(/\s+/g,'_').replace(/^_|_$/g,'')) || 'client';
+  for (const [qid, list] of Object.entries(window._qPhotos)) {
+    if (!list || !list.length) continue;
+    const urls = [];
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i];
+      const ext = (p.mime && p.mime.includes('png')) ? '.png' : '.jpg';
+      const fileName = 'Questionnaire_'+nom+'_'+qid+'_'+(i+1)+ext;
+      const url = await uploadToDrive(p.base64, fileName, p.mime);
+      if (url) urls.push(url);
+    }
+    if (urls.length) out[qid] = urls;
+  }
   return out;
 }
 
@@ -1442,9 +1527,10 @@ async function submitForm() {
     extra_questions: Object.assign({}, collectExtraAnswers(), collectCustomAnswers()),
     submitted_at: new Date().toISOString(),
   };
-  // Validation required extras + custom questions
+  // Validation required extras + custom questions (incluant questions photo : au moins 1 photo si required)
   const missingExtras = [];
   document.querySelectorAll('#extraQuestionsContainer [data-required="1"], .form-group[data-custom] [data-required="1"]').forEach(el => {
+    if (el.type === 'file') return; // file input is hidden, validation via hidden input
     if (!(el.value || '').trim()) missingExtras.push(el.closest('.form-group')?.querySelector('.form-label')?.textContent || 'Champ requis');
   });
   if (missingExtras.length) {
@@ -1452,6 +1538,13 @@ async function submitForm() {
     alert('Merci de remplir : ' + missingExtras.slice(0,3).join(', '));
     return;
   }
+  // Upload photos (questions de type photo) puis fusion dans extra_questions
+  try {
+    btn.textContent = '⏳ Envoi des photos…';
+    const photoUrlsByQid = await _uploadPendingPhotos();
+    Object.entries(photoUrlsByQid).forEach(([qid, urls]) => { payload.extra_questions[qid] = urls; });
+    btn.textContent = '⏳ Envoi en cours…';
+  } catch (e) { console.error('[QUESTIONNAIRE photos]', e); }
 
   const token = new URLSearchParams(window.location.search).get('token');
   try {

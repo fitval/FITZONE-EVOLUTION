@@ -9205,7 +9205,7 @@ function _qeIntegFieldRow(f,ov){
   </div>`;
 }
 function _qeIntegCustomCard(stepId,q,i,total){
-  const types={text:'Texte court',textarea:'Texte long',number:'Nombre',yesno:'Oui / Non',choice:'Choix multiples',rating:'Note (1-10)'};
+  const types={text:'Texte court',textarea:'Texte long',number:'Nombre',yesno:'Oui / Non',choice:'Choix multiples',rating:'Note (1-10)',photo:'📷 Photos (caméra ou galerie)'};
   let h=`<div style="background:var(--white);border:1.5px solid var(--gold);border-radius:8px;padding:10px 12px;margin-bottom:8px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
       <div style="width:24px;height:24px;border-radius:6px;background:var(--gold);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">${i+1}</div>
@@ -9222,7 +9222,13 @@ function _qeIntegCustomCard(stepId,q,i,total){
       <div class="fg" style="margin-bottom:6px"><label class="fl" style="font-size:10px">Type</label><select class="fs" onchange="qeIntegEditCustom('${stepId}',${i},'type',this.value);_qeRender()" style="font-size:13px;padding:8px 10px">${Object.entries(types).map(([k,l])=>`<option value="${k}" ${q.type===k?'selected':''}>${l}</option>`).join('')}</select></div>
       <div class="fg" style="margin-bottom:6px"><label class="fl" style="font-size:10px">Obligatoire</label><label style="display:flex;align-items:center;gap:6px;padding:8px 0;font-size:12px;cursor:pointer"><input type="checkbox" ${q.required?'checked':''} onchange="qeIntegEditCustom('${stepId}',${i},'required',this.checked)">Réponse requise</label></div>
     </div>
-    <div class="fg" style="margin-bottom:6px"><label class="fl" style="font-size:10px">Aide (optionnel)</label><input class="fi" value="${(q.hint||'').replace(/"/g,'&quot;')}" oninput="qeIntegEditCustom('${stepId}',${i},'hint',this.value)" placeholder="Texte d'aide sous le libellé" style="font-size:13px;padding:8px 10px"></div>`;
+    <div class="fg" style="margin-bottom:6px"><label class="fl" style="font-size:10px">Aide (optionnel)</label><input class="fi" value="${(q.hint||'').replace(/"/g,'&quot;')}" oninput="qeIntegEditCustom('${stepId}',${i},'hint',this.value)" placeholder="Texte d'aide sous le libellé" style="font-size:13px;padding:8px 10px"></div>
+    <div class="fg" style="margin-bottom:6px;background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:8px 10px">
+      <label class="fl" style="font-size:10px;margin-bottom:6px">📎 Pièce jointe (illustration affichée avant la question)</label>
+      ${q.attachment_url?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">${q.attachment_type==='pdf'?'<span style="font-size:18px">📄</span>':`<img src="${q.attachment_url}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">`}<a href="${q.attachment_url}" target="_blank" style="font-size:11px;color:var(--gold);text-decoration:underline;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.attachment_url}</a><button class="btn btn-ghost btn-xs" onclick="qeIntegRemoveAttachment('${stepId}',${i})">✕</button></div>`:''}
+      <input type="file" accept="image/*,application/pdf" id="att_${stepId}_${i}" style="display:none" onchange="qeIntegUploadAttachment('${stepId}',${i},this)">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('att_${stepId}_${i}').click()" style="padding:6px 12px;font-size:11px">${q.attachment_url?'Remplacer le fichier':'+ Joindre une image ou un PDF'}</button>
+    </div>`;
   if(q.type==='choice'){
     h+=`<div class="fg" style="margin-bottom:0"><label class="fl" style="font-size:10px">Options (une par ligne)</label><textarea class="fi" rows="3" oninput="qeIntegEditCustom('${stepId}',${i},'options',this.value.split('\\n').map(s=>s.trim()).filter(Boolean))" style="font-size:13px;padding:8px 10px">${(q.options||[]).join('\n')}</textarea></div>`;
   } else if(q.type==='number'){
@@ -9264,6 +9270,35 @@ function qeIntegDelCustom(stepId,i){
   const arr=window._qeDraft.integration_v2&&window._qeDraft.integration_v2.custom&&window._qeDraft.integration_v2.custom[stepId];
   if(!arr)return;
   arr.splice(i,1);_qeRender();
+}
+async function qeIntegUploadAttachment(stepId,i,input){
+  if(!input.files||!input.files.length)return;
+  const f=input.files[0];
+  if(f.size>10*1024*1024){alert('Fichier trop volumineux (max 10 MB)');return;}
+  const arr=window._qeDraft.integration_v2&&window._qeDraft.integration_v2.custom&&window._qeDraft.integration_v2.custom[stepId];
+  if(!arr||!arr[i])return;
+  const isPdf=f.type==='application/pdf'||(f.name||'').toLowerCase().endsWith('.pdf');
+  toast('Upload en cours…');
+  const reader=new FileReader();
+  reader.onload=async()=>{
+    const b64=reader.result.split(',')[1];
+    const ext=isPdf?'.pdf':(f.type.includes('png')?'.png':'.jpg');
+    const fname='qIntegAtt_'+stepId+'_'+Date.now()+ext;
+    const url=await uploadToDrive(b64,fname,f.type||(isPdf?'application/pdf':'image/jpeg'));
+    if(!url){toast('Échec upload');return;}
+    arr[i].attachment_url=url;
+    arr[i].attachment_type=isPdf?'pdf':'image';
+    toast('Pièce jointe ajoutée ✓');
+    _qeRender();
+  };
+  reader.readAsDataURL(f);
+}
+function qeIntegRemoveAttachment(stepId,i){
+  const arr=window._qeDraft.integration_v2&&window._qeDraft.integration_v2.custom&&window._qeDraft.integration_v2.custom[stepId];
+  if(!arr||!arr[i])return;
+  delete arr[i].attachment_url;
+  delete arr[i].attachment_type;
+  _qeRender();
 }
 function qeIntegResetAll(){
   if(!confirm('Réinitialiser TOUTES les personnalisations du questionnaire d\'intégration (overrides + questions custom) ? Les modifications non enregistrées seront perdues.'))return;
