@@ -1418,8 +1418,13 @@ function startWorkout(){
         rir:setDef.rir||'',
         tempo:setDef.tempo||'',
         kg:'',repsActual:'',rirActual:'',
+        kgL:'',kgR:'',repsL:'',repsR:'',rirL:'',rirR:'',
         prevKg:prevSet?prevSet.kg||prevSet.load||'':'',
         prevReps:prevSet?prevSet.reps||'':'',
+        prevKgL:prevSet?prevSet.kgL||'':'',
+        prevKgR:prevSet?prevSet.kgR||'':'',
+        prevRepsL:prevSet?prevSet.repsL||'':'',
+        prevRepsR:prevSet?prevSet.repsR||'':'',
         done:false
       });
     }
@@ -1503,15 +1508,17 @@ function renderActiveWorkout(){
       h+=`<div class="set-header" style="margin-top:-4px"><div>#</div>${ex.bw?'':'<div>kg</div>'}<div>reps</div><div>RIR</div>${ex.bw?'':'<div>kg</div>'}<div>reps</div><div>RIR</div><div></div></div>`;
 
       ex.sets.forEach((s,si)=>{
-        const phKg=s.prevKg?s.prevKg:'kg';
-        const phReps=s.prevReps?s.prevReps:'reps';
+        const phKgL=s.prevKgL||s.prevKg||'kg';
+        const phRepsL=s.prevRepsL||s.prevReps||'reps';
+        const phKgR=s.prevKgR||s.prevKg||'kg';
+        const phRepsR=s.prevRepsR||s.prevReps||'reps';
         h+=`<div class="set-row">
           <div class="set-num">${String(si+1).padStart(2,'0')}</div>
-          ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kgL||''}" oninput="workoutData[${ei}].sets[${si}].kgL=this.value" style="border-color:var(--gold-border)"></div>`}
-          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsL||''}" oninput="workoutData[${ei}].sets[${si}].repsL=this.value" style="border-color:var(--gold-border)"></div>
+          ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKgL}" value="${s.kgL||''}" oninput="workoutData[${ei}].sets[${si}].kgL=this.value" style="border-color:var(--gold-border)"></div>`}
+          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phRepsL}" value="${s.repsL||''}" oninput="workoutData[${ei}].sets[${si}].repsL=this.value" style="border-color:var(--gold-border)"></div>
           <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirL||''}" oninput="workoutData[${ei}].sets[${si}].rirL=this.value" style="border-color:var(--gold-border)"></div>
-          ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kgR||''}" oninput="workoutData[${ei}].sets[${si}].kgR=this.value"></div>`}
-          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsR||''}" oninput="workoutData[${ei}].sets[${si}].repsR=this.value"></div>
+          ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKgR}" value="${s.kgR||''}" oninput="workoutData[${ei}].sets[${si}].kgR=this.value"></div>`}
+          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phRepsR}" value="${s.repsR||''}" oninput="workoutData[${ei}].sets[${si}].repsR=this.value"></div>
           <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirR||''}" oninput="workoutData[${ei}].sets[${si}].rirR=this.value"></div>
           <div class="set-check"><button class="${s.done?'done':''}" onclick="validateSet(${ei},${si})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button></div>
         </div>`;
