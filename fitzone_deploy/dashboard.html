@@ -4987,13 +4987,20 @@ function openProgBuilderForClient(){
 }
 function editClientProgram(progId){
   if(!curClient)return;
-  const clId=curClient.id;
+  const cl=curClient,clId=cl.id;
   document.getElementById('detPage').classList.remove('show');
   showPage('tr-progs',document.getElementById('nav-tr-progs'));
   openSub('sub-train','arr-tr');
   setTimeout(()=>{
     openProgBuilder(progId);
-    progFromClientId=clId;// Idem : après l'ouverture
+    // Sécurité : si le lookup clientIds → progClients a raté (client absent de allClients,
+    // race, etc.), on injecte explicitement curClient pour éviter que saveProg ne perde
+    // le rattachement au client en mettant clientId:null.
+    if(!progClients.find(x=>x.id===clId)){
+      progClients.unshift(cl);
+      try{renderClientBadges(progClients,'progClBadges','progRemoveClient');}catch(e){}
+    }
+    progFromClientId=clId;
   },220);
 }
 function _maybeReturnToClientFromProg(){

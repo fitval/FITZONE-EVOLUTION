@@ -1431,7 +1431,7 @@ function startWorkout(){
     const prevNote=prev&&prev.note?prev.note:'';
     const prevVideoUrl=prev&&prev.videoUrl?prev.videoUrl:'';
     const wasUnilateral=prev&&prev.unilateral?true:false;
-    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,videoUrl:null,note:prevNote,prevNote,prevVideoUrl});
+    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,videoUrl:null,note:prevNote,prevNote,prevVideoUrl,supersetId:ex.supersetId||null,supersetLetter:ex.supersetLetter||'',supersetPosition:ex.supersetPosition||0,supersetTotal:ex.supersetTotal||0});
   });
 
   // Start elapsed timer
