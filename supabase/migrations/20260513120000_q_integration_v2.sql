@@ -1,0 +1,52 @@
+-- ============================================================
+-- FITZONE EVOLUTION — Questionnaire d'intégration éditable (V2)
+-- ============================================================
+-- Ajoute une colonne JSONB pour stocker la personnalisation
+-- complète du questionnaire d'intégration : overrides de labels,
+-- masquage de champs, et questions custom regroupées par étape.
+--
+-- Structure :
+-- {
+--   "overrides": {
+--     "<field_id>": {
+--       "label": "...",        -- libellé personnalisé (optionnel)
+--       "hint": "...",         -- aide personnalisée (optionnel)
+--       "hidden": true|false,  -- masquer le champ (interdit sur champs protégés)
+--       "optional": true|false -- forcer optionnel/requis
+--     }
+--   },
+--   "custom": {
+--     "step-1" | "step-2" | ... | "step-6": [
+--       {
+--         "id": "custom_xxx",
+--         "type": "text" | "textarea" | "number" | "yesno" | "choice",
+--         "label": "...",
+--         "hint": "...",
+--         "placeholder": "...",
+--         "options": ["..."],
+--         "unit": "...",
+--         "required": true|false,
+--         "section_header": "..."  -- optionnel : crée un sous-titre avant la question
+--       }
+--     ]
+--   }
+-- }
+--
+-- Les champs protégés (utilisés par le calcul macros) sont :
+-- firstName, lastName, email, birthDate, sex, height, weight,
+-- mainGoal, activityLevel
+-- → Ces champs ne peuvent pas être masqués ; seul leur libellé/aide
+--   peut être personnalisé.
+--
+-- Run dans Supabase SQL Editor.
+-- ============================================================
+
+ALTER TABLE public.settings
+  ADD COLUMN IF NOT EXISTS q_integration_v2 JSONB DEFAULT NULL;
+
+-- La policy existante sur settings (lecture anon via token) couvre
+-- déjà la lecture par le client lors du remplissage. Aucune nouvelle
+-- policy nécessaire.
+
+-- Vérification :
+-- SELECT coach_id, q_integration_v2 FROM settings WHERE q_integration_v2 IS NOT NULL;
