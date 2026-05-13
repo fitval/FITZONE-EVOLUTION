@@ -9780,10 +9780,20 @@ async function savePayment(){
   const editId=document.getElementById('payEditId').value;
   const contractId=document.getElementById('payContractId').value;
   if(contractId)row.client_contract_id=contractId;
-  let error;
-  if(editId){const r=await db.from('payments').update(row).eq('id',editId);error=r.error;}
-  else{const r=await db.from('payments').insert(row);error=r.error;}
+  let error,data;
+  if(editId){
+    const r=await db.from('payments').update(row).eq('id',editId).select().single();
+    error=r.error;data=r.data;
+  } else {
+    const r=await db.from('payments').insert(row).select().single();
+    error=r.error;data=r.data;
+  }
   if(error){
+    console.error('[PAYMENTS] save error',error,'row=',row);
+    if(/label/i.test(error.message||'')&&/column|schema/i.test(error.message||'')){
+      alert("⚠️ La colonne 'label' manque sur la table payments.\n\nExécute le fichier :\nsupabase/payments_manual_mgmt.sql");
+      return;
+    }
     if(_isMigrationError(error)){_showMigrationAlert('contracts');return;}
     if(/null value in column "client_contract_id"|violates not-null/i.test(error.message||'')){
       alert("⚠️ La colonne client_contract_id est encore NOT NULL.\n\nExécute le fichier :\nsupabase/payments_manual_mgmt.sql\n\npour permettre les paiements manuels sans contrat.");
@@ -9791,6 +9801,12 @@ async function savePayment(){
     }
     toast('Erreur: '+error.message);return;
   }
+  if(!data){
+    console.error('[PAYMENTS] insert/update returned no row — RLS read policy bloque',row);
+    toast("Enregistré mais invisible (RLS). Vérifie la policy 'coach_crud_payments'.");
+    renderPaymentsPage();return;
+  }
+  console.log('[PAYMENTS] saved',data);
   closeM('mPayment');toast(editId?'Échéance modifiée ✓':'Échéance ajoutée ✓');renderPaymentsPage();
 }
 async function deletePayment(){
