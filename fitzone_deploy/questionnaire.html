@@ -678,7 +678,7 @@ body {
         <input type="text" class="form-input" id="goalDeadline" placeholder="Ex : Mariage en juin, vacances été…">
       </div>
 
-      <div class="form-group">
+      <div class="form-group" data-fid="motivation">
         <label class="form-label">Ta motivation sur 10</label>
         <div class="scale-container">
           <div class="scale-labels">
@@ -794,7 +794,7 @@ body {
         <input type="text" class="form-input" id="homeEquipment" placeholder="Ex : Haltères 5–20 kg, barre de traction, aucun…">
       </div>
 
-      <div class="form-group">
+      <div class="form-group" data-fid="trainingDays">
         <label class="form-label">Jours disponibles pour t'entraîner</label>
         <div class="form-hint">Sois réaliste — 3 jours sûrs valent mieux que 5 hypothétiques.</div>
         <div class="days-grid">
@@ -899,7 +899,7 @@ body {
       <div class="section-divider"></div>
       <div class="section-heading">Exclusions alimentaires</div>
 
-      <div class="excl-section">
+      <div class="excl-section" data-fid="exclSection_viandes">
         <div class="excl-section-header">🥩 Viandes & Volailles</div>
         <div class="excl-grid">
           <div class="excl-chip" data-excl="Bœuf" onclick="toggleExcl(this)">🐄 Bœuf</div>
@@ -913,7 +913,7 @@ body {
         </div>
       </div>
 
-      <div class="excl-section">
+      <div class="excl-section" data-fid="exclSection_poissons">
         <div class="excl-section-header">🐟 Poissons & Crustacés</div>
         <div class="excl-grid">
           <div class="excl-chip" data-excl="Saumon" onclick="toggleExcl(this)">🐟 Saumon</div>
@@ -925,7 +925,7 @@ body {
         </div>
       </div>
 
-      <div class="excl-section">
+      <div class="excl-section" data-fid="exclSection_laitiers">
         <div class="excl-section-header">🥛 Laitiers & Œufs</div>
         <div class="excl-grid">
           <div class="excl-chip" data-excl="Lait de vache" onclick="toggleExcl(this)">🥛 Lait</div>
@@ -937,7 +937,7 @@ body {
         </div>
       </div>
 
-      <div class="excl-section">
+      <div class="excl-section" data-fid="exclSection_fruitsLegumes">
         <div class="excl-section-header">🥦 Fruits & Légumes</div>
         <div class="excl-grid">
           <div class="excl-chip" data-excl="Champignons" onclick="toggleExcl(this)">🍄 Champignons</div>
@@ -951,7 +951,7 @@ body {
         </div>
       </div>
 
-      <div class="excl-section">
+      <div class="excl-section" data-fid="exclSection_autres">
         <div class="excl-section-header">🌾 Autres</div>
         <div class="excl-grid">
           <div class="excl-chip" data-excl="Gluten" onclick="toggleExcl(this)">🌾 Gluten</div>
@@ -963,7 +963,7 @@ body {
         </div>
       </div>
 
-      <div class="excl-section">
+      <div class="excl-section" data-fid="exclSection_ustensiles">
         <div class="excl-section-header">🍳 Ustensiles</div>
         <div class="excl-grid">
           <div class="excl-chip" data-excl="Four" onclick="toggleExcl(this)">🔥 Four</div>
@@ -1065,12 +1065,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   } catch(e){ console.error('[CONTRACT CHECK]', e); }
 
-  // Chargement des questions extras définies par le coach
+  // Chargement des questions extras + personnalisation v2 définies par le coach
   try {
-    const { data: sData } = await db.from('settings').select('q_integration').eq('coach_id', clientData.coach_id).limit(1);
-    if (sData && sData[0] && Array.isArray(sData[0].q_integration) && sData[0].q_integration.length) {
-      extraQuestions = sData[0].q_integration;
-      renderExtraQuestions();
+    const { data: sData } = await db.from('settings').select('q_integration,q_integration_v2').eq('coach_id', clientData.coach_id).limit(1);
+    if (sData && sData[0]) {
+      if (Array.isArray(sData[0].q_integration) && sData[0].q_integration.length) {
+        extraQuestions = sData[0].q_integration;
+        renderExtraQuestions();
+      }
+      if (sData[0].q_integration_v2 && typeof sData[0].q_integration_v2 === 'object') {
+        applyIntegrationConfig(sData[0].q_integration_v2);
+      }
     }
   } catch(e){ console.error('[Q_INTEGRATION]', e); }
 
@@ -1080,6 +1085,162 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 let extraQuestions = [];
 function slugify(s){return String(s||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,40)||'q';}
+
+/* ===== INTEGRATION V2 : overrides + custom questions per step ===== */
+// Champs natifs du questionnaire d'intégration. Une entrée par form-group/excl-section.
+// Le coach peut surcharger label/hint/optional/hidden ; les champs avec lock='key' ne
+// peuvent pas être masqués (utilisés par le calcul macros et autres downstream).
+const INTEGRATION_FIELDS = [
+  {fid:'firstName',step:1,lock:'all',label:'Prénom'},
+  {fid:'lastName',step:1,lock:'all',label:'Nom'},
+  {fid:'email',step:1,lock:'all',label:'Email'},
+  {fid:'phone',step:1,label:'Téléphone'},
+  {fid:'birthDate',step:1,lock:'key',label:'Date de naissance'},
+  {fid:'sex',step:1,lock:'key',label:'Sexe'},
+  {fid:'height',step:1,lock:'key',label:'Taille (cm)'},
+  {fid:'weight',step:1,lock:'key',label:'Poids (kg)'},
+  {fid:'weightGoal',step:1,label:'Poids cible',hint:''},
+  {fid:'profession',step:1,label:'Profession & rythme de vie'},
+  {fid:'children',step:1,label:'Enfants ou responsabilités impactant ton emploi du temps ?'},
+  {fid:'mainGoal',step:2,lock:'key',label:'Objectif principal'},
+  {fid:'goalDeadline',step:2,label:'Échéance ou événement cible'},
+  {fid:'motivation',step:2,label:'Ta motivation sur 10'},
+  {fid:'motivationDetail',step:2,label:'Pourquoi ce chiffre ?'},
+  {fid:'whyFitzone',step:2,label:'Pourquoi rejoindre FITZONE ?'},
+  {fid:'whyCoach',step:2,label:"Qu'est-ce qui t'a donné envie de me faire confiance ?"},
+  {fid:'injuries',step:3,label:'Pathologies, douleurs, blessures ou restrictions médicales'},
+  {fid:'medications',step:3,label:'Traitement médical régulier'},
+  {fid:'previousProgram',step:3,label:"As-tu déjà suivi un programme d'entraînement ?"},
+  {fid:'previousDiet',step:3,label:'As-tu déjà suivi un régime ou plan nutritionnel ?'},
+  {fid:'supplementsCurrent',step:3,label:'Compléments alimentaires actuels'},
+  {fid:'supplementsOpen',step:3,label:'Ouvert(e) à prendre des compléments si recommandé ?'},
+  {fid:'experienceLevel',step:4,label:"Niveau d'expérience"},
+  {fid:'activityLevel',step:4,lock:'key',label:"Niveau d'activité physique quotidien"},
+  {fid:'gymName',step:4,label:'Salle de sport'},
+  {fid:'homeEquipment',step:4,label:'Matériel à domicile'},
+  {fid:'trainingDays',step:4,label:"Jours disponibles pour t'entraîner"},
+  {fid:'sessionDuration',step:4,label:'Durée disponible par séance'},
+  {fid:'dislikedExercises',step:4,label:'Exercices ou mouvements à éviter'},
+  {fid:'dietType',step:5,label:'Régime alimentaire'},
+  {fid:'mealsPerDay',step:5,label:'Repas par jour'},
+  {fid:'prepTime',step:5,label:'Temps de préparation max'},
+  {fid:'mealHabits',step:5,label:'Habitudes alimentaires actuelles'},
+  {fid:'favoriteFoods',step:5,label:'Aliments préférés & aliments détestés'},
+  {fid:'foodRelationship',step:5,label:'Ton rapport à la nourriture'},
+  {fid:'dietVariations',step:5,label:'Variations alimentaires dans la semaine'},
+  {fid:'dailySteps',step:5,label:'Pas quotidiens moy.'},
+  {fid:'sleepHours',step:5,label:'Heures de sommeil'},
+  {fid:'sleepQuality',step:5,label:'Sommeil réparateur ?'},
+  {fid:'exclSection_viandes',step:5,label:'🥩 Viandes & Volailles',isExcl:true},
+  {fid:'exclSection_poissons',step:5,label:'🐟 Poissons & Crustacés',isExcl:true},
+  {fid:'exclSection_laitiers',step:5,label:'🥛 Laitiers & Œufs',isExcl:true},
+  {fid:'exclSection_fruitsLegumes',step:5,label:'🥦 Fruits & Légumes',isExcl:true},
+  {fid:'exclSection_autres',step:5,label:'🌾 Autres',isExcl:true},
+  {fid:'exclSection_ustensiles',step:5,label:'🍳 Ustensiles',isExcl:true},
+  {fid:'extraInfo',step:6,label:'Autre chose à partager ?'}
+];
+
+function _findFieldGroup(fid){
+  let el = document.querySelector('[data-fid="'+fid+'"]');
+  if (el) return el;
+  el = document.getElementById(fid);
+  if (el) return el.closest('.form-group, .excl-section');
+  el = document.querySelector('[name="'+fid+'"]');
+  if (el) return el.closest('.form-group, .excl-section');
+  return null;
+}
+
+function applyIntegrationConfig(cfg){
+  if (!cfg) return;
+  const overrides = cfg.overrides || {};
+  const lockMap = {}; INTEGRATION_FIELDS.forEach(f => lockMap[f.fid] = f.lock);
+  Object.entries(overrides).forEach(([fid, ov]) => {
+    const grp = _findFieldGroup(fid);
+    if (!grp || !ov) return;
+    const lockLevel = lockMap[fid];
+    if (ov.hidden && lockLevel !== 'key' && lockLevel !== 'all') { grp.style.display = 'none'; return; }
+    const lab = grp.querySelector('.form-label, .excl-section-header');
+    if (lab && (ov.label != null)) {
+      const opt = lab.querySelector('.form-optional');
+      const optHtml = opt ? opt.outerHTML : (ov.optional ? '<span class="form-optional">optionnel</span>' : '');
+      lab.innerHTML = (ov.label || '') + (optHtml ? ' ' + optHtml : '');
+    }
+    if (ov.hint != null) {
+      let h = grp.querySelector('.form-hint');
+      if (!h && ov.hint && lab) {
+        h = document.createElement('div'); h.className = 'form-hint';
+        lab.parentNode.insertBefore(h, lab.nextSibling);
+      }
+      if (h) h.textContent = ov.hint || '';
+      if (h && !ov.hint) h.remove();
+    }
+  });
+  // Inject custom questions per step (before .section-divider if any, otherwise at end)
+  const custom = cfg.custom || {};
+  Object.entries(custom).forEach(([stepId, qs]) => {
+    if (!Array.isArray(qs) || !qs.length) return;
+    const step = document.getElementById(stepId);
+    if (!step) return;
+    qs.forEach(q => {
+      const node = _renderCustomQuestion(q);
+      if (!node) return;
+      // Insert before first .section-divider if exists, else append
+      const div = step.querySelector('.section-divider');
+      if (div) step.insertBefore(node, div); else step.appendChild(node);
+    });
+  });
+}
+
+function _renderCustomQuestion(q){
+  if (!q || !q.id) return null;
+  const id = 'cust_' + slugify(q.id);
+  const wrapper = document.createElement('div');
+  if (q.section_header) {
+    const h = document.createElement('div');
+    h.className = 'section-heading';
+    h.style.marginTop = '20px';
+    h.textContent = q.section_header;
+    wrapper.appendChild(h);
+  }
+  const fg = document.createElement('div');
+  fg.className = 'form-group';
+  fg.dataset.custom = '1';
+  const req = q.required ? '<span style="color:#dc2626;font-weight:800">*</span>' : '<span class="form-optional">optionnel</span>';
+  let inner = `<label class="form-label">${(q.label||'')} ${req}</label>`;
+  if (q.hint) inner += `<div class="form-hint">${q.hint}</div>`;
+  if (q.type === 'textarea') {
+    inner += `<textarea class="form-textarea" id="${id}" data-qid="${q.id}" data-required="${q.required?1:0}" placeholder="${q.placeholder||''}"></textarea>`;
+  } else if (q.type === 'number') {
+    inner += `<input type="number" step="${q.step||1}" class="form-input" id="${id}" data-qid="${q.id}" data-required="${q.required?1:0}" placeholder="${q.placeholder||q.unit||''}">`;
+  } else if (q.type === 'yesno') {
+    inner += `<input type="hidden" id="${id}" data-qid="${q.id}" data-required="${q.required?1:0}" value=""><div style="display:flex;gap:8px;margin-top:6px"><button type="button" class="choice-card" onclick="pickExtraYN('${id}','Oui',this)" style="padding:12px 16px;flex:1">Oui</button><button type="button" class="choice-card" onclick="pickExtraYN('${id}','Non',this)" style="padding:12px 16px;flex:1">Non</button></div>`;
+  } else if (q.type === 'choice') {
+    inner += `<input type="hidden" id="${id}" data-qid="${q.id}" data-required="${q.required?1:0}" value=""><div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">`;
+    (q.options||[]).forEach(o => { inner += `<button type="button" class="choice-card" onclick="pickExtraChoice('${id}',${JSON.stringify(o)},this)" style="text-align:left;padding:12px 14px">${o}</button>`; });
+    inner += `</div>`;
+  } else if (q.type === 'rating') {
+    const scale = q.scale || 10;
+    inner += `<input type="hidden" id="${id}" data-qid="${q.id}" data-required="${q.required?1:0}" value=""><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">`;
+    for (let k=1; k<=scale; k++) inner += `<button type="button" class="scale-btn" data-v="${k}" onclick="pickExtraRating('${id}',${k},this)">${k}</button>`;
+    inner += `</div>`;
+  } else {
+    inner += `<input type="text" class="form-input" id="${id}" data-qid="${q.id}" data-required="${q.required?1:0}" placeholder="${q.placeholder||''}">`;
+  }
+  fg.innerHTML = inner;
+  wrapper.appendChild(fg);
+  return wrapper;
+}
+
+function collectCustomAnswers(){
+  const out = {};
+  document.querySelectorAll('.form-group[data-custom] [data-qid]').forEach(el => {
+    const qid = el.dataset.qid;
+    const val = (el.value || '').trim();
+    if (val !== '') out[qid] = val;
+  });
+  return out;
+}
+
 function renderExtraQuestions() {
   const ctn = document.getElementById('extraQuestionsContainer');
   if (!ctn || !extraQuestions.length) return;
@@ -1278,12 +1439,12 @@ async function submitForm() {
     sleep_quality: selectedValues['sleepQuality'] === 'yes',
     allergies: selectedExclusions,
     extra_info: document.getElementById('extraInfo').value || null,
-    extra_questions: collectExtraAnswers(),
+    extra_questions: Object.assign({}, collectExtraAnswers(), collectCustomAnswers()),
     submitted_at: new Date().toISOString(),
   };
-  // Validation required extras
+  // Validation required extras + custom questions
   const missingExtras = [];
-  document.querySelectorAll('#extraQuestionsContainer [data-required="1"]').forEach(el => {
+  document.querySelectorAll('#extraQuestionsContainer [data-required="1"], .form-group[data-custom] [data-required="1"]').forEach(el => {
     if (!(el.value || '').trim()) missingExtras.push(el.closest('.form-group')?.querySelector('.form-label')?.textContent || 'Champ requis');
   });
   if (missingExtras.length) {
