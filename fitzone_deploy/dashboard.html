@@ -2314,6 +2314,131 @@ function swDet(name,el){
 }
 
 /* QUESTIONNAIRE TAB */
+// Mapping complet des champs payload → libellé d'affichage pour le détail de toutes les réponses
+const Q_ALL_FIELD_DEFS=[
+  // Étape 1 : Qui es-tu
+  {key:'sex',label:'Sexe',step:1,map:{male:'Homme',female:'Femme'}},
+  {key:'age',label:'Âge',step:1,suffix:' ans'},
+  {key:'height_cm',label:'Taille',step:1,suffix:' cm'},
+  {key:'weight_kg',label:'Poids',step:1,suffix:' kg'},
+  {key:'weight_goal',label:'Poids cible',step:1,suffix:' kg'},
+  {key:'phone',label:'Téléphone',step:1},
+  {key:'profession',label:'Profession & rythme de vie',step:1},
+  {key:'has_children',label:'Enfants / responsabilités impactant',step:1,map:{true:'Oui',false:'Non'}},
+  // Étape 2 : Objectifs
+  {key:'goal',label:'Objectif principal',step:2,map:{loss:'Perte de poids',mass:'Prise de masse',recomp:'Recomposition',maintain:'Maintien',performance:'Performance',wellbeing:'Bien-être'}},
+  {key:'goal_deadline',label:'Échéance / événement cible',step:2},
+  {key:'motivation_score',label:'Motivation',step:2,suffix:' / 10'},
+  {key:'why_fitzone',label:'Pourquoi rejoindre FITZONE',step:2},
+  {key:'why_coach',label:"Pourquoi me faire confiance",step:2},
+  // Étape 3 : Santé & historique
+  {key:'injuries',label:'Pathologies / douleurs / blessures',step:3},
+  {key:'medications',label:'Traitement médical régulier',step:3},
+  {key:'previous_program',label:"Programme d'entraînement antérieur",step:3},
+  {key:'previous_diet',label:'Régime / plan nutritionnel antérieur',step:3},
+  {key:'supplements_current',label:'Compléments alimentaires actuels',step:3},
+  {key:'supplements_open',label:'Ouvert aux compléments',step:3,map:{true:'Oui',false:'Non'}},
+  // Étape 4 : Entraînement
+  {key:'experience_level',label:"Niveau d'expérience",step:4,map:{beginner:'Débutant',intermediate:'Intermédiaire',advanced:'Avancé'}},
+  {key:'activity_level',label:"Niveau d'activité physique quotidien",step:4,map:{'1.2':'Sédentaire','1.375':'Légèrement actif','1.55':'Modérément actif','1.725':'Très actif','1.9':'Extrêmement actif'}},
+  {key:'gym_name',label:'Salle de sport',step:4},
+  {key:'home_equipment',label:'Matériel à domicile',step:4},
+  {key:'training_days',label:'Jours disponibles',step:4,isArray:true},
+  {key:'session_duration',label:'Durée par séance',step:4},
+  {key:'disliked_exercises',label:'Exercices / mouvements à éviter',step:4},
+  // Étape 5 : Nutrition
+  {key:'diet_type',label:'Régime alimentaire',step:5,map:{omni:'Omnivore',vgt:'Végétarien',vgn:'Végétalien',pes:'Pescétarien'}},
+  {key:'meals_per_day',label:'Repas par jour',step:5},
+  {key:'prep_time_max',label:'Temps de préparation max',step:5,suffix:' min'},
+  {key:'meal_habits',label:'Habitudes alimentaires actuelles',step:5},
+  {key:'favorite_foods',label:'Aliments préférés & détestés',step:5},
+  {key:'food_relationship',label:'Rapport à la nourriture',step:5},
+  {key:'diet_variations',label:'Variations alimentaires hebdo',step:5},
+  {key:'daily_steps',label:'Pas quotidiens moyens',step:5},
+  {key:'sleep_hours',label:'Heures de sommeil',step:5,suffix:' h'},
+  {key:'sleep_quality',label:'Sommeil réparateur',step:5,map:{true:'Oui, bon sommeil',false:'Non, fatigué(e)'}},
+  {key:'allergies',label:'Exclusions alimentaires',step:5,isArray:true},
+  // Étape 6 : Dernière ligne droite
+  {key:'extra_info',label:'Autre chose à partager',step:6}
+];
+const Q_STEP_TITLES={1:'1 · Qui es-tu',2:'2 · Tes objectifs',3:'3 · Santé & historique',4:'4 · Entraînement',5:'5 · Nutrition',6:'6 · Dernière ligne droite'};
+function _qDriveDirectUrl(url){
+  if(!url||typeof url!=='string'||!url.includes('drive.google.com'))return url;
+  let id=null;
+  const m1=url.match(/\/d\/([^/]+)/);if(m1)id=m1[1];
+  const m2=url.match(/[?&]id=([^&]+)/);if(m2)id=m2[1];
+  return id?'https://lh3.googleusercontent.com/d/'+id:url;
+}
+function _qRenderAllAnswers(q){
+  if(!q)return'';
+  const escHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Group fields by step
+  const byStep={};
+  Q_ALL_FIELD_DEFS.forEach(def=>{
+    if(!byStep[def.step])byStep[def.step]=[];
+    byStep[def.step].push(def);
+  });
+  let h='<div class="qsec"><div class="qsec-label">Toutes les réponses du questionnaire</div>';
+  for(let s=1;s<=6;s++){
+    const defs=byStep[s]||[];
+    let rows='';
+    defs.forEach(def=>{
+      let v=q[def.key];
+      if(v===undefined||v===null||v==='')return; // skip empty
+      let displayed;
+      if(def.isArray){
+        if(!Array.isArray(v)||!v.length)return;
+        displayed=v.join(', ');
+      } else if(def.map){
+        const k=String(v);
+        displayed=def.map[k]!==undefined?def.map[k]:String(v);
+      } else {
+        displayed=String(v)+(def.suffix||'');
+      }
+      rows+=`<div style="display:grid;grid-template-columns:240px 1fr;gap:14px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:12px;color:var(--text3);font-weight:600">${escHtml(def.label)}</div><div style="font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word">${escHtml(displayed)}</div></div>`;
+    });
+    if(!rows)continue;
+    h+=`<details ${s===1?'open':''} style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;background:var(--white)">
+      <summary style="padding:10px 14px;cursor:pointer;font-size:12px;font-weight:800;color:var(--dark);letter-spacing:.5px;text-transform:uppercase">Étape ${escHtml(Q_STEP_TITLES[s]||s)}</summary>
+      <div style="padding:0 14px 10px 14px">${rows}</div>
+    </details>`;
+  }
+  // Questions personnalisées (extras + custom v2)
+  const xq=q.extra_questions||{};
+  const xqKeys=Object.keys(xq);
+  if(xqKeys.length){
+    let xrows='';
+    xqKeys.forEach(k=>{
+      const v=xq[k];
+      if(v===undefined||v===null||v==='')return;
+      let html;
+      if(Array.isArray(v)){
+        // Photos array (URLs)
+        if(v.every(x=>typeof x==='string'&&/^https?:\/\//.test(x))){
+          html=`<div style="display:flex;flex-wrap:wrap;gap:6px">${v.map(u=>{const d=_qDriveDirectUrl(u);return`<a href="${escHtml(u)}" target="_blank" rel="noopener" style="display:block"><img src="${escHtml(d)}" loading="lazy" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"></a>`;}).join('')}</div>`;
+        } else {
+          html=escHtml(v.join(', '));
+        }
+      } else {
+        html=escHtml(String(v));
+      }
+      xrows+=`<div style="display:grid;grid-template-columns:240px 1fr;gap:14px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:12px;color:var(--text3);font-weight:600">${escHtml(k)}</div><div style="font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word">${html}</div></div>`;
+    });
+    if(xrows){
+      h+=`<details style="margin-bottom:8px;border:1px solid var(--gold-border);border-radius:8px;background:var(--white)">
+        <summary style="padding:10px 14px;cursor:pointer;font-size:12px;font-weight:800;color:var(--gold);letter-spacing:.5px;text-transform:uppercase">Questions personnalisées (${xqKeys.length})</summary>
+        <div style="padding:0 14px 10px 14px">${xrows}</div>
+      </details>`;
+    }
+  }
+  // Métadonnées
+  if(q.submitted_at){
+    h+=`<div style="font-size:11px;color:var(--text3);margin-top:8px">Soumis le ${new Date(q.submitted_at).toLocaleString('fr-FR')}</div>`;
+  }
+  h+='</div>';
+  return h;
+}
+
 function renderQTab(){
   const c=curClient,q=curQ;const link=QBASE+'?token='+c.token;
   const lh=`<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Lien d'invitation</div><div class="lbox"><div class="lurl">${link}</div><button class="cbtn" onclick="copyT('${link}')">Copier</button></div></div>`;
@@ -2348,6 +2473,7 @@ function renderQTab(){
     ${excl.length?`<div class="qsec"><div class="qsec-label">Exclusions (${excl.length})</div><div style="display:flex;flex-wrap:wrap;gap:5px">${excl.map(e=>`<span style="padding:3px 9px;background:#fff0f0;border:1px solid #ffcccc;border-radius:20px;font-size:11px;color:#c03030;font-weight:500">✕ ${e}</span>`).join('')}</div></div>`:''}
     ${q.why_fitzone?`<div class="qsec"><div class="qsec-label">Pourquoi Fitzone</div><div class="qi full" style="display:block"><div class="qiv">${q.why_fitzone}</div></div></div>`:''}
     ${q.extra_info?`<div class="qsec"><div class="qsec-label">Infos supplémentaires</div><div class="qi full" style="display:block"><div class="qiv">${q.extra_info}</div></div></div>`:''}
+    ${_qRenderAllAnswers(q)}
     <div style="margin-top:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-dark btn-sm" onclick="swDet('nutrition',document.querySelectorAll('#detTabs .tab')[1])">🥗 Calculer nutrition →</button>
       <button class="btn btn-sm" style="background:#fee;color:#c03030;border:1px solid #fcc;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer" onclick="resetQuestionnaire()">🔄 Réinitialiser le questionnaire</button>
@@ -5042,12 +5168,42 @@ function progRenderDays(){
     let badge='';
     if(isRun){const nb=(d.warmup||[]).length+(d.workout||[]).length+(d.cooldown||[]).length;badge=nb?`<span style="font-size:9px;color:var(--gold);margin-left:4px;font-weight:800">${nb} bloc${nb>1?'s':''}</span>`:'';}
     else{const tots=['warmup','workout','cooldown'].reduce((acc,sec)=>{(d[sec]||[]).forEach(e=>{const exos=e.superset?(e.exercises||[]):[e];exos.forEach(ex=>acc+=(ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0)));});return acc;},0);badge=tots?`<span style="font-size:9px;color:var(--text3);margin-left:4px">${tots}s</span>`:'';}
-    return`<div class="prog-day-tab${i===progDayIdx?' active':''}${isRun?' is-run':''}" onclick="progSelDay(${i})" style="${isRun?'border-color:var(--gold-border);':''}">${ico} ${d.nom}${badge}</div>`;
+    const leftDis=i===0?'opacity:.25;pointer-events:none;':'';
+    const rightDis=i===progDays.length-1?'opacity:.25;pointer-events:none;':'';
+    const delDis=progDays.length<=1?'opacity:.25;pointer-events:none;':'';
+    return`<div class="prog-day-tab${i===progDayIdx?' active':''}${isRun?' is-run':''}" onclick="progSelDay(${i})" style="${isRun?'border-color:var(--gold-border);':''}position:relative;padding-right:62px">${ico} ${d.nom}${badge}
+      <span style="position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:1px" onclick="event.stopPropagation()">
+        <button title="Déplacer vers la gauche" onclick="progMoveDay(${i},-1)" style="${leftDis}width:18px;height:18px;border:none;background:transparent;cursor:pointer;font-size:11px;color:var(--text3);padding:0;line-height:1">◀</button>
+        <button title="Déplacer vers la droite" onclick="progMoveDay(${i},1)" style="${rightDis}width:18px;height:18px;border:none;background:transparent;cursor:pointer;font-size:11px;color:var(--text3);padding:0;line-height:1">▶</button>
+        <button title="Supprimer ce jour" onclick="progDelDay(${i})" style="${delDis}width:18px;height:18px;border:none;background:transparent;cursor:pointer;font-size:13px;color:#c03030;padding:0;line-height:1">✕</button>
+      </span>
+    </div>`;
   }).join('')+`<div class="add-day-btn" onclick="progAddDay()" title="Ajouter un jour">+</div>`;
   progRenderDay();
 }
 function progSelDay(i){progDayIdx=i;progRenderDays();}
 function progAddDay(){progDays.push({nom:'Jour '+(progDays.length+1),type:'muscu',warmup:[],workout:[],cooldown:[]});progSelDay(progDays.length-1);}
+function progMoveDay(i,dir){
+  const j=i+dir;
+  if(j<0||j>=progDays.length)return;
+  [progDays[i],progDays[j]]=[progDays[j],progDays[i]];
+  // Ajuste l'index actif pour suivre le jour déplacé
+  if(progDayIdx===i)progDayIdx=j;
+  else if(progDayIdx===j)progDayIdx=i;
+  progRenderDays();
+}
+function progDelDay(i){
+  if(progDays.length<=1){toast('Un programme doit avoir au moins 1 jour');return;}
+  const d=progDays[i]; if(!d)return;
+  const hasContent=['warmup','workout','cooldown'].some(s=>(d[s]||[]).length);
+  const msg='Supprimer "'+d.nom+'" ?'+(hasContent?'\n\nCe jour contient des exercices/blocs qui seront perdus.':'');
+  if(!confirm(msg))return;
+  progDays.splice(i,1);
+  if(progDayIdx>=progDays.length)progDayIdx=progDays.length-1;
+  else if(progDayIdx>i)progDayIdx--;
+  progRenderDays();
+  toast('Jour supprimé');
+}
 function progSetDayType(t){
   const d=progDays[progDayIdx];if(!d||d.type===t)return;
   const total=(d.warmup||[]).length+(d.workout||[]).length+(d.cooldown||[]).length;
