@@ -2231,6 +2231,9 @@ async function openDet(id){
   curClient=allClients.find(c=>c.id===id);if(!curClient)return;
   canEditClient=isAdmin||curClient.coach_id===currentCoach.id;
   sessionStorage.setItem('fz_current_client',id);
+  // Reset le flag de premier rendu de la roadmap pour que l'auto-scroll
+  // vers la semaine courante se déclenche à chaque ouverture de fiche client.
+  delete window['_roadRendered_'+id];
   const{data}=await db.from('questionnaires').select('*').eq('client_id',id).order('submitted_at',{ascending:false}).limit(1);
   curQ=(data&&data.length)?data[0]:null;
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none';});
@@ -2692,16 +2695,16 @@ async function savePlanClient(){
 /* ROADMAP */
 // Roadmap phase colors
 const roadPhaseColors={
-  'Improvement Season':'rgba(34,197,94,.10)',
-  'Photoshoot Prep':'rgba(234,179,8,.12)',
-  'Competition Prep':'rgba(239,68,68,.10)',
-  'Dieting Phase':'rgba(74,144,217,.10)',
-  'Gaining Phase':'rgba(168,85,247,.10)',
-  'Maintenance':'rgba(107,100,86,.08)',
-  'Health-Focus':'rgba(16,185,129,.10)',
-  'Diet Break':'rgba(251,146,60,.10)',
-  'Priming':'rgba(236,72,153,.10)',
-  'Reverse Diet':'rgba(6,182,212,.10)'
+  'Improvement Season':'rgba(239,68,68,.14)',     // rouge
+  'Photoshoot Prep':'rgba(234,179,8,.18)',         // jaune
+  'Competition Prep':'rgba(234,179,8,.18)',        // jaune
+  'Dieting Phase':'rgba(59,130,246,.14)',          // bleu
+  'Gaining Phase':'rgba(159,18,57,.18)',           // autre rouge (wine)
+  'Maintenance':'rgba(107,100,86,.10)',            // gris
+  'Health-Focus':'rgba(34,197,94,.18)',            // vert santé
+  'Diet Break':'rgba(30,58,138,.20)',              // bleu foncé
+  'Priming':'rgba(204,153,66,.22)',                // orange #CC9942
+  'Reverse Diet':'rgba(31,41,55,.22)'              // gris très foncé
 };
 // Copy-paste state
 let roadCopy=null; // {row, field, value}
@@ -2710,6 +2713,12 @@ let roadSelectMode=false;
 
 function renderRoadTab(){
   const el=document.getElementById('tc-roadmap');
+  // Capture positions de scroll AVANT le rebuild pour éviter le "retour en haut"
+  const prevWrap=el.querySelector('.road-wrap');
+  const prevWrapScroll=prevWrap?prevWrap.scrollTop:null;
+  const prevPageScrollY=window.scrollY;
+  const isFirstRender=!window['_roadRendered_'+curClient.id];
+  window['_roadRendered_'+curClient.id]=true;
   const phases=['','Improvement Season','Photoshoot Prep','Competition Prep','Dieting Phase','Gaining Phase','Maintenance','Health-Focus','Diet Break','Priming','Reverse Diet'];
   const nuttypes=['','Déficit','Maintenance','Surplus'];
   const cardios=['Step','LISS','HIIT','Vélo','Course'];
@@ -2874,8 +2883,10 @@ function renderRoadTab(){
       renderRoadTab();
     });
   });
-  // Auto-scroll to current week (skip when in copy mode to preserve position)
-  if(!roadCopy){
+  // Gestion du scroll : on ne saute à la semaine courante qu'au PREMIER rendu de la
+  // roadmap pour ce client. Ensuite on préserve la position du wrap et de la page
+  // pour ne pas "remonter en haut" après chaque clic phase/coller/enregistrer.
+  if(isFirstRender&&!roadCopy){
     const curRow=el.querySelector('tr.rw-cur');
     if(curRow){
       setTimeout(()=>{
@@ -2883,8 +2894,17 @@ function renderRoadTab(){
         if(wrap)wrap.scrollTop=curRow.offsetTop-wrap.offsetTop-60;
       },50);
     }
+  } else if(prevWrapScroll!=null){
+    requestAnimationFrame(()=>{
+      const newWrap=el.querySelector('.road-wrap');
+      if(newWrap)newWrap.scrollTop=prevWrapScroll;
+      if(window.scrollY!==prevPageScrollY)window.scrollTo(0,prevPageScrollY);
+    });
   }
 }
+// Reset l'état "déjà rendu" quand on ferme la fiche client, pour qu'à la prochaine
+// ouverture de la roadmap on saute à nouveau à la semaine courante.
+function _resetRoadRendered(){if(curClient)delete window['_roadRendered_'+curClient.id];}
 function roadCellClick(row,field,e){
   if(!roadCopy)return;
   if(roadCopy.field!==field)return;
