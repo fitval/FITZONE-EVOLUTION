@@ -1910,15 +1910,16 @@ function renderFoodTracker(){
   // Meals
   FT_MEALS.forEach(m=>{
     const items=dayLogs.filter(l=>l.meal===m);
-    let mK=0;
-    items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;});
+    let mK=0,mP=0,mC=0,mF=0;
+    items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;mP+=(parseFloat(l.prot)||0)*q;mC+=(parseFloat(l.carb)||0)*q;mF+=(parseFloat(l.fat)||0)*q;});
     const escMeal=m.replace(/'/g,"\\'");
+    const macroPill=(label,val,color)=>`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:8px;background:${color}1a;color:${color};font-size:10px;font-weight:800"><span style="opacity:.75">${label}</span>${Math.round(val)}g</span>`;
     h+=`<div style="margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:0 4px">
         <span style="font-size:22px">${FT_MEAL_ICONS[m]||'🍽️'}</span>
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:800">${m}</div>
-          ${items.length?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${items.length} aliment${items.length>1?'s':''}</div>`:''}
+          ${items.length?`<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:3px">${macroPill('P',mP,'#4a90d9')}${macroPill('G',mC,'#c49a2a')}${macroPill('L',mF,'#e07c5a')}</div>`:''}
         </div>
         ${items.length?`<div style="font-size:14px;font-weight:800;color:var(--gold);white-space:nowrap">${Math.round(mK)} <span style="font-size:10px;color:var(--text3);font-weight:600">kcal</span></div>`:''}
       </div>`;
@@ -1931,6 +1932,9 @@ function renderFoodTracker(){
       items.forEach((it,idx)=>{
         const q=(parseFloat(it.qte_g)||0)/100;
         const k=(parseFloat(it.kcal)||0)*q;
+        const p=(parseFloat(it.prot)||0)*q;
+        const cg=(parseFloat(it.carb)||0)*q;
+        const fg=(parseFloat(it.fat)||0)*q;
         const img=(it.extra&&it.extra.image_url)||'';
         const isLast=idx===items.length-1;
         h+=`<div onclick="editFoodLog('${it.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;${!isLast?'border-bottom:1px solid var(--border);':''}">
@@ -1938,6 +1942,11 @@ function renderFoodTracker(){
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.aliment_nom}</div>
             <div style="font-size:11px;color:var(--text3);margin-top:1px">${it.qte_g}g · ${Math.round(k)} kcal</div>
+            <div style="display:flex;gap:8px;margin-top:3px;font-size:10px;font-weight:700">
+              <span style="color:#4a90d9">P ${Math.round(p)}g</span>
+              <span style="color:var(--gold)">G ${Math.round(cg)}g</span>
+              <span style="color:#e07c5a">L ${Math.round(fg)}g</span>
+            </div>
           </div>
           <button onclick="event.stopPropagation();deleteFoodLog('${it.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:8px;flex-shrink:0;font-family:var(--font)" title="Supprimer">✕</button>
         </div>`;
