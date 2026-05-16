@@ -4325,8 +4325,10 @@ function savePlanFull(){
   const existing=pfEditId?plans.find(p=>p.id===pfEditId):null;
   const coachId=existing?.coach_id||currentCoach.id;
   const plan={id:pfEditId||Date.now(),coach_id:coachId,type:'full',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pfClients.map(c=>c.id),clientNoms:pfClients.map(c=>c.first_name+' '+c.last_name),kcal:Math.round(t.k/nDays),prot:Math.round(t.p/nDays),carb:Math.round(t.g/nDays),fat:Math.round(t.l/nDays),jours:JSON.parse(JSON.stringify(pfDays)),createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
+  const isNewPlan=!pfEditId;
   if(pfEditId){const i=plans.findIndex(p=>p.id===pfEditId);if(i>=0)plans[i]=plan;else plans.push(plan);}else plans.push(plan);
   lsSave('fz_plans',plans);dbSave('plans_full',plan);closePlanBuilder();renderPlansListPage();toast('Plan enregistré ✓');
+  if(isNewPlan)(plan.clientIds||[]).forEach(cid=>triggerClientEmail('nutrition_plan_ready',cid,{plan_name:plan.nom}));
 }
 function _planDailyAvg(p){
   const jours=p.jours||[];
@@ -5644,8 +5646,10 @@ function saveProg(){
   const existing=progEditId?progs.find(p=>p.id===progEditId):null;
   const coachId=existing?.coach_id||currentCoach.id;
   const prog={id:progEditId||Date.now(),coach_id:coachId,nom,tags,desc:document.getElementById('progDesc')?.value||'',jours:JSON.parse(JSON.stringify(progDays)),clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:progClients.map(c=>c.id),clientNoms:progClients.map(c=>c.first_name+' '+c.last_name),createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
+  const isNewProg=!progEditId;
   if(progEditId){const i=progs.findIndex(p=>p.id===progEditId);if(i>=0)progs[i]=prog;else progs.push(prog);}else progs.push(prog);
   lsSave('fz_progs',progs);dbSave('programs',prog);closeProgBuilder();toast('Programme enregistré ✓');
+  if(isNewProg)(prog.clientIds||[]).forEach(cid=>triggerClientEmail('program_ready',cid,{program_name:prog.nom}));
 }
 function calcVolSemaine(jours){
   const vol={};
@@ -9625,10 +9629,11 @@ async function saveNotifWebhooks(){
 async function renderNotifications(){
   const el=document.getElementById('notificationsContent');if(!el)return;
   el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3)">Chargement…</div>';
-  await loadNotifWebhooks();
+  await Promise.all([loadNotifWebhooks(),loadEmailRules()]);
   if(!recForms||!recForms.length)await loadRecForms();
-  let h=`<div style="background:var(--bg2);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.55">
-    <strong style="color:var(--gold)">🔔 Comment ça marche</strong><br>
+  let h=`<div style="font-size:18px;font-weight:800;margin-bottom:10px">🔔 Webhooks (Coach)</div>`;
+  h+=`<div style="background:var(--bg2);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.55">
+    <strong style="color:var(--gold)">Comment ça marche</strong><br>
     Configure des webhooks (Discord, Make.com, Zapier, n8n, ou n'importe quelle URL HTTP) pour recevoir une notification dès qu'un événement se produit. Une URL Discord est formatée automatiquement en embed ; les autres reçoivent un JSON brut <code style="background:var(--white);padding:1px 5px;border-radius:4px;font-size:11px">{event, event_label, timestamp, data}</code>.
   </div>`;
   h+=`<div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn btn-dark" onclick="openNotifEditor()">+ Ajouter un webhook</button></div>`;
@@ -9672,6 +9677,7 @@ async function renderNotifications(){
     });
     h+=`</div>`;
   }
+  h+=renderEmailRulesSection();
   el.innerHTML=h;
 }
 async function openNotifEditor(idx){
@@ -9746,6 +9752,302 @@ async function testNotif(idx){
     if(resp.ok&&j.ok)toast('Test envoyé ✓');
     else toast('Échec test : '+(j.error||resp.status));
   }catch(e){toast('Erreur : '+e.message);}
+}
+
+/* ===== EMAILS AUTOMATIQUES CLIENTS ===== */
+const EMAIL_EVENTS=[
+  {key:'program_ready',label:'Programme prêt',icon:'🏋️',desc:"Déclenché quand tu assignes un nouveau programme à un client"},
+  {key:'nutrition_plan_ready',label:'Plan nutrition prêt',icon:'🥗',desc:"Déclenché quand tu assignes un nouveau plan alimentaire à un client"}
+];
+const DEFAULT_EMAIL_TEMPLATES=[
+  {
+    id:'tpl_program_ready',
+    label:'Programme prêt',
+    enabled:true,
+    trigger:{type:'event',event:'program_ready'},
+    subject:'Ton nouveau programme est prêt 💪',
+    body:"Hello {first_name},\n\nTon nouveau programme d'entraînement vient d'être ajouté à ton espace client. Tu peux le retrouver dès maintenant dans l'app.\n\nN'hésite pas à me poser tes questions sur WhatsApp si quelque chose n'est pas clair.\n\nOn s'écrit vite,\n{coach_first_name}"
+  },
+  {
+    id:'tpl_plan_ready',
+    label:'Plan nutrition prêt',
+    enabled:true,
+    trigger:{type:'event',event:'nutrition_plan_ready'},
+    subject:'Ton plan nutrition est en ligne 🥗',
+    body:"Hello {first_name},\n\nTon plan nutrition est dispo dans l'app. Ouvre l'onglet Nutrition pour le consulter — tu y trouveras les repas, les quantités et la liste de courses.\n\nSi tu as la moindre question, on en parle sur WhatsApp.\n\n{coach_first_name}"
+  },
+  {
+    id:'tpl_bilan_reminder',
+    label:'Rappel bilan hebdomadaire',
+    enabled:true,
+    trigger:{type:'scheduled',weekday:6,hour:11,condition:'no_bilan_this_week'},
+    subject:'Petit rappel pour ton bilan de la semaine 📝',
+    body:"Hello {first_name},\n\nJe n'ai pas encore reçu ton bilan de la semaine. Prends 5 min pour le remplir — c'est ce qui me permet d'ajuster ton suivi.\n\nDirection l'onglet Bilan dans ton app, à tout de suite !\n\n{coach_first_name}"
+  },
+  {
+    id:'tpl_weekly_checkin',
+    label:'Check-in hebdo (jour aléatoire)',
+    enabled:false,
+    trigger:{type:'random_weekly'},
+    subject:'Des nouvelles ?',
+    messages:[
+      {body:"Hello {first_name},\n\nC'est l'équipe FITZONE ÉVOLUTION. On prend le temps de t'écrire ce mail à la main pour prendre des nouvelles.\n\nComment tu te sens cette semaine ? N'hésite pas à nous écrire sur WhatsApp pour qu'on échange.\n\n💪"},
+      {body:"Salut {first_name} !\n\nPetit coucou de l'équipe FITZONE ÉVOLUTION 👋\n\nUne question, un blocage, une victoire à célébrer ? On est là — écris-nous sur WhatsApp."},
+      {body:"Yo {first_name},\n\nIci l'équipe FITZONE. On voulait juste te dire qu'on pense à toi cette semaine.\n\nComment ça avance de ton côté ? Réponds-nous sur WhatsApp, on adore avoir de tes nouvelles."},
+      {body:"Hello {first_name},\n\nJ'ai pris 5 min pour t'écrire ce mail. Pas de programme à faire, juste un check-in : tout roule ?\n\nSi tu as besoin de quoi que ce soit, file-moi un message sur WhatsApp.\n\n— L'équipe FITZONE"},
+      {body:"Hey {first_name} !\n\nCette semaine on prend des nouvelles de toutes nos pépites. Comment tu vas ? Tu progresses comme tu veux ?\n\nOn écoute sur WhatsApp 🎯"},
+      {body:"{first_name}, juste pour te dire qu'on est là si tu as besoin.\n\nPas de bla-bla, juste un petit message pour te rappeler qu'on te suit.\n\nÀ tout moment sur WhatsApp."},
+      {body:"Hello {first_name},\n\nOn profite de cette semaine pour reprendre contact. Ton entraînement, ta nutrition, ton moral — n'importe quoi, on échange sur WhatsApp quand tu veux.\n\nBonne semaine !"},
+      {body:"Coucou {first_name} !\n\nPetit message rapide pour te rappeler qu'on est dispo. Une question sur ton programme ? Une envie de discuter ?\n\nWhatsApp ✌️"},
+      {body:"Salut {first_name},\n\nL'équipe FITZONE pense à toi cette semaine. Tu as toutes les cartes en main, et on est là pour t'épauler.\n\nÉcris-nous quand tu veux sur WhatsApp."},
+      {body:"{first_name},\n\nOn voulait juste prendre 2 min pour te rappeler qu'on est fier·ère de toi. Continue, et n'hésite pas à nous parler sur WhatsApp.\n\n— FITZONE ÉVOLUTION"}
+    ]
+  }
+];
+
+let _emailRules=[];
+
+async function loadEmailRules(){
+  if(!currentCoach)return false;
+  const{data,error}=await db.from('settings').select('email_rules').eq('coach_id',currentCoach.id).maybeSingle();
+  if(error&&_isMigrationError(error)){_emailRules=[];return false;}
+  _emailRules=Array.isArray(data?.email_rules)?data.email_rules:[];
+  return true;
+}
+async function saveEmailRules(){
+  if(!currentCoach)return false;
+  const{error}=await db.from('settings').upsert({coach_id:currentCoach.id,email_rules:_emailRules},{onConflict:'coach_id'});
+  if(error){
+    if(_isMigrationError(error)){
+      alert("⚠️ La migration SQL n'a pas été exécutée.\n\nOuvre le SQL Editor de Supabase et exécute :\nsupabase/migrations/20260516120000_email_rules.sql");
+    }else{toast('Erreur: '+error.message);}
+    return false;
+  }
+  return true;
+}
+
+function emailTriggerLabel(r){
+  const t=r?.trigger?.type;
+  if(t==='event'){
+    const ev=EMAIL_EVENTS.find(e=>e.key===r.trigger.event);
+    return ev?`${ev.icon} ${ev.label}`:'Événement';
+  }
+  if(t==='scheduled'){
+    const days=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+    const w=r.trigger.weekday;
+    const h=String(r.trigger.hour||0).padStart(2,'0');
+    return `⏰ ${days[w]||''} ${h}:00`+(r.trigger.condition==='no_bilan_this_week'?' · si pas de bilan':'');
+  }
+  if(t==='random_weekly')return '🎲 1×/semaine (aléatoire)';
+  return '—';
+}
+
+function renderEmailRulesSection(){
+  let h=`<div style="margin-top:32px;padding-top:24px;border-top:2px solid var(--border)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div><div style="font-size:18px;font-weight:800">📧 Emails automatiques aux clients</div><div style="font-size:12px;color:var(--text3);margin-top:2px">Envois Resend depuis ton domaine, déclenchés par événement ou planning hebdo.</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="seedDefaultEmailRules()">⚡ Charger les modèles</button>
+        <button class="btn btn-dark btn-sm" onclick="openEmailRuleEditor()">+ Ajouter une règle</button>
+      </div>
+    </div>
+    <div style="background:var(--bg2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.5">
+      ℹ️ Les règles <strong>planifiées</strong> (rappel bilan) et <strong>hebdo aléatoires</strong> nécessitent que le job pg_cron soit activé côté Supabase. Voir <code style="background:var(--white);padding:1px 5px;border-radius:4px;font-size:11px">supabase/migrations/20260516120000_email_rules.sql</code> pour la commande à exécuter.
+    </div>`;
+  if(!_emailRules.length){
+    h+=`<div class="empty" style="padding:40px 20px;text-align:center;background:var(--white);border:1.5px dashed var(--border);border-radius:12px"><div class="ei" style="font-size:36px;margin-bottom:10px">📨</div><div class="et" style="font-size:14px;font-weight:700;margin-bottom:6px">Aucune règle email configurée</div><div class="es" style="font-size:12px;color:var(--text3)">Clique sur <strong>Charger les modèles</strong> pour pré-remplir les règles de base (programme prêt, plan prêt, rappel bilan, check-in hebdo).</div></div>`;
+  }else{
+    h+=`<div style="display:flex;flex-direction:column;gap:10px">`;
+    _emailRules.forEach((r,i)=>{
+      const tlabel=emailTriggerLabel(r);
+      const tType=r?.trigger?.type;
+      const tColor=tType==='event'?'#2563eb':tType==='scheduled'?'#059669':tType==='random_weekly'?'#7c3aed':'#6b7280';
+      h+=`<div style="background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;${r.enabled===false?'opacity:.55':''}">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <div style="font-size:14px;font-weight:700;flex:1;min-width:180px">${esc(r.label||'Règle email')}</div>
+          <span style="font-size:11px;color:white;background:${tColor};padding:3px 9px;border-radius:6px;font-weight:600">${tlabel}</span>
+          <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;font-weight:600;color:${r.enabled!==false?'var(--text)':'var(--text3)'}">
+            <input type="checkbox" ${r.enabled!==false?'checked':''} onchange="toggleEmailRule(${i},this.checked)" style="width:16px;height:16px;accent-color:var(--gold)">
+            ${r.enabled!==false?'Actif':'Désactivé'}
+          </label>
+        </div>
+        ${tType==='random_weekly'?
+          `<div style="font-size:11px;color:var(--text3);margin-bottom:6px">${(r.messages||[]).length} messages dans le pool — un envoyé chaque semaine à tous les clients à un jour aléatoire.</div>`
+          :
+          `<div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:600">${esc(r.subject||'(sans objet)')}</div>
+          <div style="font-size:11px;color:var(--text3);background:var(--bg);padding:8px 10px;border-radius:6px;white-space:pre-line;max-height:90px;overflow:hidden;line-height:1.5">${esc((r.body||'').slice(0,260))}${(r.body||'').length>260?'…':''}</div>`
+        }
+        <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px">
+          <button class="btn btn-ghost btn-xs" onclick="openEmailRuleEditor(${i})">✏️ Éditer</button>
+          <button class="btn btn-ghost btn-xs" style="color:#dc2626" onclick="deleteEmailRule(${i})">🗑 Supprimer</button>
+        </div>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+
+async function seedDefaultEmailRules(){
+  if(!currentCoach)return;
+  const newOnes=DEFAULT_EMAIL_TEMPLATES.filter(tpl=>!_emailRules.some(r=>r.id===tpl.id));
+  if(!newOnes.length){toast('Tous les modèles sont déjà chargés');return;}
+  newOnes.forEach(tpl=>_emailRules.push(JSON.parse(JSON.stringify(tpl))));
+  if(await saveEmailRules()){renderNotifications();toast(newOnes.length+' modèle'+(newOnes.length>1?'s':'')+' ajouté'+(newOnes.length>1?'s':'')+' ✓');}
+}
+
+function _erTrigBtnStyle(active){
+  return`flex:1;padding:8px 10px;border-radius:8px;border:1.5px solid ${active?'var(--gold)':'var(--border)'};background:${active?'var(--gold-pale)':'var(--white)'};color:${active?'var(--gold)':'var(--text2)'};font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)`;
+}
+
+function openEmailRuleEditor(idx){
+  const isEdit=idx!=null&&idx>=0;
+  const r=isEdit?JSON.parse(JSON.stringify(_emailRules[idx])):{label:'',enabled:true,trigger:{type:'event',event:'program_ready'},subject:'',body:''};
+  const t=r.trigger?.type||'event';
+  const eventOpts=EMAIL_EVENTS.map(e=>`<option value="${e.key}" ${r.trigger?.event===e.key?'selected':''}>${e.icon} ${e.label}</option>`).join('');
+  const days=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const dayOpts=days.map((d,i)=>`<option value="${i}" ${r.trigger?.weekday===i?'selected':''}>${d}</option>`).join('');
+  const hourOpts=Array.from({length:24},(_,h)=>`<option value="${h}" ${r.trigger?.hour===h?'selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('');
+  const msgsHtml=(r.messages||[]).map((m,mi)=>`<div data-mi="${mi}" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--gold)">Message #${mi+1}</span>
+      <button class="btn btn-ghost btn-xs" type="button" onclick="this.closest('[data-mi]').remove()" style="color:#dc2626;padding:2px 8px">✕</button>
+    </div>
+    <input class="fi mr-subject" placeholder="Objet (optionnel)" value="${esc(m.subject||'')}" style="margin-bottom:6px;font-size:12px">
+    <textarea class="fta mr-body" rows="4" placeholder="Corps du message" style="font-size:12px;min-height:90px">${esc(m.body||'')}</textarea>
+  </div>`).join('');
+  const html=`<div class="modal" style="max-width:680px" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt">${isEdit?'Modifier':'Ajouter'} une règle email</div><button class="mc" onclick="closeModal()">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label class="fl">Label</label><input class="fi" id="erLabel" value="${esc(r.label||'')}" placeholder="Ex : Programme prêt"></div>
+      <div class="fg"><label class="fl">Déclencheur</label>
+        <div style="display:flex;gap:5px">
+          <button type="button" class="er-trig-btn" data-t="event" style="${_erTrigBtnStyle(t==='event')}" onclick="erSetTrigger('event')">🎯 Événement</button>
+          <button type="button" class="er-trig-btn" data-t="scheduled" style="${_erTrigBtnStyle(t==='scheduled')}" onclick="erSetTrigger('scheduled')">⏰ Planifié</button>
+          <button type="button" class="er-trig-btn" data-t="random_weekly" style="${_erTrigBtnStyle(t==='random_weekly')}" onclick="erSetTrigger('random_weekly')">🎲 Hebdo aléatoire</button>
+        </div>
+      </div>
+      <div id="erEvent" style="display:${t==='event'?'block':'none'}">
+        <div class="fg"><label class="fl">Événement déclencheur</label><select class="fs" id="erEventKey">${eventOpts}</select></div>
+      </div>
+      <div id="erScheduled" style="display:${t==='scheduled'?'block':'none'}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="fg"><label class="fl">Jour</label><select class="fs" id="erWeekday">${dayOpts}</select></div>
+          <div class="fg"><label class="fl">Heure (Paris)</label><select class="fs" id="erHour">${hourOpts}</select></div>
+        </div>
+        <div class="fg"><label class="fl">Condition</label><select class="fs" id="erCondition">
+          <option value="" ${!r.trigger?.condition?'selected':''}>Toujours envoyer à tous les clients</option>
+          <option value="no_bilan_this_week" ${r.trigger?.condition==='no_bilan_this_week'?'selected':''}>Seulement si le client n'a pas déposé de bilan cette semaine</option>
+        </select></div>
+      </div>
+      <div id="erSingleBody" style="display:${t!=='random_weekly'?'block':'none'}">
+        <div class="fg"><label class="fl">Objet de l'email</label><input class="fi" id="erSubject" value="${esc(r.subject||'')}" placeholder="Ton programme est prêt 💪"></div>
+        <div class="fg"><label class="fl">Corps du message</label><textarea class="fta" id="erBody" rows="8" placeholder="Hello {first_name}, ..." style="min-height:160px">${esc(r.body||'')}</textarea>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Variables : <code style="background:var(--bg);padding:1px 5px;border-radius:3px">{first_name}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:3px">{last_name}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:3px">{coach_first_name}</code> <code style="background:var(--bg);padding:1px 5px;border-radius:3px">{gym}</code></div>
+        </div>
+      </div>
+      <div id="erRandomMessages" style="display:${t==='random_weekly'?'block':'none'}">
+        <div class="fg"><label class="fl">Objet par défaut (utilisé si un message n'a pas d'objet personnalisé)</label><input class="fi" id="erSubjectDefault" value="${esc(r.subject||'')}" placeholder="Des nouvelles ?"></div>
+        <div class="fg"><label class="fl">Pool de messages — un sera tiré au sort chaque semaine</label>
+          <div id="erMsgList">${msgsHtml}</div>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="erAddMessage()" style="margin-top:8px">+ Ajouter un message</button>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-dark" onclick="saveEmailRuleFromEditor(${isEdit?idx:-1})">${isEdit?'Mettre à jour':'Créer'}</button>
+    </div>
+  </div>`;
+  openModal(html);
+}
+
+function erSetTrigger(t){
+  document.querySelectorAll('.er-trig-btn').forEach(b=>{b.setAttribute('style',_erTrigBtnStyle(b.dataset.t===t));});
+  document.getElementById('erEvent').style.display=t==='event'?'block':'none';
+  document.getElementById('erScheduled').style.display=t==='scheduled'?'block':'none';
+  document.getElementById('erSingleBody').style.display=t!=='random_weekly'?'block':'none';
+  document.getElementById('erRandomMessages').style.display=t==='random_weekly'?'block':'none';
+}
+
+function erAddMessage(){
+  const list=document.getElementById('erMsgList');
+  const mi=list.querySelectorAll('[data-mi]').length;
+  const html=`<div data-mi="${mi}" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--gold)">Message #${mi+1}</span>
+      <button class="btn btn-ghost btn-xs" type="button" onclick="this.closest('[data-mi]').remove()" style="color:#dc2626;padding:2px 8px">✕</button>
+    </div>
+    <input class="fi mr-subject" placeholder="Objet (optionnel)" style="margin-bottom:6px;font-size:12px">
+    <textarea class="fta mr-body" rows="4" placeholder="Corps du message" style="font-size:12px;min-height:90px"></textarea>
+  </div>`;
+  list.insertAdjacentHTML('beforeend',html);
+}
+
+async function saveEmailRuleFromEditor(idx){
+  const label=document.getElementById('erLabel').value.trim();
+  let tType='event';
+  if(document.getElementById('erRandomMessages').style.display==='block')tType='random_weekly';
+  else if(document.getElementById('erScheduled').style.display==='block')tType='scheduled';
+  if(!label){toast('Label requis');return;}
+  const rule={
+    id:idx>=0?_emailRules[idx].id:('er_'+Date.now()),
+    label,
+    enabled:idx>=0?(_emailRules[idx].enabled!==false):true,
+    trigger:{type:tType}
+  };
+  if(tType==='event'){
+    rule.trigger.event=document.getElementById('erEventKey').value;
+    rule.subject=document.getElementById('erSubject').value.trim();
+    rule.body=document.getElementById('erBody').value;
+    if(!rule.body.trim()){toast('Corps du message requis');return;}
+  }else if(tType==='scheduled'){
+    rule.trigger.weekday=parseInt(document.getElementById('erWeekday').value);
+    rule.trigger.hour=parseInt(document.getElementById('erHour').value);
+    const cond=document.getElementById('erCondition').value;
+    if(cond)rule.trigger.condition=cond;
+    rule.subject=document.getElementById('erSubject').value.trim();
+    rule.body=document.getElementById('erBody').value;
+    if(!rule.body.trim()){toast('Corps du message requis');return;}
+  }else if(tType==='random_weekly'){
+    rule.subject=document.getElementById('erSubjectDefault').value.trim();
+    const blocks=document.querySelectorAll('#erMsgList [data-mi]');
+    const messages=[];
+    blocks.forEach(b=>{
+      const subject=b.querySelector('.mr-subject').value.trim();
+      const body=b.querySelector('.mr-body').value;
+      if(body.trim())messages.push(subject?{subject,body}:{body});
+    });
+    if(!messages.length){toast('Ajoute au moins un message au pool');return;}
+    rule.messages=messages;
+  }
+  if(idx>=0)_emailRules[idx]=rule;else _emailRules.push(rule);
+  if(await saveEmailRules()){closeModal();renderNotifications();toast(idx>=0?'Règle mise à jour ✓':'Règle ajoutée ✓');}
+}
+
+async function toggleEmailRule(idx,enabled){
+  if(!_emailRules[idx])return;
+  _emailRules[idx].enabled=enabled;
+  if(await saveEmailRules())renderNotifications();
+}
+
+async function deleteEmailRule(idx){
+  if(!_emailRules[idx])return;
+  if(!confirm(`Supprimer la règle "${_emailRules[idx].label||'(sans label)'}" ?`))return;
+  _emailRules.splice(idx,1);
+  if(await saveEmailRules()){renderNotifications();toast('Règle supprimée ✓');}
+}
+
+async function triggerClientEmail(event,clientId,extraVars){
+  if(!currentCoach||!clientId)return;
+  try{
+    await fetch(SUPA+'/functions/v1/send-client-email',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      body:JSON.stringify({coach_id:currentCoach.id,event,client_id:clientId,extra_vars:extraVars||{}})
+    });
+  }catch(e){console.warn('triggerClientEmail:',e);}
 }
 
 /* ===== CONTRATS : TEMPLATES ===== */
