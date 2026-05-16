@@ -375,7 +375,7 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
 .meal-nm{font-size:13px;font-weight:700;color:var(--dark)}
 .meal-macros{font-size:11px;color:var(--text3);margin-left:auto}
 .meal-body{padding:10px 13px}
-.food-row{display:grid;grid-template-columns:1fr 24px 58px 50px 50px 50px 18px;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.food-row{display:grid;grid-template-columns:1fr 24px 58px 60px 48px 48px 48px 18px;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
 .eq-btn{background:none;border:1px solid var(--border2);border-radius:5px;cursor:pointer;font-size:11px;padding:2px 4px;color:var(--text3);transition:all .12s;position:relative}
 .eq-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-pale)}
 .eq-drop{position:absolute;top:100%;left:-120px;width:280px;background:var(--white);border:1.5px solid var(--gold-border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:200;max-height:260px;overflow-y:auto;padding:6px;display:none}
@@ -398,9 +398,10 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
 .food-row:last-child{border-bottom:none}
 .food-qte{width:50px;background:var(--bg);border:1.5px solid var(--border2);border-radius:6px;padding:3px 5px;font-size:12px;text-align:center;outline:none;font-family:var(--font)}
 .food-qte:focus{border-color:var(--gold)}
-.macro-p{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;background:#eff6ff;color:#c49a2a}
-.macro-g{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;background:#fffbeb;color:#f59e0b}
-.macro-l{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;background:var(--gold-pale);color:var(--gold)}
+.macro-k{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;background:var(--bg2);color:var(--dark);text-align:center}
+.macro-p{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;background:#eff6ff;color:#c49a2a;text-align:center}
+.macro-g{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;background:#fffbeb;color:#f59e0b;text-align:center}
+.macro-l{display:inline-block;padding:2px 5px;border-radius:5px;font-size:10px;font-weight:700;background:var(--gold-pale);color:var(--gold);text-align:center}
 .add-food-zone{display:flex;align-items:center;gap:5px;padding:7px 10px;border:1.5px dashed var(--border2);border-radius:8px;background:transparent;font-family:var(--font);font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;transition:all .12s;width:100%;margin-top:6px}
 .add-food-zone:hover{border-color:var(--gold-border);color:var(--dark);background:var(--gold-pale)}
 
@@ -4089,17 +4090,18 @@ function pfRenderMeals(){
     <div class="meal-hdr" onclick="pfSelMeal(${ri})">
       <div style="width:22px;height:22px;border-radius:6px;background:${pfMealIdx===ri?'var(--gold)':'var(--dark)'};color:${pfMealIdx===ri?'var(--dark)':'white'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0">${ri+1}</div>
       <div class="meal-nm" ondblclick="pfRenameMeal(${ri},this)" title="Double-clic pour renommer">${r.nom}</div>
-      <div class="meal-macros">${Math.round(mt.k)} kcal &nbsp;P:${Math.round(mt.p)}g G:${Math.round(mt.g)}g L:${Math.round(mt.l)}g</div>
+      <div class="meal-macros" id="pf_mt_${ri}">${Math.round(mt.k)} kcal &nbsp;P:${Math.round(mt.p)}g G:${Math.round(mt.g)}g L:${Math.round(mt.l)}g</div>
       <button onclick="event.stopPropagation();pfDelMeal(${ri})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;margin-left:6px" title="Supprimer repas">✕</button>
     </div>
     <div class="meal-body">
       ${r.alims.map((a,ai)=>`<div class="food-row" draggable="true" ondragstart="pfDragStart(event,${ri},${ai})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="event.stopPropagation();pfDropFood(event,${ri},${ai})" style="cursor:grab">
         <div style="font-size:12px;font-weight:600;color:var(--dark);display:flex;align-items:center;gap:5px"><span style="color:var(--text3);font-size:10px">⠿</span>${a.nom}</div>
         <button class="eq-btn" onclick="event.stopPropagation();pfToggleEquiv(this,${ri},${ai})" title="Voir les équivalences">⇄</button>
-        <input class="food-qte" type="number" value="${a.qte}" onchange="pfUpdQte(${ri},${ai},this.value)" onclick="event.stopPropagation()" title="Grammes (cru)">
-        <span class="macro-p">${Math.round(a.prot*a.qte/100)}g P</span>
-        <span class="macro-g">${Math.round(a.carb*a.qte/100)}g G</span>
-        <span class="macro-l">${Math.round(a.fat*a.qte/100)}g L</span>
+        <input class="food-qte" type="number" value="${a.qte}" oninput="pfLiveQte(${ri},${ai},this.value)" onclick="event.stopPropagation()" title="Grammes (cru)">
+        <span class="macro-k" id="pf_k_${ri}_${ai}">${Math.round(a.kcal*a.qte/100)} kcal</span>
+        <span class="macro-p" id="pf_p_${ri}_${ai}">${Math.round(a.prot*a.qte/100)}g P</span>
+        <span class="macro-g" id="pf_g_${ri}_${ai}">${Math.round(a.carb*a.qte/100)}g G</span>
+        <span class="macro-l" id="pf_l_${ri}_${ai}">${Math.round(a.fat*a.qte/100)}g L</span>
         <button onclick="pfDelFood(${ri},${ai})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px">✕</button>
       </div>`).join('')}
       ${!r.alims.length?`<div style="font-size:12px;color:var(--text3);padding:5px 0;text-align:center;border:1.5px dashed var(--border2);border-radius:8px;padding:9px">Clique sur ce repas, puis cherche un aliment →<br><span style="font-size:10px">ou fais glisser un aliment depuis un autre repas</span></div>`:''}
@@ -4149,6 +4151,21 @@ function pfRenameMeal(ri,el){
 function pfSelMeal(ri){pfMealIdx=ri;pfRenderMeals();}
 function pfDelMeal(ri){pfDays[pfDayIdx].repas.splice(ri,1);if(pfMealIdx>=pfDays[pfDayIdx].repas.length)pfMealIdx=Math.max(0,pfDays[pfDayIdx].repas.length-1);pfRenderMeals();pfRenderTotals();}
 function pfUpdQte(ri,ai,v){pfDays[pfDayIdx].repas[ri].alims[ai].qte=parseFloat(v)||0;pfRenderMeals();pfRenderTotals();}
+function pfLiveQte(ri,ai,v){
+  const a=pfDays[pfDayIdx]?.repas[ri]?.alims[ai];if(!a)return;
+  a.qte=parseFloat(v)||0;
+  const elk=document.getElementById('pf_k_'+ri+'_'+ai);
+  if(elk){
+    elk.textContent=Math.round(a.kcal*a.qte/100)+' kcal';
+    document.getElementById('pf_p_'+ri+'_'+ai).textContent=Math.round(a.prot*a.qte/100)+'g P';
+    document.getElementById('pf_g_'+ri+'_'+ai).textContent=Math.round(a.carb*a.qte/100)+'g G';
+    document.getElementById('pf_l_'+ri+'_'+ai).textContent=Math.round(a.fat*a.qte/100)+'g L';
+  }
+  const mt=pfCalcMeal(pfDays[pfDayIdx].repas[ri]);
+  const mte=document.getElementById('pf_mt_'+ri);
+  if(mte)mte.innerHTML=`${Math.round(mt.k)} kcal &nbsp;P:${Math.round(mt.p)}g G:${Math.round(mt.g)}g L:${Math.round(mt.l)}g`;
+  pfRenderTotals();
+}
 function pfDelFood(ri,ai){pfDays[pfDayIdx].repas[ri].alims.splice(ai,1);pfRenderMeals();pfRenderTotals();}
 function pfAddMeal(){
   if(!pfDays[pfDayIdx]){pfDays[pfDayIdx]={nom:'Jour '+(pfDayIdx+1),repas:[]};} 
