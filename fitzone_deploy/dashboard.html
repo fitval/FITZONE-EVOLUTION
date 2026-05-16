@@ -5268,9 +5268,7 @@ function progRenderDay(){
     g.forEach(ex=>{const m=ex.muscle||'Autre';const s=ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0);totalVolMap[m]=(totalVolMap[m]||0)+s;});
   }));});
   const totalSets=Object.values(totalVolMap).reduce((a,b)=>a+b,0);
-  const totalVolHtml=Object.keys(totalVolMap).length?Object.entries(totalVolMap).map(([m,s])=>
-    `<span style="padding:2px 9px;background:var(--dark);border-radius:20px;font-size:10px;font-weight:700;color:white">${m}: ${s}s</span>`
-  ).join('')+'<span style="padding:2px 9px;background:var(--gold);border-radius:20px;font-size:10px;font-weight:800;color:var(--dark)">Total: '+totalSets+'s</span>':'';
+  const totalVolEntries=Object.entries(totalVolMap).sort((a,b)=>b[1]-a[1]);
 
   // Récap volume par muscle pour la séance
   const volMap={};
@@ -5278,9 +5276,39 @@ function progRenderDay(){
     const g=e.superset?e.exercises||[e]:[e];
     g.forEach(ex=>{const m=ex.muscle||'Autre';const s=ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0);volMap[m]=(volMap[m]||0)+s;});
   }));
-  const volHtml=Object.keys(volMap).length?Object.entries(volMap).map(([m,s])=>
-    `<span style="padding:2px 9px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:20px;font-size:10px;font-weight:700;color:#8a6010">${m}: ${s} séries</span>`
-  ).join(''):'<span style="font-size:11px;color:var(--text3)">Aucun exercice ajouté</span>';
+  const dayEntries=Object.entries(volMap).sort((a,b)=>b[1]-a[1]);
+  const daySets=Object.values(volMap).reduce((a,b)=>a+b,0);
+  const maxMuscleSets=Math.max(1,...Object.values(totalVolMap),...Object.values(volMap));
+
+  const volBlock=`<div style="margin-bottom:12px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;overflow:hidden">
+    <div style="padding:8px 13px;display:flex;align-items:center;gap:8px;background:var(--bg2);border-bottom:1px solid var(--border)">
+      <span style="font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--dark)">📊 Volume séance</span>
+      <span style="font-size:10px;color:var(--text3)">séries par groupe musculaire</span>
+      <span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px"><span style="font-size:10px;color:var(--text3);font-weight:600">Total</span><span style="font-size:13px;font-weight:800;color:var(--gold)">${daySets}</span></span>
+    </div>
+    <div style="padding:10px 13px">
+      ${dayEntries.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px">${dayEntries.map(([m,s])=>{
+        const pct=Math.round(s/maxMuscleSets*100);
+        return `<div style="position:relative;padding:6px 9px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:7px;overflow:hidden">
+          <div style="position:absolute;top:0;left:0;bottom:0;width:${pct}%;background:rgba(196,154,42,.18);pointer-events:none"></div>
+          <div style="position:relative;display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;font-weight:600;color:var(--dark);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m}</span>
+            <span style="font-size:13px;font-weight:800;color:var(--gold);min-width:18px;text-align:right">${s}</span>
+          </div>
+        </div>`;
+      }).join('')}</div>`:`<div style="font-size:11px;color:var(--text3);text-align:center;padding:8px 0">Aucun exercice — ajoute-en pour voir le volume</div>`}
+    </div>
+    ${progDays.length>1&&totalSets>0?`<div style="padding:8px 13px;background:var(--dark);border-top:1px solid var(--gold-border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:rgba(255,255,255,.5);white-space:nowrap">Programme · ${progDays.length} séances</span>
+      <span style="font-size:11px;color:rgba(255,255,255,.85);line-height:1.6">${totalVolEntries.map(([m,s])=>`${m}&nbsp;<strong style="color:var(--gold);font-weight:800">${s}</strong>`).join(' · ')}</span>
+      <span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;white-space:nowrap"><span style="font-size:9px;color:rgba(255,255,255,.5);font-weight:700;letter-spacing:.6px;text-transform:uppercase">Total</span><span style="font-size:13px;font-weight:800;color:var(--gold)">${totalSets}</span></span>
+    </div>`:''}
+  </div>`;
+  const colTogglesBlock=`<div style="margin-bottom:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <span style="font-size:10px;color:var(--text3);font-weight:600;margin-right:2px">Colonnes affichées :</span>
+    <button onclick="toggleProgCol('rir')" style="padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid ${progShowRIR?'var(--gold)':'var(--border)'};background:${progShowRIR?'var(--gold-pale)':'var(--bg)'};color:${progShowRIR?'var(--gold)':'var(--text3)'};font-family:var(--font)">RIR${progShowRIR?' ✓':''}</button>
+    <button onclick="toggleProgCol('tempo')" style="padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid ${progShowTempo?'var(--gold)':'var(--border)'};background:${progShowTempo?'var(--gold-pale)':'var(--bg)'};color:${progShowTempo?'var(--gold)':'var(--text3)'};font-family:var(--font)">Tempo${progShowTempo?' ✓':''}</button>
+  </div>`;
 
   const mkBlock=(e,i,key)=>{
     if(e.superset){
@@ -5379,19 +5407,8 @@ function progRenderDay(){
       <button type="button" onclick="progSetDayType('muscu')" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--gold);background:var(--gold-pale);color:var(--gold);font-size:12px;font-weight:800;cursor:pointer;font-family:var(--font)">💪 Musculation</button>
       <button type="button" onclick="progSetDayType('running')" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">🏃 Running</button>
     </div>
-    ${totalVolHtml?`<div style="margin-bottom:10px;padding:8px 12px;background:var(--dark);border-radius:8px">
-      <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:5px">📊 Volume total programme (${progDays.length} séance${progDays.length>1?'s':''})</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">${totalVolHtml}</div>
-    </div>`:''}
-    <div style="margin-bottom:14px">
-      <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:7px">📊 Volume de la séance</div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">${volHtml}
-        <span style="opacity:.3;margin:0 4px">|</span>
-        <span style="font-size:10px;font-weight:600;color:var(--text3);margin-right:2px">Colonnes :</span>
-        <button onclick="toggleProgCol('rir')" style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid ${progShowRIR?'var(--gold)':'var(--border)'};background:${progShowRIR?'var(--gold-pale)':'var(--bg)'};color:${progShowRIR?'var(--gold)':'var(--text3)'};font-family:var(--font)">RIR${progShowRIR?' ✓':''}</button>
-        <button onclick="toggleProgCol('tempo')" style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid ${progShowTempo?'var(--gold)':'var(--border)'};background:${progShowTempo?'var(--gold-pale)':'var(--bg)'};color:${progShowTempo?'var(--gold)':'var(--text3)'};font-family:var(--font)">Tempo${progShowTempo?' ✓':''}</button>
-      </div>
-    </div>
+    ${volBlock}
+    ${colTogglesBlock}
     ${mkSection(d.warmup||[],'🔥 Échauffement','warmup')}
     ${mkSection(d.workout||[],'💪 Entraînement','workout')}
     ${mkSection(d.cooldown||[],'❄️ Retour au calme','cooldown')}

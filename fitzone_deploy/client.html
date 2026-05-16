@@ -2481,6 +2481,13 @@ async function editFoodLog(id){
 }
 function openPlan(idx){currentPlanIdx=idx;currentDayIdx=0;renderPlanDetail();}
 function mealItems(meal){return meal.items||meal.alims||[];}
+function mealCheckKey(planId,dayIdx,ri,date){return`mc:${date}:${planId}:${dayIdx}:${ri}`;}
+function isMealDone(planId,dayIdx,ri){return localStorage.getItem(mealCheckKey(planId,dayIdx,ri,today()))==='1';}
+function toggleMealDone(planId,dayIdx,ri){
+  const k=mealCheckKey(planId,dayIdx,ri,today());
+  if(localStorage.getItem(k)==='1')localStorage.removeItem(k);else localStorage.setItem(k,'1');
+  renderPlanDetail();
+}
 function calcDayMacros(day){
   let dk=0,dp=0,dc=0,df=0;
   (day.repas||[]).forEach(meal=>{
@@ -2522,12 +2529,16 @@ function renderPlanDetail(){
   h+=`<div class="day-tabs">${jours.map((j,i)=>`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderPlanDetail()">${j.nom||'J'+(i+1)}</button>`).join('')}</div>`;
   const day=jours[currentDayIdx];
   const dayM=calcDayMacros(day);
+  const planRefId=p.id||('idx'+currentPlanIdx);
+  const totalMeals=(day.repas||[]).length;
+  const doneMeals=(day.repas||[]).reduce((n,_,ri)=>n+(isMealDone(planRefId,currentDayIdx,ri)?1:0),0);
   // Day summary bar
   h+=`<div style="display:flex;align-items:center;gap:8px;padding:14px 0;flex-wrap:wrap">
     <div style="background:var(--gold);color:white;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700">${Math.round(dayM.kcal)} kcal</div>
     <div style="background:rgba(74,144,217,.12);color:#4a90d9;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">P ${Math.round(dayM.prot)}g</div>
     <div style="background:rgba(196,154,42,.12);color:#a07820;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">G ${Math.round(dayM.carb)}g</div>
     <div style="background:rgba(224,124,90,.12);color:#c05a30;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">L ${Math.round(dayM.fat)}g</div>
+    ${totalMeals?`<div style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:1px solid ${doneMeals===totalMeals?'var(--gold)':'var(--border)'};background:${doneMeals===totalMeals?'var(--gold-pale)':'transparent'};font-size:12px;font-weight:700;color:${doneMeals===totalMeals?'#8a6010':'var(--text2)'}"><span>✓ ${doneMeals}/${totalMeals}</span><span style="font-size:10px;font-weight:600;color:var(--text3)">repas</span></div>`:''}
   </div>`;
   // Meals
   const mealIcons={'Petit-déjeuner':'🌅','Déjeuner':'🍽️','Dîner':'🌙','Goûter':'🍎','Collation':'🥤','Collation AM':'🥤','Collation PM':'🥤'};
@@ -2536,11 +2547,13 @@ function renderPlanDetail(){
     let mk=0,mp=0,mc=0,mf=0;
     items.forEach(it=>{const q=(it.qte||100)/100;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;});
     const icon=mealIcons[meal.nom]||'🍴';
-    h+=`<div class="meal-card" style="padding:0;overflow:hidden;margin-bottom:14px">
+    const done=isMealDone(planRefId,currentDayIdx,ri);
+    h+=`<div class="meal-card${done?' meal-done':''}" style="padding:0;overflow:hidden;margin-bottom:14px;${done?'opacity:.55;':''}transition:opacity .2s">
       <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(135deg,rgba(196,154,42,.06),rgba(196,154,42,.02))">
         <span style="font-size:20px">${icon}</span>
-        <div style="flex:1"><div style="font-size:15px;font-weight:700">${meal.nom||'Repas'}</div></div>
+        <div style="flex:1"><div style="font-size:15px;font-weight:700;${done?'text-decoration:line-through;color:var(--text3)':''}">${meal.nom||'Repas'}</div></div>
         <div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--gold)">${Math.round(mk)} kcal</div><div style="font-size:10px;color:var(--text3);margin-top:1px">P${Math.round(mp)} · G${Math.round(mc)} · L${Math.round(mf)}</div></div>
+        <button onclick="event.stopPropagation();toggleMealDone('${planRefId}',${currentDayIdx},${ri})" aria-label="${done?'Décocher repas':'Marquer mangé'}" title="${done?'Décocher':'Marquer mangé'}" style="width:36px;height:36px;border-radius:50%;border:2px solid ${done?'var(--gold)':'var(--border)'};background:${done?'var(--gold)':'var(--white)'};color:${done?'white':'var(--text3)'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:18px;font-weight:800;padding:0;font-family:inherit;line-height:1;transition:all .15s">${done?'✓':''}</button>
       </div>
       <div style="padding:6px 16px 10px">`;
     if(meal.instructions){h+=`<div style="font-size:12px;color:var(--text2);line-height:1.5;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:6px;white-space:pre-line">${meal.instructions}</div>`;}
