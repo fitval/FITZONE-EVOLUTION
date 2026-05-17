@@ -654,7 +654,7 @@ async function uploadPhotosToDrive(photos){
 
 /* ===== STATE ===== */
 let clientData=null;
-let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAlims=[],coachExos=[],clientQuest=null;
+let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAlims=[],coachExos=[],clientQuest=null,planSwaps=[];
 let currentDayIdx=0,currentPlanIdx=null;
 let workoutActive=false, workoutData=[], workoutStart=null, workoutTimerInterval=null;
 let restTimerInterval=null;
@@ -777,6 +777,17 @@ async function loadData(){
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   clientQuest=(p9.data&&p9.data[0])||null;
   console.log('[LOAD DEBUG] authMode:', clientAuthMode, 'trainLogs:', trainLogs.length, 'p5.error:', p5.error);
+  // Load plan swaps (équivalences aliment choisies par le client)
+  try{
+    if(clientAuthMode==='anon'){
+      const{data:swaps}=await db.rpc('client_get_plan_swaps',{p_token:clientData.token});
+      planSwaps=swaps||[];
+    }else{
+      const{data:swaps}=await db.from('plan_swaps').select('*').eq('client_id',clientData.id);
+      planSwaps=swaps||[];
+    }
+    applyPlanSwaps();
+  }catch(e){console.error('[PLAN SWAPS]',e);planSwaps=[];}
   // Load coach settings (levels)
   try{
     const{data:sData}=await db.from('settings').select('gamif_levels').eq('coach_id',clientData.coach_id).limit(1);
@@ -2823,14 +2834,59 @@ function filterFoodSwap(q,planIdx,dayIdx,ri,ai){
     </div>`;
   }).join('')||(q?'<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">Aucun résultat</div>':'');
 }
-function doFoodSwap(planIdx,dayIdx,ri,ai,nom,kcal,prot,carb,fat,source,newQte){
+function applyPlanSwaps(){
+  if(!planSwaps||!planSwaps.length||!plans||!plans.length)return;
+  planSwaps.forEach(s=>{
+    const p=plans.find(pp=>pp.id===s.plan_id);if(!p||!p.jours)return;
+    const day=p.jours[s.day_idx];if(!day||!day.repas)return;
+    const meal=day.repas[s.repas_idx];if(!meal)return;
+    const items=meal.items||meal.alims;if(!items||!items[s.alim_idx])return;
+    // Si le coach a modifié l'aliment d'origine, on ignore l'override
+    // (sécurité : on ne veut pas écraser un nouvel aliment du coach)
+    if(s.original_nom && items[s.alim_idx].nom !== s.original_nom)return;
+    items[s.alim_idx]=s.alim;
+  });
+}
+async function doFoodSwap(planIdx,dayIdx,ri,ai,nom,kcal,prot,carb,fat,source,newQte){
   const p=plans[planIdx],day=(p.jours||[])[dayIdx],meal=day.repas[ri];
   const items=meal.items||meal.alims;
   if(!items||!items[ai])return;
-  items[ai]={nom,kcal,prot,carb,fat,source,qte:newQte};
+  // Récupère le nom d'origine via le swap existant (s'il y en a un)
+  // sinon le nom actuel de l'aliment.
+  const existingSwap=planSwaps.find(s=>s.plan_id===p.id&&s.day_idx===dayIdx&&s.repas_idx===ri&&s.alim_idx===ai);
+  const originalNom=existingSwap?existingSwap.original_nom:items[ai].nom;
+  const newAlim={nom,kcal,prot,carb,fat,source,qte:newQte};
+  items[ai]=newAlim;
   const pop=document.getElementById('foodSwapPopup');if(pop)pop.remove();
   renderPlanDetail();
   toast(nom+' — '+newQte+'g');
+  // Mise à jour locale du cache planSwaps
+  if(existingSwap){existingSwap.alim=newAlim;}
+  else{planSwaps.push({plan_id:p.id,day_idx:dayIdx,repas_idx:ri,alim_idx:ai,original_nom:originalNom,alim:newAlim});}
+  // Persistance Supabase
+  try{
+    if(clientAuthMode==='anon'){
+      await db.rpc('client_upsert_plan_swap',{
+        p_token:clientData.token,
+        p_plan_id:p.id,
+        p_day_idx:dayIdx,
+        p_repas_idx:ri,
+        p_alim_idx:ai,
+        p_original_nom:originalNom,
+        p_alim:newAlim
+      });
+    }else{
+      await db.from('plan_swaps').upsert({
+        client_id:clientData.id,
+        plan_id:p.id,
+        day_idx:dayIdx,
+        repas_idx:ri,
+        alim_idx:ai,
+        original_nom:originalNom,
+        alim:newAlim
+      },{onConflict:'client_id,plan_id,day_idx,repas_idx,alim_idx'});
+    }
+  }catch(e){console.error('[plan_swap save]',e);toast('⚠ Sauvegarde échouée');}
 }
 
 /* ===== BILAN ===== */
