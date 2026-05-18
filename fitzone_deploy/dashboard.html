@@ -8833,7 +8833,7 @@ function mkCreateMonth(ym){
   for(let i=1;i<=days;i++){
     const day=String(i).padStart(2,'0');
     const key=ym+'-'+day;
-    d[ym][key]={depense:0,leads:0,appeles:0,decroches:0,qualifies:0,rdv_setting:0,rdv_auto:0,appels_prevus:0,appels_pris:0,ventes:0,revenus:0,cash:0,notes:''};
+    d[ym][key]={depense:0,leads:0,appeles:0,decroches:0,qualifies:0,rdv_setting:0,rdv_auto:0,appels_prevus:0,appels_pris:0,appels_annules:0,ventes:0,revenus:0,cash:0,notes:''};
   }
   saveMkData(d);
 }
@@ -8852,6 +8852,7 @@ function mkCalc(row){
   const rdvA=parseInt(r.rdv_auto)||0;
   const prev=parseInt(r.appels_prevus)||0;
   const pris=parseInt(r.appels_pris)||0;
+  const annul=parseInt(r.appels_annules)||0;
   const ventes=parseInt(r.ventes)||0;
   r.cpl=leads>0?(dep/leads):0;
   r.pct_decroche=appeles>0?((dec/appeles)*100):0;
@@ -8860,6 +8861,7 @@ function mkCalc(row){
   r.cout_rdv_setting=rdvS>0?(dep/rdvS):0;
   r.cout_rdv_auto=rdvA>0?(dep/rdvA):0;
   r.taux_showup=prev>0?((pris/prev)*100):0;
+  r.taux_annulation=prev>0?((annul/prev)*100):0;
   r.cout_appel_pris=pris>0?(dep/pris):0;
   r.taux_closing=pris>0?((ventes/pris)*100):0;
   return r;
@@ -8870,7 +8872,7 @@ function mkFmt(v,type){
   return v||'—';
 }
 function mkSumRows(rows){
-  const s={depense:0,leads:0,appeles:0,decroches:0,qualifies:0,rdv_setting:0,rdv_auto:0,appels_prevus:0,appels_pris:0,ventes:0,revenus:0,cash:0};
+  const s={depense:0,leads:0,appeles:0,decroches:0,qualifies:0,rdv_setting:0,rdv_auto:0,appels_prevus:0,appels_pris:0,appels_annules:0,ventes:0,revenus:0,cash:0};
   rows.forEach(r=>{Object.keys(s).forEach(k=>{s[k]+=(parseFloat(r[k])||0);});});
   return s;
 }
@@ -8903,7 +8905,9 @@ function mkThead(){
     <th class="th-mk3" style="min-width:80px">C. RDV A.</th>
     <th class="th-mk3" style="min-width:75px">APP. PRÉVUS</th>
     <th class="th-mk3" style="min-width:75px">APP. PRIS</th>
+    <th class="th-mk3" style="min-width:75px">APP. ANNULÉS</th>
     <th class="th-mk3" style="min-width:65px">SHOW-UP</th>
+    <th class="th-mk3" style="min-width:70px">TX ANNUL.</th>
     <th class="th-mk3" style="min-width:80px">COÛT/APP.</th>
     <th class="th-mk4" style="min-width:55px">VENTES</th>
     <th class="th-mk4" style="min-width:65px">TX CLOS.</th>
@@ -8933,7 +8937,9 @@ function mkRowInput(monthKey,dateKey,row,label){
     <td><span class="mk-calc">${mkFmt(c.cout_rdv_auto,'eur')}</span></td>
     <td><input class="mk-in" type="number" value="${row.appels_prevus||''}" placeholder="0" oninput="updMk2('${id}','appels_prevus',this.value)"></td>
     <td><input class="mk-in" type="number" value="${row.appels_pris||''}" placeholder="0" oninput="updMk2('${id}','appels_pris',this.value)"></td>
+    <td><input class="mk-in" type="number" value="${row.appels_annules||''}" placeholder="0" oninput="updMk2('${id}','appels_annules',this.value)"></td>
     <td><span class="mk-calc ${c.taux_showup>=70?'mk-calc-good':c.taux_showup>=50?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.taux_showup,'pct')}</span></td>
+    <td><span class="mk-calc ${c.taux_annulation<=10?'mk-calc-good':c.taux_annulation<=25?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.taux_annulation,'pct')}</span></td>
     <td><span class="mk-calc">${mkFmt(c.cout_appel_pris,'eur')}</span></td>
     <td><input class="mk-in" type="number" value="${row.ventes||''}" placeholder="0" oninput="updMk2('${id}','ventes',this.value)"></td>
     <td><span class="mk-calc ${c.taux_closing>=30?'mk-calc-good':c.taux_closing>=15?'mk-calc-warn':'mk-calc-bad'}">${mkFmt(c.taux_closing,'pct')}</span></td>
@@ -8952,7 +8958,7 @@ function mkRowSummary(label,row,style){
     <td>${Math.round(row.appeles||0)}</td><td>${Math.round(row.decroches||0)}</td><td>${mkFmt(c.pct_decroche,'pct')}</td><td>${mkFmt(c.cout_appel_setting,'eur')}</td>
     <td>${Math.round(row.qualifies||0)}</td><td>${mkFmt(c.cout_qualifie,'eur')}</td>
     <td>${Math.round(row.rdv_setting||0)}</td><td>${Math.round(row.rdv_auto||0)}</td><td>${mkFmt(c.cout_rdv_setting,'eur')}</td><td>${mkFmt(c.cout_rdv_auto,'eur')}</td>
-    <td>${Math.round(row.appels_prevus||0)}</td><td>${Math.round(row.appels_pris||0)}</td><td>${mkFmt(c.taux_showup,'pct')}</td><td>${mkFmt(c.cout_appel_pris,'eur')}</td>
+    <td>${Math.round(row.appels_prevus||0)}</td><td>${Math.round(row.appels_pris||0)}</td><td>${Math.round(row.appels_annules||0)}</td><td>${mkFmt(c.taux_showup,'pct')}</td><td>${mkFmt(c.taux_annulation,'pct')}</td><td>${mkFmt(c.cout_appel_pris,'eur')}</td>
     <td>${Math.round(row.ventes||0)}</td><td>${mkFmt(c.taux_closing,'pct')}</td><td>${(row.revenus||0).toFixed(0)}€</td><td>${(row.cash||0).toFixed(0)}€</td>
     <td></td>
   </tr>`;
@@ -9062,7 +9068,7 @@ function renderMkTracking(){
         <td>${Math.round(sum.appeles)}</td><td>${Math.round(sum.decroches)}</td><td>${mkFmt(mkCalc(sum).pct_decroche,'pct')}</td><td>${mkFmt(mkCalc(sum).cout_appel_setting,'eur')}</td>
         <td>${Math.round(sum.qualifies)}</td><td>${mkFmt(mkCalc(sum).cout_qualifie,'eur')}</td>
         <td>${Math.round(sum.rdv_setting)}</td><td>${Math.round(sum.rdv_auto)}</td><td>${mkFmt(mkCalc(sum).cout_rdv_setting,'eur')}</td><td>${mkFmt(mkCalc(sum).cout_rdv_auto,'eur')}</td>
-        <td>${Math.round(sum.appels_prevus)}</td><td>${Math.round(sum.appels_pris)}</td><td>${mkFmt(mkCalc(sum).taux_showup,'pct')}</td><td>${mkFmt(mkCalc(sum).cout_appel_pris,'eur')}</td>
+        <td>${Math.round(sum.appels_prevus)}</td><td>${Math.round(sum.appels_pris)}</td><td>${Math.round(sum.appels_annules)}</td><td>${mkFmt(mkCalc(sum).taux_showup,'pct')}</td><td>${mkFmt(mkCalc(sum).taux_annulation,'pct')}</td><td>${mkFmt(mkCalc(sum).cout_appel_pris,'eur')}</td>
         <td>${Math.round(sum.ventes)}</td><td>${mkFmt(mkCalc(sum).taux_closing,'pct')}</td><td>${sum.revenus.toFixed(0)}€</td><td>${sum.cash.toFixed(0)}€</td>
         <td></td>
       </tr>`;
@@ -9090,7 +9096,7 @@ function renderMkTracking(){
         <td>${Math.round(sum.appeles)}</td><td>${Math.round(sum.decroches)}</td><td>${mkFmt(c.pct_decroche,'pct')}</td><td>${mkFmt(c.cout_appel_setting,'eur')}</td>
         <td>${Math.round(sum.qualifies)}</td><td>${mkFmt(c.cout_qualifie,'eur')}</td>
         <td>${Math.round(sum.rdv_setting)}</td><td>${Math.round(sum.rdv_auto)}</td><td>${mkFmt(c.cout_rdv_setting,'eur')}</td><td>${mkFmt(c.cout_rdv_auto,'eur')}</td>
-        <td>${Math.round(sum.appels_prevus)}</td><td>${Math.round(sum.appels_pris)}</td><td>${mkFmt(c.taux_showup,'pct')}</td><td>${mkFmt(c.cout_appel_pris,'eur')}</td>
+        <td>${Math.round(sum.appels_prevus)}</td><td>${Math.round(sum.appels_pris)}</td><td>${Math.round(sum.appels_annules)}</td><td>${mkFmt(c.taux_showup,'pct')}</td><td>${mkFmt(c.taux_annulation,'pct')}</td><td>${mkFmt(c.cout_appel_pris,'eur')}</td>
         <td>${Math.round(sum.ventes)}</td><td>${mkFmt(c.taux_closing,'pct')}</td><td>${sum.revenus.toFixed(0)}€</td><td>${sum.cash.toFixed(0)}€</td>
         <td></td>
       </tr>`;
