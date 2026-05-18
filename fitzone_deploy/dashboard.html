@@ -3351,26 +3351,98 @@ function _renderProgressionContent(el,reRenderFn){
     </div>
     <div style="margin-top:16px"><button class="btn btn-dark btn-sm" onclick="addDailyLog()">+ Ajouter une entrée</button></div>`;
 }
-function addDailyLog(){
-  const metrics=['Poids','Énergie','Faim','Stress','Sommeil (h)','Pas','Alimentation suivie (%)','Note attitude (/10)'];
+function _dlSlug(s){return String(s||'').replace(/[^a-zA-Z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'').slice(0,40)||'x';}
+async function addDailyLog(){
+  if(!curClient){toast('Aucun client sélectionné');return;}
+  // Charge les questions q_daily du coach (avec fallback sur DEFAULT_Q_DAILY)
+  let qDaily=null;
+  if(currentCoach){
+    try{
+      const{data}=await db.from('settings').select('q_daily').eq('coach_id',currentCoach.id).maybeSingle();
+      if(data&&Array.isArray(data.q_daily)&&data.q_daily.length)qDaily=data.q_daily;
+    }catch(e){}
+  }
+  if(!qDaily)qDaily=DEFAULT_Q_DAILY;
+  window._dlQuestions=qDaily;
   let m=document.getElementById('mDailyLog');
-  if(!m){m=document.createElement('div');m.className='overlay';m.id='mDailyLog';m.innerHTML=`<div class="modal"><div class="mh"><div class="mt">Rapport quotidien</div><button class="mc" onclick="closeM('mDailyLog')">✕</button></div><div class="mb" id="dailyLogForm"></div><div class="mf"><button class="btn btn-ghost" onclick="closeM('mDailyLog')">Annuler</button><button class="btn btn-dark" onclick="saveDailyLog()">Enregistrer</button></div></div>`;document.body.appendChild(m);}
-  document.getElementById('dailyLogForm').innerHTML=`
-    <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="dlDate" value="${new Date().toISOString().slice(0,10)}"></div>
-    ${metrics.map(m=>`<div class="fg"><label class="fl">${m}</label><input class="fi" type="number" id="dl_${m.replace(/[^a-zA-Z]/g,'')}" placeholder="—" step="any"></div>`).join('')}`;
+  if(!m){
+    m=document.createElement('div');m.className='overlay';m.id='mDailyLog';
+    m.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
+      <div class="mh"><div class="mt">Saisie manuelle — rapport quotidien</div><button class="mc" onclick="closeM('mDailyLog')">✕</button></div>
+      <div class="mb" id="dailyLogForm"></div>
+      <div class="mf"><button class="btn btn-ghost" onclick="closeM('mDailyLog')">Annuler</button><button class="btn btn-dark" onclick="saveDailyLog()">Enregistrer</button></div>
+    </div>`;
+    document.body.appendChild(m);
+  }
+  _renderDailyLogForm(new Date().toISOString().slice(0,10));
   openM('mDailyLog');
 }
-function saveDailyLog(){
-  const metrics=['Poids','Énergie','Faim','Stress','Sommeil (h)','Pas','Alimentation suivie (%)','Note attitude (/10)'];
+function _renderDailyLogForm(date){
+  const qDaily=window._dlQuestions||DEFAULT_Q_DAILY;
+  const logs=lsGet('daily_'+curClient.id,[]);
+  const existing=logs.find(l=>l.date===date)||{};
+  let h=`<div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="dlDate" value="${date}" onchange="_renderDailyLogForm(this.value)"></div>`;
+  if(Object.keys(existing).length>1)h+=`<div style="background:#fef3c7;color:#92400e;border:1px solid #fbbf24;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:10px">ℹ️ Une entrée existe pour cette date. Les valeurs ci-dessous sont pré-remplies et seront fusionnées.</div>`;
+  // Groupement par section
+  const bySection={};
+  qDaily.forEach(q=>{const s=q.section||'AUTRE';(bySection[s]=bySection[s]||[]).push(q);});
+  Object.keys(bySection).forEach(sec=>{
+    h+=`<div style="font-size:11px;font-weight:700;letter-spacing:1.2px;color:var(--text3);margin:14px 0 6px;text-transform:uppercase">${sec}</div>`;
+    bySection[sec].forEach(q=>{
+      const val=existing[q.id]!=null?existing[q.id]:'';
+      const id='dl_'+_dlSlug(q.id);
+      const safeVal=String(val).replace(/"/g,'&quot;');
+      let inp='';
+      if(q.type==='textarea'){
+        inp=`<textarea class="fta" id="${id}" rows="2" style="min-height:60px" placeholder="—">${String(val).replace(/</g,'&lt;')}</textarea>`;
+      } else if(q.type==='rating'){
+        const scale=q.scale||5;
+        inp=`<input class="fi" type="number" id="${id}" min="0" max="${scale}" step="1" value="${safeVal}" placeholder="0 - ${scale}">`;
+      } else if(q.type==='percent'){
+        inp=`<input class="fi" type="number" id="${id}" min="0" max="100" step="1" value="${safeVal}" placeholder="0 - 100 %">`;
+      } else if(q.type==='yesno'){
+        inp=`<select class="fs" id="${id}"><option value="">—</option><option value="oui"${val==='oui'?' selected':''}>Oui</option><option value="non"${val==='non'?' selected':''}>Non</option></select>`;
+      } else {
+        const step=q.step||1;const unit=q.unit||'';
+        inp=`<div style="display:flex;align-items:center;gap:8px"><input class="fi" type="number" step="${step}" id="${id}" value="${safeVal}" placeholder="—" style="flex:1">${unit?`<span style="font-size:13px;color:var(--text3);font-weight:600">${unit}</span>`:''}</div>`;
+      }
+      h+=`<div class="fg"><label class="fl">${q.label||q.id}</label>${inp}</div>`;
+    });
+  });
+  document.getElementById('dailyLogForm').innerHTML=h;
+}
+async function saveDailyLog(){
+  if(!curClient||!currentCoach){toast('Client/coach non identifié');return;}
   const date=document.getElementById('dlDate').value;if(!date){toast('Date requise');return;}
-  const entry={date};
-  metrics.forEach(m=>{const v=document.getElementById('dl_'+m.replace(/[^a-zA-Z]/g,'')).value;if(v)entry[m]=parseFloat(v);});
+  const qDaily=window._dlQuestions||DEFAULT_Q_DAILY;
+  const entry={};
+  qDaily.forEach(q=>{
+    const el=document.getElementById('dl_'+_dlSlug(q.id));if(!el)return;
+    const raw=(el.value||'').trim();if(raw==='')return;
+    if(q.type==='textarea'||q.type==='yesno'||q.type==='choice'){entry[q.id]=raw;}
+    else{const num=parseFloat(raw);if(!isNaN(num))entry[q.id]=num;}
+  });
+  if(Object.keys(entry).length===0){toast('Renseigne au moins un champ');return;}
+  // Fusion avec l'éventuelle entrée existante (par client_id + date)
+  try{
+    const{data:existing,error:selErr}=await db.from('daily_logs').select('id,data').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).eq('date',date).limit(1).maybeSingle();
+    if(selErr&&selErr.code!=='PGRST116'){toast('Erreur: '+selErr.message);return;}
+    if(existing){
+      const merged={...(existing.data||{}),...entry};
+      const{error}=await db.from('daily_logs').update({data:merged}).eq('id',existing.id);
+      if(error){toast('Erreur: '+error.message);return;}
+    } else {
+      const{error}=await db.from('daily_logs').insert({coach_id:currentCoach.id,client_id:curClient.id,date:date,data:entry});
+      if(error){toast('Erreur: '+error.message);return;}
+    }
+  }catch(e){console.error('[saveDailyLog]',e);toast('Erreur d\'enregistrement');return;}
+  // MAJ cache localStorage
   const key='daily_'+curClient.id;const logs=lsGet(key,[]);
-  const existing=logs.findIndex(l=>l.date===date);
-  if(existing>=0)logs[existing]={...logs[existing],...entry};else logs.push(entry);
+  const idx=logs.findIndex(l=>l.date===date);
+  if(idx>=0)logs[idx]={...logs[idx],...entry,date};else logs.push({...entry,date});
   lsSave(key,logs);
-  if(currentCoach)db.from('daily_logs').upsert({coach_id:currentCoach.id,client_id:curClient.id,date:date,data:entry},{onConflict:'id'}).catch(e=>console.warn('daily save:',e));
-  closeM('mDailyLog');renderProgressionTab();
+  closeM('mDailyLog');
+  renderProgressionTab();
   if(document.getElementById('progPopupContent'))renderProgressionPopup();
   toast('Entrée enregistrée ✓');
 }
