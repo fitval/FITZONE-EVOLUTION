@@ -3296,16 +3296,27 @@ async function saveSuivi(){
   if(missing.length){toast('Champs requis : '+missing.slice(0,3).join(', '));return;}
 
   const existing=dailyLogs.find(l=>l.date===suiviDate);
+  let saveError=null;
   if(clientAuthMode==='anon'){
     const mergedData=existing?{...existing.data,...data}:data;
-    await db.rpc('client_upsert_daily_log',{p_token:clientData.token,p_date:suiviDate,p_data:mergedData,p_existing_id:existing?existing.id:null});
+    const{error}=await db.rpc('client_upsert_daily_log',{p_token:clientData.token,p_date:suiviDate,p_data:mergedData,p_existing_id:existing?existing.id:null});
+    if(error)saveError=error.message||String(error);
   } else {
     if(existing){
       const merged={...existing.data,...data};
-      await db.from('daily_logs').update({data:merged}).eq('id',existing.id);
+      const{data:upd,error}=await db.from('daily_logs').update({data:merged}).eq('id',existing.id).select();
+      if(error)saveError=error.message||String(error);
+      else if(!upd||!upd.length)saveError='RLS/UPDATE 0 ligne (id introuvable ou refusé)';
     } else {
-      await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:suiviDate,data});
+      const{data:ins,error}=await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:suiviDate,data}).select();
+      if(error)saveError=error.message||String(error);
+      else if(!ins||!ins.length)saveError='INSERT 0 ligne (RLS ?)';
     }
+  }
+  if(saveError){
+    console.error('[SAVE SUIVI]',saveError,{mode:clientAuthMode,client_id:clientData.id,user_id:clientData.user_id,date:suiviDate});
+    toast('Erreur d\'enregistrement : '+saveError);
+    return;
   }
   toast('Données enregistrées !');
   const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
