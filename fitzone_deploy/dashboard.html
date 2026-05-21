@@ -2906,8 +2906,7 @@ function renderRoadTab(){
   const fields=['phase','nut','poids','apports','cardio','pas','depense','training','events','notes'];
   let rows='';
   for(let i=1;i<=totalWeeks;i++){
-    const d=new Date(sd);d.setDate(d.getDate()+(i-1)*7);
-    const de=new Date(d);de.setDate(de.getDate()+6);
+    const{monday:d,sunday:de}=_roadWeekRange(sd,i);
     const fmt=x=>x.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
     const r=saved[i]||{};
     const isCur=d<=now&&now<=de;
@@ -2951,16 +2950,10 @@ function renderRoadTab(){
   legend+='</div>';
 
   // Current week summary
-  let curWeekNum=0;
-  for(let i=1;i<=totalWeeks;i++){
-    const d2=new Date(sd);d2.setDate(d2.getDate()+(i-1)*7);
-    const de2=new Date(d2);de2.setDate(de2.getDate()+6);
-    if(d2<=now&&now<=de2){curWeekNum=i;break;}
-  }
+  const curWeekNum=_roadCurrentWeekIdx(sd)<=totalWeeks?_roadCurrentWeekIdx(sd):0;
   const cw=saved[curWeekNum]||{};
   const cwFmt=(dt)=>new Date(dt).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
-  const cwStart=new Date(sd);cwStart.setDate(cwStart.getDate()+(curWeekNum-1)*7);
-  const cwEnd=new Date(cwStart);cwEnd.setDate(cwEnd.getDate()+6);
+  const{monday:cwStart,sunday:cwEnd}=_roadWeekRange(sd,curWeekNum||1);
   let summary='';
   if(curWeekNum){
     summary=`<div class="road-summary">
@@ -2976,8 +2969,7 @@ function renderRoadTab(){
   const objWeekKey='_roadObjWeek_'+curClient.id;
   if(!window[objWeekKey])window[objWeekKey]=curWeekNum||1;
   const objSelectedWeek=window[objWeekKey];
-  const objWeekStart=new Date(sd);objWeekStart.setDate(objWeekStart.getDate()+(objSelectedWeek-1)*7);
-  const objWeekEnd=new Date(objWeekStart);objWeekEnd.setDate(objWeekEnd.getDate()+6);
+  const{monday:objWeekStart,sunday:objWeekEnd}=_roadWeekRange(sd,objSelectedWeek);
   const objList=(saved[objSelectedWeek]&&Array.isArray(saved[objSelectedWeek].objectifs))?saved[objSelectedWeek].objectifs:[];
   const objSection=`<div style="background:white;border:1.5px solid var(--gold-border);border-radius:12px;padding:14px 16px;margin-bottom:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap">
@@ -2990,9 +2982,9 @@ function renderRoadTab(){
       </div>
     </div>
     ${objList.length?`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">${objList.map((o,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px"><span style="color:var(--gold);font-size:14px">•</span><span style="flex:1;font-size:13px;color:var(--text)">${esc(o)}</span><button onclick="roadObjRemove(${objSelectedWeek},${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px" title="Supprimer">✕</button></div>`).join('')}</div>`:`<div style="font-size:12px;color:var(--text3);font-style:italic;margin-bottom:10px">Aucun objectif pour cette semaine</div>`}
-    <div style="display:flex;gap:8px">
-      <input id="roadObjInput" type="text" placeholder="Ex: Faire les photos de bilan, atteindre 8 000 pas…" style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font)" onkeydown="if(event.key==='Enter')roadObjAdd()">
-      <button class="rbtn" onclick="roadObjAdd()" style="background:var(--gold);color:white;border-color:var(--gold)">+ Ajouter</button>
+    <div style="display:flex;gap:8px;align-items:stretch">
+      <input id="roadObjInput" type="text" placeholder="Ex: Faire les photos de bilan, atteindre 8 000 pas…" style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13.5px;font-family:var(--font);background:white;outline:none;transition:border-color .15s ease,box-shadow .15s ease" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 0 3px rgba(196,154,42,.12)'" onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'" onkeydown="if(event.key==='Enter')roadObjAdd()">
+      <button onclick="roadObjAdd()" style="padding:10px 18px;background:linear-gradient(135deg,var(--gold),#e8b84a);color:white;border:none;border-radius:10px;font-size:13.5px;font-weight:700;font-family:var(--font);cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 3px rgba(196,154,42,.3);transition:transform .1s ease,box-shadow .15s ease;white-space:nowrap" onmouseover="this.style.boxShadow='0 2px 8px rgba(196,154,42,.45)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(196,154,42,.3)'" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''"><span style="font-size:16px;line-height:1">+</span> Ajouter</button>
     </div>
   </div>`;
 
@@ -3093,6 +3085,24 @@ function sRoad(row,field,val){
   if(field==='phase')renderRoadTab();
 }
 
+/* ===== ROADMAP — Helpers semaine ISO (lundi → dimanche) ===== */
+function _roadWeekRange(startDate,weekIdx){
+  // Renvoie {monday, sunday} de la semaine N en partant de la semaine ISO
+  // qui contient startDate (lundi → dimanche).
+  const sd=new Date(startDate);
+  const day=sd.getDay(); // 0=dim, 1=lun, ..., 6=sam
+  const diff=day===0?-6:1-day;
+  const baseMon=new Date(sd);baseMon.setDate(baseMon.getDate()+diff);baseMon.setHours(0,0,0,0);
+  const mon=new Date(baseMon);mon.setDate(mon.getDate()+(weekIdx-1)*7);
+  const sun=new Date(mon);sun.setDate(sun.getDate()+6);sun.setHours(23,59,59,999);
+  return{monday:mon,sunday:sun};
+}
+function _roadCurrentWeekIdx(startDate){
+  const base=_roadWeekRange(startDate,1).monday;
+  const todayMon=_roadWeekRange(new Date(),1).monday;
+  return Math.max(1,Math.floor((todayMon-base)/(7*86400000))+1);
+}
+
 /* ===== ROADMAP — OBJECTIFS DE LA SEMAINE (todo list client) ===== */
 function _roadObjWeekIdx(){return window['_roadObjWeek_'+curClient.id]||1;}
 function _roadObjTotalWeeks(){return window['_roadWeeks_'+curClient.id]||52;}
@@ -3108,9 +3118,7 @@ function roadObjNextWeek(){
 }
 function roadObjGotoCurrent(){
   const sd=curClient.start_date||new Date().toISOString().slice(0,10);
-  const start=new Date(sd);
-  const cw=Math.max(1,Math.floor((new Date()-start)/(7*24*60*60*1000))+1);
-  window['_roadObjWeek_'+curClient.id]=cw;
+  window['_roadObjWeek_'+curClient.id]=_roadCurrentWeekIdx(sd);
   renderRoadTab();
 }
 async function roadObjAdd(){

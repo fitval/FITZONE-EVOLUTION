@@ -4102,11 +4102,17 @@ async function requestReward(rewardId,rewardName,cost){
 
 /* Visual Roadmap */
 function _escHtml(s){const d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML;}
+function _isoMondayOf(date){
+  const d=new Date(date);const day=d.getDay();
+  const diff=day===0?-6:1-day;
+  d.setDate(d.getDate()+diff);d.setHours(0,0,0,0);return d;
+}
 function renderWeeklyObjectives(){
   if(!clientRoadmap)return'';
   const sd=clientData.start_date||today();
-  const start=new Date(sd);
-  const cw=Math.max(1,Math.floor((new Date()-start)/(7*24*60*60*1000))+1);
+  const baseMon=_isoMondayOf(sd);
+  const todayMon=_isoMondayOf(new Date());
+  const cw=Math.max(1,Math.floor((todayMon-baseMon)/(7*86400000))+1);
   const week=clientRoadmap[cw]||clientRoadmap[String(cw)];
   if(!week||!Array.isArray(week.objectifs)||!week.objectifs.length)return'';
   const items=week.objectifs.map(o=>`<li style="margin:0 0 6px;font-size:13.5px;color:var(--text);line-height:1.45">${_escHtml(o)}</li>`).join('');
