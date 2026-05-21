@@ -663,7 +663,7 @@ let suiviDate=null;
 let suiviPeriod='month';
 
 let coachPartners=[]; // [{image, description, button_text, button_url}, ...]
-let clientRoadmap=null; // weeks JSONB de la table roadmaps — {1:{objectifs:[...], ...}, 2:{...}, ...}
+let clientRoadmap=[]; // Array d'objectifs [{text, start_date, end_date|null}] depuis roadmaps.objectifs
 
 /* ===== GAMIFICATION STATE ===== */
 let clientPoints=null; // {total_points, monthly_points, usable_balance, level, leaderboard_opt_in}
@@ -861,11 +861,11 @@ async function loadData(){
     const{data:pData}=await db.from('settings').select('partner').eq('coach_id',clientData.coach_id).limit(1);
     if(pData&&pData[0]&&pData[0].partner){const p=pData[0].partner;coachPartners=Array.isArray(p)?p:(p&&p.image?[p]:[]);}
   }catch(e){console.error('[PARTNER]',e);}
-  // Load roadmap (objectifs hebdo rédigés par le coach)
+  // Load roadmap (objectifs rédigés par le coach, avec dates de validité)
   try{
-    const{data:rmData}=await db.from('roadmaps').select('weeks').eq('client_id',clientData.id).maybeSingle();
-    clientRoadmap=(rmData&&rmData.weeks)||null;
-  }catch(e){console.error('[ROADMAP]',e);clientRoadmap=null;}
+    const{data:rmData}=await db.from('roadmaps').select('objectifs').eq('client_id',clientData.id).maybeSingle();
+    clientRoadmap=(rmData&&Array.isArray(rmData.objectifs))?rmData.objectifs:[];
+  }catch(e){console.error('[ROADMAP]',e);clientRoadmap=[];}
   // Load questionnaire templates (bilan, daily)
   try{
     const{data:qData}=await db.from('settings').select('q_bilan,q_daily').eq('coach_id',clientData.coach_id).limit(1);
@@ -4102,20 +4102,12 @@ async function requestReward(rewardId,rewardName,cost){
 
 /* Visual Roadmap */
 function _escHtml(s){const d=document.createElement('div');d.textContent=String(s==null?'':s);return d.innerHTML;}
-function _isoMondayOf(date){
-  const d=new Date(date);const day=d.getDay();
-  const diff=day===0?-6:1-day;
-  d.setDate(d.getDate()+diff);d.setHours(0,0,0,0);return d;
-}
 function renderWeeklyObjectives(){
-  if(!clientRoadmap)return'';
-  const sd=clientData.start_date||today();
-  const baseMon=_isoMondayOf(sd);
-  const todayMon=_isoMondayOf(new Date());
-  const cw=Math.max(1,Math.floor((todayMon-baseMon)/(7*86400000))+1);
-  const week=clientRoadmap[cw]||clientRoadmap[String(cw)];
-  if(!week||!Array.isArray(week.objectifs)||!week.objectifs.length)return'';
-  const items=week.objectifs.map(o=>`<li style="margin:0 0 6px;font-size:13.5px;color:var(--text);line-height:1.45">${_escHtml(o)}</li>`).join('');
+  if(!Array.isArray(clientRoadmap)||!clientRoadmap.length)return'';
+  const todayISO=today();
+  const active=clientRoadmap.filter(o=>o&&o.text&&o.start_date<=todayISO&&(!o.end_date||todayISO<=o.end_date));
+  if(!active.length)return'';
+  const items=active.map(o=>`<li style="margin:0 0 6px;font-size:13.5px;color:var(--text);line-height:1.45">${_escHtml(o.text)}</li>`).join('');
   return`<div class="card fade-up" style="animation-delay:.22s;border:1.5px solid var(--gold-border);background:linear-gradient(135deg,rgba(196,154,42,.07),rgba(232,184,74,.02))">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <span style="font-size:20px">🎯</span>

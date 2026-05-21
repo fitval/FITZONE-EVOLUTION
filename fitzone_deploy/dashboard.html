@@ -2965,26 +2965,51 @@ function renderRoadTab(){
     </div>`;
   }
 
-  // Objectifs de la semaine (todo list éditable par le coach, visible côté client)
-  const objWeekKey='_roadObjWeek_'+curClient.id;
-  if(!window[objWeekKey])window[objWeekKey]=curWeekNum||1;
-  const objSelectedWeek=window[objWeekKey];
-  const{monday:objWeekStart,sunday:objWeekEnd}=_roadWeekRange(sd,objSelectedWeek);
-  const objList=(saved[objSelectedWeek]&&Array.isArray(saved[objSelectedWeek].objectifs))?saved[objSelectedWeek].objectifs:[];
+  // Objectifs avec dates (todo list éditable par le coach, visible côté client tant que today ∈ [start, end])
+  // Lecture depuis Supabase au 1er render si pas encore fait
+  if(currentCoach&&!window['_roadObjLoaded_'+curClient.id]){
+    window['_roadObjLoaded_'+curClient.id]=true;
+    db.from('roadmaps').select('objectifs').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).limit(1).then(({data})=>{
+      if(data&&data[0]&&Array.isArray(data[0].objectifs)){
+        const supaObj=data[0].objectifs;
+        const localObj=lsGet('road_obj_'+curClient.id,[]);
+        if(JSON.stringify(supaObj)!==JSON.stringify(localObj)){lsSave('road_obj_'+curClient.id,supaObj);renderRoadTab();}
+      }
+    }).catch(()=>{});
+  }
+  const objList=lsGet('road_obj_'+curClient.id,[]);
+  const todayISO=new Date().toISOString().slice(0,10);
+  const plus7=new Date();plus7.setDate(plus7.getDate()+7);
+  const plus7ISO=plus7.toISOString().slice(0,10);
+  const fmtP=d=>new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+  const renderObjPeriod=o=>{
+    if(!o.end_date)return`À partir du ${fmtP(o.start_date)} <span style="opacity:.6">· sans date de fin</span>`;
+    if(o.start_date===o.end_date)return`Le ${fmtP(o.start_date)}`;
+    return`Du ${fmtP(o.start_date)} au ${fmtP(o.end_date)}`;
+  };
+  const isActive=o=>o.start_date<=todayISO&&(!o.end_date||todayISO<=o.end_date);
   const objSection=`<div style="background:white;border:1.5px solid var(--gold-border);border-radius:12px;padding:14px 16px;margin-bottom:14px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap">
-      <div style="font-size:14px;font-weight:800;color:var(--dark);display:flex;align-items:center;gap:6px"><span>🎯</span> Objectifs de la semaine <span style="font-size:11px;font-weight:500;color:var(--text3);margin-left:4px">(visible côté client)</span></div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:12px">
-        <button class="rbtn" onclick="roadObjPrevWeek()" style="padding:4px 10px">‹</button>
-        <span style="font-weight:600;color:var(--dark);min-width:180px;text-align:center">S${objSelectedWeek} · ${cwFmt(objWeekStart)} → ${cwFmt(objWeekEnd)}</span>
-        <button class="rbtn" onclick="roadObjNextWeek()" style="padding:4px 10px">›</button>
-        ${objSelectedWeek!==curWeekNum?`<button class="rbtn" onclick="roadObjGotoCurrent()" style="padding:4px 10px;background:var(--bg2)">Aujourd'hui</button>`:''}
-      </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="font-size:14px;font-weight:800;color:var(--dark);display:flex;align-items:center;gap:6px"><span>🎯</span> Objectifs <span style="font-size:11px;font-weight:500;color:var(--text3);margin-left:4px">(visible côté client pendant la période d'application)</span></div>
     </div>
-    ${objList.length?`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">${objList.map((o,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px"><span style="color:var(--gold);font-size:14px">•</span><span style="flex:1;font-size:13px;color:var(--text)">${esc(o)}</span><button onclick="roadObjRemove(${objSelectedWeek},${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px" title="Supprimer">✕</button></div>`).join('')}</div>`:`<div style="font-size:12px;color:var(--text3);font-style:italic;margin-bottom:10px">Aucun objectif pour cette semaine</div>`}
-    <div style="display:flex;gap:8px;align-items:stretch">
-      <input id="roadObjInput" type="text" placeholder="Ex: Faire les photos de bilan, atteindre 8 000 pas…" style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13.5px;font-family:var(--font);background:white;outline:none;transition:border-color .15s ease,box-shadow .15s ease" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 0 3px rgba(196,154,42,.12)'" onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'" onkeydown="if(event.key==='Enter')roadObjAdd()">
-      <button onclick="roadObjAdd()" style="padding:10px 18px;background:linear-gradient(135deg,var(--gold),#e8b84a);color:white;border:none;border-radius:10px;font-size:13.5px;font-weight:700;font-family:var(--font);cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 3px rgba(196,154,42,.3);transition:transform .1s ease,box-shadow .15s ease;white-space:nowrap" onmouseover="this.style.boxShadow='0 2px 8px rgba(196,154,42,.45)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(196,154,42,.3)'" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''"><span style="font-size:16px;line-height:1">+</span> Ajouter</button>
+    ${objList.length?`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">${objList.map((o,i)=>{
+      const active=isActive(o);
+      return`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${active?'var(--bg)':'#f1f5f9'};border-left:3px solid ${active?'var(--gold)':'var(--text3)'};border-radius:8px;${active?'':'opacity:.7'}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:var(--text);font-weight:600">${esc(o.text)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${renderObjPeriod(o)} ${active?'<span style="color:#16a34a;font-weight:600;margin-left:4px">● actif</span>':'<span style="color:var(--text3);margin-left:4px">○ inactif</span>'}</div>
+        </div>
+        <button onclick="roadObjRemove(${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:15px;padding:4px 8px;border-radius:6px;transition:background .12s" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'" title="Supprimer">✕</button>
+      </div>`;
+    }).join('')}</div>`:`<div style="font-size:12px;color:var(--text3);font-style:italic;margin-bottom:14px">Aucun objectif défini</div>`}
+    <div style="border-top:1px dashed var(--border);padding-top:12px">
+      <input id="roadObjText" type="text" placeholder="Ex: Faire les photos de bilan, atteindre 8 000 pas…" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:13.5px;font-family:var(--font);background:white;outline:none;transition:border-color .15s ease,box-shadow .15s ease;box-sizing:border-box;margin-bottom:10px" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 0 3px rgba(196,154,42,.12)'" onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'" onkeydown="if(event.key==='Enter')roadObjAdd()">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)">Du <input type="date" id="roadObjStart" value="${todayISO}" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:var(--font)"></label>
+        <label id="roadObjEndLabel" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)">au <input type="date" id="roadObjEnd" value="${plus7ISO}" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:var(--font)"></label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;background:white" onclick="event.stopPropagation()"><input type="checkbox" id="roadObjForever" onchange="roadObjToggleForever()" style="cursor:pointer"> Jusqu'à suppression</label>
+      </div>
+      <button onclick="roadObjAdd()" style="padding:10px 18px;background:linear-gradient(135deg,var(--gold),#e8b84a);color:white;border:none;border-radius:10px;font-size:13.5px;font-weight:700;font-family:var(--font);cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 3px rgba(196,154,42,.3);transition:transform .1s ease,box-shadow .15s ease" onmouseover="this.style.boxShadow='0 2px 8px rgba(196,154,42,.45)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(196,154,42,.3)'" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''"><span style="font-size:16px;line-height:1">+</span> Ajouter l'objectif</button>
     </div>
   </div>`;
 
@@ -3103,50 +3128,45 @@ function _roadCurrentWeekIdx(startDate){
   return Math.max(1,Math.floor((todayMon-base)/(7*86400000))+1);
 }
 
-/* ===== ROADMAP — OBJECTIFS DE LA SEMAINE (todo list client) ===== */
-function _roadObjWeekIdx(){return window['_roadObjWeek_'+curClient.id]||1;}
-function _roadObjTotalWeeks(){return window['_roadWeeks_'+curClient.id]||52;}
-function roadObjPrevWeek(){
-  const k='_roadObjWeek_'+curClient.id;
-  window[k]=Math.max(1,(window[k]||1)-1);
-  renderRoadTab();
-}
-function roadObjNextWeek(){
-  const k='_roadObjWeek_'+curClient.id;
-  window[k]=Math.min(_roadObjTotalWeeks(),(window[k]||1)+1);
-  renderRoadTab();
-}
-function roadObjGotoCurrent(){
-  const sd=curClient.start_date||new Date().toISOString().slice(0,10);
-  window['_roadObjWeek_'+curClient.id]=_roadCurrentWeekIdx(sd);
-  renderRoadTab();
+/* ===== ROADMAP — OBJECTIFS AVEC DATES (todo list client) ===== */
+function roadObjToggleForever(){
+  const cb=document.getElementById('roadObjForever');
+  const endLabel=document.getElementById('roadObjEndLabel');
+  if(!cb||!endLabel)return;
+  if(cb.checked){endLabel.style.opacity='.4';endLabel.style.pointerEvents='none';}
+  else{endLabel.style.opacity='';endLabel.style.pointerEvents='';}
 }
 async function roadObjAdd(){
-  const input=document.getElementById('roadObjInput');
-  const text=(input?.value||'').trim();
-  if(!text)return;
-  const wk=_roadObjWeekIdx();
-  const key='road_'+curClient.id;const d=lsGet(key,{});
-  if(!d[wk])d[wk]={};
-  if(!Array.isArray(d[wk].objectifs))d[wk].objectifs=[];
-  d[wk].objectifs.push(text);
-  lsSave(key,d);
-  await _roadObjPersist(d);
+  const txtEl=document.getElementById('roadObjText');
+  const startEl=document.getElementById('roadObjStart');
+  const endEl=document.getElementById('roadObjEnd');
+  const foreverEl=document.getElementById('roadObjForever');
+  const text=(txtEl?.value||'').trim();
+  if(!text){toast('Saisis un objectif');return;}
+  const start_date=startEl?.value||new Date().toISOString().slice(0,10);
+  const end_date=foreverEl?.checked?null:(endEl?.value||null);
+  if(end_date&&end_date<start_date){toast('La date de fin doit être après le début');return;}
+  const key='road_obj_'+curClient.id;
+  const list=lsGet(key,[]);
+  list.push({text,start_date,end_date});
+  list.sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||''));
+  lsSave(key,list);
+  await _roadObjPersist(list);
   renderRoadTab();
 }
-async function roadObjRemove(wk,idx){
-  const key='road_'+curClient.id;const d=lsGet(key,{});
-  if(!d[wk]||!Array.isArray(d[wk].objectifs))return;
-  d[wk].objectifs.splice(idx,1);
-  if(!d[wk].objectifs.length)delete d[wk].objectifs;
-  lsSave(key,d);
-  await _roadObjPersist(d);
+async function roadObjRemove(idx){
+  const key='road_obj_'+curClient.id;
+  const list=lsGet(key,[]);
+  if(idx<0||idx>=list.length)return;
+  list.splice(idx,1);
+  lsSave(key,list);
+  await _roadObjPersist(list);
   renderRoadTab();
 }
-async function _roadObjPersist(d){
+async function _roadObjPersist(list){
   if(!currentCoach||!curClient)return;
   try{
-    await db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'});
+    await db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,objectifs:list},{onConflict:'coach_id,client_id'});
   }catch(e){console.warn('[road obj persist]',e);}
 }
 function addRoadWeeks(){
