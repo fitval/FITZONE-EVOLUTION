@@ -2972,7 +2972,31 @@ function renderRoadTab(){
     </div>`;
   }
 
-  el.innerHTML=`${toolbar}${legend}${summary}
+  // Objectifs de la semaine (todo list éditable par le coach, visible côté client)
+  const objWeekKey='_roadObjWeek_'+curClient.id;
+  if(!window[objWeekKey])window[objWeekKey]=curWeekNum||1;
+  const objSelectedWeek=window[objWeekKey];
+  const objWeekStart=new Date(sd);objWeekStart.setDate(objWeekStart.getDate()+(objSelectedWeek-1)*7);
+  const objWeekEnd=new Date(objWeekStart);objWeekEnd.setDate(objWeekEnd.getDate()+6);
+  const objList=(saved[objSelectedWeek]&&Array.isArray(saved[objSelectedWeek].objectifs))?saved[objSelectedWeek].objectifs:[];
+  const objSection=`<div style="background:white;border:1.5px solid var(--gold-border);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+      <div style="font-size:14px;font-weight:800;color:var(--dark);display:flex;align-items:center;gap:6px"><span>🎯</span> Objectifs de la semaine <span style="font-size:11px;font-weight:500;color:var(--text3);margin-left:4px">(visible côté client)</span></div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+        <button class="rbtn" onclick="roadObjPrevWeek()" style="padding:4px 10px">‹</button>
+        <span style="font-weight:600;color:var(--dark);min-width:180px;text-align:center">S${objSelectedWeek} · ${cwFmt(objWeekStart)} → ${cwFmt(objWeekEnd)}</span>
+        <button class="rbtn" onclick="roadObjNextWeek()" style="padding:4px 10px">›</button>
+        ${objSelectedWeek!==curWeekNum?`<button class="rbtn" onclick="roadObjGotoCurrent()" style="padding:4px 10px;background:var(--bg2)">Aujourd'hui</button>`:''}
+      </div>
+    </div>
+    ${objList.length?`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">${objList.map((o,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px"><span style="color:var(--gold);font-size:14px">•</span><span style="flex:1;font-size:13px;color:var(--text)">${esc(o)}</span><button onclick="roadObjRemove(${objSelectedWeek},${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 6px" title="Supprimer">✕</button></div>`).join('')}</div>`:`<div style="font-size:12px;color:var(--text3);font-style:italic;margin-bottom:10px">Aucun objectif pour cette semaine</div>`}
+    <div style="display:flex;gap:8px">
+      <input id="roadObjInput" type="text" placeholder="Ex: Faire les photos de bilan, atteindre 8 000 pas…" style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font)" onkeydown="if(event.key==='Enter')roadObjAdd()">
+      <button class="rbtn" onclick="roadObjAdd()" style="background:var(--gold);color:white;border-color:var(--gold)">+ Ajouter</button>
+    </div>
+  </div>`;
+
+  el.innerHTML=`${toolbar}${legend}${summary}${objSection}
   <div class="road-wrap"><div class="road-table${roadCopy?' rcopy-mode':''}">
     <table><thead>
       <tr>
@@ -3067,6 +3091,55 @@ function sRoad(row,field,val){
   const key='road_'+curClient.id,d=lsGet(key,{});
   if(!d[row])d[row]={};d[row][field]=val;lsSave(key,d);
   if(field==='phase')renderRoadTab();
+}
+
+/* ===== ROADMAP — OBJECTIFS DE LA SEMAINE (todo list client) ===== */
+function _roadObjWeekIdx(){return window['_roadObjWeek_'+curClient.id]||1;}
+function _roadObjTotalWeeks(){return window['_roadWeeks_'+curClient.id]||52;}
+function roadObjPrevWeek(){
+  const k='_roadObjWeek_'+curClient.id;
+  window[k]=Math.max(1,(window[k]||1)-1);
+  renderRoadTab();
+}
+function roadObjNextWeek(){
+  const k='_roadObjWeek_'+curClient.id;
+  window[k]=Math.min(_roadObjTotalWeeks(),(window[k]||1)+1);
+  renderRoadTab();
+}
+function roadObjGotoCurrent(){
+  const sd=curClient.start_date||new Date().toISOString().slice(0,10);
+  const start=new Date(sd);
+  const cw=Math.max(1,Math.floor((new Date()-start)/(7*24*60*60*1000))+1);
+  window['_roadObjWeek_'+curClient.id]=cw;
+  renderRoadTab();
+}
+async function roadObjAdd(){
+  const input=document.getElementById('roadObjInput');
+  const text=(input?.value||'').trim();
+  if(!text)return;
+  const wk=_roadObjWeekIdx();
+  const key='road_'+curClient.id;const d=lsGet(key,{});
+  if(!d[wk])d[wk]={};
+  if(!Array.isArray(d[wk].objectifs))d[wk].objectifs=[];
+  d[wk].objectifs.push(text);
+  lsSave(key,d);
+  await _roadObjPersist(d);
+  renderRoadTab();
+}
+async function roadObjRemove(wk,idx){
+  const key='road_'+curClient.id;const d=lsGet(key,{});
+  if(!d[wk]||!Array.isArray(d[wk].objectifs))return;
+  d[wk].objectifs.splice(idx,1);
+  if(!d[wk].objectifs.length)delete d[wk].objectifs;
+  lsSave(key,d);
+  await _roadObjPersist(d);
+  renderRoadTab();
+}
+async function _roadObjPersist(d){
+  if(!currentCoach||!curClient)return;
+  try{
+    await db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'});
+  }catch(e){console.warn('[road obj persist]',e);}
 }
 function addRoadWeeks(){
   const n=prompt('Combien de semaines ajouter ?','10');
