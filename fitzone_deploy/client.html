@@ -662,7 +662,6 @@ let bilanPhotos=[];
 let suiviDate=null;
 let suiviPeriod='month';
 
-let clientAuthMode='anon'; // 'auth' or 'anon'
 let coachPartners=[]; // [{image, description, button_text, button_url}, ...]
 
 /* ===== GAMIFICATION STATE ===== */
@@ -715,44 +714,113 @@ const BADGES=[
 
 /* ===== INIT ===== */
 (async function init(){
-  // Mode 1: Authenticated client (Supabase session)
   const{data:{session}}=await db.auth.getSession();
   if(session){
     const{data:authClient}=await db.from('clients').select('*').eq('user_id',session.user.id).maybeSingle();
     if(authClient){
       clientData=authClient;
-      clientAuthMode='auth';
       if(authClient.status==='paused'){showState('Paused');return;}
-      // Si contrat à signer OU questionnaire à remplir → rediriger vers questionnaire.html
       if((authClient.status==='contract_pending'||authClient.status==='questionnaire_pending')&&authClient.token){
         window.location.href='questionnaire.html?token='+authClient.token;
         return;
       }
-      // questionnaire_done ou active → accès à l'app (modules via isModuleVisibleForClient)
       await loadData();
       showState('App');
       renderHome();
       return;
     }
-    // Not a client account — sign out
+    // Session valide mais aucun client associé → sign out et retombe sur le flow login
     await db.auth.signOut();
   }
-  // Mode 2: Token-based (legacy/fallback)
+  // Pas de session : garde-fou pour les vieux liens ?token=...
   const token=new URLSearchParams(location.search).get('token');
-  if(!token){
-    window.location.href='client-login.html';
+  if(token){
+    await triggerLoginGardeFou(token);
     return;
   }
-  const{data,error}=await db.from('clients').select('*').eq('token',token).maybeSingle();
-  if(error||!data){showState('Blocked');return;}
-  clientData=data;
-  clientAuthMode='anon';
-  if(data.status==='paused'){showState('Paused');return;}
-  if(data.status==='contract_pending'||data.status==='questionnaire_pending'){window.location.href='questionnaire.html?token='+data.token;return;}
-  await loadData();
-  showState('App');
-  renderHome();
+  // Aucun moyen d'identifier le client → écran de login
+  window.location.href='client-login.html';
 })();
+
+/* ===== GARDE-FOU : ancien lien token sans session ===== */
+async function triggerLoginGardeFou(token){
+  try{
+    const{data:info,error}=await db.rpc('client_request_login_email',{p_token:token});
+    if(error||!info)throw new Error(error?.message||'Lien invalide');
+    if(!info.has_account){
+      // Cas rare : token valide mais pas de compte auth (Nicko / Christopher / etc.)
+      showRecoveryMessage({
+        title:'Ton compte n\'est pas encore activé',
+        body:'Demande à ton coach de t\'envoyer une invitation pour activer ton compte.',
+        email:info.email,
+        canResend:false
+      });
+      return;
+    }
+    // Compte existant → on déclenche un mail de connexion (recovery)
+    const sent=await sendRecoveryEmail(info.email);
+    showRecoveryMessage({
+      title:'On t\'a envoyé un nouveau lien par mail',
+      body:'Ton ancien lien d\'accès n\'est plus valide. Vérifie ta boîte mail (et tes spams) — tu vas pouvoir te connecter avec ton email et définir un nouveau mot de passe.',
+      email:info.email,
+      canResend:true,
+      sent
+    });
+  }catch(e){
+    console.error('[GARDE-FOU]',e);
+    showRecoveryMessage({
+      title:'Lien invalide',
+      body:'Ce lien d\'accès n\'est plus reconnu. Connecte-toi avec ton email et ton mot de passe.',
+      email:null,
+      canResend:false
+    });
+  }
+}
+
+async function sendRecoveryEmail(email){
+  try{
+    const redirectTo=location.origin+location.pathname.replace(/[^/]*$/,'')+'client-login.html';
+    const res=await fetch(SUPA+'/functions/v1/send-email',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email,type:'recovery',redirect_to:redirectTo})
+    });
+    return res.ok;
+  }catch(e){console.error('[send-email]',e);return false;}
+}
+
+function showRecoveryMessage({title,body,email,canResend,sent}){
+  document.getElementById('stateLoading').style.display='none';
+  document.getElementById('app').style.display='none';
+  let el=document.getElementById('stateRecovery');
+  if(!el){
+    el=document.createElement('div');
+    el.id='stateRecovery';
+    el.style.cssText='min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg,#f0ede8)';
+    document.body.appendChild(el);
+  }
+  el.style.display='flex';
+  const emailLine=email?`<div style="font-size:13px;color:var(--text2,#475569);margin:8px 0 4px">Adresse utilisée : <strong>${email}</strong></div>`:'';
+  const resendBtn=canResend?`<button id="resendBtn" onclick="resendRecoveryAndToast('${email||''}')" style="margin-top:14px;padding:10px 18px;border-radius:10px;border:1.5px solid #c49a2a;background:white;color:#c49a2a;font-weight:600;cursor:pointer">Renvoyer le mail</button>`:'';
+  const sentLine=sent===false?'<div style="font-size:12px;color:#dc2626;margin-top:8px">⚠️ Échec d\'envoi du mail. Réessaie ou contacte ton coach.</div>':'';
+  el.innerHTML=`
+    <div style="max-width:420px;width:100%;background:white;border-radius:18px;padding:28px 24px;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center">
+      <div style="font-size:42px;margin-bottom:10px">📩</div>
+      <div style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:8px">${title}</div>
+      <div style="font-size:14px;color:#475569;line-height:1.5">${body}</div>
+      ${emailLine}
+      ${sentLine}
+      ${resendBtn}
+      <div style="margin-top:18px"><a href="client-login.html" style="font-size:13px;color:#64748b;text-decoration:underline">Aller à la page de connexion</a></div>
+    </div>`;
+}
+
+async function resendRecoveryAndToast(email){
+  if(!email)return;
+  const btn=document.getElementById('resendBtn');if(btn){btn.disabled=true;btn.textContent='Envoi…';}
+  const ok=await sendRecoveryEmail(email);
+  if(btn){btn.disabled=false;btn.textContent=ok?'Mail renvoyé ✓':'Échec — réessaie';}
+}
 
 function showState(s){
   document.getElementById('stateLoading').style.display='none';
@@ -768,7 +836,7 @@ async function loadData(){
     db.from('plans_full').select('*').eq('client_id',clientData.id),
     db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false}),
     db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90),
-    clientAuthMode==='anon'?db.rpc('client_get_train_logs',{p_token:clientData.token}):db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30),
+    db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30),
     db.from('modules').select('*').eq('coach_id',clientData.coach_id),
     db.from('aliments').select('*').eq('coach_id',clientData.coach_id),
     db.from('exercises').select('*').eq('coach_id',clientData.coach_id),
@@ -776,16 +844,10 @@ async function loadData(){
   ]);
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   clientQuest=(p9.data&&p9.data[0])||null;
-  console.log('[LOAD DEBUG] authMode:', clientAuthMode, 'trainLogs:', trainLogs.length, 'p5.error:', p5.error);
   // Load plan swaps (équivalences aliment choisies par le client)
   try{
-    if(clientAuthMode==='anon'){
-      const{data:swaps}=await db.rpc('client_get_plan_swaps',{p_token:clientData.token});
-      planSwaps=swaps||[];
-    }else{
-      const{data:swaps}=await db.from('plan_swaps').select('*').eq('client_id',clientData.id);
-      planSwaps=swaps||[];
-    }
+    const{data:swaps}=await db.from('plan_swaps').select('*').eq('client_id',clientData.id);
+    planSwaps=swaps||[];
     applyPlanSwaps();
   }catch(e){console.error('[PLAN SWAPS]',e);planSwaps=[];}
   // Load coach settings (levels)
@@ -851,8 +913,7 @@ function openProfileModal(){
   const prev=document.getElementById('profilePhotoPreview');
   if(profilePhotoData){prev.innerHTML=`<img src="${profilePhotoData}" style="width:100%;height:100%;object-fit:cover">`;prev.style.background='none';}
   else{prev.textContent=(clientData.first_name||'?')[0].toUpperCase();prev.style.background='var(--gold)';}
-  // Show logout button only for authenticated clients
-  document.getElementById('logoutBtn').style.display=clientAuthMode==='auth'?'block':'none';
+  document.getElementById('logoutBtn').style.display='block';
   document.getElementById('profileModal').classList.add('show');document.body.style.overflow='hidden';
 }
 async function clientLogout(){
@@ -885,14 +946,7 @@ async function saveProfile(){
   const upd={first_name:fn,last_name:ln,email:em};
   if(profilePhotoData)upd.photo=profilePhotoData;
   else if(clientData.photo&&!profilePhotoData)upd.photo=null;
-  let error;
-  if(clientAuthMode==='anon'){
-    const{error:e}=await db.rpc('client_update_profile',{p_token:clientData.token,p_first_name:fn,p_last_name:ln,p_email:em,p_photo:upd.photo||null});
-    error=e;
-  } else {
-    const{error:e}=await db.from('clients').update(upd).eq('id',clientData.id);
-    error=e;
-  }
+  const{error}=await db.from('clients').update(upd).eq('id',clientData.id);
   btn.disabled=false;btn.textContent='Enregistrer';
   if(error){toast('Erreur: '+error.message);return;}
   clientData.first_name=fn;clientData.last_name=ln;clientData.email=em;
@@ -1632,29 +1686,20 @@ async function finalizeWorkout(){
       return o;
     });
     console.log('[WORKOUT SAVE]',JSON.stringify(exercises));
-    if(clientAuthMode==='anon'){
-      const{error}=await db.rpc('client_insert_train_log',{p_token:clientData.token,p_session_name:sessionName,p_date:today(),p_exercises:exercises,p_cycle:rpe||null,p_comment:comment||null});
-      if(error)console.error('[WORKOUT SAVE ERROR]',error);
-      if(rpe||comment){
-        const existing=dailyLogs.find(l=>l.date===today());
-        const extra={'RPE séance':rpe};if(comment)extra['Commentaire séance']=comment;
-        const mergedData=existing?{...existing.data,...extra}:extra;
-        await db.rpc('client_upsert_daily_log',{p_token:clientData.token,p_date:today(),p_data:mergedData,p_existing_id:existing?existing.id:null});
-      }
-    } else {
-      // Mode auth : on passe aussi par les RPC SECURITY DEFINER pour éviter
-      // les pièges RLS (cf. bug uuid=text sur daily_logs)
-      const{error}=await db.rpc('client_insert_train_log',{p_token:clientData.token,p_session_name:sessionName,p_date:today(),p_exercises:exercises,p_cycle:rpe||null,p_comment:comment||null});
-      if(error)console.error('[WORKOUT SAVE ERROR]',error);
-      if(rpe||comment){
-        const existing=dailyLogs.find(l=>l.date===today());
-        const extra={'RPE séance':rpe};if(comment)extra['Commentaire séance']=comment;
-        const mergedData=existing?{...existing.data,...extra}:extra;
-        await db.rpc('client_upsert_daily_log',{p_token:clientData.token,p_date:today(),p_data:mergedData,p_existing_id:existing?existing.id:null});
-      }
+    const trainRow={coach_id:clientData.coach_id,client_id:clientData.id,session_name:sessionName,date:today(),exercises};
+    if(rpe)trainRow.cycle=rpe;
+    if(comment)trainRow.comment=comment;
+    const{error}=await db.from('train_logs').insert(trainRow);
+    if(error)console.error('[WORKOUT SAVE ERROR]',error);
+    if(rpe||comment){
+      const existing=dailyLogs.find(l=>l.date===today());
+      const extra={'RPE séance':rpe};if(comment)extra['Commentaire séance']=comment;
+      const mergedData=existing?{...existing.data,...extra}:extra;
+      if(existing)await db.from('daily_logs').update({data:mergedData}).eq('id',existing.id);
+      else await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:today(),data:mergedData});
     }
-    if(clientAuthMode==='anon'){const{data}=await db.rpc('client_get_train_logs',{p_token:clientData.token});trainLogs=data||[];}
-    else{const{data}=await db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30);trainLogs=data||[];}
+    const{data:tlData}=await db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30);
+    trainLogs=tlData||[];
     const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
     dailyLogs=nl||[];
     // Gamification: award points for workout
@@ -2864,27 +2909,15 @@ async function doFoodSwap(planIdx,dayIdx,ri,ai,nom,kcal,prot,carb,fat,source,new
   else{planSwaps.push({plan_id:p.id,day_idx:dayIdx,repas_idx:ri,alim_idx:ai,original_nom:originalNom,alim:newAlim});}
   // Persistance Supabase
   try{
-    if(clientAuthMode==='anon'){
-      await db.rpc('client_upsert_plan_swap',{
-        p_token:clientData.token,
-        p_plan_id:p.id,
-        p_day_idx:dayIdx,
-        p_repas_idx:ri,
-        p_alim_idx:ai,
-        p_original_nom:originalNom,
-        p_alim:newAlim
-      });
-    }else{
-      await db.from('plan_swaps').upsert({
-        client_id:clientData.id,
-        plan_id:p.id,
-        day_idx:dayIdx,
-        repas_idx:ri,
-        alim_idx:ai,
-        original_nom:originalNom,
-        alim:newAlim
-      },{onConflict:'client_id,plan_id,day_idx,repas_idx,alim_idx'});
-    }
+    await db.from('plan_swaps').upsert({
+      client_id:clientData.id,
+      plan_id:p.id,
+      day_idx:dayIdx,
+      repas_idx:ri,
+      alim_idx:ai,
+      original_nom:originalNom,
+      alim:newAlim
+    },{onConflict:'client_id,plan_id,day_idx,repas_idx,alim_idx'});
   }catch(e){console.error('[plan_swap save]',e);toast('⚠ Sauvegarde échouée');}
 }
 
@@ -3296,10 +3329,16 @@ async function saveSuivi(){
 
   const existing=dailyLogs.find(l=>l.date===suiviDate);
   const mergedData=existing?{...existing.data,...data}:data;
-  // RPC SECURITY DEFINER (bypass RLS) — utilisée dans les 2 modes
-  const{error}=await db.rpc('client_upsert_daily_log',{p_token:clientData.token,p_date:suiviDate,p_data:mergedData,p_existing_id:existing?existing.id:null});
+  let error;
+  if(existing){
+    const{error:e}=await db.from('daily_logs').update({data:mergedData}).eq('id',existing.id);
+    error=e;
+  } else {
+    const{error:e}=await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:suiviDate,data:mergedData});
+    error=e;
+  }
   if(error){
-    console.error('[SAVE SUIVI]',error,{mode:clientAuthMode,client_id:clientData.id,date:suiviDate});
+    console.error('[SAVE SUIVI]',error,{client_id:clientData.id,date:suiviDate});
     toast('Erreur d\'enregistrement : '+(error.message||String(error)));
     return;
   }
@@ -3541,8 +3580,8 @@ async function saveEstToLog(){
   data['Contexte']=data['Contexte']?data['Contexte']+'\n'+ctxLine:ctxLine;
 
   try{
-    // RPC SECURITY DEFINER dans les 2 modes (bypass RLS)
-    await db.rpc('client_upsert_daily_log',{p_token:clientData.token,p_date:today(),p_data:data,p_existing_id:existing?existing.id:null});
+    if(existing)await db.from('daily_logs').update({data}).eq('id',existing.id);
+    else await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date:today(),data});
     const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
     dailyLogs=nl||[];
     btn.textContent='Enregistre !';
@@ -3559,46 +3598,30 @@ async function loadGamification(){
   // Always set defaults first so UI works even if RPC fails
   if(!clientPoints) clientPoints={total_points:0,monthly_points:0,usable_balance:0,level:'bronze',leaderboard_opt_in:true};
   try{
-    if(clientAuthMode==='anon'){
-      const{data,error}=await db.rpc('client_get_gamification',{p_token:clientData.token});
-      if(error||!data)return;
-      clientPoints=data.points||clientPoints;
-      clientBadges=data.badges||[];
-      pointTransactions=data.transactions||[];
-      gamifNotifications=data.notifications||[];
-      unreadNotifs=data.unread_notifs||0;
-      gamifLeaderboard=data.leaderboard||[];
-      coachRewards=data.rewards||[];
-      myRewardRequests=data.requests||[];
+    const[r1,r2,r3,r4]=await Promise.all([
+      db.from('client_points').select('*').eq('client_id',clientData.id).maybeSingle(),
+      db.from('client_badges').select('*').eq('client_id',clientData.id),
+      db.from('point_transactions').select('*').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(50),
+      db.from('notifications').select('*').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(30)
+    ]);
+    if(r1.data){
+      clientPoints={total_points:r1.data.total_points,monthly_points:r1.data.monthly_points,usable_balance:r1.data.usable_balance,level:r1.data.level,leaderboard_opt_in:r1.data.leaderboard_opt_in};
     } else {
-      // Auth mode: direct queries
-      const[r1,r2,r3,r4]=await Promise.all([
-        db.from('client_points').select('*').eq('client_id',clientData.id).maybeSingle(),
-        db.from('client_badges').select('*').eq('client_id',clientData.id),
-        db.from('point_transactions').select('*').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(50),
-        db.from('notifications').select('*').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(30)
-      ]);
-      if(r1.data){
-        clientPoints={total_points:r1.data.total_points,monthly_points:r1.data.monthly_points,usable_balance:r1.data.usable_balance,level:r1.data.level,leaderboard_opt_in:r1.data.leaderboard_opt_in};
-      } else {
-        // Create initial row
-        await db.from('client_points').insert({client_id:clientData.id,coach_id:clientData.coach_id,total_points:0,monthly_points:0,usable_balance:0,level:'bronze'});
-        clientPoints={total_points:0,monthly_points:0,usable_balance:0,level:'bronze',leaderboard_opt_in:true};
-      }
-      clientBadges=r2.data||[];
-      pointTransactions=r3.data||[];
-      gamifNotifications=r4.data||[];
-      unreadNotifs=(r4.data||[]).filter(n=>!n.read).length;
-      // Leaderboard + rewards
-      const[r5,r6,r7]=await Promise.all([
-        db.from('client_points').select('client_id,monthly_points,level,clients(first_name)').eq('coach_id',clientData.coach_id).eq('leaderboard_opt_in',true).order('monthly_points',{ascending:false}).limit(10),
-        db.from('coach_rewards').select('*').eq('coach_id',clientData.coach_id).eq('active',true).order('cost'),
-        db.from('reward_requests').select('*').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(20)
-      ]);
-      gamifLeaderboard=(r5.data||[]).map(r=>({client_id:r.client_id,first_name:r.clients?.first_name||'?',monthly_points:r.monthly_points,level:r.level}));
-      coachRewards=r6.data||[];
-      myRewardRequests=r7.data||[];
+      await db.from('client_points').insert({client_id:clientData.id,coach_id:clientData.coach_id,total_points:0,monthly_points:0,usable_balance:0,level:'bronze'});
+      clientPoints={total_points:0,monthly_points:0,usable_balance:0,level:'bronze',leaderboard_opt_in:true};
     }
+    clientBadges=r2.data||[];
+    pointTransactions=r3.data||[];
+    gamifNotifications=r4.data||[];
+    unreadNotifs=(r4.data||[]).filter(n=>!n.read).length;
+    const[r5,r6,r7]=await Promise.all([
+      db.from('client_points').select('client_id,monthly_points,level,clients(first_name)').eq('coach_id',clientData.coach_id).eq('leaderboard_opt_in',true).order('monthly_points',{ascending:false}).limit(10),
+      db.from('coach_rewards').select('*').eq('coach_id',clientData.coach_id).eq('active',true).order('cost'),
+      db.from('reward_requests').select('*').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(20)
+    ]);
+    gamifLeaderboard=(r5.data||[]).map(r=>({client_id:r.client_id,first_name:r.clients?.first_name||'?',monthly_points:r.monthly_points,level:r.level}));
+    coachRewards=r6.data||[];
+    myRewardRequests=r7.data||[];
   }catch(e){console.error('[GAMIF LOAD]',e);}
   updateNotifBadge();
 }
@@ -3616,37 +3639,23 @@ function getNextLevel(pts){
 async function awardPoints(action,points,metadata){
   if(!clientPoints)return;
   try{
-    if(clientAuthMode==='anon'){
-      if(!clientData.token)return;
-      const{data,error}=await db.rpc('client_award_points',{p_token:clientData.token,p_action:action,p_points:points,p_metadata:metadata||{}});
-      if(error||!data||!data.success)return;
-      clientPoints.total_points=data.total_points;
-      clientPoints.monthly_points=data.monthly_points;
-      clientPoints.usable_balance=data.usable_balance;
-      clientPoints.level=data.level;
-      showPointsToast(points,actionLabel(action));
-      if(data.level_changed)showLevelUpAnimation(data.level);
-    } else {
-      // Auth: check daily cap locally
-      const todayTx=pointTransactions.filter(t=>t.action===action&&t.created_at&&t.created_at.startsWith(today()));
-      const dailyCapped=['daily_report','weight_logged','steps_goal','hydration_goal','nutrition_validation'];
-      if(dailyCapped.includes(action)&&todayTx.length>=1)return;
-      if(action==='exercise_progression'&&todayTx.length>=10)return;
-      if(action==='complementary_activity'&&todayTx.length>=2)return;
-      // Insert transaction
-      const{error:txErr}=await db.from('point_transactions').insert({client_id:clientData.id,coach_id:clientData.coach_id,action,points,metadata:metadata||{}});
-      if(txErr)return;
-      const oldLevel=clientPoints.level;
-      clientPoints.total_points+=points;
-      clientPoints.monthly_points+=points;
-      clientPoints.usable_balance+=points;
-      const newLv=getLevel(clientPoints.total_points);
-      clientPoints.level=newLv.key;
-      const{error:cpErr}=await db.from('client_points').update({total_points:clientPoints.total_points,monthly_points:clientPoints.monthly_points,usable_balance:clientPoints.usable_balance,level:newLv.key,updated_at:new Date().toISOString()}).eq('client_id',clientData.id);
-      pointTransactions.unshift({action,points,metadata:metadata||{},created_at:new Date().toISOString()});
-      showPointsToast(points,actionLabel(action));
-      if(oldLevel!==newLv.key)showLevelUpAnimation(newLv.key);
-    }
+    const todayTx=pointTransactions.filter(t=>t.action===action&&t.created_at&&t.created_at.startsWith(today()));
+    const dailyCapped=['daily_report','weight_logged','steps_goal','hydration_goal','nutrition_validation'];
+    if(dailyCapped.includes(action)&&todayTx.length>=1)return;
+    if(action==='exercise_progression'&&todayTx.length>=10)return;
+    if(action==='complementary_activity'&&todayTx.length>=2)return;
+    const{error:txErr}=await db.from('point_transactions').insert({client_id:clientData.id,coach_id:clientData.coach_id,action,points,metadata:metadata||{}});
+    if(txErr)return;
+    const oldLevel=clientPoints.level;
+    clientPoints.total_points+=points;
+    clientPoints.monthly_points+=points;
+    clientPoints.usable_balance+=points;
+    const newLv=getLevel(clientPoints.total_points);
+    clientPoints.level=newLv.key;
+    await db.from('client_points').update({total_points:clientPoints.total_points,monthly_points:clientPoints.monthly_points,usable_balance:clientPoints.usable_balance,level:newLv.key,updated_at:new Date().toISOString()}).eq('client_id',clientData.id);
+    pointTransactions.unshift({action,points,metadata:metadata||{},created_at:new Date().toISOString()});
+    showPointsToast(points,actionLabel(action));
+    if(oldLevel!==newLv.key)showLevelUpAnimation(newLv.key);
     await checkBadges();
   }catch(e){console.error('[AWARD ERR]',e);}
 }
@@ -3706,15 +3715,8 @@ async function checkBadges(){
   for(const b of BADGES){
     if(clientBadges.find(cb=>cb.badge_key===b.key))continue;
     if(!b.check(ctx))continue;
-    // Unlock badge
-    let inserted=false;
-    if(clientAuthMode==='anon'){
-      const{data}=await db.rpc('client_unlock_badge',{p_token:clientData.token,p_badge_key:b.key});
-      inserted=data&&data.inserted;
-    } else {
-      const{error}=await db.from('client_badges').insert({client_id:clientData.id,badge_key:b.key}).select();
-      inserted=!error;
-    }
+    const{error}=await db.from('client_badges').insert({client_id:clientData.id,badge_key:b.key}).select();
+    const inserted=!error;
     if(inserted){
       clientBadges.push({badge_key:b.key,unlocked_at:new Date().toISOString()});
       showBadgeAnimation(b);
@@ -3814,11 +3816,7 @@ function openNotifPage(){
 }
 function closeNotifPage(){document.getElementById('notifPage').classList.remove('show');}
 async function markAllNotifsRead(){
-  if(clientAuthMode==='anon'){
-    await db.rpc('client_mark_notifications_read',{p_token:clientData.token});
-  } else {
-    await db.from('notifications').update({read:true}).eq('client_id',clientData.id).eq('read',false);
-  }
+  await db.from('notifications').update({read:true}).eq('client_id',clientData.id).eq('read',false);
   gamifNotifications.forEach(n=>n.read=true);
   unreadNotifs=0;
   updateNotifBadge();
@@ -4078,24 +4076,15 @@ function toggleCourseVideo(uid){
 }
 
 async function toggleLeaderboard(optIn){
-  if(clientAuthMode==='anon'){
-    await db.rpc('client_toggle_leaderboard',{p_token:clientData.token,p_opt_in:optIn});
-  } else {
-    await db.from('client_points').update({leaderboard_opt_in:optIn}).eq('client_id',clientData.id);
-  }
+  await db.from('client_points').update({leaderboard_opt_in:optIn}).eq('client_id',clientData.id);
   clientPoints.leaderboard_opt_in=optIn;
 }
 
 async function requestReward(rewardId,rewardName,cost){
   if(!confirm(`Échanger ${cost} pts contre "${rewardName}" ?`))return;
   try{
-    if(clientAuthMode==='anon'){
-      const{data,error}=await db.rpc('client_request_reward',{p_token:clientData.token,p_reward_id:rewardId});
-      if(error){toast('Erreur: '+error.message);return;}
-      if(!data.success){toast(data.reason==='insufficient_balance'?'Solde insuffisant':'Niveau trop bas');return;}
-    } else {
-      await db.from('reward_requests').insert({client_id:clientData.id,coach_id:clientData.coach_id,reward_id:rewardId,reward_name:rewardName,cost,status:'pending'});
-    }
+    const{error}=await db.from('reward_requests').insert({client_id:clientData.id,coach_id:clientData.coach_id,reward_id:rewardId,reward_name:rewardName,cost,status:'pending'});
+    if(error){toast('Erreur: '+error.message);return;}
     myRewardRequests.unshift({reward_name:rewardName,cost,status:'pending',created_at:new Date().toISOString()});
     toast('Demande envoyée !');
     renderBonus();
