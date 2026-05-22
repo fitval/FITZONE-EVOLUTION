@@ -491,64 +491,81 @@ async function doReset() {
 }
 
 async function doNewPassword() {
+  const btn = document.getElementById('btn-newpw');
+  // Guard double-clic / double-tap mobile
+  if (btn.dataset.busy === '1') return;
+  btn.dataset.busy = '1';
   document.querySelectorAll('.error-msg,.success-msg').forEach(el => el.classList.remove('show'));
   const password = document.getElementById('newpw-password').value;
   const confirm = document.getElementById('newpw-confirm').value;
 
+  const releaseBtn = () => {
+    btn.dataset.busy = '';
+    btn.disabled = false;
+    btn.textContent = 'Definir mon mot de passe';
+  };
+  const offerLoginFallback = (emailHint) => {
+    // Si on est ici c'est que le lien d'invitation a été consommé.
+    // Le mdp est probablement déjà set ailleurs (autre onglet, autre tap, etc.) → bascule sur la page login.
+    const c = document.getElementById('newpw-error');
+    if (c) {
+      c.innerHTML = "Ton lien d'invitation a déjà été utilisé. Si tu as déjà défini ton mot de passe, connecte-toi normalement ci-dessous.<br><button type='button' onclick=\"_goToLoginFromNewpw('"+(emailHint||'').replace(/'/g,"&#39;")+"')\" style=\"margin-top:10px;padding:10px 18px;background:linear-gradient(135deg,#b8882a,#e8b84a);color:#1a1916;font-weight:800;font-size:13px;border:none;border-radius:10px;cursor:pointer\">Se connecter avec mon mot de passe</button>";
+      c.classList.add('show');
+    }
+  };
+
   if (password.length < 6) {
     showError('newpw-error', 'Le mot de passe doit faire au moins 6 caracteres.');
+    releaseBtn();
     return;
   }
   if (password !== confirm) {
     showError('newpw-error', 'Les mots de passe ne correspondent pas.');
+    releaseBtn();
     return;
   }
 
-  const btn = document.getElementById('btn-newpw');
   btn.disabled = true;
   btn.innerHTML = '<span class="sp"></span> Enregistrement...';
-
-  // Overlay de chargement pleine page
   showPwdOverlay('loading', 'Enregistrement de ton mot de passe…');
 
-  // Vérifie qu'une session de récupération existe avant updateUser
   const recSession = await ensureSession();
   if (!recSession) {
     hidePwdOverlay();
-    btn.disabled = false;
-    btn.textContent = 'Definir mon mot de passe';
-    showError('newpw-error', "Session expirée. Le lien d'invitation est probablement expiré ou a déjà été utilisé. Demande à ton coach un nouveau lien.");
+    releaseBtn();
+    offerLoginFallback();
     return;
   }
 
   const { error } = await db.auth.updateUser({ password });
-
   if (error) {
     hidePwdOverlay();
-    btn.disabled = false;
-    btn.textContent = 'Definir mon mot de passe';
-    showError('newpw-error', error.message === 'Auth session missing!' ? "Session expirée. Demande à ton coach un nouveau lien d'invitation." : error.message);
+    releaseBtn();
+    if (error.message === 'Auth session missing!') offerLoginFallback(recSession?.user?.email);
+    else showError('newpw-error', error.message);
     return;
   }
 
-  // Succès : popup d'abord, puis redirection selon statut
-  showPwdOverlay('success', 'Ton mot de passe a bien été enregistré et ton compte est créé ✓');
-
-  // Déterminer la redirection
+  // Succès : popup brève + redirect rapide vers la bonne destination
+  showPwdOverlay('success', 'Ton mot de passe a bien été enregistré ✓');
   const { data: { session: newSession } } = await db.auth.getSession();
   let redirectUrl = 'client.html';
   if (newSession) {
     const { data: cl } = await db.from('clients').select('status,token').eq('user_id', newSession.user.id).maybeSingle();
-    if (cl && cl.token) {
-      // contract_pending OU questionnaire_pending → questionnaire.html (qui gère les deux)
-      if (cl.status === 'contract_pending' || cl.status === 'questionnaire_pending') {
-        redirectUrl = 'questionnaire.html?token=' + cl.token;
-      }
+    if (cl && cl.token && (cl.status === 'contract_pending' || cl.status === 'questionnaire_pending')) {
+      redirectUrl = 'questionnaire.html?token=' + cl.token;
     }
   }
+  setTimeout(() => { window.location.href = redirectUrl; }, 900);
+}
 
-  // Laisse la popup 1.8s puis redirige
-  setTimeout(() => { window.location.href = redirectUrl; }, 1800);
+// Bascule de la vue newpw vers la vue login (utilisé quand le lien est consommé)
+function _goToLoginFromNewpw(emailHint){
+  // Nettoie le ?mode=reset / le hash pour éviter de re-rentrer en mode recovery au reload
+  try { history.replaceState({}, '', window.location.pathname); } catch(_) {}
+  showView('login');
+  const el = document.getElementById('login-email');
+  if (el && emailHint) el.value = emailHint;
 }
 
 function showPwdOverlay(mode, message) {
