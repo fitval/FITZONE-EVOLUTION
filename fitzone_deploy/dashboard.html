@@ -5279,6 +5279,9 @@ function runBlockCard(b,onEdit,onDel,onMoveUp,onMoveDown){
 /* ===== PROGRAMME BUILDER ===== */
 function setsGrid(showRIR,showTempo){const n=2+(showRIR?1:0)+(showTempo?1:0);return`32px repeat(${n},1fr)`;}
 function setsHdrHtml(showRIR,showTempo){return`<span></span><span>Reps</span><span>Repos</span>${showRIR?'<span>RIR</span>':''}${showTempo?'<span>Tempo</span>':''}`;}
+// Variante pour les exos d'un superset : pas de colonne Repos (le repos est commun à la série)
+function setsGridSS(showRIR,showTempo){const n=1+(showRIR?1:0)+(showTempo?1:0);return`32px repeat(${n},1fr)`;}
+function setsHdrHtmlSS(showRIR,showTempo){return`<span></span><span>Reps</span>${showRIR?'<span>RIR</span>':''}${showTempo?'<span>Tempo</span>':''}`;}
 function toggleProgCol(col){if(col==='rir')progShowRIR=!progShowRIR;else progShowTempo=!progShowTempo;progRenderDay();}
 function toggleSeanceCol(col){
   if(col==='rir')seanceShowRIR=!seanceShowRIR;else seanceShowTempo=!seanceShowTempo;
@@ -5487,20 +5490,41 @@ function progRenderDay(){
 
   const mkBlock=(e,i,key)=>{
     if(e.superset){
-      // SUPERSET
+      // SUPERSET — nb de séries unique pour tout le groupe + 1 input "Repos" par série commun à tous les exos
       const secLenSS=progDays[progDayIdx][key]?.length||1;
+      // Migration ancien format + sync nb séries entre exos
+      (e.exercises||[]).forEach(ex=>{
+        if(!ex.setsData&&(ex.sets||ex.reps)){const n=parseInt(ex.sets)||1;ex.setsData=Array.from({length:n},()=>({reps:ex.reps||'',rest:ex.rest||'',rir:ex.rir||'',tempo:ex.tempo||''}));}
+        if(!ex.setsData)ex.setsData=[{reps:'10',rir:'',tempo:''}];
+      });
+      const nbSets=Math.max(...(e.exercises||[]).map(ex=>ex.setsData.length),1);
+      // Aligner tous les exos sur le même nb de séries
+      (e.exercises||[]).forEach(ex=>{
+        while(ex.setsData.length<nbSets){const last=ex.setsData[ex.setsData.length-1]||{reps:'10',rir:'',tempo:''};ex.setsData.push({...last});}
+        if(ex.setsData.length>nbSets)ex.setsData.length=nbSets;
+      });
+      // setsRest = un tableau de taille nbSets ; rétro-compat = fallback sur exercises[0].setsData[s].rest
+      if(!Array.isArray(e.setsRest)||!e.setsRest.length){
+        e.setsRest=Array.from({length:nbSets},(_,s)=>{
+          for(const ex of (e.exercises||[])){if(ex.setsData[s]?.rest)return ex.setsData[s].rest;}
+          return '90s';
+        });
+      }
+      while(e.setsRest.length<nbSets)e.setsRest.push(e.setsRest[e.setsRest.length-1]||'90s');
+      if(e.setsRest.length>nbSets)e.setsRest.length=nbSets;
       return`<div class="exo-block" draggable="true" ondragstart="progDragStart(event,'${key}',${i})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="progDrop(event,'${key}',${i})" style="border-color:var(--gold-border);background:rgba(196,154,42,.04)">
-        <div style="padding:8px 12px;background:var(--gold-pale);border-bottom:1px solid var(--gold-border);display:flex;align-items:center;gap:8px">
+        <div style="padding:8px 12px;background:var(--gold-pale);border-bottom:1px solid var(--gold-border);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <input type="number" min="1" max="${secLenSS}" value="${i+1}" onchange="progMoveExo('${key}',${i},parseInt(this.value)-1)" style="width:32px;height:24px;border:1.5px solid var(--gold-border);border-radius:6px;text-align:center;font-size:12px;font-weight:800;color:var(--gold);background:white;font-family:var(--font);padding:0;cursor:pointer" title="Changer la position">
           <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--gold)">⚡ SUPERSET</span>
           <span style="font-size:11px;color:var(--text3)">${e.exercises?.length||2} exercices</span>
+          <label style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--text3);margin-left:8px">Nb séries
+            <input type="number" min="1" max="20" value="${nbSets}" onchange="progChangeSupersetNbSets('${key}',${i},parseInt(this.value)||1)" style="width:46px;height:24px;border:1.5px solid var(--gold-border);border-radius:6px;text-align:center;font-size:12px;font-weight:800;color:var(--gold);background:white;font-family:var(--font);padding:0">
+          </label>
           <div style="margin-left:auto;display:flex;gap:5px">
             <button onclick="progDelExo('${key}',${i})" style="background:none;border:none;color:#c03030;cursor:pointer;font-size:13px">🗑</button>
           </div>
         </div>
         ${(e.exercises||[]).map((ex,si)=>{
-          if(!ex.setsData&&(ex.sets||ex.reps)){const n=parseInt(ex.sets)||1;ex.setsData=Array.from({length:n},()=>({reps:ex.reps||'',rest:ex.rest||'',rir:ex.rir||'',tempo:ex.tempo||''}));}
-          if(!ex.setsData)ex.setsData=[{reps:'8-12',rest:'60s',rir:'',tempo:''}];
           return`<div style="padding:9px 12px;border-bottom:1px solid var(--border)">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
               <div class="exo-letter" style="background:var(--gold);color:var(--dark)">${String.fromCharCode(65+i)}${si+1}</div>
@@ -5508,19 +5532,20 @@ function progRenderDay(){
               <div style="flex:1"><div style="font-size:13px;font-weight:700">${ex.nom}</div><div style="font-size:10px;color:var(--text3)">${ex.muscle||''}</div></div>
               <button onclick="progDelSupExo('${key}',${i},${si})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px">✕</button>
             </div>
-            <div class="nb-sets-wrap" style="border:none;padding:4px 0">
-              <label style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)">Nb séries</label>
-              <input class="nb-sets-in" type="number" min="1" max="20" value="${ex.setsData.length}" onchange="progChangeSupNbSets('${key}',${i},${si},parseInt(this.value)||1)">
-            </div>
-            <div class="sets-hdr" style="padding:0;grid-template-columns:${setsGrid(progShowRIR,progShowTempo)}">${setsHdrHtml(progShowRIR,progShowTempo)}</div>
-            <div class="sets-rows" style="padding:0">${ex.setsData.map((s,ri)=>`<div class="set-row" style="grid-template-columns:${setsGrid(progShowRIR,progShowTempo)}">
+            <div class="sets-hdr" style="padding:0;grid-template-columns:${setsGridSS(progShowRIR,progShowTempo)}">${setsHdrHtmlSS(progShowRIR,progShowTempo)}</div>
+            <div class="sets-rows" style="padding:0">${ex.setsData.map((s,ri)=>`<div class="set-row" style="grid-template-columns:${setsGridSS(progShowRIR,progShowTempo)}">
               <div class="set-num">${ri+1}</div>
               <input class="ef-in" value="${s.reps||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].reps=this.value" placeholder="10">
-              <input class="ef-in" value="${s.rest||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].rest=this.value" placeholder="60s">
               ${progShowRIR?`<input class="ef-in" value="${s.rir||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].rir=this.value" placeholder="2">`:''}
               ${progShowTempo?`<input class="ef-in" value="${s.tempo||''}" onchange="progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${ri}].tempo=this.value" placeholder="3-1-2">`:''}
             </div>`).join('')}</div>
           </div>`}).join('')}
+        <div style="padding:10px 12px;background:rgba(196,154,42,.06);border-top:1px solid var(--gold-border)">
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--gold);margin-bottom:6px">Repos après chaque tour du superset</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px">
+            ${e.setsRest.map((r,si)=>`<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><span style="font-weight:700;color:var(--gold);min-width:32px">Tour ${si+1}</span><input class="ef-in" value="${r||''}" onchange="progSetSupersetRest('${key}',${i},${si},this.value)" placeholder="90s" style="flex:1"></label>`).join('')}
+          </div>
+        </div>
         <div style="padding:7px 12px">
           <button class="add-exo-zone" style="margin:0;padding:6px 10px" onclick="progExoTarget={sec:'${key}',idx:${i},superset:true}">+ Ajouter exercice au superset</button>
         </div>
@@ -5767,6 +5792,30 @@ function progChangeSupNbSets(sec,i,si,n){
   if(n>cur){const last=ex.setsData[cur-1]||{reps:'10',rest:'60s',rir:'',tempo:''};for(let x=cur;x<n;x++)ex.setsData.push({...last});}
   else if(n<cur&&n>=1)ex.setsData.length=n;
   ex.sets=String(n);progRenderDay();
+}
+// Change le nb de séries pour tout le superset d'un coup (synchronise tous les exos)
+function progChangeSupersetNbSets(sec,i,n){
+  const e=progDays[progDayIdx]?.[sec]?.[i];if(!e||!e.superset)return;
+  n=Math.max(1,Math.min(20,parseInt(n)||1));
+  (e.exercises||[]).forEach(ex=>{
+    if(!ex.setsData)ex.setsData=[];
+    const cur=ex.setsData.length;
+    if(n>cur){const last=ex.setsData[cur-1]||{reps:'10',rir:'',tempo:''};for(let x=cur;x<n;x++)ex.setsData.push({...last});}
+    else if(n<cur)ex.setsData.length=n;
+  });
+  if(!Array.isArray(e.setsRest))e.setsRest=[];
+  while(e.setsRest.length<n)e.setsRest.push(e.setsRest[e.setsRest.length-1]||'90s');
+  if(e.setsRest.length>n)e.setsRest.length=n;
+  progRenderDay();
+}
+// Stocke le repos d'un tour du superset + propage dans setsData[s].rest de tous les exos (rétro-compat lecture)
+function progSetSupersetRest(sec,i,si,val){
+  const e=progDays[progDayIdx]?.[sec]?.[i];if(!e||!e.superset)return;
+  if(!Array.isArray(e.setsRest))e.setsRest=[];
+  e.setsRest[si]=val;
+  (e.exercises||[]).forEach(ex=>{
+    if(ex.setsData&&ex.setsData[si])ex.setsData[si].rest=val;
+  });
 }
 function addExoToDay(exo){
   const sec=progExoTarget?.sec||'workout';

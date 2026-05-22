@@ -1460,8 +1460,9 @@ function startWorkout(){
       if(ex.superset&&ex.exercises&&ex.exercises.length){
         const groupId='ss_'+(++groupCounter);
         const groupLetter=String.fromCharCode(64+groupCounter);// A, B, C...
+        const groupRest=Array.isArray(ex.setsRest)?ex.setsRest.slice():[];
         (ex.exercises||[]).forEach((sub,si)=>{
-          allExos.push({...sub,section:sec,supersetId:groupId,supersetLetter:groupLetter,supersetPosition:si+1,supersetTotal:ex.exercises.length});
+          allExos.push({...sub,section:sec,supersetId:groupId,supersetLetter:groupLetter,supersetPosition:si+1,supersetTotal:ex.exercises.length,supersetRest:groupRest});
         });
       } else {
         allExos.push({...ex,section:sec});
@@ -1505,7 +1506,7 @@ function startWorkout(){
     const prevNote=prev&&prev.note?prev.note:'';
     const prevVideoUrl=prev&&prev.videoUrl?prev.videoUrl:'';
     const wasUnilateral=prev&&prev.unilateral?true:false;
-    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,videoUrl:null,note:prevNote,prevNote,prevVideoUrl,supersetId:ex.supersetId||null,supersetLetter:ex.supersetLetter||'',supersetPosition:ex.supersetPosition||0,supersetTotal:ex.supersetTotal||0});
+    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,videoUrl:null,note:prevNote,prevNote,prevVideoUrl,supersetId:ex.supersetId||null,supersetLetter:ex.supersetLetter||'',supersetPosition:ex.supersetPosition||0,supersetTotal:ex.supersetTotal||0,supersetRest:ex.supersetRest||[]});
   });
 
   // Start elapsed timer
@@ -1524,116 +1525,184 @@ function renderActiveWorkout(){
   const dayName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
   let h=`<div class="wo-header"><button class="wo-back" onclick="endWorkout(false)">←</button><div class="wo-title">${dayName}</div><div class="wo-timer-wrap"><div class="wo-timer" id="woTimer">00:00</div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>`;
 
-  let curSec='',curGroup=null;
+  // Pré-groupe en blocs : exo simple ou superset entier
+  const blocks=[];
+  let curSS=null;
   workoutData.forEach((ex,ei)=>{
-    if(ex.section!==curSec){
-      // Ferme un éventuel superset ouvert avant de changer de section
-      if(curGroup){h+=`</div>`;curGroup=null;}
-      curSec=ex.section;
+    if(ex.supersetId){
+      if(curSS&&curSS.ssId===ex.supersetId){curSS.eis.push(ei);}
+      else {
+        if(curSS)blocks.push(curSS);
+        curSS={type:'ss',section:ex.section,ssId:ex.supersetId,ssLetter:ex.supersetLetter,ssTotal:ex.supersetTotal,eis:[ei],supersetRest:Array.isArray(ex.supersetRest)?ex.supersetRest:[]};
+      }
+    } else {
+      if(curSS){blocks.push(curSS);curSS=null;}
+      blocks.push({type:'single',section:ex.section,ei});
+    }
+  });
+  if(curSS)blocks.push(curSS);
+
+  let curSec='';
+  blocks.forEach(b=>{
+    if(b.section!==curSec){
+      curSec=b.section;
       const lb={warmup:'Échauffement',workout:'Workout',cooldown:'Retour au calme'}[curSec];
       h+=`<div class="section-hdr">${lb}</div>`;
     }
-    // Gestion superset : ouvre une carte groupée au début, ferme à la fin
-    if(ex.supersetId&&ex.supersetId!==curGroup){
-      if(curGroup)h+=`</div>`;// ferme le précédent
-      curGroup=ex.supersetId;
-      h+=`<div style="background:var(--gold-pale);border:1.5px solid var(--gold-border);border-radius:14px;padding:10px;margin-bottom:14px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:0 4px">
-          <div style="background:var(--gold);color:var(--dark);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px">${ex.supersetLetter}</div>
-          <div style="font-size:12px;font-weight:800;color:#8a6010;letter-spacing:1px">⚡ SUPERSET — ${ex.supersetTotal} EXOS</div>
-          <div style="font-size:11px;color:var(--text2);margin-left:auto;font-style:italic">Alterne, repos après le dernier</div>
-        </div>`;
-    } else if(!ex.supersetId&&curGroup){
-      h+=`</div>`;curGroup=null;// sortie d'un superset vers exo simple
-    }
-    const letter=ex.supersetId?(ex.supersetLetter+ex.supersetPosition):String.fromCharCode(65+ei);
-    const vid=ytId(ex.video);
-    const sets0=ex.sets[0]||{};
-    const nSets=ex.sets.length;
-    const repsStr=ex.sets.map(s=>s.reps||'?').join(' ');
-    const restStr=sets0.rest||'';
-
-    let thumb='';
-    if(vid)thumb=`<div class="exo-thumb" onclick="openModal('<iframe src=\\'https://www.youtube-nocookie.com/embed/${vid}\\' allowfullscreen></iframe>')"><img src="https://img.youtube.com/vi/${vid}/mqdefault.jpg" loading="lazy"><div class="play-icon"><svg viewBox="0 0 24 24" fill="white"><polygon points="8,5 19,12 8,19"/></svg></div></div>`;
-    else thumb=`<div class="exo-thumb"><div class="exo-thumb-placeholder">💪</div></div>`;
-
-    let chips=`<span class="exo-chip">Sets: ${nSets}</span><span class="exo-chip">Reps: ${repsStr}</span>`;
-    if(restStr)chips+=`<span class="exo-chip">Rest: ${restStr}</span>`;
-
-    const hasRepls=(ex.replacements||[]).length>0;
-    h+=`<div class="exo-active"><div class="exo-active-top">${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div class="exo-active-actions">${hasRepls?`<button class="exo-menu-btn" onclick="toggleSwap(${ei})" style="font-size:18px;color:var(--gold)">⇄</button>`:''}<div class="exo-letter">${letter}</div></div></div>`;
-
-    // Swap menu (alternatives configurées par le coach)
-    if(ex.showSwap&&ex.replacements.length){
-      h+=`<div class="swap-menu">`;
-      ex.replacements.forEach((r,ri)=>{h+=`<div class="swap-item" onclick="swapExo(${ei},${ri})"><span style="color:var(--gold)">↔</span> ${r.nom||r}</div>`;});
-      h+=`</div>`;
-    }
-
-    // Poids du corps + Unilatéral toggles
-    h+=`<div class="bw-toggle" style="display:flex;gap:16px">
-      <label><input type="checkbox" ${ex.bw?'checked':''} onchange="workoutData[${ei}].bw=this.checked;renderActiveWorkout()"> Poids du corps</label>
-      <label><input type="checkbox" ${ex.unilateral?'checked':''} onchange="workoutData[${ei}].unilateral=this.checked;renderActiveWorkout()"> Unilatéral</label>
-    </div>`;
-
-    if(ex.unilateral){
-      // Unilateral mode: G/D columns
-      h+=`<div class="set-header" style="font-size:10px"><div>#</div><div colspan="3" style="flex:3;text-align:center;color:var(--gold);font-weight:800">← GAUCHE</div><div colspan="3" style="flex:3;text-align:center;color:var(--text3);font-weight:800">DROITE →</div><div></div></div>`;
-      h+=`<div class="set-header" style="margin-top:-4px"><div>#</div>${ex.bw?'':'<div>kg</div>'}<div>reps</div><div>RIR</div>${ex.bw?'':'<div>kg</div>'}<div>reps</div><div>RIR</div><div></div></div>`;
-
-      ex.sets.forEach((s,si)=>{
-        const phKgL=s.prevKgL||s.prevKg||'kg';
-        const phRepsL=s.prevRepsL||s.prevReps||'reps';
-        const phKgR=s.prevKgR||s.prevKg||'kg';
-        const phRepsR=s.prevRepsR||s.prevReps||'reps';
-        h+=`<div class="set-row">
-          <div class="set-num">${String(si+1).padStart(2,'0')}</div>
-          ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKgL}" value="${s.kgL||''}" oninput="workoutData[${ei}].sets[${si}].kgL=this.value" style="border-color:var(--gold-border)"></div>`}
-          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phRepsL}" value="${s.repsL||''}" oninput="workoutData[${ei}].sets[${si}].repsL=this.value" style="border-color:var(--gold-border)"></div>
-          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirL||''}" oninput="workoutData[${ei}].sets[${si}].rirL=this.value" style="border-color:var(--gold-border)"></div>
-          ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKgR}" value="${s.kgR||''}" oninput="workoutData[${ei}].sets[${si}].kgR=this.value"></div>`}
-          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phRepsR}" value="${s.repsR||''}" oninput="workoutData[${ei}].sets[${si}].repsR=this.value"></div>
-          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirR||''}" oninput="workoutData[${ei}].sets[${si}].rirR=this.value"></div>
-          <div class="set-check"><button class="${s.done?'done':''}" onclick="validateSet(${ei},${si})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button></div>
-        </div>`;
-      });
-    } else {
-      // Standard mode
-      h+=`<div class="set-header"><div>#</div><div>${ex.bw?'':'kg'}</div><div>reps</div><div>RIR</div><div></div></div>`;
-
-      ex.sets.forEach((s,si)=>{
-        const phKg=s.prevKg?s.prevKg:'kg';
-        const phReps=s.prevReps?s.prevReps:'reps';
-        h+=`<div class="set-row">
-          <div class="set-num">${String(si+1).padStart(2,'0')}</div>
-          ${ex.bw?'<div class="set-input"></div>':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kg}" oninput="workoutData[${ei}].sets[${si}].kg=this.value"></div>`}
-          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsActual}" oninput="workoutData[${ei}].sets[${si}].repsActual=this.value"></div>
-          <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirActual}" oninput="workoutData[${ei}].sets[${si}].rirActual=this.value"></div>
-          <div class="set-check"><button class="${s.done?'done':''}" onclick="validateSet(${ei},${si})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button></div>
-        </div>`;
-      });
-    }
-
-    // Camera button + upload check
-    const hasVid=!!ex.videoFile;
-    const uploaded=!!ex.videoUrl;
-    h+=`<div style="display:flex;gap:8px;align-items:center">`;
-    h+=`<button class="cam-btn" onclick="filmExo(${ei})" style="${hasVid?'background:#e8f5e9;border-color:#4caf50;color:#2e7d32':''}"><svg viewBox="0 0 24 24" fill="none" stroke="${hasVid?'#2e7d32':'currentColor'}" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> ${hasVid?'✓ Vidéo ajoutée':'Filmer'}</button>`;
-    if(uploaded)h+=`<svg viewBox="0 0 24 24" fill="#2e7d32" width="22" height="22"><circle cx="12" cy="12" r="12" fill="#2e7d32"/><polyline points="7 13 10 16 17 9" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-    h+=`</div>`;
-
-    // Previous video link
-    if(ex.prevVideoUrl){h+=`<a href="${ex.prevVideoUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:#e8f5e9;border:1px solid #4caf50;border-radius:var(--r-xs);font-size:12px;font-weight:700;color:#2e7d32;text-decoration:none">▶ Voir ma vidéo précédente</a>`;}
-    // Notes / feedback exercice (pré-rempli avec la note précédente, éditable)
-    h+=`<textarea placeholder="Notes, réglages, feedback..." style="width:100%;margin-top:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-xs);font-size:13px;font-family:var(--font);background:var(--white);color:var(--text);min-height:44px;resize:vertical;outline:none" oninput="workoutData[${ei}].note=this.value">${ex.note||''}</textarea>`;
-
-    h+=`</div>`;
+    h+=(b.type==='single')?_renderWoSingle(b.ei):_renderWoSuperset(b);
   });
-  // Ferme un superset éventuellement ouvert à la fin
-  if(curGroup)h+=`</div>`;
 
   h+=`<button class="btn-gold" style="margin-top:16px" onclick="showPostWorkout()">Terminer la séance</button>`;
   document.getElementById('trainContent').innerHTML=h;
+}
+
+function _renderWoExoCard(ex,ei,opts){
+  const letter=opts.letter;
+  const vid=ytId(ex.video);
+  const sets0=ex.sets[0]||{};
+  const nSets=ex.sets.length;
+  const repsStr=ex.sets.map(s=>s.reps||'?').join(' ');
+  const restStr=opts.hideRest?'':(sets0.rest||'');
+  let thumb='';
+  if(vid)thumb=`<div class="exo-thumb" onclick="openModal('<iframe src=\\'https://www.youtube-nocookie.com/embed/${vid}\\' allowfullscreen></iframe>')"><img src="https://img.youtube.com/vi/${vid}/mqdefault.jpg" loading="lazy"><div class="play-icon"><svg viewBox="0 0 24 24" fill="white"><polygon points="8,5 19,12 8,19"/></svg></div></div>`;
+  else thumb=`<div class="exo-thumb"><div class="exo-thumb-placeholder">💪</div></div>`;
+  let chips=`<span class="exo-chip">Sets: ${nSets}</span><span class="exo-chip">Reps: ${repsStr}</span>`;
+  if(restStr)chips+=`<span class="exo-chip">Rest: ${restStr}</span>`;
+  const hasRepls=(ex.replacements||[]).length>0;
+  let h=`<div class="exo-active-top">${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div class="exo-active-actions">${hasRepls?`<button class="exo-menu-btn" onclick="toggleSwap(${ei})" style="font-size:18px;color:var(--gold)">⇄</button>`:''}<div class="exo-letter">${letter}</div></div></div>`;
+  if(ex.showSwap&&ex.replacements.length){
+    h+=`<div class="swap-menu">`;
+    ex.replacements.forEach((r,ri)=>{h+=`<div class="swap-item" onclick="swapExo(${ei},${ri})"><span style="color:var(--gold)">↔</span> ${r.nom||r}</div>`;});
+    h+=`</div>`;
+  }
+  h+=`<div class="bw-toggle" style="display:flex;gap:16px">
+    <label><input type="checkbox" ${ex.bw?'checked':''} onchange="workoutData[${ei}].bw=this.checked;renderActiveWorkout()"> Poids du corps</label>
+    <label><input type="checkbox" ${ex.unilateral?'checked':''} onchange="workoutData[${ei}].unilateral=this.checked;renderActiveWorkout()"> Unilatéral</label>
+  </div>`;
+  return h;
+}
+
+function _renderWoSetHeader(ex){
+  if(ex.unilateral){
+    return `<div class="set-header" style="font-size:10px"><div>#</div><div colspan="3" style="flex:3;text-align:center;color:var(--gold);font-weight:800">← GAUCHE</div><div colspan="3" style="flex:3;text-align:center;color:var(--text3);font-weight:800">DROITE →</div><div></div></div>`+
+           `<div class="set-header" style="margin-top:-4px"><div>#</div>${ex.bw?'':'<div>kg</div>'}<div>reps</div><div>RIR</div>${ex.bw?'':'<div>kg</div>'}<div>reps</div><div>RIR</div><div></div></div>`;
+  }
+  return `<div class="set-header"><div>#</div><div>${ex.bw?'':'kg'}</div><div>reps</div><div>RIR</div><div></div></div>`;
+}
+
+function _renderWoSetRow(ex,ei,si,opts){
+  const s=ex.sets[si];if(!s)return'';
+  const numLabel=opts.numLabel||String(si+1).padStart(2,'0');
+  const checkCell=opts.withCheck
+    ?`<div class="set-check"><button class="${s.done?'done':''}" onclick="validateSet(${ei},${si})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button></div>`
+    :`<div class="set-check"></div>`;
+  if(ex.unilateral){
+    const phKgL=s.prevKgL||s.prevKg||'kg';
+    const phRepsL=s.prevRepsL||s.prevReps||'reps';
+    const phKgR=s.prevKgR||s.prevKg||'kg';
+    const phRepsR=s.prevRepsR||s.prevReps||'reps';
+    return`<div class="set-row">
+      <div class="set-num">${numLabel}</div>
+      ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKgL}" value="${s.kgL||''}" oninput="workoutData[${ei}].sets[${si}].kgL=this.value" style="border-color:var(--gold-border)"></div>`}
+      <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phRepsL}" value="${s.repsL||''}" oninput="workoutData[${ei}].sets[${si}].repsL=this.value" style="border-color:var(--gold-border)"></div>
+      <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirL||''}" oninput="workoutData[${ei}].sets[${si}].rirL=this.value" style="border-color:var(--gold-border)"></div>
+      ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKgR}" value="${s.kgR||''}" oninput="workoutData[${ei}].sets[${si}].kgR=this.value"></div>`}
+      <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phRepsR}" value="${s.repsR||''}" oninput="workoutData[${ei}].sets[${si}].repsR=this.value"></div>
+      <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirR||''}" oninput="workoutData[${ei}].sets[${si}].rirR=this.value"></div>
+      ${checkCell}
+    </div>`;
+  }
+  const phKg=s.prevKg?s.prevKg:'kg';
+  const phReps=s.prevReps?s.prevReps:'reps';
+  return`<div class="set-row">
+    <div class="set-num">${numLabel}</div>
+    ${ex.bw?'<div class="set-input"></div>':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kg}" oninput="workoutData[${ei}].sets[${si}].kg=this.value"></div>`}
+    <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsActual}" oninput="workoutData[${ei}].sets[${si}].repsActual=this.value"></div>
+    <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirActual}" oninput="workoutData[${ei}].sets[${si}].rirActual=this.value"></div>
+    ${checkCell}
+  </div>`;
+}
+
+function _renderWoExoFooter(ex,ei){
+  const hasVid=!!ex.videoFile;
+  const uploaded=!!ex.videoUrl;
+  let h=`<div style="display:flex;gap:8px;align-items:center">`;
+  h+=`<button class="cam-btn" onclick="filmExo(${ei})" style="${hasVid?'background:#e8f5e9;border-color:#4caf50;color:#2e7d32':''}"><svg viewBox="0 0 24 24" fill="none" stroke="${hasVid?'#2e7d32':'currentColor'}" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> ${hasVid?'✓ Vidéo ajoutée':'Filmer'}</button>`;
+  if(uploaded)h+=`<svg viewBox="0 0 24 24" fill="#2e7d32" width="22" height="22"><circle cx="12" cy="12" r="12" fill="#2e7d32"/><polyline points="7 13 10 16 17 9" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  h+=`</div>`;
+  if(ex.prevVideoUrl)h+=`<a href="${ex.prevVideoUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:#e8f5e9;border:1px solid #4caf50;border-radius:var(--r-xs);font-size:12px;font-weight:700;color:#2e7d32;text-decoration:none">▶ Voir ma vidéo précédente</a>`;
+  h+=`<textarea placeholder="Notes, réglages, feedback..." style="width:100%;margin-top:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-xs);font-size:13px;font-family:var(--font);background:var(--white);color:var(--text);min-height:44px;resize:vertical;outline:none" oninput="workoutData[${ei}].note=this.value">${ex.note||''}</textarea>`;
+  return h;
+}
+
+function _renderWoSingle(ei){
+  const ex=workoutData[ei];
+  const letter=String.fromCharCode(65+ei);
+  let h=`<div class="exo-active">`;
+  h+=_renderWoExoCard(ex,ei,{letter});
+  h+=_renderWoSetHeader(ex);
+  ex.sets.forEach((s,si)=>{h+=_renderWoSetRow(ex,ei,si,{withCheck:true});});
+  h+=_renderWoExoFooter(ex,ei);
+  h+=`</div>`;
+  return h;
+}
+
+function _renderWoSuperset(b){
+  let h=`<div style="background:var(--gold-pale);border:1.5px solid var(--gold-border);border-radius:14px;padding:10px;margin-bottom:14px">`;
+  h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:0 4px">
+    <div style="background:var(--gold);color:var(--dark);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px">${b.ssLetter}</div>
+    <div style="font-size:12px;font-weight:800;color:#8a6010;letter-spacing:1px">⚡ SUPERSET — ${b.eis.length} EXOS</div>
+    <div style="font-size:11px;color:var(--text2);margin-left:auto;font-style:italic">Une série = tous les exos enchaînés</div>
+  </div>`;
+  // Cartes d'info des exos (sans tableau de sets ici)
+  b.eis.forEach((ei,pos)=>{
+    const ex=workoutData[ei];
+    const letter=b.ssLetter+(pos+1);
+    h+=`<div class="exo-active" style="background:white;margin-bottom:8px">`;
+    h+=_renderWoExoCard(ex,ei,{letter,hideRest:true});
+    h+=_renderWoExoFooter(ex,ei);
+    h+=`</div>`;
+  });
+  // Tableau séries du superset
+  const nSets=Math.max(...b.eis.map(ei=>workoutData[ei].sets.length),1);
+  h+=`<div style="background:white;border-radius:10px;padding:10px;margin-top:8px">`;
+  h+=`<div style="font-size:11px;font-weight:800;color:#8a6010;letter-spacing:1px;margin-bottom:8px;padding:0 4px">📋 PERFORMANCES PAR TOUR</div>`;
+  for(let si=0;si<nSets;si++){
+    const allDone=b.eis.every(ei=>workoutData[ei].sets[si]?.done);
+    h+=`<div style="background:${allDone?'#e8f5e9':'var(--bg)'};border-radius:8px;padding:8px;margin-bottom:8px;border:1.5px solid ${allDone?'#4caf50':'var(--border)'}">`;
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:12px;font-weight:800;color:var(--dark);letter-spacing:.5px">TOUR ${si+1}/${nSets}</div>
+      ${allDone?'<div style="font-size:11px;font-weight:700;color:#2e7d32">✓ validé</div>':''}
+    </div>`;
+    b.eis.forEach((ei,pos)=>{
+      const ex=workoutData[ei];
+      const letter=b.ssLetter+(pos+1);
+      h+=`<div style="font-size:11px;font-weight:700;color:var(--gold);padding:4px 0 2px 4px">${letter} · ${ex.nom}</div>`;
+      h+=_renderWoSetHeader(ex);
+      h+=_renderWoSetRow(ex,ei,si,{withCheck:false,numLabel:String(si+1).padStart(2,'0')});
+    });
+    h+=`<div style="display:flex;justify-content:flex-end;margin-top:6px">
+      <button onclick="validateSupersetSet('${b.ssId}',${si})" style="padding:9px 20px;border-radius:10px;border:none;background:${allDone?'#4caf50':'linear-gradient(135deg,var(--gold),#e8b84a)'};color:white;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:${allDone?'0 1px 3px rgba(76,175,80,.3)':'0 1px 3px rgba(196,154,42,.3)'}">
+        ${allDone?'✓ Tour validé':'Valider ce tour'}
+      </button>
+    </div>`;
+    h+=`</div>`;
+  }
+  h+=`</div></div>`;
+  return h;
+}
+
+function validateSupersetSet(ssId,si){
+  const eis=workoutData.map((x,i)=>x.supersetId===ssId?i:-1).filter(i=>i>=0);
+  if(!eis.length)return;
+  const allDone=eis.every(ei=>workoutData[ei].sets[si]?.done);
+  eis.forEach(ei=>{if(workoutData[ei].sets[si])workoutData[ei].sets[si].done=!allDone;});
+  if(!allDone){
+    const ex0=workoutData[eis[0]];
+    const restStr=(Array.isArray(ex0.supersetRest)&&ex0.supersetRest[si])||ex0.sets[si]?.rest||'90s';
+    startRestTimer(parseRestSec(restStr));
+  }
+  renderActiveWorkout();
 }
 
 function showPostWorkout(){
