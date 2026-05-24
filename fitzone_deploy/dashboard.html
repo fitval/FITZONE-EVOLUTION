@@ -649,6 +649,13 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
               <div id="pfClBadges" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px"></div>
             </div>
           </div>
+          <div style="margin-bottom:14px;padding:10px 12px;background:var(--white);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="pfHideMacros" style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;flex-shrink:0">
+            <label for="pfHideMacros" style="font-size:13px;color:var(--dark);cursor:pointer;line-height:1.35">
+              <strong>Masquer les valeurs nutritionnelles côté client</strong>
+              <div style="font-size:11px;color:var(--text3);font-weight:500;margin-top:2px">Le client ne verra ni les calories, ni les protéines/glucides/lipides. Seuls les repas, aliments et quantités s'affichent.</div>
+            </label>
+          </div>
           <div class="day-tabs-row" id="pfDayTabs"></div>
           <div class="day-totals" id="pfDayTotals"></div>
           <div id="pfMeals"></div>
@@ -4206,6 +4213,7 @@ function startFullPlan(){
   pfEditId=null;pfClients=[];pfFromClient=false;pfDays=[{nom:'Jour 1',repas:[{nom:'Petit-déjeuner',alims:[]},{nom:'Déjeuner',alims:[]},{nom:'Dîner',alims:[]}]}];
   pfDayIdx=0;pfMealIdx=0;
   document.getElementById('pfNom').value='';document.getElementById('pfClIn').value='';
+  const hm=document.getElementById('pfHideMacros');if(hm)hm.checked=false;
   document.getElementById('planBuilderTitle').textContent='Nouveau plan complet';
   pfRenderDays();pfRenderMeals();pfRenderRecent();
   const sa=document.getElementById('pfSideAlim'),sr=document.getElementById('pfSideRepas');
@@ -4497,7 +4505,8 @@ function savePlanFull(){
   const firstCl=pfClients[0]||null;
   const existing=pfEditId?plans.find(p=>p.id===pfEditId):null;
   const coachId=existing?.coach_id||currentCoach.id;
-  const plan={id:pfEditId||Date.now(),coach_id:coachId,type:'full',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pfClients.map(c=>c.id),clientNoms:pfClients.map(c=>c.first_name+' '+c.last_name),kcal:Math.round(t.k/nDays),prot:Math.round(t.p/nDays),carb:Math.round(t.g/nDays),fat:Math.round(t.l/nDays),jours:JSON.parse(JSON.stringify(pfDays)),createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
+  const hideMacros=!!document.getElementById('pfHideMacros')?.checked;
+  const plan={id:pfEditId||Date.now(),coach_id:coachId,type:'full',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pfClients.map(c=>c.id),clientNoms:pfClients.map(c=>c.first_name+' '+c.last_name),kcal:Math.round(t.k/nDays),prot:Math.round(t.p/nDays),carb:Math.round(t.g/nDays),fat:Math.round(t.l/nDays),hide_macros:hideMacros,jours:JSON.parse(JSON.stringify(pfDays)),createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
   const isNewPlan=!pfEditId;
   if(pfEditId){const i=plans.findIndex(p=>p.id===pfEditId);if(i>=0)plans[i]=plan;else plans.push(plan);}else plans.push(plan);
   lsSave('fz_plans',plans);dbSave('plans_full',plan);closePlanBuilder();renderPlansListPage();toast('Plan enregistré ✓');
@@ -4553,6 +4562,7 @@ function editFullPlan(id){
   const ids=p.clientIds||p.client_ids||(p.clientId||p.client_id?[p.clientId||p.client_id]:[]);
   ids.forEach(cid=>{const c=allClients.find(x=>x.id===cid);if(c)pfClients.push(c);});
   document.getElementById('pfNom').value=p.nom;document.getElementById('pfClIn').value='';
+  const hm=document.getElementById('pfHideMacros');if(hm)hm.checked=!!(p.hide_macros||p.hideMacros);
   document.getElementById('planBuilderTitle').textContent='Modifier: '+p.nom;
   pfRenderDays();pfRenderMeals();pfRenderRecent();
   pfUpdateClientBadge();

@@ -1958,8 +1958,16 @@ function renderNutriList(){
   let h=`<div style="display:flex;gap:8px;margin-bottom:16px"><button class="btn-gold" style="flex:1;padding:14px 16px;font-size:14px" onclick="openFoodTracker()">📝 Tracking alimentaire</button></div>`;
   if(!plans.length){h+=`<div class="empty"><div class="empty-icon">🍽️</div><div class="empty-text">Aucun plan nutrition assigné.</div></div>`;document.getElementById('nutriContent').innerHTML=h;return;}
   plans.forEach((p,i)=>{
-    const avg=_planDailyAvg(p);
-    h+=`<div class="plan-card fade-up" style="animation-delay:${i*.05}s" onclick="openPlan(${i})"><div class="plan-name">${p.nom||'Plan'}</div><div class="plan-macros"><div class="plan-macro kcal"><div class="plan-macro-val">${avg.k}</div><div class="plan-macro-label">Kcal/j</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.prot}g</div><div class="plan-macro-label">Prot</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.carb}g</div><div class="plan-macro-label">Gluc</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.fat}g</div><div class="plan-macro-label">Lip</div></div></div>${p.notes?`<div style="font-size:13px;color:var(--text2);margin-top:10px">${p.notes}</div>`:''}</div>`;
+    const hideMacros=!!(p.hide_macros||p.hideMacros);
+    const nJours=(p.jours||[]).length;
+    let summary='';
+    if(hideMacros){
+      summary=nJours?`<div style="font-size:13px;color:var(--text3);margin-top:4px">${nJours} jour${nJours>1?'s':''} de repas</div>`:'';
+    } else {
+      const avg=_planDailyAvg(p);
+      summary=`<div class="plan-macros"><div class="plan-macro kcal"><div class="plan-macro-val">${avg.k}</div><div class="plan-macro-label">Kcal/j</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.prot}g</div><div class="plan-macro-label">Prot</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.carb}g</div><div class="plan-macro-label">Gluc</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.fat}g</div><div class="plan-macro-label">Lip</div></div></div>`;
+    }
+    h+=`<div class="plan-card fade-up" style="animation-delay:${i*.05}s" onclick="openPlan(${i})"><div class="plan-name">${p.nom||'Plan'}</div>${summary}${p.notes?`<div style="font-size:13px;color:var(--text2);margin-top:10px">${p.notes}</div>`:''}</div>`;
   });
   document.getElementById('nutriContent').innerHTML=h;
 }
@@ -2630,6 +2638,7 @@ function calcDayMacros(day){
 }
 function renderPlanDetail(){
   const p=plans[currentPlanIdx],jours=p.jours||[];
+  const hideMacros=!!(p.hide_macros||p.hideMacros);
   let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
     <button class="back-btn" style="margin-bottom:0;flex:1" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> ${p.nom||'Retour'}</button>
     ${p.type==='full'&&jours.length?`<button onclick="openClientGrocery()" style="background:var(--gold);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">🛒 Courses</button>`:''}
@@ -2642,22 +2651,24 @@ function renderPlanDetail(){
     avgK/=jours.length;avgP/=jours.length;avgC/=jours.length;avgF/=jours.length;
   } else { avgK=p.kcal||0;avgP=p.prot||0;avgC=p.carb||0;avgF=p.fat||0; }
 
-  // Macro summary card
-  const totalK=Math.round(avgK),pPct=totalK?Math.round(avgP*4/totalK*100):0,cPct=totalK?Math.round(avgC*4/totalK*100):0,fPct=totalK?Math.round(avgF*9/totalK*100):0;
-  h+=`<div class="card" style="margin-bottom:16px;padding:20px">
-    <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">MOYENNE JOURNALIÈRE</div>
-    <div style="text-align:center;margin-bottom:14px"><span style="font-size:32px;font-weight:900;color:var(--gold)">${totalK}</span><span style="font-size:14px;color:var(--text3);margin-left:4px">kcal</span></div>
-    <div style="display:flex;gap:3px;height:8px;border-radius:4px;overflow:hidden;margin-bottom:14px">
-      <div style="flex:${pPct};background:#4a90d9;border-radius:4px 0 0 4px"></div>
-      <div style="flex:${cPct};background:var(--gold)"></div>
-      <div style="flex:${fPct};background:#e07c5a;border-radius:0 4px 4px 0"></div>
-    </div>
-    <div style="display:flex;justify-content:space-around">
-      <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#4a90d9">${Math.round(avgP)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Protéines</div></div>
-      <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(avgC)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Glucides</div></div>
-      <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#e07c5a">${Math.round(avgF)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Lipides</div></div>
-    </div>
-  </div>`;
+  if(!hideMacros){
+    // Macro summary card
+    const totalK=Math.round(avgK),pPct=totalK?Math.round(avgP*4/totalK*100):0,cPct=totalK?Math.round(avgC*4/totalK*100):0,fPct=totalK?Math.round(avgF*9/totalK*100):0;
+    h+=`<div class="card" style="margin-bottom:16px;padding:20px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">MOYENNE JOURNALIÈRE</div>
+      <div style="text-align:center;margin-bottom:14px"><span style="font-size:32px;font-weight:900;color:var(--gold)">${totalK}</span><span style="font-size:14px;color:var(--text3);margin-left:4px">kcal</span></div>
+      <div style="display:flex;gap:3px;height:8px;border-radius:4px;overflow:hidden;margin-bottom:14px">
+        <div style="flex:${pPct};background:#4a90d9;border-radius:4px 0 0 4px"></div>
+        <div style="flex:${cPct};background:var(--gold)"></div>
+        <div style="flex:${fPct};background:#e07c5a;border-radius:0 4px 4px 0"></div>
+      </div>
+      <div style="display:flex;justify-content:space-around">
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#4a90d9">${Math.round(avgP)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Protéines</div></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(avgC)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Glucides</div></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#e07c5a">${Math.round(avgF)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Lipides</div></div>
+      </div>
+    </div>`;
+  }
   if(p.type==='macros'||!jours.length){if(p.notes)h+=`<div class="card"><div style="font-size:14px;color:var(--text2);line-height:1.5">${p.notes}</div></div>`;document.getElementById('nutriContent').innerHTML=h;return;}
   h+=`<div class="day-tabs">${jours.map((j,i)=>`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderPlanDetail()">${j.nom||'J'+(i+1)}</button>`).join('')}</div>`;
   const day=jours[currentDayIdx];
@@ -2667,11 +2678,11 @@ function renderPlanDetail(){
   const doneMeals=(day.repas||[]).reduce((n,_,ri)=>n+(isMealDone(planRefId,currentDayIdx,ri)?1:0),0);
   // Day summary bar
   h+=`<div style="display:flex;align-items:center;gap:8px;padding:14px 0;flex-wrap:wrap">
-    <div style="background:var(--gold);color:white;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700">${Math.round(dayM.kcal)} kcal</div>
+    ${hideMacros?'':`<div style="background:var(--gold);color:white;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700">${Math.round(dayM.kcal)} kcal</div>
     <div style="background:rgba(74,144,217,.12);color:#4a90d9;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">P ${Math.round(dayM.prot)}g</div>
     <div style="background:rgba(196,154,42,.12);color:#a07820;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">G ${Math.round(dayM.carb)}g</div>
-    <div style="background:rgba(224,124,90,.12);color:#c05a30;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">L ${Math.round(dayM.fat)}g</div>
-    ${totalMeals?`<div style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:1px solid ${doneMeals===totalMeals?'var(--gold)':'var(--border)'};background:${doneMeals===totalMeals?'var(--gold-pale)':'transparent'};font-size:12px;font-weight:700;color:${doneMeals===totalMeals?'#8a6010':'var(--text2)'}"><span>✓ ${doneMeals}/${totalMeals}</span><span style="font-size:10px;font-weight:600;color:var(--text3)">repas</span></div>`:''}
+    <div style="background:rgba(224,124,90,.12);color:#c05a30;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">L ${Math.round(dayM.fat)}g</div>`}
+    ${totalMeals?`<div style="${hideMacros?'':'margin-left:auto;'}display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:1px solid ${doneMeals===totalMeals?'var(--gold)':'var(--border)'};background:${doneMeals===totalMeals?'var(--gold-pale)':'transparent'};font-size:12px;font-weight:700;color:${doneMeals===totalMeals?'#8a6010':'var(--text2)'}"><span>✓ ${doneMeals}/${totalMeals}</span><span style="font-size:10px;font-weight:600;color:var(--text3)">repas</span></div>`:''}
   </div>`;
   // Meals
   const mealIcons={'Petit-déjeuner':'🌅','Déjeuner':'🍽️','Dîner':'🌙','Goûter':'🍎','Collation':'🥤','Collation AM':'🥤','Collation PM':'🥤'};
@@ -2685,7 +2696,7 @@ function renderPlanDetail(){
       <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(135deg,rgba(196,154,42,.06),rgba(196,154,42,.02))">
         <span style="font-size:20px">${icon}</span>
         <div style="flex:1"><div style="font-size:15px;font-weight:700;${done?'text-decoration:line-through;color:var(--text3)':''}">${meal.nom||'Repas'}</div></div>
-        <div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--gold)">${Math.round(mk)} kcal</div><div style="font-size:10px;color:var(--text3);margin-top:1px">P${Math.round(mp)} · G${Math.round(mc)} · L${Math.round(mf)}</div></div>
+        ${hideMacros?'':`<div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--gold)">${Math.round(mk)} kcal</div><div style="font-size:10px;color:var(--text3);margin-top:1px">P${Math.round(mp)} · G${Math.round(mc)} · L${Math.round(mf)}</div></div>`}
         <button onclick="event.stopPropagation();toggleMealDone('${planRefId}',${currentDayIdx},${ri})" aria-label="${done?'Décocher repas':'Marquer mangé'}" title="${done?'Décocher':'Marquer mangé'}" style="width:36px;height:36px;border-radius:50%;border:2px solid ${done?'var(--gold)':'var(--border)'};background:${done?'var(--gold)':'var(--white)'};color:${done?'white':'var(--text3)'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:18px;font-weight:800;padding:0;font-family:inherit;line-height:1;transition:all .15s">${done?'✓':''}</button>
       </div>
       <div style="padding:6px 16px 10px">`;
@@ -2697,8 +2708,8 @@ function renderPlanDetail(){
       const srcDot=it.source?`<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${srcColor};margin-right:6px;flex-shrink:0"></span>`:'';
       h+=`<div style="display:flex;align-items:center;padding:10px 0;${ai<items.length-1?'border-bottom:1px solid var(--border)':''}">
         ${srcDot}<div style="flex:1;font-size:14px;font-weight:500">${it.nom||'Aliment'}</div>
-        <button onclick="showFoodSwap(${currentPlanIdx},${currentDayIdx},${ri},${ai})" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer;margin:0 8px;flex-shrink:0">⇄</button>
-        <div style="text-align:right;flex-shrink:0"><div style="font-size:13px;font-weight:700">${it.qte||100}g</div><div style="font-size:10px;color:var(--text3)">${Math.round((it.kcal||0)*q)} kcal</div></div>
+        ${hideMacros?'':`<button onclick="showFoodSwap(${currentPlanIdx},${currentDayIdx},${ri},${ai})" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer;margin:0 8px;flex-shrink:0">⇄</button>`}
+        <div style="text-align:right;flex-shrink:0"><div style="font-size:13px;font-weight:700">${it.qte||100}g</div>${hideMacros?'':`<div style="font-size:10px;color:var(--text3)">${Math.round((it.kcal||0)*q)} kcal</div>`}</div>
       </div>`;
     });
     h+=`</div></div>`;
