@@ -5327,9 +5327,14 @@ function openProgBuilder(id){
 }
 function closeProgBuilder(){
   if(_maybeReturnToClientFromProg())return;
-  document.getElementById('progBuilderWrap').style.display='none';document.getElementById('progListWrap').style.display='block';
-  document.getElementById('tbActs').innerHTML=`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`;
-  renderProgList();
+  const wrap=document.getElementById('progBuilderWrap');
+  const wasOpen=wrap&&wrap.style.display!=='none';
+  if(wrap)wrap.style.display='none';
+  document.getElementById('progListWrap').style.display='block';
+  if(wasOpen){
+    document.getElementById('tbActs').innerHTML=`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`;
+    renderProgList();
+  }
 }
 let progFromClientId=null;
 function openProgBuilderForClient(){
