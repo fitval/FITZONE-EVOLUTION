@@ -1014,7 +1014,7 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
     <div class="sh"><div class="st">Suivi des paiements</div><button class="btn btn-dark" onclick="openPaymentModal()">+ Ajouter une échéance</button></div>
     <div id="paymentsStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px"></div>
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center" id="paymentsFilters"></div>
-    <div id="paymentsList"></div>
+    <div id="paymentsList" style="overflow-x:auto"></div>
   </div>
 
   <!-- MODAL: CONTRACT TEMPLATE EDITOR -->
@@ -10658,8 +10658,8 @@ async function _attachContractToClient(newClient,tplId){
   return cc;
 }
 
-/* ===== SUIVI PAIEMENTS ===== */
-let _allPayments=[];
+/* ===== SUIVI PAIEMENTS (vue tableur) ===== */
+let _allPayments=[], _payClientNotes={};
 async function renderPaymentsPage(){
   const el=document.getElementById('paymentsList');if(!el)return;
   el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3)">Chargement…</div>';
@@ -10668,43 +10668,160 @@ async function renderPaymentsPage(){
     db.from('client_contracts').select('*').eq('coach_id',currentCoach.id)
   ]);
   _allPayments=pays||[];
-  // Enrich with client info
   const clientsById={};allClients.forEach(c=>clientsById[c.id]=c);
   const contractsById={};(contracts||[]).forEach(c=>contractsById[c.id]=c);
   _allPayments.forEach(p=>{p._client=clientsById[p.client_id];p._contract=contractsById[p.client_contract_id];});
-  // Update overdue status visually
   const todayStr=new Date().toISOString().slice(0,10);
-  _allPayments.forEach(p=>{if(p.status==='pending'&&p.due_date<todayStr)p._overdue=true;});
+  _allPayments.forEach(p=>{p._overdue=(p.status==='pending'&&p.due_date<todayStr);});
   // Stats
-  const totalDue=_allPayments.filter(p=>p.status==='pending').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const totalPaid=_allPayments.filter(p=>p.status==='paid').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const totalDue=_allPayments.filter(p=>p.status==='pending'&&!p._overdue).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const totalOverdue=_allPayments.filter(p=>p._overdue).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const statsEl=document.getElementById('paymentsStats');
-  statsEl.innerHTML=`
+  document.getElementById('paymentsStats').innerHTML=`
     <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">ENCAISSÉ</div><div style="font-size:22px;font-weight:900;color:#16a34a;margin-top:4px">${totalPaid.toFixed(2)}€</div></div>
     <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">À VENIR</div><div style="font-size:22px;font-weight:900;color:var(--gold);margin-top:4px">${totalDue.toFixed(2)}€</div></div>
     <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">EN RETARD</div><div style="font-size:22px;font-weight:900;color:#dc2626;margin-top:4px">${totalOverdue.toFixed(2)}€</div></div>
-    <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">TOTAL ÉCHÉANCES</div><div style="font-size:22px;font-weight:900;color:var(--dark);margin-top:4px">${_allPayments.length}</div></div>
-  `;
+    <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">TOTAL</div><div style="font-size:22px;font-weight:900;color:var(--dark);margin-top:4px">${(totalPaid+totalDue+totalOverdue).toFixed(2)}€</div></div>`;
+  // Filters
   const filter=window._payFilter||'all';
-  let list=_allPayments.slice();
-  if(filter==='pending')list=list.filter(p=>p.status==='pending'&&!p._overdue);
-  else if(filter==='overdue')list=list.filter(p=>p._overdue);
-  else if(filter==='paid')list=list.filter(p=>p.status==='paid');
-  document.getElementById('paymentsFilters').innerHTML=[['all','Toutes',_allPayments.length],['pending','À venir',_allPayments.filter(p=>p.status==='pending'&&!p._overdue).length],['overdue','En retard',_allPayments.filter(p=>p._overdue).length],['paid','Payées',_allPayments.filter(p=>p.status==='paid').length]].map(([k,l,n])=>`<button class="btn btn-${filter===k?'dark':'ghost'} btn-sm" onclick="window._payFilter='${k}';renderPaymentsPage()">${l} <span style="opacity:.7;margin-left:4px">${n}</span></button>`).join('');
-  if(!list.length){el.innerHTML=`<div class="empty"><div class="ei">💰</div><div class="et">Aucune échéance dans cette catégorie</div></div>`;return;}
-  el.innerHTML=`<div style="background:var(--white);border-radius:10px;box-shadow:var(--shadow);overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:13px">
-    <thead><tr style="background:var(--bg2);text-align:left"><th style="padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Échéance</th><th style="padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Client</th><th style="padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Montant</th><th style="padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Statut</th><th style="padding:10px 12px"></th></tr></thead>
-    <tbody>${list.map(p=>{
-      const dt=new Date(p.due_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
-      const cname=p._client?((p._client.first_name||'')+' '+(p._client.last_name||'')).trim():'—';
-      const statusPill=p.status==='paid'?'<span style="background:rgba(34,197,94,.12);color:#16a34a;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800">✓ Payé</span>':(p._overdue?'<span style="background:rgba(239,68,68,.12);color:#dc2626;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800">⚠ En retard</span>':'<span style="background:rgba(196,154,42,.12);color:var(--gold);padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800">À venir</span>');
-      const actBtn=p.status!=='paid'?`<button class="btn btn-dark btn-xs" onclick="markPaymentPaid('${p.id}')">✓ Payé</button>`:`<button class="btn btn-ghost btn-xs" onclick="unmarkPayment('${p.id}')">↺</button>`;
-      const viewBtn=p._contract?`<button class="btn btn-ghost btn-xs" onclick="viewClientContract('${p.client_contract_id}')" title="Voir contrat">📄</button>`:'';
-      const editBtn=`<button class="btn btn-ghost btn-xs" onclick="openPaymentModal('${p.id}')" title="Modifier">✏️</button>`;
-      const label=p.label?`<div style="font-size:10px;color:var(--gold);font-weight:700">${p.label}</div>`:'';
-      return`<tr style="border-top:1px solid var(--border)"><td style="padding:10px 12px;font-weight:700">${dt}</td><td style="padding:10px 12px">${cname}${label}${p.note?`<div style="font-size:10px;color:var(--text3)">${p.note}</div>`:''}</td><td style="padding:10px 12px;font-weight:700;color:var(--gold)">${parseFloat(p.amount).toFixed(2)}€</td><td style="padding:10px 12px">${statusPill}</td><td style="padding:10px 12px;text-align:right;white-space:nowrap">${viewBtn} ${editBtn} ${actBtn}</td></tr>`;
-    }).join('')}</tbody></table></div>`;
+  const nbPending=_allPayments.filter(p=>p.status==='pending'&&!p._overdue).length;
+  const nbOverdue=_allPayments.filter(p=>p._overdue).length;
+  const nbPaid=_allPayments.filter(p=>p.status==='paid').length;
+  document.getElementById('paymentsFilters').innerHTML=[['all','Tous',allClients.length],['pending','À jour',0],['overdue','En retard',0],['paid','Soldé',0]].map(([k,l])=>`<button class="btn btn-${filter===k?'dark':'ghost'} btn-sm" onclick="window._payFilter='${k}';renderPaymentsPage()">${l}</button>`).join('')+`<div style="flex:1"></div><input class="fi" id="paySearch" placeholder="Rechercher un client…" style="max-width:220px;height:32px;font-size:12px" oninput="filterPayTable(this.value)">`;
+  // Group by client
+  const byClient={};
+  _allPayments.forEach(p=>{if(!p.client_id)return;if(!byClient[p.client_id])byClient[p.client_id]=[];byClient[p.client_id].push(p);});
+  // Include clients without payments
+  allClients.forEach(c=>{if(!byClient[c.id])byClient[c.id]=[];});
+  // Build rows
+  let rows=Object.entries(byClient).map(([cid,pays])=>{
+    const c=clientsById[cid];if(!c)return null;
+    const name=((c.first_name||'')+' '+(c.last_name||'')).trim()||'Sans nom';
+    const sorted=pays.sort((a,b)=>a.due_date>b.due_date?1:-1);
+    const contract=sorted.length&&sorted[0]._contract?sorted[0]._contract:null;
+    const totalRow=sorted.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    const paidRow=sorted.filter(p=>p.status==='paid').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    const hasOverdue=sorted.some(p=>p._overdue);
+    const allPaid=sorted.length>0&&sorted.every(p=>p.status==='paid'||p.status==='canceled');
+    const hasPending=sorted.some(p=>p.status==='pending'&&!p._overdue);
+    let rowStatus='none';
+    if(allPaid&&sorted.length)rowStatus='paid';
+    else if(hasOverdue)rowStatus='overdue';
+    else if(hasPending)rowStatus='pending';
+    return{cid,name,c,pays:sorted,contract,totalRow,paidRow,rowStatus,hasOverdue,allPaid};
+  }).filter(Boolean);
+  // Apply filter
+  if(filter==='pending')rows=rows.filter(r=>r.rowStatus==='pending');
+  else if(filter==='overdue')rows=rows.filter(r=>r.rowStatus==='overdue');
+  else if(filter==='paid')rows=rows.filter(r=>r.rowStatus==='paid');
+  // Sort: overdue first, then pending, then paid, then none
+  const statusOrder={overdue:0,pending:1,paid:2,none:3};
+  rows.sort((a,b)=>(statusOrder[a.rowStatus]??3)-(statusOrder[b.rowStatus]??3)||a.name.localeCompare(b.name));
+  // Max payments count for columns
+  const maxPay=Math.max(1,...rows.map(r=>r.pays.length));
+  if(!rows.length){el.innerHTML=`<div class="empty"><div class="ei">💰</div><div class="et">Aucun client à afficher</div></div>`;return;}
+  // Render spreadsheet table
+  let th='';
+  for(let i=1;i<=maxPay;i++)th+=`<th class="ptH" colspan="3">Paiement ${i}</th>`;
+  let tbody='';
+  rows.forEach(r=>{
+    const contractStatus=r.contract?(r.contract.signed_at?'✅ Signé':'⏳ En attente'):'—';
+    const contractColor=r.contract?(r.contract.signed_at?'#16a34a':'var(--gold)'):'var(--text3)';
+    const duration=r.contract?`${r.contract.duration_months||'—'} mois`:'—';
+    const rowBg=r.hasOverdue?'rgba(239,68,68,.04)':(r.allPaid&&r.pays.length?'rgba(34,197,94,.04)':'');
+    const note=_payClientNotes[r.cid]||r.pays.find(p=>p.note)?.note||'';
+    tbody+=`<tr class="ptRow" data-name="${r.name.toLowerCase()}" style="${rowBg?'background:'+rowBg:''}">`;
+    tbody+=`<td class="ptC ptFixed" style="font-weight:700;min-width:150px;position:sticky;left:0;background:${rowBg||'var(--white)'};z-index:2"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${r.hasOverdue?'#dc2626':(r.allPaid&&r.pays.length?'#16a34a':(r.pays.length?'var(--gold)':'var(--border)'))};flex-shrink:0"></span>${r.name}</div></td>`;
+    tbody+=`<td class="ptC" style="font-size:11px;color:${contractColor};white-space:nowrap">${contractStatus}</td>`;
+    tbody+=`<td class="ptC" style="font-size:11px;white-space:nowrap">${duration}</td>`;
+    for(let i=0;i<maxPay;i++){
+      const p=r.pays[i];
+      if(p){
+        const bg=p.status==='paid'?'rgba(34,197,94,.08)':(p._overdue?'rgba(239,68,68,.08)':(p.status==='canceled'?'rgba(150,150,150,.08)':'rgba(196,154,42,.06)'));
+        const dtFmt=new Date(p.due_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+        const statusIcon=p.status==='paid'?'✅':(p._overdue?'🔴':(p.status==='canceled'?'✕':'🟡'));
+        tbody+=`<td class="ptC ptPay" style="background:${bg};text-align:right;font-weight:700;cursor:pointer" onclick="payInlineEdit('${p.id}','amount')" title="Cliquer pour modifier">${parseFloat(p.amount).toFixed(0)}€</td>`;
+        tbody+=`<td class="ptC ptPay" style="background:${bg};font-size:11px;cursor:pointer" onclick="payInlineEdit('${p.id}','date')" title="Cliquer pour modifier">${dtFmt}</td>`;
+        tbody+=`<td class="ptC ptPay" style="background:${bg};cursor:pointer;text-align:center" onclick="payToggleStatus('${p.id}')" title="Cliquer pour changer le statut">${statusIcon}</td>`;
+      } else {
+        tbody+=`<td class="ptC ptPayEmpty"></td><td class="ptC ptPayEmpty"></td><td class="ptC ptPayEmpty"></td>`;
+      }
+    }
+    tbody+=`<td class="ptC" style="font-weight:800;color:var(--gold);text-align:right;white-space:nowrap">${r.totalRow?r.totalRow.toFixed(0)+'€':'—'}</td>`;
+    tbody+=`<td class="ptC" style="font-weight:800;color:#16a34a;text-align:right;white-space:nowrap">${r.paidRow?r.paidRow.toFixed(0)+'€':'—'}</td>`;
+    tbody+=`<td class="ptC ptNote" style="min-width:120px"><div class="ptNoteWrap" contenteditable="true" data-cid="${r.cid}" onblur="savePayNote(this)" title="Ajouter une note">${note}</div></td>`;
+    tbody+=`</tr>`;
+  });
+  el.innerHTML=`<style>
+    .ptH{padding:8px 6px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);background:var(--bg2);border-bottom:2px solid var(--border);text-align:center;white-space:nowrap}
+    .ptC{padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle}
+    .ptPay{border-left:1px solid rgba(0,0,0,.04)}
+    .ptPayEmpty{border-left:1px solid rgba(0,0,0,.02);background:rgba(0,0,0,.01)}
+    .ptRow:hover{background:rgba(196,154,42,.06)!important}
+    .ptRow:hover .ptFixed{background:rgba(196,154,42,.06)!important}
+    .ptNoteWrap{font-size:11px;color:var(--text2);min-height:18px;outline:none;padding:2px 4px;border-radius:4px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ptNoteWrap:focus{white-space:normal;background:var(--white);box-shadow:0 0 0 2px var(--gold);z-index:5;position:relative}
+    .ptNoteWrap:empty::before{content:'…';color:var(--text3);opacity:.4}
+  </style>
+  <div style="background:var(--white);border-radius:10px;box-shadow:var(--shadow);overflow:hidden">
+  <table style="width:max-content;min-width:100%;border-collapse:collapse">
+    <thead><tr>
+      <th class="ptH" style="text-align:left;position:sticky;left:0;background:var(--bg2);z-index:3;min-width:150px">Client</th>
+      <th class="ptH">Contrat</th>
+      <th class="ptH">Durée</th>
+      ${th}
+      <th class="ptH">Total</th>
+      <th class="ptH">Payé</th>
+      <th class="ptH" style="text-align:left">Notes</th>
+    </tr></thead>
+    <tbody>${tbody}</tbody>
+  </table></div>`;
+}
+function filterPayTable(q){
+  q=q.toLowerCase().trim();
+  document.querySelectorAll('.ptRow').forEach(tr=>{
+    tr.style.display=(!q||tr.dataset.name.includes(q))?'':'none';
+  });
+}
+async function payToggleStatus(id){
+  const p=_allPayments.find(x=>x.id===id);if(!p)return;
+  const order=['pending','paid','canceled'];
+  const next=order[(order.indexOf(p.status)+1)%order.length];
+  const upd={status:next,paid_at:next==='paid'?new Date().toISOString():null};
+  const{error}=await db.from('payments').update(upd).eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  toast(next==='paid'?'Marqué payé ✓':(next==='canceled'?'Annulé':'Remis en attente'));
+  renderPaymentsPage();
+}
+function payInlineEdit(id,field){
+  const p=_allPayments.find(x=>x.id===id);if(!p)return;
+  if(field==='amount'){
+    const v=prompt('Montant (€) :',parseFloat(p.amount).toFixed(2));
+    if(v===null)return;
+    const n=parseFloat(v);if(isNaN(n)||n<=0){toast('Montant invalide');return;}
+    _payInlineSave(id,{amount:n});
+  } else if(field==='date'){
+    const v=prompt('Date (AAAA-MM-JJ) :',p.due_date);
+    if(v===null)return;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){toast('Format de date invalide');return;}
+    _payInlineSave(id,{due_date:v});
+  }
+}
+async function _payInlineSave(id,upd){
+  const{error}=await db.from('payments').update(upd).eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Modifié ✓');renderPaymentsPage();
+}
+function savePayNote(el){
+  const cid=el.dataset.cid;
+  const note=el.textContent.trim();
+  _payClientNotes[cid]=note;
+  const pays=_allPayments.filter(p=>p.client_id===cid);
+  if(pays.length){
+    db.from('payments').update({note:note||null}).eq('id',pays[0].id).then(({error})=>{
+      if(error)console.warn('Note save error',error);
+    });
+  }
 }
 async function markPaymentPaid(id){
   const{error}=await db.from('payments').update({status:'paid',paid_at:new Date().toISOString()}).eq('id',id);
@@ -10717,7 +10834,6 @@ async function unmarkPayment(id){
   toast('Paiement remis en attente');renderPaymentsPage();
 }
 function openPaymentModal(id){
-  // Populate client select
   const sel=document.getElementById('payClient');
   sel.innerHTML=allClients.map(c=>`<option value="${c.id}">${(c.first_name||'')+' '+(c.last_name||'')}</option>`).join('');
   if(id){
@@ -10791,7 +10907,6 @@ async function savePayment(){
     toast("Enregistré mais invisible (RLS). Vérifie la policy 'coach_crud_payments'.");
     renderPaymentsPage();return;
   }
-  console.log('[PAYMENTS] saved',data);
   closeM('mPayment');toast(editId?'Échéance modifiée ✓':'Échéance ajoutée ✓');renderPaymentsPage();
 }
 async function deletePayment(){
