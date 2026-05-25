@@ -10689,7 +10689,8 @@ async function renderPaymentsPage(){
       for(let i=0;i<nb;i++){
         const payAmt=cPays[i]?parseFloat(cPays[i].amount)||0:0;
         const commAmt=payAmt*pct/100;
-        if(sts[i]==='paid')totalCommPaid+=commAmt;else totalCommDue+=commAmt;
+        const st=sts[i]||'pending';
+        if(st==='paid')totalCommPaid+=commAmt;else if(st!=='canceled')totalCommDue+=commAmt;
       }
     });
   });
@@ -10760,7 +10761,7 @@ async function renderPaymentsPage(){
         const statusIcon=p.status==='paid'?'✅':(p._overdue?'🔴':(p.status==='canceled'?'✕':'🟡'));
         tbody+=`<td class="ptC ptPay" style="background:${bg};text-align:right;font-weight:700;cursor:pointer" onclick="payInlineEdit('${p.id}','amount')" title="Cliquer pour modifier">${parseFloat(p.amount).toFixed(0)}€</td>`;
         tbody+=`<td class="ptC ptPay" style="background:${bg};font-size:11px;cursor:pointer" onclick="payInlineEdit('${p.id}','date')" title="Cliquer pour modifier">${dtFmt}</td>`;
-        tbody+=`<td class="ptC ptPay" style="background:${bg};cursor:pointer;text-align:center" onclick="payToggleStatus('${p.id}')" title="Cliquer pour changer le statut">${statusIcon}</td>`;
+        tbody+=`<td class="ptC ptPay" style="background:${bg};text-align:center;white-space:nowrap"><span style="cursor:pointer" onclick="payToggleStatus('${p.id}')" title="Changer le statut">${statusIcon}</span> <span style="cursor:pointer;opacity:.4;font-size:10px" onclick="payDeleteInline('${p.id}')" title="Supprimer ce paiement">🗑️</span></td>`;
       } else {
         tbody+=`<td class="ptC ptPayEmpty"></td><td class="ptC ptPayEmpty"></td><td class="ptC ptPayEmpty"></td>`;
       }
@@ -10775,15 +10776,17 @@ async function renderPaymentsPage(){
     tbody+=`<td class="ptC ptCommSep" style="cursor:pointer;white-space:nowrap;font-weight:${closerName?'700':'400'};color:${closerName?'var(--dark)':'var(--text3)'}" onclick="commEdit('${r.cid}','closer','name')" title="Cliquer pour définir le closeur">${closerName||'—'}</td>`;
     tbody+=`<td class="ptC" style="cursor:pointer;text-align:center;font-size:11px;color:#8b5cf6;font-weight:700" onclick="commEdit('${r.cid}','closer','pct')" title="% commission closeur">${closerPct?closerPct+'%':'—'}</td>`;
     tbody+=`<td class="ptC" style="cursor:pointer;text-align:center;font-size:11px" onclick="commEdit('${r.cid}','closer','nb')" title="Nb paiements commission">${closerNb||'—'}</td>`;
+    const closerDates=cm.closer_dates||[];
     for(let i=0;i<maxPay;i++){
       if(i<closerNb&&closerName&&closerPct){
         const payAmt=r.pays[i]?parseFloat(r.pays[i].amount)||0:0;
         const commAmt=(payAmt*closerPct/100);
         const st=closerSts[i]||'pending';
-        const payDate=r.pays[i]?new Date(r.pays[i].due_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'—';
-        const bg=st==='paid'?'rgba(139,92,246,.1)':'rgba(139,92,246,.04)';
-        const icon=st==='paid'?'✅':'🟣';
-        tbody+=`<td class="ptC ptCommCell" style="background:${bg};cursor:pointer" onclick="commToggle('${r.cid}','closer',${i})" title="${payDate} — Cliquer pour changer le statut"><div style="font-weight:700;font-size:11px;color:#8b5cf6">${commAmt.toFixed(0)}€</div><div style="font-size:9px;color:var(--text3)">${payDate} ${icon}</div></td>`;
+        const rawDate=closerDates[i]||(r.pays[i]?r.pays[i].due_date:null);
+        const payDate=rawDate?new Date(rawDate).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'—';
+        const bg=st==='paid'?'rgba(139,92,246,.1)':(st==='canceled'?'rgba(150,150,150,.08)':'rgba(139,92,246,.04)');
+        const icon=st==='paid'?'✅':(st==='canceled'?'✕':'🟣');
+        tbody+=`<td class="ptC ptCommCell" style="background:${bg}"><div style="font-weight:700;font-size:11px;color:${st==='canceled'?'var(--text3)':'#8b5cf6'}">${commAmt.toFixed(0)}€</div><div style="font-size:9px;color:var(--text3)"><span style="cursor:pointer;text-decoration:underline dotted" onclick="commEditDate('${r.cid}','closer',${i})" title="Modifier la date">${payDate}</span> <span style="cursor:pointer" onclick="commToggle('${r.cid}','closer',${i})" title="Changer le statut">${icon}</span></div></td>`;
       } else {
         tbody+=`<td class="ptC ptCommEmpty"></td>`;
       }
@@ -10793,6 +10796,7 @@ async function renderPaymentsPage(){
     const setterPct=parseFloat(cm.setter_pct)||0;
     const setterNb=parseInt(cm.setter_nb)||0;
     const setterSts=cm.setter_status||[];
+    const setterDates=cm.setter_dates||[];
     tbody+=`<td class="ptC ptCommSep" style="cursor:pointer;white-space:nowrap;font-weight:${setterName?'700':'400'};color:${setterName?'var(--dark)':'var(--text3)'}" onclick="commEdit('${r.cid}','setter','name')" title="Cliquer pour définir le setter">${setterName||'—'}</td>`;
     tbody+=`<td class="ptC" style="cursor:pointer;text-align:center;font-size:11px;color:#f59e0b;font-weight:700" onclick="commEdit('${r.cid}','setter','pct')" title="% commission setter">${setterPct?setterPct+'%':'—'}</td>`;
     tbody+=`<td class="ptC" style="cursor:pointer;text-align:center;font-size:11px" onclick="commEdit('${r.cid}','setter','nb')" title="Nb paiements commission">${setterNb||'—'}</td>`;
@@ -10801,10 +10805,11 @@ async function renderPaymentsPage(){
         const payAmt=r.pays[i]?parseFloat(r.pays[i].amount)||0:0;
         const commAmt=(payAmt*setterPct/100);
         const st=setterSts[i]||'pending';
-        const payDate=r.pays[i]?new Date(r.pays[i].due_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'—';
-        const bg=st==='paid'?'rgba(245,158,11,.1)':'rgba(245,158,11,.04)';
-        const icon=st==='paid'?'✅':'🟠';
-        tbody+=`<td class="ptC ptCommCell" style="background:${bg};cursor:pointer" onclick="commToggle('${r.cid}','setter',${i})" title="${payDate} — Cliquer pour changer le statut"><div style="font-weight:700;font-size:11px;color:#f59e0b">${commAmt.toFixed(0)}€</div><div style="font-size:9px;color:var(--text3)">${payDate} ${icon}</div></td>`;
+        const rawDate=setterDates[i]||(r.pays[i]?r.pays[i].due_date:null);
+        const payDate=rawDate?new Date(rawDate).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'—';
+        const bg=st==='paid'?'rgba(245,158,11,.1)':(st==='canceled'?'rgba(150,150,150,.08)':'rgba(245,158,11,.04)');
+        const icon=st==='paid'?'✅':(st==='canceled'?'✕':'🟠');
+        tbody+=`<td class="ptC ptCommCell" style="background:${bg}"><div style="font-weight:700;font-size:11px;color:${st==='canceled'?'var(--text3)':'#f59e0b'}">${commAmt.toFixed(0)}€</div><div style="font-size:9px;color:var(--text3)"><span style="cursor:pointer;text-decoration:underline dotted" onclick="commEditDate('${r.cid}','setter',${i})" title="Modifier la date">${payDate}</span> <span style="cursor:pointer" onclick="commToggle('${r.cid}','setter',${i})" title="Changer le statut">${icon}</span></div></td>`;
       } else {
         tbody+=`<td class="ptC ptCommEmpty"></td>`;
       }
@@ -10884,8 +10889,30 @@ function commToggle(cid,role,idx){
   const cm=comms[cid];
   if(!cm[role+'_status'])cm[role+'_status']=[];
   while(cm[role+'_status'].length<=idx)cm[role+'_status'].push('pending');
-  cm[role+'_status'][idx]=cm[role+'_status'][idx]==='paid'?'pending':'paid';
+  const order=['pending','paid','canceled'];
+  const cur=cm[role+'_status'][idx]||'pending';
+  cm[role+'_status'][idx]=order[(order.indexOf(cur)+1)%order.length];
   _saveCommissions(comms);renderPaymentsPage();
+}
+function commEditDate(cid,role,idx){
+  const comms=_getCommissions();
+  if(!comms[cid])comms[cid]={};
+  const cm=comms[cid];
+  if(!cm[role+'_dates'])cm[role+'_dates']=[];
+  const cPays=_allPayments.filter(p=>p.client_id===cid).sort((a,b)=>a.due_date>b.due_date?1:-1);
+  const cur=cm[role+'_dates'][idx]||(cPays[idx]?cPays[idx].due_date:new Date().toISOString().slice(0,10));
+  const v=prompt('Date de commission (AAAA-MM-JJ) :',cur);
+  if(v===null)return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){toast('Format de date invalide');return;}
+  while(cm[role+'_dates'].length<=idx)cm[role+'_dates'].push(null);
+  cm[role+'_dates'][idx]=v;
+  _saveCommissions(comms);renderPaymentsPage();
+}
+async function payDeleteInline(id){
+  if(!confirm('Supprimer ce paiement ?'))return;
+  const{error}=await db.from('payments').delete().eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Paiement supprimé');renderPaymentsPage();
 }
 async function payToggleStatus(id){
   const p=_allPayments.find(x=>x.id===id);if(!p)return;
