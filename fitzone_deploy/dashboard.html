@@ -10660,6 +10660,8 @@ async function _attachContractToClient(newClient,tplId){
 
 /* ===== SUIVI PAIEMENTS (vue tableur) ===== */
 let _allPayments=[], _payClientNotes={};
+function _getCommissions(){try{return JSON.parse(localStorage.getItem('fz_commissions')||'{}');}catch(e){return{};}}
+function _saveCommissions(d){localStorage.setItem('fz_commissions',JSON.stringify(d));}
 async function renderPaymentsPage(){
   const el=document.getElementById('paymentsList');if(!el)return;
   el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3)">Chargement…</div>';
@@ -10673,27 +10675,38 @@ async function renderPaymentsPage(){
   _allPayments.forEach(p=>{p._client=clientsById[p.client_id];p._contract=contractsById[p.client_contract_id];});
   const todayStr=new Date().toISOString().slice(0,10);
   _allPayments.forEach(p=>{p._overdue=(p.status==='pending'&&p.due_date<todayStr);});
+  const comms=_getCommissions();
   // Stats
   const totalPaid=_allPayments.filter(p=>p.status==='paid').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const totalDue=_allPayments.filter(p=>p.status==='pending'&&!p._overdue).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   const totalOverdue=_allPayments.filter(p=>p._overdue).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  let totalCommDue=0,totalCommPaid=0;
+  Object.entries(comms).forEach(([cid,cm])=>{
+    const cPays=_allPayments.filter(p=>p.client_id===cid).sort((a,b)=>a.due_date>b.due_date?1:-1);
+    ['closer','setter'].forEach(role=>{
+      const pct=parseFloat(cm[role+'_pct'])||0;const nb=parseInt(cm[role+'_nb'])||0;const sts=cm[role+'_status']||[];
+      if(!cm[role+'_name']||!pct||!nb)return;
+      for(let i=0;i<nb;i++){
+        const payAmt=cPays[i]?parseFloat(cPays[i].amount)||0:0;
+        const commAmt=payAmt*pct/100;
+        if(sts[i]==='paid')totalCommPaid+=commAmt;else totalCommDue+=commAmt;
+      }
+    });
+  });
   document.getElementById('paymentsStats').innerHTML=`
     <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">ENCAISSÉ</div><div style="font-size:22px;font-weight:900;color:#16a34a;margin-top:4px">${totalPaid.toFixed(2)}€</div></div>
     <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">À VENIR</div><div style="font-size:22px;font-weight:900;color:var(--gold);margin-top:4px">${totalDue.toFixed(2)}€</div></div>
     <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">EN RETARD</div><div style="font-size:22px;font-weight:900;color:#dc2626;margin-top:4px">${totalOverdue.toFixed(2)}€</div></div>
-    <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">TOTAL</div><div style="font-size:22px;font-weight:900;color:var(--dark);margin-top:4px">${(totalPaid+totalDue+totalOverdue).toFixed(2)}€</div></div>`;
+    <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">TOTAL</div><div style="font-size:22px;font-weight:900;color:var(--dark);margin-top:4px">${(totalPaid+totalDue+totalOverdue).toFixed(2)}€</div></div>
+    <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">COMMISSIONS VERSÉES</div><div style="font-size:22px;font-weight:900;color:#8b5cf6;margin-top:4px">${totalCommPaid.toFixed(2)}€</div></div>
+    <div style="background:var(--white);border-radius:10px;padding:14px;box-shadow:var(--shadow)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px">COMMISSIONS À VERSER</div><div style="font-size:22px;font-weight:900;color:#a78bfa;margin-top:4px">${totalCommDue.toFixed(2)}€</div></div>`;
   // Filters
   const filter=window._payFilter||'all';
-  const nbPending=_allPayments.filter(p=>p.status==='pending'&&!p._overdue).length;
-  const nbOverdue=_allPayments.filter(p=>p._overdue).length;
-  const nbPaid=_allPayments.filter(p=>p.status==='paid').length;
-  document.getElementById('paymentsFilters').innerHTML=[['all','Tous',allClients.length],['pending','À jour',0],['overdue','En retard',0],['paid','Soldé',0]].map(([k,l])=>`<button class="btn btn-${filter===k?'dark':'ghost'} btn-sm" onclick="window._payFilter='${k}';renderPaymentsPage()">${l}</button>`).join('')+`<div style="flex:1"></div><input class="fi" id="paySearch" placeholder="Rechercher un client…" style="max-width:220px;height:32px;font-size:12px" oninput="filterPayTable(this.value)">`;
+  document.getElementById('paymentsFilters').innerHTML=[['all','Tous'],['pending','À jour'],['overdue','En retard'],['paid','Soldé']].map(([k,l])=>`<button class="btn btn-${filter===k?'dark':'ghost'} btn-sm" onclick="window._payFilter='${k}';renderPaymentsPage()">${l}</button>`).join('')+`<div style="flex:1"></div><input class="fi" id="paySearch" placeholder="Rechercher un client…" style="max-width:220px;height:32px;font-size:12px" oninput="filterPayTable(this.value)">`;
   // Group by client
   const byClient={};
   _allPayments.forEach(p=>{if(!p.client_id)return;if(!byClient[p.client_id])byClient[p.client_id]=[];byClient[p.client_id].push(p);});
-  // Include clients without payments
   allClients.forEach(c=>{if(!byClient[c.id])byClient[c.id]=[];});
-  // Build rows
   let rows=Object.entries(byClient).map(([cid,pays])=>{
     const c=clientsById[cid];if(!c)return null;
     const name=((c.first_name||'')+' '+(c.last_name||'')).trim()||'Sans nom';
@@ -10710,19 +10723,21 @@ async function renderPaymentsPage(){
     else if(hasPending)rowStatus='pending';
     return{cid,name,c,pays:sorted,contract,totalRow,paidRow,rowStatus,hasOverdue,allPaid};
   }).filter(Boolean);
-  // Apply filter
   if(filter==='pending')rows=rows.filter(r=>r.rowStatus==='pending');
   else if(filter==='overdue')rows=rows.filter(r=>r.rowStatus==='overdue');
   else if(filter==='paid')rows=rows.filter(r=>r.rowStatus==='paid');
-  // Sort: overdue first, then pending, then paid, then none
   const statusOrder={overdue:0,pending:1,paid:2,none:3};
   rows.sort((a,b)=>(statusOrder[a.rowStatus]??3)-(statusOrder[b.rowStatus]??3)||a.name.localeCompare(b.name));
-  // Max payments count for columns
   const maxPay=Math.max(1,...rows.map(r=>r.pays.length));
   if(!rows.length){el.innerHTML=`<div class="empty"><div class="ei">💰</div><div class="et">Aucun client à afficher</div></div>`;return;}
-  // Render spreadsheet table
-  let th='';
-  for(let i=1;i<=maxPay;i++)th+=`<th class="ptH" colspan="3">Paiement ${i}</th>`;
+  // Header
+  let thPay='';
+  for(let i=1;i<=maxPay;i++)thPay+=`<th class="ptH" colspan="3">Paiement ${i}</th>`;
+  let thComm='';
+  for(let i=1;i<=maxPay;i++)thComm+=`<th class="ptH ptCommH">C${i}</th>`;
+  let thCommS='';
+  for(let i=1;i<=maxPay;i++)thCommS+=`<th class="ptH ptCommH">C${i}</th>`;
+  // Body
   let tbody='';
   rows.forEach(r=>{
     const contractStatus=r.contract?(r.contract.signed_at?'✅ Signé':'⏳ En attente'):'—';
@@ -10730,10 +10745,13 @@ async function renderPaymentsPage(){
     const duration=r.contract?`${r.contract.duration_months||'—'} mois`:'—';
     const rowBg=r.hasOverdue?'rgba(239,68,68,.04)':(r.allPaid&&r.pays.length?'rgba(34,197,94,.04)':'');
     const note=_payClientNotes[r.cid]||r.pays.find(p=>p.note)?.note||'';
+    const cm=comms[r.cid]||{};
     tbody+=`<tr class="ptRow" data-name="${r.name.toLowerCase()}" style="${rowBg?'background:'+rowBg:''}">`;
+    // Client name (sticky)
     tbody+=`<td class="ptC ptFixed" style="font-weight:700;min-width:150px;position:sticky;left:0;background:${rowBg||'var(--white)'};z-index:2"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${r.hasOverdue?'#dc2626':(r.allPaid&&r.pays.length?'#16a34a':(r.pays.length?'var(--gold)':'var(--border)'))};flex-shrink:0"></span>${r.name}</div></td>`;
     tbody+=`<td class="ptC" style="font-size:11px;color:${contractColor};white-space:nowrap">${contractStatus}</td>`;
     tbody+=`<td class="ptC" style="font-size:11px;white-space:nowrap">${duration}</td>`;
+    // Client payments
     for(let i=0;i<maxPay;i++){
       const p=r.pays[i];
       if(p){
@@ -10749,6 +10767,49 @@ async function renderPaymentsPage(){
     }
     tbody+=`<td class="ptC" style="font-weight:800;color:var(--gold);text-align:right;white-space:nowrap">${r.totalRow?r.totalRow.toFixed(0)+'€':'—'}</td>`;
     tbody+=`<td class="ptC" style="font-weight:800;color:#16a34a;text-align:right;white-space:nowrap">${r.paidRow?r.paidRow.toFixed(0)+'€':'—'}</td>`;
+    // --- CLOSER ---
+    const closerName=cm.closer_name||'';
+    const closerPct=parseFloat(cm.closer_pct)||0;
+    const closerNb=parseInt(cm.closer_nb)||0;
+    const closerSts=cm.closer_status||[];
+    tbody+=`<td class="ptC ptCommSep" style="cursor:pointer;white-space:nowrap;font-weight:${closerName?'700':'400'};color:${closerName?'var(--dark)':'var(--text3)'}" onclick="commEdit('${r.cid}','closer','name')" title="Cliquer pour définir le closeur">${closerName||'—'}</td>`;
+    tbody+=`<td class="ptC" style="cursor:pointer;text-align:center;font-size:11px;color:#8b5cf6;font-weight:700" onclick="commEdit('${r.cid}','closer','pct')" title="% commission closeur">${closerPct?closerPct+'%':'—'}</td>`;
+    tbody+=`<td class="ptC" style="cursor:pointer;text-align:center;font-size:11px" onclick="commEdit('${r.cid}','closer','nb')" title="Nb paiements commission">${closerNb||'—'}</td>`;
+    for(let i=0;i<maxPay;i++){
+      if(i<closerNb&&closerName&&closerPct){
+        const payAmt=r.pays[i]?parseFloat(r.pays[i].amount)||0:0;
+        const commAmt=(payAmt*closerPct/100);
+        const st=closerSts[i]||'pending';
+        const payDate=r.pays[i]?new Date(r.pays[i].due_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'—';
+        const bg=st==='paid'?'rgba(139,92,246,.1)':'rgba(139,92,246,.04)';
+        const icon=st==='paid'?'✅':'🟣';
+        tbody+=`<td class="ptC ptCommCell" style="background:${bg};cursor:pointer" onclick="commToggle('${r.cid}','closer',${i})" title="${payDate} — Cliquer pour changer le statut"><div style="font-weight:700;font-size:11px;color:#8b5cf6">${commAmt.toFixed(0)}€</div><div style="font-size:9px;color:var(--text3)">${payDate} ${icon}</div></td>`;
+      } else {
+        tbody+=`<td class="ptC ptCommEmpty"></td>`;
+      }
+    }
+    // --- SETTER ---
+    const setterName=cm.setter_name||'';
+    const setterPct=parseFloat(cm.setter_pct)||0;
+    const setterNb=parseInt(cm.setter_nb)||0;
+    const setterSts=cm.setter_status||[];
+    tbody+=`<td class="ptC ptCommSep" style="cursor:pointer;white-space:nowrap;font-weight:${setterName?'700':'400'};color:${setterName?'var(--dark)':'var(--text3)'}" onclick="commEdit('${r.cid}','setter','name')" title="Cliquer pour définir le setter">${setterName||'—'}</td>`;
+    tbody+=`<td class="ptC" style="cursor:pointer;text-align:center;font-size:11px;color:#f59e0b;font-weight:700" onclick="commEdit('${r.cid}','setter','pct')" title="% commission setter">${setterPct?setterPct+'%':'—'}</td>`;
+    tbody+=`<td class="ptC" style="cursor:pointer;text-align:center;font-size:11px" onclick="commEdit('${r.cid}','setter','nb')" title="Nb paiements commission">${setterNb||'—'}</td>`;
+    for(let i=0;i<maxPay;i++){
+      if(i<setterNb&&setterName&&setterPct){
+        const payAmt=r.pays[i]?parseFloat(r.pays[i].amount)||0:0;
+        const commAmt=(payAmt*setterPct/100);
+        const st=setterSts[i]||'pending';
+        const payDate=r.pays[i]?new Date(r.pays[i].due_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'—';
+        const bg=st==='paid'?'rgba(245,158,11,.1)':'rgba(245,158,11,.04)';
+        const icon=st==='paid'?'✅':'🟠';
+        tbody+=`<td class="ptC ptCommCell" style="background:${bg};cursor:pointer" onclick="commToggle('${r.cid}','setter',${i})" title="${payDate} — Cliquer pour changer le statut"><div style="font-weight:700;font-size:11px;color:#f59e0b">${commAmt.toFixed(0)}€</div><div style="font-size:9px;color:var(--text3)">${payDate} ${icon}</div></td>`;
+      } else {
+        tbody+=`<td class="ptC ptCommEmpty"></td>`;
+      }
+    }
+    // Notes
     tbody+=`<td class="ptC ptNote" style="min-width:120px"><div class="ptNoteWrap" contenteditable="true" data-cid="${r.cid}" onblur="savePayNote(this)" title="Ajouter une note">${note}</div></td>`;
     tbody+=`</tr>`;
   });
@@ -10757,6 +10818,10 @@ async function renderPaymentsPage(){
     .ptC{padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle}
     .ptPay{border-left:1px solid rgba(0,0,0,.04)}
     .ptPayEmpty{border-left:1px solid rgba(0,0,0,.02);background:rgba(0,0,0,.01)}
+    .ptCommSep{border-left:3px solid var(--border)!important}
+    .ptCommCell{border-left:1px solid rgba(0,0,0,.04);text-align:center}
+    .ptCommEmpty{border-left:1px solid rgba(0,0,0,.02);background:rgba(0,0,0,.01)}
+    .ptCommH{font-size:8px!important}
     .ptRow:hover{background:rgba(196,154,42,.06)!important}
     .ptRow:hover .ptFixed{background:rgba(196,154,42,.06)!important}
     .ptNoteWrap{font-size:11px;color:var(--text2);min-height:18px;outline:none;padding:2px 4px;border-radius:4px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -10769,9 +10834,11 @@ async function renderPaymentsPage(){
       <th class="ptH" style="text-align:left;position:sticky;left:0;background:var(--bg2);z-index:3;min-width:150px">Client</th>
       <th class="ptH">Contrat</th>
       <th class="ptH">Durée</th>
-      ${th}
+      ${thPay}
       <th class="ptH">Total</th>
       <th class="ptH">Payé</th>
+      <th class="ptH ptCommSep" style="color:#8b5cf6">Closer</th><th class="ptH" style="color:#8b5cf6">%</th><th class="ptH" style="color:#8b5cf6">Nb</th>${thComm}
+      <th class="ptH ptCommSep" style="color:#f59e0b">Setter</th><th class="ptH" style="color:#f59e0b">%</th><th class="ptH" style="color:#f59e0b">Nb</th>${thCommS}
       <th class="ptH" style="text-align:left">Notes</th>
     </tr></thead>
     <tbody>${tbody}</tbody>
@@ -10782,6 +10849,43 @@ function filterPayTable(q){
   document.querySelectorAll('.ptRow').forEach(tr=>{
     tr.style.display=(!q||tr.dataset.name.includes(q))?'':'none';
   });
+}
+function commEdit(cid,role,field){
+  const comms=_getCommissions();
+  if(!comms[cid])comms[cid]={};
+  const cm=comms[cid];
+  if(field==='name'){
+    const cur=cm[role+'_name']||'';
+    const v=prompt((role==='closer'?'Prénom du closeur':'Prénom du setter')+' (vide = aucun) :',cur);
+    if(v===null)return;
+    cm[role+'_name']=v.trim();
+    if(!v.trim()){cm[role+'_pct']=0;cm[role+'_nb']=0;cm[role+'_status']=[];}
+  } else if(field==='pct'){
+    const cur=cm[role+'_pct']||'';
+    const v=prompt('Pourcentage de commission (ex: 7.5) :',cur);
+    if(v===null)return;
+    const n=parseFloat(v);if(isNaN(n)||n<0||n>100){toast('Pourcentage invalide');return;}
+    cm[role+'_pct']=n;
+  } else if(field==='nb'){
+    const cPays=_allPayments.filter(p=>p.client_id===cid).length;
+    const cur=cm[role+'_nb']||cPays||1;
+    const v=prompt(`Nombre de paiements commission (max ${cPays||'?'}) :`,cur);
+    if(v===null)return;
+    const n=parseInt(v);if(isNaN(n)||n<0){toast('Nombre invalide');return;}
+    cm[role+'_nb']=n;
+    if(!cm[role+'_status'])cm[role+'_status']=[];
+    while(cm[role+'_status'].length<n)cm[role+'_status'].push('pending');
+  }
+  _saveCommissions(comms);renderPaymentsPage();
+}
+function commToggle(cid,role,idx){
+  const comms=_getCommissions();
+  if(!comms[cid])comms[cid]={};
+  const cm=comms[cid];
+  if(!cm[role+'_status'])cm[role+'_status']=[];
+  while(cm[role+'_status'].length<=idx)cm[role+'_status'].push('pending');
+  cm[role+'_status'][idx]=cm[role+'_status'][idx]==='paid'?'pending':'paid';
+  _saveCommissions(comms);renderPaymentsPage();
 }
 async function payToggleStatus(id){
   const p=_allPayments.find(x=>x.id===id);if(!p)return;
