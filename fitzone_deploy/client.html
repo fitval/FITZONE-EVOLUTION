@@ -458,9 +458,12 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .home-level-bar { height:6px; border-radius:3px; background:rgba(255,255,255,.12); margin-top:6px; overflow:hidden; }
 .home-level-fill { height:100%; border-radius:3px; background:var(--gold); }
 .home-level-pts { font-size:16px; font-weight:800; color:var(--gold); }
-/* Activity chips */
-#actChipRow::-webkit-scrollbar{display:none}
-.act-chip-on span{color:#fff !important}
+/* Activity grid */
+.act-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:2px}
+.act-chip{display:flex;align-items:center;gap:8px;padding:10px 10px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--white);cursor:pointer;font-family:var(--font);transition:all .15s;font-size:18px;justify-content:flex-start}
+.act-chip span{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-chip.act-on{background:var(--gold);border-color:var(--gold);color:#fff}
+.act-chip.act-on span{color:#fff}
 /* Calendar */
 .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .cal-nav{display:flex;align-items:center;gap:10px}
@@ -902,7 +905,7 @@ async function loadData(){
     if(sData&&sData[0]){
       if(sData[0].gamif_levels&&sData[0].gamif_levels.length)LEVELS=sData[0].gamif_levels;
       if(Array.isArray(sData[0].activity_types)&&sData[0].activity_types.length)coachActivityTypes=sData[0].activity_types;
-      else coachActivityTypes=["Natation","Randonnée","Vélo","Course à pied","Marche","Yoga","Autre"];
+      else coachActivityTypes=["Course à pied","Marche","Randonnée","Trail","Vélo","VTT","Natation","Aquagym","Rameur","Surf","Paddle","Ski","Snowboard","Football","Basketball","Handball","Volleyball","Rugby","Tennis","Padel","Badminton","Ping-pong","Squash","Golf","Boxe","Arts martiaux","Judo","Yoga","Pilates","Stretching","Danse","Zumba","CrossFit","HIIT","Corde à sauter","Escalade","Bloc","Gymnastique","Roller","Skateboard","Équitation","Elliptique","Spinning","Marche nordique","Autre"];
     }
   }catch(e){}
   // Load partner banners
@@ -1310,7 +1313,7 @@ function renderTrainPreview(){
 }
 
 /* ===== ACTIVITIES VIEW ===== */
-const ACTIVITY_ICONS={'Natation':'🏊','Randonnée':'🥾','Vélo':'🚴','Course à pied':'🏃','Marche':'🚶','Yoga':'🧘','Pilates':'🤸','Danse':'💃','Escalade':'🧗','Tennis':'🎾','Football':'⚽','Basketball':'🏀','Arts martiaux':'🥋','Ski':'⛷️','Surf':'🏄','Autre':'🏅'};
+const ACTIVITY_ICONS={'Course à pied':'🏃','Marche':'🚶','Randonnée':'🥾','Trail':'🏔️','Vélo':'🚴','VTT':'🚵','Natation':'🏊','Aquagym':'🏊','Rameur':'🚣','Canoë-Kayak':'🛶','Surf':'🏄','Paddle':'🏄','Voile':'⛵','Plongée':'🤿','Ski':'⛷️','Ski de fond':'⛷️','Snowboard':'🏂','Raquettes':'🥾','Patin à glace':'⛸️','Football':'⚽','Basketball':'🏀','Handball':'🤾','Volleyball':'🏐','Rugby':'🏉','Tennis':'🎾','Padel':'🎾','Badminton':'🏸','Ping-pong':'🏓','Squash':'🎾','Golf':'⛳','Baseball':'⚾','Cricket':'🏏','Hockey':'🏑','Boxe':'🥊','Arts martiaux':'🥋','Judo':'🥋','Karaté':'🥋','Escrime':'🤺','Lutte':'🤼','Yoga':'🧘','Pilates':'🤸','Stretching':'🧘','Méditation':'🧘','Danse':'💃','Zumba':'💃','CrossFit':'🏋️','HIIT':'🔥','Corde à sauter':'⏱️','Escalade':'🧗','Bloc':'🧗','Gymnastique':'🤸','Athlétisme':'🏃','Triathlon':'🏊','Roller':'🛼','Skateboard':'🛹','Équitation':'🐴','Tir à l\'arc':'🏹','Elliptique':'🏋️','Stepper':'🏋️','Spinning':'🚴','Marche nordique':'🥾','Autre':'🏅'};
 function renderActivitiesView(){
   const actLogs=trainLogs.filter(l=>l.type==='activity').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   let h=`<button class="btn-gold" style="width:100%;padding:14px;font-size:15px;margin-bottom:20px;border-radius:12px" onclick="openActivityModal()">+ Ajouter une activité</button>`;
@@ -1345,13 +1348,13 @@ function openActivityModal(){
 
   // 1 — Type d'activité
   h+=`<div class="bilan-section-title"><i class="fas fa-running"></i> ACTIVITÉ</div>`;
-  h+=`<div class="form-group"><div class="bilan-q-label">Choisis ou tape le nom de ton activité</div>`;
-  h+=`<div style="display:flex;overflow-x:auto;gap:8px;padding-bottom:8px;-webkit-overflow-scrolling:touch;scrollbar-width:none" id="actChipRow">`;
+  h+=`<div class="form-group"><div class="bilan-q-label">Choisis ou recherche ton activité</div>`;
+  h+=`<input id="actSearch" class="form-input" placeholder="Rechercher une activité..." oninput="filterActChips(this.value)" style="margin-bottom:10px">`;
+  h+=`<div class="act-grid" id="actChipGrid">`;
   coachActivityTypes.forEach(t=>{
-    h+=`<button class="act-chip" onclick="selectActChip(this,'${t.replace(/'/g,"\\'")}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 14px;border-radius:var(--r-sm);border:1.5px solid var(--border);background:var(--white);min-width:72px;cursor:pointer;font-family:var(--font);transition:all .15s"><span style="font-size:22px">${ACTIVITY_ICONS[t]||'🏅'}</span><span style="font-size:11px;font-weight:600;white-space:nowrap">${t}</span></button>`;
+    h+=`<button class="act-chip" data-act="${t}" onclick="selectActChip(this,'${t.replace(/'/g,"\\'")}')">${ACTIVITY_ICONS[t]||'🏅'}<span>${t}</span></button>`;
   });
   h+=`</div>`;
-  h+=`<input id="actCustomName" class="form-input" placeholder="Ou tape le nom..." oninput="clearActChips()" style="margin-top:8px">`;
   h+=`<input type="hidden" id="actType" value="">`;
   h+=`</div>`;
 
@@ -1384,14 +1387,18 @@ function openActivityModal(){
   document.getElementById('trainContent').innerHTML=h;
 }
 function selectActChip(btn,name){
-  document.querySelectorAll('.act-chip').forEach(c=>{c.classList.remove('act-chip-on');c.style.background='var(--white)';c.style.borderColor='var(--border)';});
-  btn.classList.add('act-chip-on');btn.style.background='var(--gold)';btn.style.borderColor='var(--gold)';btn.style.color='#fff';
+  document.querySelectorAll('.act-chip').forEach(c=>c.classList.remove('act-on'));
+  btn.classList.add('act-on');
   document.getElementById('actType').value=name;
-  document.getElementById('actCustomName').value='';
+  const search=document.getElementById('actSearch');if(search)search.value='';
+  filterActChips('');
 }
-function clearActChips(){
-  document.querySelectorAll('.act-chip').forEach(c=>{c.style.background='var(--white)';c.style.borderColor='var(--border)';c.style.color='var(--text)';});
-  document.getElementById('actType').value='';
+function filterActChips(q){
+  const lower=q.toLowerCase();
+  document.querySelectorAll('#actChipGrid .act-chip').forEach(c=>{
+    const name=(c.dataset.act||'').toLowerCase();
+    c.style.display=(!q||name.includes(lower))?'':'none';
+  });
 }
 function setActRating(val){
   actRating=val;
@@ -1402,8 +1409,8 @@ function setActRating(val){
 }
 async function saveActivity(){
   const chipVal=document.getElementById('actType').value;
-  const customVal=document.getElementById('actCustomName').value.trim();
-  const actType=chipVal||customVal;
+  const searchVal=(document.getElementById('actSearch')?.value||'').trim();
+  const actType=chipVal||searchVal;
   if(!actType){toast('Choisis ou tape un nom d\'activité');return;}
   const dur=parseFloat(document.getElementById('actDur').value)||0;
   const rpe=actRating||null;
