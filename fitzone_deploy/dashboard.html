@@ -1490,6 +1490,74 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
   </div>
 </div></div>
 
+<!-- MODAL: GENERATE AI TRAINING PLAN -->
+<div class="overlay" id="mGenTrainPlan"><div class="modal" style="max-width:640px">
+  <div class="mh"><span>Générer un programme d'entraînement IA</span><span class="mx" onclick="closeM('mGenTrainPlan')">✕</span></div>
+  <div class="mb" style="max-height:70vh;overflow-y:auto">
+    <div style="background:var(--dark);border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px">PROFIL CLIENT</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;color:#fff;font-size:13px" id="gtpProfile">—</div>
+    </div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Objectif principal</label>
+        <select class="fs" id="gtpGoal">
+          <option value="perte de poids">Perte de poids</option>
+          <option value="prise de masse">Prise de masse</option>
+          <option value="recomposition corporelle">Recomposition corporelle</option>
+          <option value="performance sportive">Performance sportive</option>
+          <option value="remise en forme">Remise en forme</option>
+          <option value="endurance">Endurance</option>
+          <option value="force">Force</option>
+          <option value="bien-être général">Bien-être général</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Niveau</label>
+        <select class="fs" id="gtpLevel">
+          <option value="débutant">Débutant</option>
+          <option value="intermédiaire">Intermédiaire</option>
+          <option value="avancé">Avancé</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Durée par séance (min)</label>
+        <input class="fi" type="number" id="gtpDuration" value="60" min="20" max="120">
+      </div>
+      <div class="fg"><label class="fl">Nombre de jours</label>
+        <select class="fs" id="gtpNbDays" onchange="gtpUpdateDays()">
+          <option value="3">3 jours</option><option value="4">4 jours</option><option value="5" selected>5 jours</option><option value="6">6 jours</option><option value="7">7 jours</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Planning des jours</label>
+      <div id="gtpDaysWrap" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+    <div class="fg"><label class="fl">Équipement disponible</label>
+      <input class="fi" id="gtpEquip" placeholder="Salle complète, haltères maison, bandes élastiques…">
+    </div>
+    <div class="fg"><label class="fl">Blessures / Restrictions</label>
+      <textarea class="fi" id="gtpInjuries" rows="2" placeholder="Douleur épaule gauche, hernie discale…" style="resize:vertical"></textarea>
+    </div>
+    <div class="fg"><label class="fl">Exercices à éviter</label>
+      <input class="fi" id="gtpDisliked" placeholder="Squat barre, tractions…">
+    </div>
+    <div class="fg"><label class="fl">Préférences / Notes</label>
+      <textarea class="fi" id="gtpPrefs" rows="2" placeholder="Préfère les supersets, aime le HIIT, veut du cardio 2x/sem…" style="resize:vertical"></textarea>
+    </div>
+    <div id="gtpDbInfo" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#15803d;font-weight:500"></div>
+    <div id="gtpLoading" style="display:none;text-align:center;padding:20px 0">
+      <div style="font-size:32px;animation:spin 1.5s linear infinite;display:inline-block">🤖</div>
+      <div style="font-size:13px;font-weight:600;margin-top:8px;color:var(--dark)" id="gtpLoadText">Génération en cours…</div>
+      <div style="width:100%;max-width:300px;margin:10px auto 0;height:8px;border-radius:4px;background:var(--bg2);overflow:hidden"><div id="gtpProgressBar" style="height:100%;width:0%;border-radius:4px;background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width .3s"></div></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px" id="gtpProgressText">Connexion…</div>
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-ghost" onclick="closeM('mGenTrainPlan')">Annuler</button>
+    <button class="btn" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700" id="gtpGenBtn" onclick="generateAITrainPlan()">🤖 Générer le programme</button>
+  </div>
+</div></div>
+
 <!-- Modal édition profil alimentaire -->
 <div class="overlay" id="mEditFood"><div class="modal" style="max-width:580px">
   <div class="mh"><span>Modifier le profil alimentaire</span><span class="mx" onclick="closeM('mEditFood')">✕</span></div>
@@ -3649,6 +3717,7 @@ function _renderTrainingContent(el,logs){
       </div>
       <button class="btn btn-dark btn-sm" onclick="addTrainLog()">+ Ajouter une séance</button>
       <button class="btn btn-gold btn-sm" onclick="openProgBuilderForClient()">🏋️ Créer un programme</button>
+      <button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700" onclick="openGenTrainPlanModal()">🤖 Programme IA</button>
       <button class="btn btn-ghost btn-sm" onclick="swDet('calendar',document.querySelector('#detTabs .tab:last-child'));renderCalendarTab()">📅 Calendrier</button>
     </div>
     <div id="trainContent"></div>
@@ -9130,6 +9199,264 @@ async function deleteCalendarEvent(id){
   if(!confirm('Supprimer cet événement ?'))return;
   await db.from('calendar_events').delete().eq('id',id);
   toast('Événement supprimé');renderCalendarTab();
+}
+
+/* ===== AI TRAINING PLAN ===== */
+let aiTrainPlanData=null;
+const GTP_DAY_TYPES=[['muscu','💪 Musculation'],['running','🏃 Running'],['natation','🏊 Natation'],['hybride','🔄 Hybride']];
+function openGenTrainPlanModal(){
+  if(!curClient){toast('Sélectionne un client');return;}
+  const q=curQ||{};
+  const profile=[];
+  if(q.sex)profile.push(q.sex==='male'?'Homme':'Femme');
+  if(q.age)profile.push(q.age+' ans');
+  if(q.weight_kg)profile.push(q.weight_kg+'kg');
+  if(q.height_cm)profile.push(q.height_cm+'cm');
+  if(q.experience_level)profile.push('Niveau: '+q.experience_level);
+  document.getElementById('gtpProfile').innerHTML=profile.length?profile.map(p=>'<span>'+p+'</span>').join('<span style="opacity:.3">·</span>'):'<span style="color:rgba(255,255,255,.4)">Pas de questionnaire — remplis les champs manuellement</span>';
+  // Pre-fill from questionnaire
+  const goalMap={'loss':'perte de poids','mass':'prise de masse','recomp':'recomposition corporelle','performance':'performance sportive','maintain':'remise en forme','wellbeing':'bien-être général'};
+  document.getElementById('gtpGoal').value=goalMap[q.goal]||'remise en forme';
+  document.getElementById('gtpLevel').value=q.experience_level||'intermédiaire';
+  document.getElementById('gtpDuration').value=q.session_duration||60;
+  const td=q.training_days;
+  if(Array.isArray(td)&&td.length){document.getElementById('gtpNbDays').value=Math.min(7,Math.max(3,td.length));}
+  document.getElementById('gtpEquip').value=[q.gym_name?'Salle: '+q.gym_name:'',q.home_equipment||''].filter(Boolean).join(', ')||'Salle de musculation complète';
+  document.getElementById('gtpInjuries').value=q.injuries||'';
+  document.getElementById('gtpDisliked').value=q.disliked_exercises||'';
+  document.getElementById('gtpPrefs').value='';
+  const exoCount=(typeof exercises!=='undefined'?exercises:[]).length||(typeof coachExos!=='undefined'?coachExos:[]).length||0;
+  document.getElementById('gtpDbInfo').textContent=`📦 ${exoCount} exercices dans votre bibliothèque`;
+  document.getElementById('gtpLoading').style.display='none';
+  document.getElementById('gtpGenBtn').disabled=false;
+  document.getElementById('gtpGenBtn').textContent='🤖 Générer le programme';
+  gtpUpdateDays();
+  openM('mGenTrainPlan');
+}
+function gtpUpdateDays(){
+  const n=parseInt(document.getElementById('gtpNbDays').value)||5;
+  const wrap=document.getElementById('gtpDaysWrap');
+  const q=curQ||{};
+  const td=Array.isArray(q.training_days)?q.training_days:[];
+  const defaultNames=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  let h='';
+  for(let i=0;i<n;i++){
+    const dayName=td[i]||defaultNames[i]||'Jour '+(i+1);
+    h+=`<div style="display:flex;gap:6px;align-items:center">
+      <input class="fi" id="gtpDay${i}" value="${dayName}" style="flex:1;height:34px;font-size:12px">
+      <select class="fs" id="gtpDayType${i}" style="width:160px;height:34px;font-size:12px">
+        ${GTP_DAY_TYPES.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}
+      </select>
+    </div>`;
+  }
+  wrap.innerHTML=h;
+}
+async function generateAITrainPlan(){
+  const btn=document.getElementById('gtpGenBtn');
+  const loading=document.getElementById('gtpLoading');
+  btn.disabled=true;btn.textContent='⏳ Génération…';
+  loading.style.display='block';
+  document.getElementById('gtpLoadText').textContent='Connexion à l\'IA…';
+  const pBar=document.getElementById('gtpProgressBar');
+  const pText=document.getElementById('gtpProgressText');
+  const nbDays=parseInt(document.getElementById('gtpNbDays').value)||5;
+  const dayNames=[],dayTypes=[];
+  for(let i=0;i<nbDays;i++){
+    dayNames.push(document.getElementById('gtpDay'+i)?.value||'Jour '+(i+1));
+    dayTypes.push(document.getElementById('gtpDayType'+i)?.value||'muscu');
+  }
+  const exoLib=(typeof exercises!=='undefined'&&exercises.length)?exercises:(typeof coachExos!=='undefined'?coachExos:[]);
+  const config={
+    nb_days:nbDays,
+    day_names:dayNames,
+    day_types:dayTypes,
+    goal:document.getElementById('gtpGoal').value,
+    experience_level:document.getElementById('gtpLevel').value,
+    session_duration:parseInt(document.getElementById('gtpDuration').value)||60,
+    equipment:document.getElementById('gtpEquip').value,
+    injuries:document.getElementById('gtpInjuries').value,
+    disliked_exercises:document.getElementById('gtpDisliked').value,
+    preferences:document.getElementById('gtpPrefs').value,
+    exercise_database:exoLib.map(e=>({nom:e.nom||e.name||'',muscle:e.muscle||e.group||'',equip:e.equip||e.equipment||'',video:e.video||''})).slice(0,200)
+  };
+  const q=curQ||{};
+  const clientProfile={
+    sex:q.sex,age:q.age,weight_kg:q.weight_kg,height_cm:q.height_cm,
+    goal:q.goal,experience_level:q.experience_level,
+    injuries:q.injuries,previous_program:q.previous_program,
+    daily_steps:q.daily_steps,sleep_hours:q.sleep_hours
+  };
+  try{
+    pBar.style.width='5%';pText.textContent='Envoi des paramètres…';
+    const resp=await fetch(SUPA+'/functions/v1/generate-training-plan',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY,'apikey':KEY},
+      body:JSON.stringify({config,clientProfile})
+    });
+    pBar.style.width='50%';pText.textContent='L\'IA construit le programme…';
+    if(!resp.ok){const err=await resp.json().catch(()=>({error:'Erreur serveur'}));throw new Error(err.error||'Erreur '+resp.status);}
+    pBar.style.width='85%';pText.textContent='Réception du programme…';
+    const plan=await resp.json();
+    if(!plan||!plan.jours)throw new Error('Programme invalide reçu du serveur');
+    pBar.style.width='95%';pText.textContent='Optimisation…';
+    // Match exercises with coach DB
+    const exoMap={};exoLib.forEach(e=>{exoMap[(e.nom||e.name||'').toLowerCase().trim()]=e;});
+    plan.jours.forEach(j=>{
+      ['warmup','workout','cooldown'].forEach(sec=>{
+        (j[sec]||[]).forEach(ex=>{
+          if(ex.superset&&ex.exercises){
+            ex.exercises.forEach(sub=>{const m=exoMap[(sub.nom||'').toLowerCase().trim()];if(m){sub.from_db=true;sub.video=sub.video||m.video||'';sub.muscle=m.muscle||sub.muscle;}else sub.from_db=false;});
+          }else if(!ex.kind){
+            const m=exoMap[(ex.nom||'').toLowerCase().trim()];if(m){ex.from_db=true;ex.video=ex.video||m.video||'';ex.muscle=m.muscle||ex.muscle;}else ex.from_db=false;
+          }
+        });
+      });
+    });
+    aiTrainPlanData={...plan,config,dayTypes};
+    pBar.style.width='100%';pText.textContent='Terminé !';
+    setTimeout(()=>{closeM('mGenTrainPlan');renderAITrainPlan(aiTrainPlanData);toast('Programme IA généré ✓');},400);
+  }catch(e){
+    console.error('AI Train Plan error:',e);
+    toast('Erreur: '+e.message);
+    document.getElementById('gtpLoadText').textContent='Erreur: '+e.message;
+    pBar.style.width='0%';pBar.style.background='#ef4444';pText.textContent=e.message;
+  }finally{
+    btn.disabled=false;btn.textContent='🤖 Générer le programme';
+  }
+}
+function renderAITrainPlan(plan){
+  const el=document.getElementById('tc-training');if(!el)return;
+  const nbExos=plan.jours.reduce((s,j)=>s+['warmup','workout','cooldown'].reduce((ss,sec)=>ss+(j[sec]||[]).reduce((sss,ex)=>sss+(ex.superset?(ex.exercises||[]).length:1),0),0),0);
+  const dbExos=plan.jours.reduce((s,j)=>s+['warmup','workout','cooldown'].reduce((ss,sec)=>ss+(j[sec]||[]).reduce((sss,ex)=>{if(ex.superset)return sss+(ex.exercises||[]).filter(e=>e.from_db).length;return sss+(ex.from_db?1:0);},0),0),0);
+  let h=`<div style="margin-bottom:14px;padding:16px;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:12px;color:#fff">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:16px;font-weight:800">🤖 ${plan.nom||'Programme IA'}</div>
+      <div style="font-size:11px;opacity:.7">${plan.jours.length} jours · ${nbExos} exercices</div>
+    </div>
+    ${plan.desc?`<div style="font-size:12px;opacity:.8;margin-bottom:10px">${plan.desc}</div>`:''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span style="background:rgba(255,255,255,.2);padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700">${dbExos} exos biblio</span>
+      <span style="background:rgba(255,255,255,.15);padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700">${nbExos-dbExos} exos IA</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn btn-sm" style="background:#fff;color:#7c3aed;font-weight:800;border:none" onclick="saveAITrainPlan()">✓ Valider et sauvegarder</button>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;font-weight:700;border:none" onclick="saveAndEditAITrainPlan()">✏️ Sauvegarder et modifier</button>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#fff;font-weight:600;border:none" onclick="openGenTrainPlanModal()">🔄 Régénérer</button>
+    </div>
+  </div>`;
+  plan.jours.forEach((j,ji)=>{
+    const typeIcon=j.type==='running'?'🏃':j.type==='natation'?'🏊':j.type==='hybride'?'🔄':'💪';
+    const typeLabel=j.type==='running'?'Running':j.type==='natation'?'Natation':j.type==='hybride'?'Hybride':'Musculation';
+    const exCount=['warmup','workout','cooldown'].reduce((s,sec)=>(j[sec]||[]).reduce((ss,ex)=>ss+(ex.superset?(ex.exercises||[]).length:1),0)+s,0);
+    h+=`<div style="background:var(--white);border-radius:12px;margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)">`;
+    h+=`<div style="padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;border-bottom:1px solid var(--border)" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.atp-arrow').style.transform=this.nextElementSibling.style.display==='none'?'':'rotate(90deg)'">
+      <span style="font-size:20px">${typeIcon}</span>
+      <div style="flex:1"><div style="font-size:14px;font-weight:700">${j.nom||'Jour '+(ji+1)}</div><div style="font-size:11px;color:var(--text3)">${typeLabel} · ${exCount} exercices</div></div>
+      <svg class="atp-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:var(--text3);transition:transform .2s"><path d="M9 18l6-6-6-6"/></svg>
+    </div>`;
+    h+=`<div style="display:none;padding:16px">`;
+    const SEC_LABELS={warmup:'🔥 Échauffement',workout:'💪 Entraînement',cooldown:'❄️ Retour au calme'};
+    ['warmup','workout','cooldown'].forEach(sec=>{
+      const items=j[sec]||[];if(!items.length)return;
+      h+=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin:12px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--gold-pale)">${SEC_LABELS[sec]}</div>`;
+      items.forEach((ex,ei)=>{
+        if(ex.kind==='run'){
+          h+=_atpRunBlock(ex);
+        }else if(ex.superset){
+          h+=`<div style="background:var(--gold-pale);border:1.5px solid var(--gold-border);border-radius:10px;padding:10px;margin-bottom:8px">`;
+          h+=`<div style="font-size:10px;font-weight:800;color:#8a6010;letter-spacing:1px;margin-bottom:8px">⚡ SUPERSET</div>`;
+          (ex.exercises||[]).forEach(sub=>{h+=_atpExoCard(sub);});
+          if(ex.setsRest&&ex.setsRest.length){h+=`<div style="font-size:10px;color:var(--text3);margin-top:6px">Repos: ${ex.setsRest.join(' / ')}</div>`;}
+          h+=`</div>`;
+        }else{
+          h+=_atpExoCard(ex);
+        }
+      });
+    });
+    if(j.instr)h+=`<div style="font-size:12px;color:var(--text2);margin-top:10px;padding:10px;background:var(--bg2);border-radius:8px"><b>Notes :</b> ${j.instr}</div>`;
+    h+=`</div></div>`;
+  });
+  el.innerHTML=h;
+}
+function _atpExoCard(ex){
+  const sets=ex.setsData||[];
+  const dbBadge=ex.from_db?'<span style="background:#dcfce7;color:#16a34a;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700">BIBLIO</span>':'<span style="background:#fef3c7;color:#d97706;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700">IA</span>';
+  let h=`<div style="background:var(--white);border-radius:8px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border)">`;
+  h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:13px;font-weight:700">${ex.nom||'Exercice'}</div>${dbBadge}</div>`;
+  h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text3);margin-bottom:4px">`;
+  if(ex.muscle)h+=`<span>${ex.muscle}</span>`;
+  if(ex.equip)h+=`<span>· ${ex.equip}</span>`;
+  h+=`<span>· ${sets.length} série${sets.length>1?'s':''}</span>`;
+  h+=`</div>`;
+  if(sets.length){
+    h+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`;
+    sets.forEach((s,i)=>{
+      const parts=[];
+      if(s.reps)parts.push(s.reps+' reps');
+      if(s.rest)parts.push('repos '+s.rest);
+      if(s.rir)parts.push('RIR '+s.rir);
+      h+=`<span style="background:var(--bg2);padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600">S${i+1}: ${parts.join(' · ')}</span>`;
+    });
+    h+=`</div>`;
+  }
+  if(ex.notes)h+=`<div style="font-size:11px;color:var(--text2);margin-top:4px;font-style:italic">${ex.notes}</div>`;
+  h+=`</div>`;
+  return h;
+}
+function _atpRunBlock(b){
+  let detail='';
+  if(b.mode==='duration')detail=`${b.duration_min||'?'} min`;
+  else if(b.mode==='distance')detail=`${b.distance_m||'?'} m`;
+  else if(b.mode==='intervals'){
+    const iv=b.intervals||{};
+    detail=`${iv.reps||'?'}x${iv.rep_distance_m?iv.rep_distance_m+'m':iv.rep_duration_s?iv.rep_duration_s+'s':'?'} (repos ${iv.rest_rep_s||'?'}s)`;
+  }
+  const intensity=b.intensity?` · RPE ${b.intensity.value||'?'}`:'';
+  return`<div style="background:var(--white);border-radius:8px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border);display:flex;align-items:center;gap:10px">
+    <span style="font-size:18px">🏃</span>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700">${b.label||'Bloc'}</div>
+      <div style="font-size:11px;color:var(--text3)">${detail}${intensity}</div>
+      ${b.notes?`<div style="font-size:11px;color:var(--text2);margin-top:2px;font-style:italic">${b.notes}</div>`:''}
+    </div>
+  </div>`;
+}
+function saveAITrainPlan(){
+  if(!aiTrainPlanData||!aiTrainPlanData.jours){toast('Pas de programme à sauvegarder');return;}
+  const prog={
+    id:aiTrainPlanData.savedAsId||Date.now(),
+    coach_id:currentCoach.id,
+    nom:aiTrainPlanData.nom||'Programme IA — '+(curClient?curClient.first_name:'Client'),
+    desc:aiTrainPlanData.desc||'',
+    tags:'IA',
+    jours:aiTrainPlanData.jours.map(j=>({
+      nom:j.nom,
+      type:j.type||'muscu',
+      warmup:(j.warmup||[]).map(_atpCleanExo),
+      workout:(j.workout||[]).map(_atpCleanExo),
+      cooldown:(j.cooldown||[]).map(_atpCleanExo),
+      instr:j.instr||''
+    })),
+    clientIds:[curClient.id],
+    clientNoms:[(curClient.first_name||'')+' '+(curClient.last_name||'')],
+    createdAt:new Date().toISOString()
+  };
+  aiTrainPlanData.savedAsId=prog.id;
+  const idx=programs.findIndex(p=>p.id===prog.id);
+  if(idx>=0)programs[idx]=prog;else programs.push(prog);
+  lsSave('fz_progs',programs);dbSave('programs',prog);
+  toast('Programme IA sauvegardé ✓');
+  renderTrainingTab();
+}
+function _atpCleanExo(ex){
+  if(ex.kind==='run')return ex;
+  if(ex.superset){return{superset:true,exercises:(ex.exercises||[]).map(e=>({nom:e.nom,muscle:e.muscle||'',equip:e.equip||'',video:e.video||'',setsData:e.setsData||[],notes:e.notes||'',replacements:e.replacements||[]})),setsRest:ex.setsRest||[]};}
+  return{nom:ex.nom,muscle:ex.muscle||'',equip:ex.equip||'',video:ex.video||'',setsData:ex.setsData||[],notes:ex.notes||'',replacements:ex.replacements||[]};
+}
+function saveAndEditAITrainPlan(){
+  saveAITrainPlan();
+  if(!aiTrainPlanData.savedAsId)return;
+  openProgBuilder(aiTrainPlanData.savedAsId);
 }
 
 /* ===== MARKETING & FINANCES ===== */
