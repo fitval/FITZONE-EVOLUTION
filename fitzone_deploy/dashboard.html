@@ -9442,9 +9442,9 @@ function saveAITrainPlan(){
     createdAt:new Date().toISOString()
   };
   aiTrainPlanData.savedAsId=prog.id;
-  const idx=programs.findIndex(p=>p.id===prog.id);
-  if(idx>=0)programs[idx]=prog;else programs.push(prog);
-  lsSave('fz_progs',programs);dbSave('programs',prog);
+  const idx=progs.findIndex(p=>p.id===prog.id);
+  if(idx>=0)progs[idx]=prog;else progs.push(prog);
+  lsSave('fz_progs',progs);dbSave('programs',prog);
   toast('Programme IA sauvegardé ✓');
   renderTrainingTab();
 }
