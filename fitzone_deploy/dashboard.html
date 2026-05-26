@@ -10940,8 +10940,8 @@ async function renderPaymentsPage(){
     tbody+=`<tr class="ptRow" data-name="${r.name.toLowerCase()}" style="${rowBg?'background:'+rowBg:''}">`;
     // Client name (sticky)
     tbody+=`<td class="ptC ptFixed" style="font-weight:700;min-width:150px;position:sticky;left:0;background:${rowBg||'var(--white)'};z-index:2"><div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${r.hasOverdue?'#dc2626':(r.allPaid&&r.pays.length?'#16a34a':(r.pays.length?'var(--gold)':'var(--border)'))};flex-shrink:0"></span>${r.name}</div></td>`;
-    tbody+=`<td class="ptC" style="font-size:11px;color:${contractColor};white-space:nowrap">${contractStatus}</td>`;
-    tbody+=`<td class="ptC" style="font-size:11px;white-space:nowrap">${duration}</td>`;
+    tbody+=`<td class="ptC" style="font-size:11px;color:${contractColor};white-space:nowrap;cursor:pointer" onclick="payEditContract('${r.cid}')" title="Modifier le contrat">${contractStatus}</td>`;
+    tbody+=`<td class="ptC" style="font-size:11px;white-space:nowrap;cursor:pointer" onclick="payEditContract('${r.cid}')" title="Modifier la durée">${duration}</td>`;
     // Client payments
     for(let i=0;i<maxPay;i++){
       const p=r.pays[i];
@@ -11098,6 +11098,56 @@ function _clearComm(cid,role){
   _saveCommissions(comms);
   closeM('mCommEdit');
   toast('Commission supprimée');
+  renderPaymentsPage();
+}
+function payEditContract(cid){
+  const client=allClients.find(c=>c.id===cid);
+  const clientName=client?((client.first_name||'')+' '+(client.last_name||'')).trim():'Client';
+  const pays=_allPayments.filter(p=>p.client_id===cid).sort((a,b)=>a.due_date>b.due_date?1:-1);
+  const contract=pays.length&&pays[0]._contract?pays[0]._contract:null;
+  const ccId=contract?contract.id:null;
+  const curDuration=contract?contract.duration_months||'':'';
+  const curSigned=contract?!!contract.signed_at:false;
+  const curStartDate=contract?contract.start_date||'':'';
+  const curTemplateName=contract?contract.template_name||'':'';
+  let m=document.getElementById('mPayContract');
+  if(!m){m=document.createElement('div');m.id='mPayContract';m.className='modal';document.body.appendChild(m);}
+  m.innerHTML=`<div class="mo"><div class="mp" style="padding:24px;max-width:420px">
+    <div class="cl cl-gold" style="margin-bottom:4px">CONTRAT</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px">${clientName}${curTemplateName?' — '+curTemplateName:''}</div>
+    ${ccId?`
+    <div class="fg"><label class="fl">Durée (mois)</label><input class="fi" id="pcDuration" type="number" min="1" value="${curDuration}" placeholder="Ex: 3"></div>
+    <div class="fg"><label class="fl">Date de début</label><input class="fi" type="date" id="pcStartDate" value="${curStartDate}"></div>
+    <div class="fg"><label class="fl">Statut du contrat</label>
+      <select class="fi" id="pcSigned">
+        <option value="pending" ${!curSigned?'selected':''}>⏳ En attente</option>
+        <option value="signed" ${curSigned?'selected':''}>✅ Signé</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-dark" onclick="_savePayContract('${ccId}')">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeM('mPayContract')">Annuler</button>
+    </div>
+    `:`<div style="font-size:13px;color:var(--text3);padding:16px 0;text-align:center">Aucun contrat lié à ce client.<br>Créez un contrat depuis le <strong>détail client</strong>.</div>
+    <button class="btn btn-ghost" onclick="closeM('mPayContract')">Fermer</button>`}
+  </div></div>`;
+  m.classList.add('show');
+}
+async function _savePayContract(ccId){
+  const duration=parseInt(document.getElementById('pcDuration').value)||null;
+  const startDate=document.getElementById('pcStartDate').value||null;
+  const signedVal=document.getElementById('pcSigned').value;
+  const upd={duration_months:duration,start_date:startDate};
+  if(signedVal==='signed'){
+    const existing=await db.from('client_contracts').select('signed_at').eq('id',ccId).maybeSingle();
+    if(!existing.data?.signed_at)upd.signed_at=new Date().toISOString();
+  } else {
+    upd.signed_at=null;
+  }
+  const{error}=await db.from('client_contracts').update(upd).eq('id',ccId);
+  if(error){toast('Erreur: '+error.message);return;}
+  closeM('mPayContract');
+  toast('Contrat modifié ✓');
   renderPaymentsPage();
 }
 function commToggle(cid,role,idx){
