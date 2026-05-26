@@ -983,6 +983,15 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
         </div>
         <button class="btn btn-dark" style="margin-top:14px" id="partnerAddBtn" onclick="openAddPartner()">+ Ajouter un partenaire</button>
       </div>
+      <div class="card cp" style="margin-top:16px">
+        <div class="cl cl-gold">🏊 TYPES D'ACTIVITÉS</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Types d'activités disponibles pour les clients dans Entraînement → Activités</div>
+        <div id="activityTypesList"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input class="fi" id="newActivityType" placeholder="Ex: Natation, Escalade..." style="flex:1">
+          <button class="btn btn-dark btn-sm" onclick="addActivityType()">+ Ajouter</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1150,6 +1159,7 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
       <div class="tab" onclick="swDet('bilan',this);renderBilanTab()">📝 Bilans</div>
       <div class="tab" onclick="swDet('galerie',this);renderGalerieTab()">📸 Galerie</div>
       <div class="tab" onclick="swDet('gamification',this);renderGamifTab()">🏆 Gamification</div>
+      <div class="tab" onclick="swDet('calendar',this);renderCalendarTab()">📅 Calendrier</div>
     </div>
     <div id="detQuickbar" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 0 12px;border-bottom:1px solid var(--border);margin-bottom:14px">
       <span style="font-size:11px;color:var(--text3);margin-right:auto">Accès rapide :</span>
@@ -1163,6 +1173,7 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
     <div class="tc" id="tc-bilan"></div>
     <div class="tc" id="tc-galerie"></div>
     <div class="tc" id="tc-gamification"></div>
+    <div class="tc" id="tc-calendar"></div>
   </div>
 </main>
 
@@ -2114,7 +2125,7 @@ function showPage(name,el){
   if(name==='rec-responses')renderRecResponses();
   if(name==='reward-requests'){renderRewardsSettings();renderLevelsSettings();renderRewardRequestsPage();}
   if(name==='marketing'){renderMkTracking();renderMkFinance();}
-  if(name==='settings')loadPartner();
+  if(name==='settings'){loadPartner();loadActivityTypes();}
   if(name==='q-editor')renderQEditor();
   if(name==='contracts')renderContractTemplates();
   if(name==='payments')renderPaymentsPage();
@@ -3638,6 +3649,7 @@ function _renderTrainingContent(el,logs){
       </div>
       <button class="btn btn-dark btn-sm" onclick="addTrainLog()">+ Ajouter une séance</button>
       <button class="btn btn-gold btn-sm" onclick="openProgBuilderForClient()">🏋️ Créer un programme</button>
+      <button class="btn btn-ghost btn-sm" onclick="swDet('calendar',document.querySelector('#detTabs .tab:last-child'));renderCalendarTab()">📅 Calendrier</button>
     </div>
     <div id="trainContent"></div>
 `;
@@ -6673,6 +6685,37 @@ async function deletePartner(i){
   renderPartnersList();toast('Partenaire supprimé');
 }
 
+/* ===== ACTIVITY TYPES ===== */
+let allActivityTypes=[];
+const DEFAULT_ACTIVITY_TYPES=["Natation","Randonnée","Vélo","Course à pied","Marche","Yoga","Pilates","Danse","Escalade","Tennis","Football","Basketball","Arts martiaux","Ski","Surf","Autre"];
+async function loadActivityTypes(){
+  if(!currentCoach)return;
+  try{
+    const{data}=await db.from('settings').select('activity_types').eq('coach_id',currentCoach.id).limit(1);
+    if(data&&data[0]&&Array.isArray(data[0].activity_types))allActivityTypes=data[0].activity_types;
+    else allActivityTypes=[...DEFAULT_ACTIVITY_TYPES];
+    renderActivityTypesList();
+  }catch(e){allActivityTypes=[...DEFAULT_ACTIVITY_TYPES];renderActivityTypesList();}
+}
+function renderActivityTypesList(){
+  const el=document.getElementById('activityTypesList');if(!el)return;
+  if(!allActivityTypes.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px 0">Aucun type configuré</div>';return;}
+  el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px">'+allActivityTypes.map((t,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;background:var(--bg2);border-radius:20px;font-size:12px;font-weight:600">${t}<button style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px;line-height:1" onclick="removeActivityType(${i})">✕</button></span>`).join('')+'</div>';
+}
+async function addActivityType(){
+  const inp=document.getElementById('newActivityType');if(!inp)return;
+  const v=inp.value.trim();if(!v){toast('Nom requis');return;}
+  if(allActivityTypes.includes(v)){toast('Type déjà existant');return;}
+  allActivityTypes.push(v);inp.value='';
+  await db.from('settings').upsert({coach_id:currentCoach.id,activity_types:allActivityTypes},{onConflict:'coach_id'});
+  renderActivityTypesList();toast('Type ajouté ✓');
+}
+async function removeActivityType(i){
+  allActivityTypes.splice(i,1);
+  await db.from('settings').upsert({coach_id:currentCoach.id,activity_types:allActivityTypes.length?allActivityTypes:null},{onConflict:'coach_id'});
+  renderActivityTypesList();toast('Type supprimé');
+}
+
 /* ===== OVERVIEW ===== */
 function updateOv(){txt('ov-mod',modules.length+' module'+(modules.length!==1?'s':''));txt('ov-team',team.length+' coach'+(team.length!==1?'s':''));}
 
@@ -8940,6 +8983,153 @@ async function awardManualPoints(){
 
   toast(`+${pts} pts attribués à ${curClient.first_name} ✓`);
   renderGamifTab();
+}
+
+/* ===== CALENDAR (CLIENT DETAIL) ===== */
+let _calView='month',_calDate=new Date(),_calLogs=[],_calEvents=[];
+const CAL_ACTIVITY_ICONS={'Natation':'🏊','Randonnée':'🥾','Vélo':'🚴','Course à pied':'🏃','Marche':'🚶','Yoga':'🧘','Pilates':'🤸','Danse':'💃','Escalade':'🧗','Tennis':'🎾','Football':'⚽','Basketball':'🏀','Arts martiaux':'🥋','Ski':'⛷️','Surf':'🏄','Autre':'🏅'};
+async function renderCalendarTab(){
+  const el=document.getElementById('tc-calendar');if(!el||!curClient)return;
+  _calDate=new Date();_calView='month';
+  try{
+    const[logsRes,eventsRes]=await Promise.all([
+      db.from('train_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).limit(120),
+      db.from('calendar_events').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).limit(120)
+    ]);
+    _calLogs=logsRes.data||[];_calEvents=eventsRes.data||[];
+  }catch(e){_calLogs=[];_calEvents=[];}
+  _renderCal(el);
+}
+function _calEntries(dateStr){
+  const entries=[];
+  _calLogs.filter(l=>l.date===dateStr).forEach(l=>{
+    const t=l.type||(l.exercises&&l.exercises[0]&&l.exercises[0].type==='running'?'running':'strength');
+    entries.push({source:'log',type:t,name:l.session_name||'Séance',date:l.date,data:l});
+  });
+  _calEvents.filter(e=>e.date===dateStr).forEach(e=>{
+    entries.push({source:'event',type:e.event_type||'session',name:e.title,date:e.date,time:e.time_start,data:e});
+  });
+  return entries;
+}
+function _calDotClass(type){return type==='running'?'cal-d-green':type==='activity'?'cal-d-blue':(type==='session'||type==='rdv'||type==='note'||type==='custom')?'cal-d-purple':'cal-d-gold';}
+function _calIcon(e){if(e.source==='event')return'📌';if(e.type==='running')return'🏃';if(e.type==='activity'){const ex=e.data.exercises&&e.data.exercises[0];return CAL_ACTIVITY_ICONS[ex&&ex.activity_type]||'🏅';}return'💪';}
+function _renderCal(el){
+  const d=new Date(_calDate);
+  const year=d.getFullYear(),month=d.getMonth();
+  const todayStr=new Date().toISOString().slice(0,10);
+  const monthLabel=d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  const dotStyle='<style>.cal-d-gold{width:8px;height:8px;border-radius:50%;background:#c49a2a;display:inline-block;margin:1px}.cal-d-green{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin:1px}.cal-d-blue{width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;margin:1px}.cal-d-purple{width:8px;height:8px;border-radius:50%;background:#a855f7;display:inline-block;margin:1px}</style>';
+  let h=dotStyle;
+  h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn btn-ghost btn-sm" onclick="_calDate.setMonth(_calDate.getMonth()-1);_renderCal(document.getElementById('tc-calendar'))">‹</button>
+      <span style="font-size:15px;font-weight:700;text-transform:capitalize">${monthLabel}</span>
+      <button class="btn btn-ghost btn-sm" onclick="_calDate.setMonth(_calDate.getMonth()+1);_renderCal(document.getElementById('tc-calendar'))">›</button>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="btn btn-dark btn-sm" onclick="openAddCalendarEvent()">+ Événement</button>
+    </div>
+  </div>`;
+  // Legend
+  h+=`<div style="display:flex;gap:12px;margin-bottom:12px;font-size:11px;color:var(--text3)"><span><span class="cal-d-gold"></span> Musculation</span><span><span class="cal-d-green"></span> Running</span><span><span class="cal-d-blue"></span> Activité</span><span><span class="cal-d-purple"></span> Événement</span></div>`;
+  // Month grid
+  const firstDay=new Date(year,month,1);
+  let startDay=firstDay.getDay()-1;if(startDay<0)startDay=6;
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  h+=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">`;
+  ['L','M','M','J','V','S','D'].forEach(l=>{h+=`<div style="text-align:center;font-size:10px;font-weight:700;color:var(--text3);padding:6px 0">${l}</div>`;});
+  const prevMonth=new Date(year,month,0).getDate();
+  for(let i=startDay-1;i>=0;i--){
+    const dn=prevMonth-i;const ds=new Date(year,month-1,dn).toISOString().slice(0,10);
+    const entries=_calEntries(ds);
+    h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--bg2);opacity:.35;cursor:pointer" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div></div>`;
+  }
+  for(let dn=1;dn<=daysInMonth;dn++){
+    const ds=new Date(year,month,dn).toISOString().slice(0,10);
+    const isToday=ds===todayStr;
+    const entries=_calEntries(ds);
+    h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--white);cursor:pointer;${isToday?'border:2px solid var(--gold)':''}" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700;${isToday?'color:var(--gold)':''}">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div></div>`;
+  }
+  const totalCells=startDay+daysInMonth;const remaining=totalCells%7===0?0:7-totalCells%7;
+  for(let dn=1;dn<=remaining;dn++){
+    const ds=new Date(year,month+1,dn).toISOString().slice(0,10);
+    const entries=_calEntries(ds);
+    h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--bg2);opacity:.35;cursor:pointer" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div></div>`;
+  }
+  h+=`</div>`;
+  // Day detail area
+  h+=`<div id="calDayDetail" style="margin-top:14px"></div>`;
+  el.innerHTML=h;
+}
+function _showCalDay(dateStr){
+  const entries=_calEntries(dateStr);
+  const dateLabel=new Date(dateStr+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const dd=document.getElementById('calDayDetail');if(!dd)return;
+  let h=`<div style="background:var(--white);border-radius:12px;padding:16px;border:1px solid var(--border)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:14px;font-weight:800;text-transform:capitalize">${dateLabel}</div><button class="btn btn-dark btn-sm" onclick="openAddCalendarEvent('${dateStr}')">+ Événement</button></div>`;
+  if(!entries.length)h+=`<div style="font-size:12px;color:var(--text3);padding:10px 0">Aucune activité ce jour</div>`;
+  entries.forEach(e=>{
+    const detail=[];
+    if(e.source==='log'){
+      const ex=e.data.exercises&&e.data.exercises[0];
+      if(ex){if(ex.duration_min)detail.push(ex.duration_min+'min');if(ex.distance_km)detail.push(ex.distance_km+'km');if(ex.rpe)detail.push('RPE '+ex.rpe);}
+      if(e.type==='strength'&&e.data.exercises)detail.push(e.data.exercises.length+' exo'+(e.data.exercises.length>1?'s':''));
+      if(e.data.comment)detail.push(e.data.comment);
+    }
+    if(e.source==='event'){
+      if(e.data.time_start)detail.push(e.data.time_start+(e.data.time_end?' - '+e.data.time_end:''));
+      if(e.data.description)detail.push(e.data.description);
+    }
+    const deleteBtn=e.source==='event'?`<button class="btn btn-ghost btn-sm" style="color:#ef4444;font-size:11px;padding:2px 6px" onclick="deleteCalendarEvent(${e.data.id})">✕</button>`:'';
+    h+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span class="${_calDotClass(e.type)}" style="width:10px;height:10px"></span>
+      <div style="font-size:20px">${_calIcon(e)}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${e.name}</div>${detail.length?`<div style="font-size:11px;color:var(--text3)">${detail.join(' · ')}</div>`:''}</div>
+      ${deleteBtn}
+    </div>`;
+  });
+  h+=`</div>`;
+  dd.innerHTML=h;
+}
+function openAddCalendarEvent(dateStr){
+  dateStr=dateStr||new Date().toISOString().slice(0,10);
+  const html=`<div class="mp" style="padding:24px;max-width:500px">
+    <div class="cl cl-gold" style="margin-bottom:16px">NOUVEL ÉVÉNEMENT</div>
+    <div class="fg"><label class="fl">Titre</label><input class="fi" id="ceTitle" placeholder="Ex: Séance coaching, RDV suivi..."></div>
+    <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="ceDate" value="${dateStr}"></div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Heure début</label><input class="fi" type="time" id="ceTimeStart"></div>
+      <div class="fg"><label class="fl">Heure fin</label><input class="fi" type="time" id="ceTimeEnd"></div>
+    </div>
+    <div class="fg"><label class="fl">Type</label><select class="fi" id="ceType"><option value="session">Séance</option><option value="rdv">Rendez-vous</option><option value="note">Note</option><option value="custom">Autre</option></select></div>
+    <div class="fg"><label class="fl">Description</label><textarea class="fi" id="ceDesc" rows="2" placeholder="Détails optionnels..."></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-dark" onclick="saveCalendarEvent()">Enregistrer</button><button class="btn btn-ghost" onclick="closeM('mCalEvt')">Annuler</button></div>
+  </div>`;
+  let m=document.getElementById('mCalEvt');
+  if(!m){m=document.createElement('div');m.id='mCalEvt';m.className='modal';document.body.appendChild(m);}
+  m.innerHTML=`<div class="mo">${html}</div>`;m.classList.add('show');
+}
+async function saveCalendarEvent(){
+  if(!currentCoach||!curClient)return;
+  const title=document.getElementById('ceTitle').value.trim();
+  if(!title){toast('Titre requis');return;}
+  const row={
+    coach_id:currentCoach.id,client_id:curClient.id,
+    title,date:document.getElementById('ceDate').value,
+    time_start:document.getElementById('ceTimeStart').value||null,
+    time_end:document.getElementById('ceTimeEnd').value||null,
+    event_type:document.getElementById('ceType').value,
+    description:document.getElementById('ceDesc').value.trim()||null
+  };
+  const{error}=await db.from('calendar_events').insert(row);
+  if(error){toast('Erreur: '+error.message);return;}
+  closeM('mCalEvt');toast('Événement ajouté ✓');
+  renderCalendarTab();
+}
+async function deleteCalendarEvent(id){
+  if(!confirm('Supprimer cet événement ?'))return;
+  await db.from('calendar_events').delete().eq('id',id);
+  toast('Événement supprimé');renderCalendarTab();
 }
 
 /* ===== MARKETING & FINANCES ===== */

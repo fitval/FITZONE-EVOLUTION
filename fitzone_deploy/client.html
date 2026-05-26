@@ -458,6 +458,37 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .home-level-bar { height:6px; border-radius:3px; background:rgba(255,255,255,.12); margin-top:6px; overflow:hidden; }
 .home-level-fill { height:100%; border-radius:3px; background:var(--gold); }
 .home-level-pts { font-size:16px; font-weight:800; color:var(--gold); }
+/* Calendar */
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.cal-nav{display:flex;align-items:center;gap:10px}
+.cal-nav-btn{background:none;border:1px solid var(--border);border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:16px}
+.cal-title{font-size:15px;font-weight:700;text-transform:capitalize}
+.cal-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.cal-toggle-btn{padding:5px 12px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--text3);font-family:var(--font)}
+.cal-toggle-btn.active{background:var(--dark);color:white}
+.cal-month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-month-label{text-align:center;font-size:10px;font-weight:700;color:var(--text3);padding:6px 0}
+.cal-month-cell{min-height:44px;border-radius:8px;padding:4px;background:var(--white);cursor:pointer;position:relative}
+.cal-month-cell.today{border:2px solid var(--gold)}
+.cal-month-cell.other{opacity:.35}
+.cal-month-cell:hover{background:var(--bg2)}
+.cal-month-num{font-size:11px;font-weight:700;margin-bottom:2px}
+.cal-dots{display:flex;flex-wrap:wrap;gap:2px}
+.cal-dot{width:7px;height:7px;border-radius:50%}
+.cal-dot-gold{background:var(--gold)}
+.cal-dot-green{background:#22c55e}
+.cal-dot-blue{background:#3b82f6}
+.cal-dot-purple{background:#a855f7}
+.cal-week-day{background:var(--white);border-radius:12px;padding:12px;margin-bottom:8px}
+.cal-week-date{font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px}
+.cal-week-date.today{color:var(--gold)}
+.cal-entry{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+.cal-entry:last-child{border-bottom:none}
+.cal-entry-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cal-entry-info{flex:1;min-width:0}
+.cal-entry-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-entry-detail{font-size:11px;color:var(--text3)}
+.cal-day-detail{background:var(--white);border-radius:14px;padding:16px;margin-top:12px}
 </style>
 </head>
 <body>
@@ -522,6 +553,10 @@ textarea.form-input { min-height:100px; resize:vertical; }
       <div style="padding-top:20px"><button class="back-btn" onclick="switchTab('Home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Retour</button><div class="card-label" style="color:var(--gold)">BONUS</div><div style="font-size:24px;font-weight:800;margin-bottom:16px">Mes récompenses</div></div>
       <div id="bonusContent"></div>
     </div>
+    <div id="tabCalendar" class="tab-section">
+      <div style="padding-top:20px"><div style="font-size:24px;font-weight:800;margin-bottom:4px">Calendrier</div><div style="font-size:13px;color:var(--text3);margin-bottom:16px">Toutes tes séances et événements</div></div>
+      <div id="calendarContent"></div>
+    </div>
   </div>
 
   <!-- Meal Estimator FAB -->
@@ -557,6 +592,9 @@ textarea.form-input { min-height:100px; resize:vertical; }
     </button>
     <button class="tab-btn" onclick="switchTab('Bonus')" id="btnBonus">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Bonus</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('Calendar')" id="btnCalendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Calendrier</span>
     </button>
   </div>
 </div>
@@ -656,6 +694,10 @@ async function uploadPhotosToDrive(photos){
 let clientData=null;
 let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAlims=[],coachExos=[],clientQuest=null,planSwaps=[];
 let currentDayIdx=0,currentPlanIdx=null;
+let trainSubTab='programme';
+let coachActivityTypes=[];
+let calendarEvents=[];
+let calendarView='week',calendarDate=new Date();
 let workoutActive=false, workoutData=[], workoutStart=null, workoutTimerInterval=null;
 let restTimerInterval=null;
 let bilanPhotos=[];
@@ -851,10 +893,14 @@ async function loadData(){
     planSwaps=swaps||[];
     applyPlanSwaps();
   }catch(e){console.error('[PLAN SWAPS]',e);planSwaps=[];}
-  // Load coach settings (levels)
+  // Load coach settings (levels + activity types)
   try{
-    const{data:sData}=await db.from('settings').select('gamif_levels').eq('coach_id',clientData.coach_id).limit(1);
-    if(sData&&sData[0]&&sData[0].gamif_levels&&sData[0].gamif_levels.length){LEVELS=sData[0].gamif_levels;}
+    const{data:sData}=await db.from('settings').select('gamif_levels,activity_types').eq('coach_id',clientData.coach_id).limit(1);
+    if(sData&&sData[0]){
+      if(sData[0].gamif_levels&&sData[0].gamif_levels.length)LEVELS=sData[0].gamif_levels;
+      if(Array.isArray(sData[0].activity_types)&&sData[0].activity_types.length)coachActivityTypes=sData[0].activity_types;
+      else coachActivityTypes=["Natation","Randonnée","Vélo","Course à pied","Marche","Yoga","Autre"];
+    }
   }catch(e){}
   // Load partner banners
   try{
@@ -874,6 +920,11 @@ async function loadData(){
       if(Array.isArray(qData[0].q_daily)&&qData[0].q_daily.length)dailyQuestions=qData[0].q_daily;
     }
   }catch(e){console.error('[Q TEMPLATES]',e);}
+  // Load calendar events
+  try{
+    const{data:calData}=await db.from('calendar_events').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
+    calendarEvents=calData||[];
+  }catch(e){console.error('[CALENDAR]',e);calendarEvents=[];}
   // Load gamification data
   await loadGamification();
 }
@@ -895,6 +946,7 @@ function switchTab(name){
   else if(name==='Suivi')renderSuivi();
   else if(name==='Learn')renderLearn();
   else if(name==='Bonus')renderBonus();
+  else if(name==='Calendar')renderCalendar();
   toggleFab();
 }
 
@@ -1197,12 +1249,14 @@ function _cliRunBlockCard(b,sectionEmoji){
 
 function renderTrainPreview(){
   workoutActive=false;
-  if(!programs.length){document.getElementById('trainContent').innerHTML=`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;return;}
+  const toggleHtml=`<div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border)"><button style="padding:10px 20px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:none;color:${trainSubTab==='programme'?'var(--gold)':'var(--text3)'};position:relative;font-family:var(--font)" onclick="trainSubTab='programme';renderTrainPreview()">Programme${trainSubTab==='programme'?'<span style="position:absolute;bottom:-2px;left:0;right:0;height:2px;background:var(--gold)"></span>':''}</button><button style="padding:10px 20px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:none;color:${trainSubTab==='activites'?'var(--gold)':'var(--text3)'};position:relative;font-family:var(--font)" onclick="trainSubTab='activites';renderTrainPreview()">Activités${trainSubTab==='activites'?'<span style="position:absolute;bottom:-2px;left:0;right:0;height:2px;background:var(--gold)"></span>':''}</button></div>`;
+  if(trainSubTab==='activites'){document.getElementById('trainContent').innerHTML=toggleHtml+renderActivitiesView();return;}
+  if(!programs.length){document.getElementById('trainContent').innerHTML=toggleHtml+`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;return;}
   const p=programs[0],jours=p.jours||[];
   document.getElementById('trainTitle').textContent=p.nom||'Entraînement';
-  if(!jours.length){document.getElementById('trainContent').innerHTML=`<div class="empty"><div class="empty-text">Ce programme n'a pas encore de séances.</div></div>`;return;}
+  if(!jours.length){document.getElementById('trainContent').innerHTML=toggleHtml+`<div class="empty"><div class="empty-text">Ce programme n'a pas encore de séances.</div></div>`;return;}
 
-  let h=`<div class="day-tabs">${jours.map((j,i)=>{const ico=j.type==='running'?'🏃':'💪';return`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderTrainPreview()">${ico} ${j.nom||'Jour '+(i+1)}</button>`;}).join('')}</div>`;
+  let h=toggleHtml+`<div class="day-tabs">${jours.map((j,i)=>{const ico=j.type==='running'?'🏃':'💪';return`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderTrainPreview()">${ico} ${j.nom||'Jour '+(i+1)}</button>`;}).join('')}</div>`;
 
   const day=jours[currentDayIdx];
 
@@ -1250,6 +1304,202 @@ function renderTrainPreview(){
 
   h+=`<div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(196,154,42,.4);font-size:15px" onclick="startWorkout()">Lancer la séance</button></div>`;
   document.getElementById('trainContent').innerHTML=h;
+}
+
+/* ===== ACTIVITIES VIEW ===== */
+const ACTIVITY_ICONS={'Natation':'🏊','Randonnée':'🥾','Vélo':'🚴','Course à pied':'🏃','Marche':'🚶','Yoga':'🧘','Pilates':'🤸','Danse':'💃','Escalade':'🧗','Tennis':'🎾','Football':'⚽','Basketball':'🏀','Arts martiaux':'🥋','Ski':'⛷️','Surf':'🏄','Autre':'🏅'};
+function renderActivitiesView(){
+  const actLogs=trainLogs.filter(l=>l.type==='activity').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  let h=`<button class="btn-gold" style="width:100%;padding:14px;font-size:15px;margin-bottom:20px;border-radius:12px" onclick="openActivityModal()">+ Ajouter une activité</button>`;
+  if(!actLogs.length){h+=`<div class="empty"><div class="empty-icon">🏊</div><div class="empty-text">Aucune activité enregistrée.<br>Ajoute ta première activité !</div></div>`;return h;}
+  h+=`<div style="font-size:13px;font-weight:700;color:var(--text3);margin-bottom:10px">${actLogs.length} activité${actLogs.length>1?'s':''}</div>`;
+  actLogs.forEach(l=>{
+    const ex=l.exercises&&l.exercises[0]||{};
+    const aType=ex.activity_type||l.session_name||'Activité';
+    const ico=ACTIVITY_ICONS[aType]||'🏅';
+    const dur=ex.duration_min?ex.duration_min+'min':'';
+    const dist=ex.distance_km?ex.distance_km+'km':'';
+    const rpe=ex.rpe?'RPE '+ex.rpe:'';
+    const details=[dur,dist,rpe].filter(Boolean).join(' · ');
+    h+=`<div style="background:var(--white);border-radius:12px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <div style="width:44px;height:44px;border-radius:12px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${ico}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700">${aType}</div>
+        <div style="font-size:12px;color:var(--text3)">${fmtDate(l.date)}${details?' · '+details:''}</div>
+        ${l.comment?`<div style="font-size:11px;color:var(--text2);margin-top:4px">${l.comment}</div>`:''}
+      </div>
+    </div>`;
+  });
+  return h;
+}
+function openActivityModal(){
+  const typesHtml=coachActivityTypes.map(t=>`<option value="${t}">${(ACTIVITY_ICONS[t]||'🏅')+' '+t}</option>`).join('');
+  const html=`<div style="padding:20px;max-width:440px;margin:auto">
+    <div style="font-size:20px;font-weight:800;margin-bottom:16px">Nouvelle activité</div>
+    <div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Type d'activité</label><select id="actType" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);background:var(--white)">${typesHtml}</select></div>
+    <div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Date</label><input type="date" id="actDate" value="${today()}" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font)"></div>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Durée (min)</label><input type="number" id="actDur" placeholder="45" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font)" inputmode="numeric"></div>
+      <div style="flex:1"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Distance (km)</label><input type="number" id="actDist" placeholder="0" step="0.1" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font)" inputmode="decimal"></div>
+    </div>
+    <div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">RPE (1-10)</label><input type="range" id="actRpe" min="1" max="10" value="5" oninput="document.getElementById('actRpeVal').textContent=this.value" style="width:100%"><div style="text-align:center;font-weight:700;font-size:18px;color:var(--gold)" id="actRpeVal">5</div></div>
+    <div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Commentaire</label><textarea id="actComment" rows="2" placeholder="Sensations, météo, parcours..." style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);resize:vertical"></textarea></div>
+    <div style="display:flex;gap:8px"><button class="btn-gold" style="flex:1;background:var(--bg2);color:var(--text);font-weight:700" onclick="closeModal()">Annuler</button><button class="btn-gold" style="flex:1;font-weight:800" onclick="saveActivity()">Enregistrer</button></div>
+  </div>`;
+  openModal(html);
+}
+async function saveActivity(){
+  const actType=document.getElementById('actType').value;
+  const dur=parseFloat(document.getElementById('actDur').value)||0;
+  const dist=parseFloat(document.getElementById('actDist').value)||0;
+  const rpe=parseInt(document.getElementById('actRpe').value)||null;
+  const comment=document.getElementById('actComment').value.trim();
+  const dateVal=document.getElementById('actDate').value||today();
+  const row={
+    coach_id:clientData.coach_id,client_id:clientData.id,
+    session_name:actType,date:dateVal,type:'activity',
+    exercises:[{type:'activity',activity_type:actType,duration_min:dur,distance_km:dist,rpe}],
+    comment:comment||null
+  };
+  try{
+    const{data,error}=await db.from('train_logs').insert(row).select().single();
+    if(error){toast('Erreur: '+error.message);return;}
+    if(data)trainLogs.unshift(data);
+    closeModal();toast('Activité enregistrée !');
+    if(typeof awardPoints==='function')await awardPoints('complementary_activity',20,{activity:actType});
+    renderTrainPreview();
+  }catch(e){console.error('[ACTIVITY]',e);toast('Erreur: '+e.message);}
+}
+
+/* ===== CALENDAR ===== */
+function getCalendarEntries(dateStr){
+  const entries=[];
+  trainLogs.filter(l=>l.date===dateStr).forEach(l=>{
+    const t=l.type||(l.exercises&&l.exercises[0]&&l.exercises[0].type==='running'?'running':'strength');
+    entries.push({source:'log',type:t,name:l.session_name||'Séance',date:l.date,data:l});
+  });
+  calendarEvents.filter(e=>e.date===dateStr).forEach(e=>{
+    entries.push({source:'event',type:e.event_type||'session',name:e.title,date:e.date,time:e.time_start,data:e});
+  });
+  return entries;
+}
+function calEntryColor(type){
+  if(type==='running')return'cal-dot-green';
+  if(type==='activity')return'cal-dot-blue';
+  if(type==='session'||type==='rdv'||type==='note'||type==='custom')return'cal-dot-purple';
+  return'cal-dot-gold';
+}
+function calEntryIcon(entry){
+  if(entry.source==='event')return'📌';
+  if(entry.type==='running')return'🏃';
+  if(entry.type==='activity'){const ex=entry.data.exercises&&entry.data.exercises[0];return ACTIVITY_ICONS[ex&&ex.activity_type]||'🏅';}
+  return'💪';
+}
+function renderCalendar(){
+  if(calendarView==='month')renderCalendarMonth();
+  else renderCalendarWeek();
+}
+function renderCalendarWeek(){
+  const d=new Date(calendarDate);
+  const day=d.getDay(),diff=d.getDate()-day+(day===0?-6:1);
+  const mon=new Date(d);mon.setDate(diff);
+  const days=[];for(let i=0;i<7;i++){const dd=new Date(mon);dd.setDate(mon.getDate()+i);days.push(dd);}
+  const todayStr=today();
+  const monthLabel=d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  let h=`<div class="cal-header"><div class="cal-nav"><button class="cal-nav-btn" onclick="calendarDate.setDate(calendarDate.getDate()-7);renderCalendar()">‹</button><div class="cal-title">${monthLabel}</div><button class="cal-nav-btn" onclick="calendarDate.setDate(calendarDate.getDate()+7);renderCalendar()">›</button></div><div class="cal-toggle"><button class="cal-toggle-btn active" onclick="calendarView='week';renderCalendar()">Semaine</button><button class="cal-toggle-btn" onclick="calendarView='month';renderCalendar()">Mois</button></div></div>`;
+  const dayNames=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  days.forEach((dd,i)=>{
+    const ds=dd.toISOString().slice(0,10);
+    const isToday=ds===todayStr;
+    const entries=getCalendarEntries(ds);
+    const dayLabel=dayNames[i]+' '+dd.getDate();
+    h+=`<div class="cal-week-day" onclick="openCalendarDay('${ds}')"><div class="cal-week-date${isToday?' today':''}">${dayLabel}${isToday?' — Aujourd\'hui':''}</div>`;
+    if(!entries.length){h+=`<div style="font-size:11px;color:var(--text3);padding:4px 0">Aucune activité</div>`;}
+    entries.forEach(e=>{
+      const detail=[];
+      if(e.source==='log'){
+        const ex=e.data.exercises&&e.data.exercises[0];
+        if(ex){
+          if(ex.duration_min)detail.push(ex.duration_min+'min');
+          if(ex.distance_km)detail.push(ex.distance_km+'km');
+          if(ex.rpe)detail.push('RPE '+ex.rpe);
+        }
+        if(e.type==='strength'&&e.data.exercises)detail.push(e.data.exercises.length+' exo'+(e.data.exercises.length>1?'s':''));
+      }
+      if(e.time)detail.unshift(e.time);
+      if(e.source==='event'&&e.data.description)detail.push(e.data.description);
+      h+=`<div class="cal-entry"><div class="cal-entry-dot ${calEntryColor(e.type)}"></div><div class="cal-entry-info"><div class="cal-entry-name">${calEntryIcon(e)} ${e.name}</div>${detail.length?`<div class="cal-entry-detail">${detail.join(' · ')}</div>`:''}</div></div>`;
+    });
+    h+=`</div>`;
+  });
+  document.getElementById('calendarContent').innerHTML=h;
+}
+function renderCalendarMonth(){
+  const d=new Date(calendarDate);
+  const year=d.getFullYear(),month=d.getMonth();
+  const firstDay=new Date(year,month,1);
+  let startDay=firstDay.getDay()-1;if(startDay<0)startDay=6;
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const todayStr=today();
+  const monthLabel=d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  let h=`<div class="cal-header"><div class="cal-nav"><button class="cal-nav-btn" onclick="calendarDate.setMonth(calendarDate.getMonth()-1);renderCalendar()">‹</button><div class="cal-title">${monthLabel}</div><button class="cal-nav-btn" onclick="calendarDate.setMonth(calendarDate.getMonth()+1);renderCalendar()">›</button></div><div class="cal-toggle"><button class="cal-toggle-btn" onclick="calendarView='week';renderCalendar()">Semaine</button><button class="cal-toggle-btn active" onclick="calendarView='month';renderCalendar()">Mois</button></div></div>`;
+  h+=`<div class="cal-month-grid">`;
+  ['L','M','M','J','V','S','D'].forEach(l=>{h+=`<div class="cal-month-label">${l}</div>`;});
+  const prevMonth=new Date(year,month,0).getDate();
+  for(let i=startDay-1;i>=0;i--){
+    const dn=prevMonth-i;
+    const ds=new Date(year,month-1,dn).toISOString().slice(0,10);
+    const entries=getCalendarEntries(ds);
+    h+=`<div class="cal-month-cell other" onclick="openCalendarDay('${ds}')"><div class="cal-month-num">${dn}</div><div class="cal-dots">${entries.map(e=>`<div class="cal-dot ${calEntryColor(e.type)}"></div>`).join('')}</div></div>`;
+  }
+  for(let dn=1;dn<=daysInMonth;dn++){
+    const ds=new Date(year,month,dn).toISOString().slice(0,10);
+    const isToday=ds===todayStr;
+    const entries=getCalendarEntries(ds);
+    h+=`<div class="cal-month-cell${isToday?' today':''}" onclick="openCalendarDay('${ds}')"><div class="cal-month-num">${dn}</div><div class="cal-dots">${entries.map(e=>`<div class="cal-dot ${calEntryColor(e.type)}"></div>`).join('')}</div></div>`;
+  }
+  const totalCells=startDay+daysInMonth;
+  const remaining=totalCells%7===0?0:7-totalCells%7;
+  for(let dn=1;dn<=remaining;dn++){
+    const ds=new Date(year,month+1,dn).toISOString().slice(0,10);
+    const entries=getCalendarEntries(ds);
+    h+=`<div class="cal-month-cell other" onclick="openCalendarDay('${ds}')"><div class="cal-month-num">${dn}</div><div class="cal-dots">${entries.map(e=>`<div class="cal-dot ${calEntryColor(e.type)}"></div>`).join('')}</div></div>`;
+  }
+  h+=`</div>`;
+  document.getElementById('calendarContent').innerHTML=h;
+}
+function openCalendarDay(dateStr){
+  const entries=getCalendarEntries(dateStr);
+  const dateLabel=new Date(dateStr+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  let h=`<div style="padding:20px;max-width:500px;margin:auto"><div style="font-size:18px;font-weight:800;margin-bottom:4px;text-transform:capitalize">${dateLabel}</div>`;
+  if(!entries.length){h+=`<div style="font-size:13px;color:var(--text3);padding:20px 0;text-align:center">Aucune activité ce jour</div>`;}
+  entries.forEach(e=>{
+    const detail=[];
+    if(e.source==='log'){
+      const ex=e.data.exercises&&e.data.exercises[0];
+      if(ex){
+        if(ex.duration_min)detail.push(ex.duration_min+' min');
+        if(ex.distance_km)detail.push(ex.distance_km+' km');
+        if(ex.rpe)detail.push('RPE '+ex.rpe);
+      }
+      if(e.type==='strength'&&e.data.exercises){detail.push(e.data.exercises.length+' exercice'+(e.data.exercises.length>1?'s':''));}
+      if(e.data.comment)detail.push(e.data.comment);
+    }
+    if(e.source==='event'){
+      if(e.data.time_start)detail.push(e.data.time_start+(e.data.time_end?' - '+e.data.time_end:''));
+      if(e.data.description)detail.push(e.data.description);
+    }
+    h+=`<div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:var(--bg2);border-radius:12px;margin-bottom:8px">
+      <div style="width:40px;height:40px;border-radius:10px;background:var(--white);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${calEntryIcon(e)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700">${e.name}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px"><div class="cal-dot ${calEntryColor(e.type)}"></div><span style="font-size:11px;color:var(--text3)">${e.source==='event'?'Événement planifié':e.type==='running'?'Running':e.type==='activity'?'Activité':'Musculation'}</span></div>
+        ${detail.length?`<div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.5">${detail.join(' · ')}</div>`:''}
+      </div>
+    </div>`;
+  });
+  h+=`</div>`;
+  openModal(h);
 }
 
 /* ===== ACTIVE RUNNING WORKOUT ===== */
@@ -1405,7 +1655,7 @@ async function saveRunDone(){
   const blocksSnapshot=runningBlocks.length?runningBlocks.map(b=>JSON.parse(JSON.stringify(b))):['warmup','workout','cooldown'].flatMap(sec=>(day[sec]||[]).filter(b=>b.kind==='run').map(b=>({section:sec,...b})));
   const row={
     coach_id:clientData.coach_id,client_id:clientData.id,
-    session_name:sessionName,date:today(),
+    session_name:sessionName,date:today(),type:'running',
     exercises:[{type:'running',duration_min:dur,distance_km:dist,rpe,comment,blocks:blocksSnapshot}]
   };
   try{
@@ -1764,7 +2014,7 @@ async function finalizeWorkout(){
       return o;
     });
     console.log('[WORKOUT SAVE]',JSON.stringify(exercises));
-    const trainRow={coach_id:clientData.coach_id,client_id:clientData.id,session_name:sessionName,date:today(),exercises};
+    const trainRow={coach_id:clientData.coach_id,client_id:clientData.id,session_name:sessionName,date:today(),type:'strength',exercises};
     if(rpe)trainRow.cycle=rpe;
     if(comment)trainRow.comment=comment;
     const{error}=await db.from('train_logs').insert(trainRow);
