@@ -1318,48 +1318,100 @@ function renderActivitiesView(){
     const aType=ex.activity_type||l.session_name||'Activité';
     const ico=ACTIVITY_ICONS[aType]||'🏅';
     const dur=ex.duration_min?ex.duration_min+'min':'';
-    const dist=ex.distance_km?ex.distance_km+'km':'';
-    const rpe=ex.rpe?'RPE '+ex.rpe:'';
-    const details=[dur,dist,rpe].filter(Boolean).join(' · ');
-    h+=`<div style="background:var(--white);border-radius:12px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+    const rpe=ex.rpe?ex.rpe+'/10':'';
+    const chips=[dur,rpe].filter(Boolean);
+    const detailText=ex.details||'';
+    h+=`<div style="background:var(--white);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
       <div style="width:44px;height:44px;border-radius:12px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${ico}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:700">${aType}</div>
-        <div style="font-size:12px;color:var(--text3)">${fmtDate(l.date)}${details?' · '+details:''}</div>
-        ${l.comment?`<div style="font-size:11px;color:var(--text2);margin-top:4px">${l.comment}</div>`:''}
+        <div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:14px;font-weight:700">${aType}</div>${rpe?`<div style="font-size:12px;font-weight:800;color:${ex.rpe<=3?'#22c55e':ex.rpe<=6?'var(--gold)':ex.rpe<=8?'#f97316':'#ef4444'};background:${ex.rpe<=3?'#f0fdf4':ex.rpe<=6?'var(--gold-pale)':ex.rpe<=8?'#fff7ed':'#fef2f2'};padding:2px 8px;border-radius:8px">${rpe}</div>`:''}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">${fmtDate(l.date)}${dur?' · '+dur:''}</div>
+        ${detailText?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${detailText}</div>`:''}
+        ${l.comment&&l.comment!==detailText?`<div style="font-size:11px;color:var(--text3);margin-top:4px;font-style:italic">${l.comment}</div>`:''}
       </div>
     </div>`;
   });
   return h;
 }
 function openActivityModal(){
-  const typesHtml=coachActivityTypes.map(t=>`<option value="${t}">${(ACTIVITY_ICONS[t]||'🏅')+' '+t}</option>`).join('');
-  const html=`<div style="padding:20px;max-width:440px;margin:auto">
-    <div style="font-size:20px;font-weight:800;margin-bottom:16px">Nouvelle activité</div>
-    <div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Type d'activité</label><select id="actType" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);background:var(--white)">${typesHtml}</select></div>
-    <div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Date</label><input type="date" id="actDate" value="${today()}" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font)"></div>
-    <div style="display:flex;gap:10px;margin-bottom:14px">
-      <div style="flex:1"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Durée (min)</label><input type="number" id="actDur" placeholder="45" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font)" inputmode="numeric"></div>
-      <div style="flex:1"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Distance (km)</label><input type="number" id="actDist" placeholder="0" step="0.1" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font)" inputmode="decimal"></div>
+  const chipsHtml=coachActivityTypes.map(t=>`<button class="act-chip" onclick="selectActChip(this,'${t.replace(/'/g,"\\'")}')" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--white);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);white-space:nowrap;transition:all .15s"><span>${ACTIVITY_ICONS[t]||'🏅'}</span>${t}</button>`).join('');
+  const ratingHtml=Array.from({length:10},(_, i)=>`<button id="actR${i+1}" onclick="selectActRating(${i+1})" style="width:32px;height:32px;border-radius:50%;border:2px solid var(--border);background:var(--white);font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);transition:all .15s">${i+1}</button>`).join('');
+  const html=`<div style="padding:0;max-width:480px;margin:auto;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <div style="padding:20px 20px 0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--white);z-index:2;border-radius:18px 18px 0 0">
+      <div style="font-size:20px;font-weight:800">Nouvelle activité</div>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text3);padding:4px">✕</button>
     </div>
-    <div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">RPE (1-10)</label><input type="range" id="actRpe" min="1" max="10" value="5" oninput="document.getElementById('actRpeVal').textContent=this.value" style="width:100%"><div style="text-align:center;font-weight:700;font-size:18px;color:var(--gold)" id="actRpeVal">5</div></div>
-    <div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">Commentaire</label><textarea id="actComment" rows="2" placeholder="Sensations, météo, parcours..." style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);resize:vertical"></textarea></div>
-    <div style="display:flex;gap:8px"><button class="btn-gold" style="flex:1;background:var(--bg2);color:var(--text);font-weight:700" onclick="closeModal()">Annuler</button><button class="btn-gold" style="flex:1;font-weight:800" onclick="saveActivity()">Enregistrer</button></div>
+    <div style="padding:16px 20px 20px">
+      <div style="margin-bottom:18px">
+        <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Quelle activité ?</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${chipsHtml}</div>
+        <input id="actCustomName" placeholder="Ou tape le nom de ton activité..." oninput="clearActChips()" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);background:var(--bg2)">
+        <input type="hidden" id="actType" value="">
+      </div>
+      <div style="margin-bottom:18px">
+        <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Date</div>
+        <input type="date" id="actDate" value="${today()}" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font)">
+      </div>
+      <div style="margin-bottom:18px">
+        <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Détails</div>
+        <textarea id="actDetails" rows="2" placeholder="Qu'est-ce que tu as fait ? (ex: 50 longueurs, trail en forêt...)" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);resize:vertical;background:var(--bg2)"></textarea>
+      </div>
+      <div style="margin-bottom:18px">
+        <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Durée</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="number" id="actDur" placeholder="45" inputmode="numeric" style="flex:1;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font)">
+          <span style="font-size:13px;font-weight:600;color:var(--text3)">minutes</span>
+        </div>
+      </div>
+      <div style="margin-bottom:18px">
+        <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Effort ressenti</div>
+        <div style="display:flex;justify-content:space-between;gap:4px" id="actRatingRow">${ratingHtml}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text3)"><span>Facile</span><span>Modéré</span><span>Intense</span></div>
+        <input type="hidden" id="actRpe" value="">
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Commentaire</div>
+        <textarea id="actComment" rows="2" placeholder="Sensations, météo, humeur..." style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);resize:vertical;background:var(--bg2)"></textarea>
+      </div>
+      <button class="btn-gold" style="width:100%;padding:15px;font-size:16px;font-weight:800;border-radius:12px" onclick="saveActivity()">Enregistrer</button>
+    </div>
   </div>`;
   openModal(html);
 }
+function selectActChip(btn,name){
+  document.querySelectorAll('.act-chip').forEach(c=>{c.style.background='var(--white)';c.style.borderColor='var(--border)';c.style.color='var(--text)';});
+  btn.style.background='var(--gold)';btn.style.borderColor='var(--gold)';btn.style.color='#fff';
+  document.getElementById('actType').value=name;
+  document.getElementById('actCustomName').value='';
+}
+function clearActChips(){
+  document.querySelectorAll('.act-chip').forEach(c=>{c.style.background='var(--white)';c.style.borderColor='var(--border)';c.style.color='var(--text)';});
+  document.getElementById('actType').value='';
+}
+function selectActRating(n){
+  document.getElementById('actRpe').value=n;
+  for(let i=1;i<=10;i++){
+    const b=document.getElementById('actR'+i);if(!b)continue;
+    if(i<=n){b.style.background=i<=3?'#22c55e':i<=6?'var(--gold)':i<=8?'#f97316':'#ef4444';b.style.borderColor=b.style.background;b.style.color='#fff';}
+    else{b.style.background='var(--white)';b.style.borderColor='var(--border)';b.style.color='var(--text)';}
+  }
+}
 async function saveActivity(){
-  const actType=document.getElementById('actType').value;
+  const chipVal=document.getElementById('actType').value;
+  const customVal=document.getElementById('actCustomName').value.trim();
+  const actType=chipVal||customVal;
+  if(!actType){toast('Choisis ou tape un nom d\'activité');return;}
   const dur=parseFloat(document.getElementById('actDur').value)||0;
-  const dist=parseFloat(document.getElementById('actDist').value)||0;
   const rpe=parseInt(document.getElementById('actRpe').value)||null;
+  const details=document.getElementById('actDetails').value.trim();
   const comment=document.getElementById('actComment').value.trim();
   const dateVal=document.getElementById('actDate').value||today();
+  const fullComment=[details,comment].filter(Boolean).join(' — ')||null;
   const row={
     coach_id:clientData.coach_id,client_id:clientData.id,
     session_name:actType,date:dateVal,type:'activity',
-    exercises:[{type:'activity',activity_type:actType,duration_min:dur,distance_km:dist,rpe}],
-    comment:comment||null
+    exercises:[{type:'activity',activity_type:actType,duration_min:dur,rpe,details}],
+    comment:fullComment
   };
   try{
     const{data,error}=await db.from('train_logs').insert(row).select().single();
