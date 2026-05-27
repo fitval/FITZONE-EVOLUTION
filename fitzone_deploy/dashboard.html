@@ -7421,7 +7421,7 @@ async function generateAIPlan(){
     // Base aliments du coach (valeurs nutritionnelles exactes)
     food_database:alims.map(a=>({nom:a.nom,cat:a.cat||'',source:a.source||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat})),
     // Recettes existantes du coach — toutes, avec macros complètes
-    recipes:repas.map(r=>({nom:r.nom,type:r.type||'',items:(r.items||[]).map(i=>({nom:i.nom,qte:i.qte,kcal:i.kcal||0,prot:i.prot||0,carb:i.carb||0,fat:i.fat||0})),kcal:r.kcal||0,prot:r.prot||0,carb:r.carb||0,fat:r.fat||0,instr:r.instructions||''}))
+    recipes:repas.map(r=>({nom:r.nom,type:r.type||'',items:(r.items||[]).map(i=>({nom:i.nom,qte:i.qte,kcal:i.kcal||0,prot:i.prot||0,carb:i.carb||0,fat:i.fat||0})),kcal:r.kcal||0,prot:r.prot||0,carb:r.carb||0,fat:r.fat||0,instr:r.instr||r.instructions||''}))
   };
 
   const clientProfile={
@@ -7519,9 +7519,10 @@ function renderAIPlan(plan,config){
 
     j.repas.forEach((r,ri)=>{
       const isResto=r.is_restaurant;
+      const slotLabel=r.slot?`<span style="font-size:10px;color:var(--text3);font-weight:600;margin-left:6px">${r.slot}</span>`:'';
       html+=`<div class="ai-meal">
         <div class="ai-meal-hdr">
-          <span class="ai-meal-name">${r.nom} ${isResto?'<span class="ai-resto-badge">Restaurant</span>':''}</span>
+          <span class="ai-meal-name">${r.nom}${slotLabel} ${isResto?'<span class="ai-resto-badge">Restaurant</span>':''}</span>
           <span class="ai-meal-macros" id="aiMeal${ji}_${ri}Macros">${Math.round(r.actual_kcal||0)} kcal · P:${Math.round(r.actual_prot||0)}g G:${Math.round(r.actual_carb||0)}g L:${Math.round(r.actual_fat||0)}g</span>
         </div>`;
 

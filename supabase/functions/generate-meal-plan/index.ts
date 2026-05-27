@@ -73,13 +73,19 @@ ${foodDB.map(f => `- ${f.nom}: ${f.kcal}kcal P:${f.prot}g G:${f.carb}g L:${f.fat
 
     const recipesText = recipesDB.length > 0
       ? `\n=== RECETTES DU COACH (PRIORITAIRES — ${recipesDB.length} recettes) ===
-Tu DOIS utiliser ces recettes en PRIORITÉ dans le plan alimentaire. Pour chaque repas :
+⚠️ Tu DOIS utiliser ces recettes en PRIORITÉ dans le plan alimentaire. Pour chaque repas :
 1. Cherche d'abord une recette existante qui correspond au type de repas et aux macros cibles
 2. ADAPTE les quantités des ingrédients pour coller aux objectifs caloriques/macros du client
 3. Vérifie que la recette respecte les allergies/exclusions — si un ingrédient est interdit, remplace-le ou choisis une autre recette
 4. Ne crée une recette de zéro QUE si aucune recette existante ne convient
+5. Quand tu utilises une recette, UTILISE SON NOM comme nom du repas (ex: "Porridge protéiné" au lieu de "Petit-déjeuner")
+6. INCLUS les instructions de préparation de la recette dans le champ "instructions"
+7. Si la recette a des instructions, copie-les. Sinon, rédige des instructions de préparation claires et concises.
 
-${recipesDB.map(r => `- ${r.nom} (${r.type||'repas'}) [${r.kcal}kcal P:${r.prot}g G:${(r as Record<string, unknown>).carb||'?'}g L:${(r as Record<string, unknown>).fat||'?'}g]: ${r.items.map(i => `${i.nom} ${i.qte}g`).join(", ")}`).join("\n")}\n`
+${recipesDB.map(r => {
+  const instr = (r as Record<string, unknown>).instr || "";
+  return `- ${r.nom} (${r.type||'repas'}) [${r.kcal}kcal P:${r.prot}g G:${(r as Record<string, unknown>).carb||'?'}g L:${(r as Record<string, unknown>).fat||'?'}g]${instr ? '\n  Instructions: ' + instr : ''}\n  Ingrédients: ${r.items.map(i => `${i.nom} ${i.qte}g`).join(", ")}`;
+}).join("\n")}\n`
       : "";
 
     const clientText = clientProfile
@@ -109,7 +115,9 @@ ${foodDBText}${recipesText}
       "nom": "Lundi",
       "repas": [
         {
-          "nom": "Petit-déjeuner",
+          "nom": "Porridge protéiné aux fruits",
+          "slot": "Petit-déjeuner",
+          "instructions": "1. Faire chauffer le lait. 2. Ajouter les flocons et cuire 3min. 3. Ajouter la whey et les fruits.",
           "alims": [
             {"nom": "Flocons d'avoine", "qte": 80, "kcal": 68, "prot": 2.4, "carb": 12, "fat": 1.4, "source": "coach_db", "from_db": true}
           ]
@@ -128,7 +136,9 @@ RÈGLES IMPORTANTES :
 6. Varie les repas entre les jours
 7. Respecte strictement les allergies/exclusions
 8. Les noms des jours: Lundi, Mardi, Mercredi, Jeudi, Vendredi, Samedi, Dimanche
-9. Les noms des repas: ${mealNames.join(", ")}
+9. Le champ "slot" indique le créneau horaire (${mealNames.join(", ")}). Le champ "nom" est le NOM DE LA RECETTE (ex: "Bowl protéiné", "Poulet grillé légumes rôtis", "Salade César"). Ne mets JAMAIS "Petit-déjeuner" ou "Déjeuner" comme nom — donne un vrai nom de plat.
+10. Le champ "instructions" contient les étapes de préparation du repas. Rédige des instructions claires et concises pour CHAQUE repas (sauf les repas restaurant).
+11. Si tu utilises une recette du coach, reprends son nom exact et ses instructions.
 Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est ajouté par l'IA (false).`;
 
     const client = new Anthropic({ apiKey });
