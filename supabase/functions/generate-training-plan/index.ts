@@ -55,7 +55,7 @@ Deno.serve(async (req: Request) => {
     const exerciseDB: Array<{nom: string; muscle: string; equip: string; video?: string}> = config.exercise_database || [];
     const exoDBText = exerciseDB.length > 0
       ? `\n=== BIBLIOTHÈQUE D'EXERCICES DU COACH (${exerciseDB.length} exercices) ===
-Utilise EN PRIORITÉ ces exercices avec leurs noms exacts :
+⚠️ RÈGLE ABSOLUE : Tu dois UNIQUEMENT utiliser les exercices de cette liste. Ne propose AUCUN exercice qui n'est pas dans cette bibliothèque. Utilise les noms EXACTS tels qu'écrits ci-dessous :
 ${exerciseDB.map(e => `- ${e.nom} (${e.muscle || "?"}) [${e.equip || "?"}]`).join("\n")}\n`
       : "";
 
@@ -193,7 +193,7 @@ RÈGLES IMPORTANTES :
 3. Pour les jours de type "running" ou "natation" ou "hybride" : utilise le format bloc running avec kind:"run"
 4. Pour les supersets : utilise "superset": true avec un tableau "exercises" et "setsRest" pour les repos partagés
 5. Les jours "hybride" peuvent mixer des exercices muscu (warmup/cooldown) et des blocs running (workout), ou inversement
-6. Utilise EN PRIORITÉ les exercices de la bibliothèque du coach (marque "from_db": true)
+6. ⚠️ OBLIGATOIRE : Utilise UNIQUEMENT les exercices de la bibliothèque du coach ci-dessus. Ne propose AUCUN exercice inventé. Copie les noms EXACTEMENT comme écrits dans la bibliothèque. Marque "from_db": true pour chaque exercice.
 7. Adapte le volume et l'intensité au niveau du client (${experience})
 8. Respecte la durée de séance (~${sessionDuration} min)
 9. Inclus un échauffement (warmup) et un retour au calme (cooldown) pour chaque jour
