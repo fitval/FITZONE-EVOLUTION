@@ -5407,7 +5407,7 @@ function toggleSeanceCol(col){
   seanceRenderAll();
 }
 function openProgBuilder(id){
-  if(id){const p=progs.find(x=>x.id===id);if(!p)return;progEditId=id;progDays=JSON.parse(JSON.stringify(p.jours||[]));progDayIdx=0;document.getElementById('progNom').value=p.nom;document.getElementById('progTags').value=(p.tags||[]).join(', ');document.getElementById('progDesc').value=p.desc||p.description||'';document.getElementById('progBuilderTitle').textContent='Modifier: '+p.nom;
+  if(id){const p=progs.find(x=>x.id===id);if(!p)return;progEditId=id;progDays=JSON.parse(JSON.stringify(p.jours||[]));progDayIdx=0;document.getElementById('progNom').value=p.nom;document.getElementById('progTags').value=(Array.isArray(p.tags)?p.tags:typeof p.tags==='string'?p.tags.split(','):[]).join(', ');document.getElementById('progDesc').value=p.desc||p.description||'';document.getElementById('progBuilderTitle').textContent='Modifier: '+p.nom;
     // Restore assigned clients
     progClients=[];
     const ids=p.clientIds||p.client_ids||(p.clientId||p.client_id?[p.clientId||p.client_id]:[]);
@@ -6024,7 +6024,7 @@ function renderProgList(){
         <div style="flex:1">
           <div style="font-size:14px;font-weight:700;color:var(--dark)">${p.nom}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:2px">${(p.clientNoms||p.client_noms||[]).length?(p.clientNoms||p.client_noms).join(', ')+' · ':''}${(p.jours||[]).length} jours · ${totalSets} séries/semaine · ${new Date(p.createdAt).toLocaleDateString('fr-FR')}</div>
-          <div style="margin-top:5px">${(p.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+          <div style="margin-top:5px">${(Array.isArray(p.tags)?p.tags:typeof p.tags==='string'?p.tags.split(',').map(s=>s.trim()).filter(Boolean):[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
         </div>
         <div style="display:flex;gap:5px" onclick="event.stopPropagation()">
           <button class="btn btn-ghost btn-xs" onclick="openProgBuilder(${p.id})">✏️</button>
@@ -9525,7 +9525,7 @@ async function saveAndEditAITrainPlan(){
     progDays=JSON.parse(JSON.stringify(prog.jours||[]));
     progDayIdx=0;
     document.getElementById('progNom').value=prog.nom||'';
-    document.getElementById('progTags').value=(prog.tags||[]).join(', ');
+    document.getElementById('progTags').value=(Array.isArray(prog.tags)?prog.tags:typeof prog.tags==='string'?prog.tags.split(','):[]).join(', ');
     document.getElementById('progDesc').value=prog.desc||prog.description||'';
     document.getElementById('progBuilderTitle').textContent='Modifier: '+(prog.nom||'Programme IA');
     progClients=[];
