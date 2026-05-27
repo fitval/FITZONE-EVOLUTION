@@ -3690,6 +3690,7 @@ function _renderTrainingContent(el,logs){
           </div>
         </div>
         <button class="btn btn-ghost btn-xs" style="color:var(--gold);border-color:rgba(255,255,255,.2)" onclick="event.stopPropagation();editClientProgram(${latestProg.id})">Modifier</button>
+        <button class="btn btn-ghost btn-xs" style="color:#ef4444;border-color:rgba(255,255,255,.1)" onclick="event.stopPropagation();deleteClientProgram(${latestProg.id})">Supprimer</button>
       </div>
       <div class="plan-body${window._clientProgOpen?' open':''}">
         <div style="display:flex;overflow-x:auto;border-bottom:1px solid var(--border);margin:-14px -16px 12px;padding:0 16px">
@@ -5441,6 +5442,15 @@ function openProgBuilderForClient(){
     renderClientBadges(progClients,'progClBadges','progRemoveClient');
     progFromClientId=clId;// Set APRÈS l'ouverture pour ne pas être consommé par closeProgBuilder de showPage()
   },220);
+}
+async function deleteClientProgram(progId){
+  if(!confirm('Supprimer ce programme ?'))return;
+  const idx=progs.findIndex(p=>p.id===progId);
+  if(idx>=0)progs.splice(idx,1);
+  lsSave('fz_progs',progs);
+  try{await db.from('programs').delete().eq('id',progId);}catch(e){console.warn('delete prog:',e);}
+  toast('Programme supprimé');
+  renderTrainingTab();
 }
 function editClientProgram(progId){
   if(!curClient)return;
@@ -9448,8 +9458,8 @@ function _atpRunBlock(b){
     </div>
   </div>`;
 }
-async function saveAITrainPlan(){
-  if(!aiTrainPlanData||!aiTrainPlanData.jours){toast('Pas de programme à sauvegarder');return;}
+async function saveAITrainPlan(skipRender){
+  if(!aiTrainPlanData||!aiTrainPlanData.jours){toast('Pas de programme à sauvegarder');return null;}
   const clientName=(curClient.first_name||'')+' '+(curClient.last_name||'');
   const prog={
     id:aiTrainPlanData.savedAsId||Date.now(),
@@ -9477,7 +9487,8 @@ async function saveAITrainPlan(){
   lsSave('fz_progs',progs);
   await dbSave('programs',prog);
   toast('Programme IA sauvegardé ✓');
-  renderTrainingTab();
+  if(!skipRender)renderTrainingTab();
+  return prog.id;
 }
 function _atpCleanExo(ex){
   if(ex.kind==='run')return ex;
@@ -9485,9 +9496,8 @@ function _atpCleanExo(ex){
   return{nom:ex.nom,muscle:ex.muscle||'',equip:ex.equip||'',video:ex.video||'',setsData:ex.setsData||[],notes:ex.notes||'',replacements:ex.replacements||[]};
 }
 async function saveAndEditAITrainPlan(){
-  await saveAITrainPlan();
-  if(!aiTrainPlanData.savedAsId)return;
-  const progId=aiTrainPlanData.savedAsId;
+  const progId=await saveAITrainPlan(true);
+  if(!progId)return;
   const cl=curClient;
   document.getElementById('detPage').classList.remove('show');
   showPage('tr-progs',document.getElementById('nav-tr-progs'));
@@ -9499,7 +9509,7 @@ async function saveAndEditAITrainPlan(){
       try{renderClientBadges(progClients,'progClBadges','progRemoveClient');}catch(e){}
     }
     progFromClientId=cl?.id||null;
-  },250);
+  },300);
 }
 
 /* ===== MARKETING & FINANCES ===== */
