@@ -9498,18 +9498,7 @@ function _atpCleanExo(ex){
 async function saveAndEditAITrainPlan(){
   const progId=await saveAITrainPlan(true);
   if(!progId)return;
-  const cl=curClient;
-  document.getElementById('detPage').classList.remove('show');
-  showPage('tr-progs',document.getElementById('nav-tr-progs'));
-  openSub('sub-train','arr-tr');
-  setTimeout(()=>{
-    openProgBuilder(progId);
-    if(cl&&!progClients.find(x=>x.id===cl.id)){
-      progClients.unshift(cl);
-      try{renderClientBadges(progClients,'progClBadges','progRemoveClient');}catch(e){}
-    }
-    progFromClientId=cl?.id||null;
-  },300);
+  editClientProgram(progId);
 }
 
 /* ===== MARKETING & FINANCES ===== */
