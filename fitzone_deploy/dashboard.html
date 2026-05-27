@@ -2038,6 +2038,10 @@ async function loadAllData(){
   modules=await dbLoad('modules');
   team=await dbLoad('team');
   seances=await dbLoad('seances');
+  // Sync localStorage with DB data
+  lsSave('fz_exos',exos);lsSave('fz_progs',progs);lsSave('fz_alims',alims);
+  lsSave('fz_repas',repas);lsSave('fz_plans',plans);lsSave('fz_modules',modules);
+  lsSave('fz_team',team);lsSave('fz_seances',seances);
   // Load gamification data for all clients
   await loadCoachGamification();
   // Load settings
@@ -2186,7 +2190,7 @@ function showPage(name,el){
   document.getElementById('tbActs').innerHTML=actMap[name]||'';
   if(name==='bilans')renderBilans();
   if(name==='nut-plans'){closeProgBuilder();closePlanBuilder();renderPlansListPage();}
-  if(name==='tr-progs'){closePlanBuilder();closeProgBuilder();renderProgList();}
+  if(name==='tr-progs'){closePlanBuilder();closeProgBuilder();dbLoad('programs').then(d=>{progs=d;renderProgList();}).catch(()=>renderProgList());}
   if(name==='tr-seances'){renderSeanceList();}
   if(name==='nut-alim')renderAlims();
   if(name==='nut-repas')renderRepasList();
