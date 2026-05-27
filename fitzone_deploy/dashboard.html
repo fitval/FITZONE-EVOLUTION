@@ -9356,7 +9356,18 @@ async function generateAITrainPlan(){
     });
     aiTrainPlanData={...plan,config,dayTypes};
     pBar.style.width='100%';pText.textContent='Terminé !';
-    setTimeout(()=>{closeM('mGenTrainPlan');renderAITrainPlan(aiTrainPlanData);toast('Programme IA généré ✓');},400);
+    setTimeout(async()=>{
+      closeM('mGenTrainPlan');
+      if(_gtpStandalone){
+        await saveAITrainPlan(true);
+        _gtpStandalone=false;
+        renderProgList();
+        toast('Programme IA sauvegardé ✓');
+      } else {
+        renderAITrainPlan(aiTrainPlanData);
+        toast('Programme IA généré ✓');
+      }
+    },400);
   }catch(e){
     console.error('AI Train Plan error:',e);
     toast('Erreur: '+e.message);
@@ -9367,8 +9378,7 @@ async function generateAITrainPlan(){
   }
 }
 function renderAITrainPlan(plan){
-  let el=document.getElementById('tc-training');
-  if(!el||_gtpStandalone){el=document.getElementById('progListWrap');if(!el)return;}
+  const el=document.getElementById('tc-training');
   if(!el)return;
   const nbExos=plan.jours.reduce((s,j)=>s+['warmup','workout','cooldown'].reduce((ss,sec)=>ss+(j[sec]||[]).reduce((sss,ex)=>sss+(ex.superset?(ex.exercises||[]).length:1),0),0),0);
   const dbExos=plan.jours.reduce((s,j)=>s+['warmup','workout','cooldown'].reduce((ss,sec)=>ss+(j[sec]||[]).reduce((sss,ex)=>{if(ex.superset)return sss+(ex.exercises||[]).filter(e=>e.from_db).length;return sss+(ex.from_db?1:0);},0),0),0);
