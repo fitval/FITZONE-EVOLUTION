@@ -9421,14 +9421,15 @@ function _atpRunBlock(b){
     </div>
   </div>`;
 }
-function saveAITrainPlan(){
+async function saveAITrainPlan(){
   if(!aiTrainPlanData||!aiTrainPlanData.jours){toast('Pas de programme à sauvegarder');return;}
+  const clientName=(curClient.first_name||'')+' '+(curClient.last_name||'');
   const prog={
     id:aiTrainPlanData.savedAsId||Date.now(),
     coach_id:currentCoach.id,
     nom:aiTrainPlanData.nom||'Programme IA — '+(curClient?curClient.first_name:'Client'),
     desc:aiTrainPlanData.desc||'',
-    tags:'IA',
+    tags:['IA'],
     jours:aiTrainPlanData.jours.map(j=>({
       nom:j.nom,
       type:j.type||'muscu',
@@ -9437,14 +9438,17 @@ function saveAITrainPlan(){
       cooldown:(j.cooldown||[]).map(_atpCleanExo),
       instr:j.instr||''
     })),
+    clientId:curClient.id,
+    clientNom:clientName,
     clientIds:[curClient.id],
-    clientNoms:[(curClient.first_name||'')+' '+(curClient.last_name||'')],
+    clientNoms:[clientName],
     createdAt:new Date().toISOString()
   };
   aiTrainPlanData.savedAsId=prog.id;
   const idx=progs.findIndex(p=>p.id===prog.id);
   if(idx>=0)progs[idx]=prog;else progs.push(prog);
-  lsSave('fz_progs',progs);dbSave('programs',prog);
+  lsSave('fz_progs',progs);
+  await dbSave('programs',prog);
   toast('Programme IA sauvegardé ✓');
   renderTrainingTab();
 }
@@ -9453,8 +9457,8 @@ function _atpCleanExo(ex){
   if(ex.superset){return{superset:true,exercises:(ex.exercises||[]).map(e=>({nom:e.nom,muscle:e.muscle||'',equip:e.equip||'',video:e.video||'',setsData:e.setsData||[],notes:e.notes||'',replacements:e.replacements||[]})),setsRest:ex.setsRest||[]};}
   return{nom:ex.nom,muscle:ex.muscle||'',equip:ex.equip||'',video:ex.video||'',setsData:ex.setsData||[],notes:ex.notes||'',replacements:ex.replacements||[]};
 }
-function saveAndEditAITrainPlan(){
-  saveAITrainPlan();
+async function saveAndEditAITrainPlan(){
+  await saveAITrainPlan();
   if(!aiTrainPlanData.savedAsId)return;
   openProgBuilder(aiTrainPlanData.savedAsId);
 }
