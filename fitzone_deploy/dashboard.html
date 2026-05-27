@@ -9498,7 +9498,32 @@ function _atpCleanExo(ex){
 async function saveAndEditAITrainPlan(){
   const progId=await saveAITrainPlan(true);
   if(!progId)return;
-  editClientProgram(progId);
+  // Load the program directly from progs (just saved)
+  const prog=progs.find(p=>p.id===progId);
+  if(!prog){toast('Programme introuvable — essaie depuis l\'onglet Training');return;}
+  const cl=curClient;
+  document.getElementById('detPage').classList.remove('show');
+  showPage('tr-progs',document.getElementById('nav-tr-progs'));
+  openSub('sub-train','arr-tr');
+  setTimeout(()=>{
+    // Inject directly into builder state instead of relying on openProgBuilder(id)
+    progEditId=progId;
+    progDays=JSON.parse(JSON.stringify(prog.jours||[]));
+    progDayIdx=0;
+    document.getElementById('progNom').value=prog.nom||'';
+    document.getElementById('progTags').value=(prog.tags||[]).join(', ');
+    document.getElementById('progDesc').value=prog.desc||prog.description||'';
+    document.getElementById('progBuilderTitle').textContent='Modifier: '+(prog.nom||'Programme IA');
+    progClients=[];
+    if(cl)progClients.push(cl);
+    document.getElementById('progClIn').value='';
+    renderClientBadges(progClients,'progClBadges','progRemoveClient');
+    progRenderDays();filterLib('');
+    document.getElementById('progListWrap').style.display='none';
+    document.getElementById('progBuilderWrap').style.display='block';
+    document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="closeProgBuilder()">← Retour</button><button class="btn btn-gold btn-sm" onclick="saveProg()">💾 Enregistrer</button>`;
+    progFromClientId=cl?.id||null;
+  },400);
 }
 
 /* ===== MARKETING & FINANCES ===== */
