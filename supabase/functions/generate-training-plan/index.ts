@@ -90,6 +90,24 @@ ${preferences ? "- Préférences: " + preferences : ""}
 === PLANNING DES JOURS ===
 ${dayDescs}
 ${exoDBText}
+=== FOURCHETTES DE RÉPÉTITIONS ===
+⚠️ RÈGLE OBLIGATOIRE : Tu dois utiliser des FOURCHETTES de répétitions (pas des valeurs uniques). Cela permet au client de progresser dans la fourchette.
+Fourchettes autorisées :
+- "5/8" — force (exercices lourds polyarticulaires)
+- "8/12" — hypertrophie classique
+- "10/15" — hypertrophie + endurance musculaire
+- "12/16" — endurance musculaire, isolation
+- "max" — séries au maximum (ex: dips, tractions poids de corps, gainage)
+- Pour l'échauffement et le cooldown : tu peux utiliser des durées comme "5min", "30s", "45s"
+
+Choisis la fourchette adaptée à chaque exercice selon son rôle dans la séance :
+- Exercices polyarticulaires lourds (squat, développé couché, soulevé de terre) → "5/8" ou "8/12"
+- Exercices d'isolation (curl, élévations latérales) → "10/15" ou "12/16"
+- Exercices au poids de corps difficiles (tractions, dips) → "max" si le client ne peut pas atteindre 8 reps, sinon "8/12"
+- Adapte au niveau du client : débutant → fourchettes plus hautes (10/15, 12/16), avancé → peut aller sur du 5/8
+
+Toutes les séries d'un même exercice utilisent la MÊME fourchette de reps. Ne mets PAS des reps différentes par série.
+
 === FORMAT JSON REQUIS ===
 {
   "nom": "Nom du programme",
@@ -104,7 +122,8 @@ ${exoDBText}
           "muscle": "Cardio",
           "equip": "Rameur",
           "setsData": [{"reps": "5min", "rest": ""}],
-          "notes": "Échauffement progressif"
+          "notes": "Échauffement progressif",
+          "from_db": true
         }
       ],
       "workout": [
@@ -113,10 +132,10 @@ ${exoDBText}
           "muscle": "Pectoraux",
           "equip": "Barre",
           "setsData": [
-            {"reps": "10", "rest": "90s", "rir": "2"},
-            {"reps": "10", "rest": "90s", "rir": "2"},
-            {"reps": "10", "rest": "90s", "rir": "1"},
-            {"reps": "8", "rest": "120s", "rir": "0"}
+            {"reps": "8/12", "rest": "120s", "rir": "2"},
+            {"reps": "8/12", "rest": "120s", "rir": "2"},
+            {"reps": "8/12", "rest": "120s", "rir": "1"},
+            {"reps": "8/12", "rest": "120s", "rir": "0"}
           ],
           "notes": "Contrôle la descente, 2s excentrique",
           "from_db": true
@@ -129,9 +148,9 @@ ${exoDBText}
               "muscle": "Épaules",
               "equip": "Haltères",
               "setsData": [
-                {"reps": "15", "rest": "", "rir": "1"},
-                {"reps": "15", "rest": "", "rir": "1"},
-                {"reps": "12", "rest": "", "rir": "0"}
+                {"reps": "12/16", "rest": "", "rir": "1"},
+                {"reps": "12/16", "rest": "", "rir": "1"},
+                {"reps": "12/16", "rest": "", "rir": "0"}
               ]
             },
             {
@@ -139,9 +158,9 @@ ${exoDBText}
               "muscle": "Épaules",
               "equip": "Poulie",
               "setsData": [
-                {"reps": "15", "rest": "", "rir": "1"},
-                {"reps": "15", "rest": "", "rir": "1"},
-                {"reps": "12", "rest": "", "rir": "0"}
+                {"reps": "12/16", "rest": "", "rir": "1"},
+                {"reps": "12/16", "rest": "", "rir": "1"},
+                {"reps": "12/16", "rest": "", "rir": "0"}
               ]
             }
           ],
@@ -154,7 +173,8 @@ ${exoDBText}
           "muscle": "Pectoraux",
           "equip": "Aucun",
           "setsData": [{"reps": "30s", "rest": ""}],
-          "notes": "Maintenir chaque position"
+          "notes": "Maintenir chaque position",
+          "from_db": true
         }
       ]
     },
@@ -193,15 +213,16 @@ RÈGLES IMPORTANTES :
 3. Pour les jours de type "running" ou "natation" ou "hybride" : utilise le format bloc running avec kind:"run"
 4. Pour les supersets : utilise "superset": true avec un tableau "exercises" et "setsRest" pour les repos partagés
 5. Les jours "hybride" peuvent mixer des exercices muscu (warmup/cooldown) et des blocs running (workout), ou inversement
-6. ⚠️ OBLIGATOIRE : Utilise UNIQUEMENT les exercices de la bibliothèque du coach ci-dessus. Ne propose AUCUN exercice inventé. Copie les noms EXACTEMENT comme écrits dans la bibliothèque. Marque "from_db": true pour chaque exercice.
-7. Adapte le volume et l'intensité au niveau du client (${experience})
-8. Respecte la durée de séance (~${sessionDuration} min)
-9. Inclus un échauffement (warmup) et un retour au calme (cooldown) pour chaque jour
-10. Varie les exercices entre les jours pour éviter la monotonie
-11. Si le client a des blessures, propose des alternatives sûres
-12. Les noms des jours doivent être : ${dayNames.join(", ")}
-13. Le champ "from_db" indique si l'exercice vient de la bibliothèque du coach (true) ou est suggéré par l'IA (false)
-14. Pour les blocs running/natation, le champ intensity.kind peut être: "pace", "vma", "hr" ou "rpe"`;
+6. ⚠️ OBLIGATOIRE : Utilise UNIQUEMENT les exercices de la BIBLIOTHÈQUE DU COACH ci-dessus. Tu ne dois proposer AUCUN exercice qui n'est pas dans cette liste. Copie les noms EXACTEMENT comme écrits. Si tu ne trouves pas assez d'exercices dans la bibliothèque pour un groupe musculaire, utilise ceux disponibles même si cela signifie moins de variété. JAMAIS d'exercice inventé.
+7. Tous les exercices doivent avoir "from_db": true (car ils viennent tous de la bibliothèque)
+8. ⚠️ OBLIGATOIRE : Utilise des FOURCHETTES de répétitions (ex: "8/12", "5/8", "12/16", "max") et NON des valeurs uniques. Toutes les séries d'un exercice ont la même fourchette.
+9. Adapte le volume et l'intensité au niveau du client (${experience})
+10. Respecte la durée de séance (~${sessionDuration} min)
+11. Inclus un échauffement (warmup) et un retour au calme (cooldown) pour chaque jour
+12. Varie les exercices entre les jours pour éviter la monotonie
+13. Si le client a des blessures, propose des alternatives sûres DEPUIS LA BIBLIOTHÈQUE uniquement
+14. Les noms des jours doivent être : ${dayNames.join(", ")}
+15. Pour les blocs running/natation, le champ intensity.kind peut être: "pace", "vma", "hr" ou "rpe"`;
 
     const client = new Anthropic({ apiKey });
     let fullText = "";

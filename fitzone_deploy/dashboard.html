@@ -9446,7 +9446,7 @@ function _atpExoCard(ex){
     h+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`;
     sets.forEach((s,i)=>{
       const parts=[];
-      if(s.reps)parts.push(s.reps+' reps');
+      if(s.reps)parts.push(s.reps+(s.reps==='max'||/min|s$/.test(s.reps)?'':' reps'));
       if(s.rest)parts.push('repos '+s.rest);
       if(s.rir)parts.push('RIR '+s.rir);
       h+=`<span style="background:var(--bg2);padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600">S${i+1}: ${parts.join(' · ')}</span>`;
