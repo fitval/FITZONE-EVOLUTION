@@ -1462,6 +1462,10 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
       </div>
       <div id="gpRestoDays" style="display:none;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
     </div>
+    <!-- Day names -->
+    <div class="fg"><label class="fl">Noms des jours (7 jours)</label>
+      <div id="gpDayNamesWrap" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
     <!-- Food DB info -->
     <div id="gpDbInfo" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#15803d;font-weight:500"></div>
     <!-- Allergies -->
@@ -4343,13 +4347,19 @@ function saveMacrosPlan(){
 /* Plan complet */
 function pfRenderDays(){
   const c=document.getElementById('pfDayTabs');if(!c)return;
-  c.innerHTML=pfDays.map((d,i)=>`<div class="day-tab${i===pfDayIdx?' active':''}" onclick="pfSelDay(${i})" ondblclick="pfRenameDay(${i})">${d.nom}${pfDays.length>1?`<span class="day-tab-del" onclick="event.stopPropagation();pfDelDay(${i})" title="Supprimer ce jour">✕</span>`:''}</div>`).join('')+`<div class="add-day-btn" onclick="pfAddDay()">+</div>`+`<div class="add-day-btn" onclick="pfRoundAll()" title="Arrondir toutes les quantités (valeurs rondes)" style="background:var(--gold-pale);color:var(--gold);font-size:10px;padding:4px 8px">⊙ Arrondir</div>`;
+  c.innerHTML=pfDays.map((d,i)=>`<div class="day-tab${i===pfDayIdx?' active':''}" onclick="pfSelDay(${i})">${d.nom}<span style="cursor:pointer;opacity:.5;font-size:10px;margin-left:4px" onclick="event.stopPropagation();pfRenameDay(${i})" title="Renommer">✏️</span>${pfDays.length>1?`<span class="day-tab-del" onclick="event.stopPropagation();pfDelDay(${i})" title="Supprimer ce jour">✕</span>`:''}</div>`).join('')+`<div class="add-day-btn" onclick="pfAddDay()">+</div>`+`<div class="add-day-btn" onclick="pfRoundAll()" title="Arrondir toutes les quantités (valeurs rondes)" style="background:var(--gold-pale);color:var(--gold);font-size:10px;padding:4px 8px">⊙ Arrondir</div>`;
   pfRenderTotals();
 }
 function pfSelDay(i){pfDayIdx=i;pfMealIdx=null;pfRenderDays();pfRenderMeals();}
 function pfAddDay(){pfDays.push({nom:'Jour '+(pfDays.length+1),repas:[{nom:'Repas 1',alims:[]}]});pfSelDay(pfDays.length-1);}
 function pfDelDay(i){if(pfDays.length<=1){toast('Il faut au moins 1 jour');return;}pfDays.splice(i,1);if(pfDayIdx>=pfDays.length)pfDayIdx=pfDays.length-1;pfRenderDays();pfRenderMeals();toast('Jour supprimé');}
-function pfRenameDay(i){const n=prompt('Renommer le jour :',pfDays[i].nom);if(n&&n.trim()){pfDays[i].nom=n.trim();pfRenderDays();pfRenderMeals();}}
+function pfRenameDay(i){
+  const tab=document.querySelectorAll('#pfDayTabs .day-tab')[i];if(!tab)return;
+  const cur=pfDays[i].nom;
+  tab.innerHTML=`<input class="fi" id="pfRenameDayInput" value="${cur.replace(/"/g,'&quot;')}" style="width:100px;height:24px;font-size:12px;font-weight:700;padding:2px 6px;border-radius:4px" onblur="pfFinishRename(${i})" onkeydown="if(event.key==='Enter')this.blur()">`;
+  const inp=document.getElementById('pfRenameDayInput');inp.focus();inp.select();
+}
+function pfFinishRename(i){const inp=document.getElementById('pfRenameDayInput');if(!inp)return;const v=inp.value.trim();if(v)pfDays[i].nom=v;pfRenderDays();pfRenderMeals();}
 function pfRoundAll(){const step=10;pfDays.forEach(d=>d.repas.forEach(r=>r.alims.forEach(a=>{a.qte=Math.round(a.qte/step)*step||step;})));pfRenderDays();pfRenderMeals();toast('Quantités arrondies à '+step+'g');}
 function pfCalcDay(i){const t={k:0,p:0,g:0,l:0};pfDays[i]?.repas.forEach(r=>r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;}));return t;}
 function pfCalcMeal(r){const t={k:0,p:0,g:0,l:0};r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;});return t;}
@@ -7230,6 +7240,8 @@ function openGenPlanModal(){
   const allEquip=['Four','Cuiseur vapeur','Blender','Poêle','Casserole'];
   const available=allEquip.filter(e=>!equipFromQ.includes(e));
   document.getElementById('gpEquip').value=available.join(', ');
+  // Day names
+  gpUpdateDayNames();
   // Food DB info
   const dbInfo=document.getElementById('gpDbInfo');
   dbInfo.textContent=`📦 ${alims.length} aliments dans votre base · ${repas.length} recettes disponibles`;
@@ -7248,6 +7260,13 @@ function gpUpdateMealNames(){
   const wrap=document.getElementById('gpMealNamesWrap');
   wrap.innerHTML=gpMealNames.map((m,i)=>`<input class="fi" style="width:140px;font-size:12px" value="${m}" onchange="gpMealNames[${i}]=this.value;gpUpdateRestoSlot()">`).join('');
   gpUpdateRestoSlot();
+}
+
+let gpDayNames=[...GP_DAYS];
+function gpUpdateDayNames(){
+  const wrap=document.getElementById('gpDayNamesWrap');if(!wrap)return;
+  gpDayNames=[...GP_DAYS];
+  wrap.innerHTML=gpDayNames.map((d,i)=>`<input class="fi" style="width:100px;font-size:12px;height:30px;padding:2px 8px" value="${d}" onchange="gpDayNames[${i}]=this.value">`).join('');
 }
 
 function gpUpdateRestoSlot(){
@@ -7411,6 +7430,7 @@ async function generateAIPlan(){
     fat:nutSt.lastF,
     meals_per_day:gpMealNames.length,
     meal_names:gpMealNames,
+    day_names:gpDayNames,
     diet_type:document.getElementById('gpDiet').value,
     allergies:document.getElementById('gpAllergies').value.split(',').map(s=>s.trim()).filter(Boolean),
     prep_time_max:parseInt(document.getElementById('gpPrepTime').value)||30,
@@ -7607,8 +7627,14 @@ function aiUpdateQte(ji,ri,ai,newQte){
 
 function aiRenameDay(ji){
   if(!aiPlanData||!aiPlanData.jours[ji])return;
-  const n=prompt('Renommer le jour :',aiPlanData.jours[ji].nom);
-  if(n&&n.trim()){aiPlanData.jours[ji].nom=n.trim();renderAIPlan(aiPlanData,aiPlanData.config);}
+  const el=event.target;
+  const cur=aiPlanData.jours[ji].nom;
+  el.innerHTML=`<input value="${cur.replace(/"/g,'&quot;')}" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:4px;color:#fff;font-size:13px;font-weight:700;padding:2px 8px;width:140px;font-family:var(--font)" onblur="aiFinishRename(${ji},this.value)" onkeydown="if(event.key==='Enter')this.blur()">`;
+  el.querySelector('input').focus();el.querySelector('input').select();
+}
+function aiFinishRename(ji,val){
+  if(val&&val.trim())aiPlanData.jours[ji].nom=val.trim();
+  renderAIPlan(aiPlanData,aiPlanData.config);
 }
 function aiDelDay(ji){
   if(!aiPlanData||aiPlanData.jours.length<=1){toast('Il faut au moins 1 jour');return;}

@@ -53,6 +53,7 @@ Deno.serve(async (req: Request) => {
 
     const mealsPerDay = config.meals_per_day || 4;
     const mealNames = config.meal_names || ["Petit-déjeuner", "Déjeuner", "Collation", "Dîner"];
+    const dayNames: string[] = config.day_names || ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
     const kcal = config.kcal || 2000;
     const prot = config.prot || 150;
     const carb = config.carb || 200;
@@ -135,7 +136,7 @@ RÈGLES IMPORTANTES :
 5. Les macros de chaque jour doivent être proches des objectifs (±5%)
 6. Varie les repas entre les jours
 7. Respecte strictement les allergies/exclusions
-8. Les noms des jours: Lundi, Mardi, Mercredi, Jeudi, Vendredi, Samedi, Dimanche
+8. Les noms des jours: ${dayNames.join(", ")}
 9. Le champ "slot" indique le créneau horaire (${mealNames.join(", ")}). Le champ "nom" est le NOM DE LA RECETTE (ex: "Bowl protéiné", "Poulet grillé légumes rôtis", "Salade César"). Ne mets JAMAIS "Petit-déjeuner" ou "Déjeuner" comme nom — donne un vrai nom de plat.
 10. Le champ "instructions" contient les étapes de préparation du repas. Rédige des instructions claires et concises pour CHAQUE repas (sauf les repas restaurant).
 11. Si tu utilises une recette du coach, reprends son nom exact et ses instructions.
