@@ -2190,7 +2190,7 @@ function showPage(name,el){
   document.getElementById('tbActs').innerHTML=actMap[name]||'';
   if(name==='bilans')renderBilans();
   if(name==='nut-plans'){closeProgBuilder();closePlanBuilder();renderPlansListPage();}
-  if(name==='tr-progs'){closePlanBuilder();closeProgBuilder();dbLoad('programs').then(d=>{progs=d;renderProgList();}).catch(()=>renderProgList());}
+  if(name==='tr-progs'){closePlanBuilder();closeProgBuilder();renderProgList();}
   if(name==='tr-seances'){renderSeanceList();}
   if(name==='nut-alim')renderAlims();
   if(name==='nut-repas')renderRepasList();
@@ -5428,7 +5428,7 @@ function closeProgBuilder(){
   if(wrap)wrap.style.display='none';
   document.getElementById('progListWrap').style.display='block';
   if(wasOpen){
-    document.getElementById('tbActs').innerHTML=`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`;
+    document.getElementById('tbActs').innerHTML=`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button><button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700" onclick="openGenTrainPlanStandalone()">🤖 Programme IA</button>`;
     renderProgList();
   }
 }
@@ -5481,7 +5481,7 @@ function _maybeReturnToClientFromProg(){
   if(!c)return false;
   document.getElementById('progBuilderWrap').style.display='none';
   document.getElementById('progListWrap').style.display='block';
-  document.getElementById('tbActs').innerHTML=`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`;
+  document.getElementById('tbActs').innerHTML=`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button><button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700" onclick="openGenTrainPlanStandalone()">🤖 Programme IA</button>`;
   setTimeout(()=>{if(typeof openDet==='function')openDet(c.id);},80);
   return true;
 }
@@ -6038,7 +6038,7 @@ function renderProgList(){
 function delProg(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ?'))return;dbDelete('programs',id);renderProgList();toast('Supprimé');}
 
 /* ===== SEANCES ===== */
-let seances=lsGet('fz_seances',[]);
+var seances=lsGet('fz_seances',[]);
 let seanceData={warmup:[],workout:[],cooldown:[]};
 let seanceEditId=null,seanceClient=null,seanceExoTarget={sec:'workout'};
 
