@@ -1808,13 +1808,13 @@ let isAdmin=false;
 
 /* STATE */
 let allClients=[],clFilter='all',curClient=null,curQ=null,newClientTags=[];
-let exos=lsGet('fz_exos',[]);
-let progs=lsGet('fz_progs',[]);
-let alims=lsGet('fz_alims',[]);
-let repas=lsGet('fz_repas',[]);
-let plans=lsGet('fz_plans',[]);
-let modules=lsGet('fz_modules',[]);
-let team=lsGet('fz_team',[]);
+var exos=lsGet('fz_exos',[]);
+var progs=lsGet('fz_progs',[]);
+var alims=lsGet('fz_alims',[]);
+var repas=lsGet('fz_repas',[]);
+var plans=lsGet('fz_plans',[]);
+var modules=lsGet('fz_modules',[]);
+var team=lsGet('fz_team',[]);
 
 // === IndexedDB pour vidéos de séances ===
 let vidDB=null;
@@ -2182,7 +2182,7 @@ function showPage(name,el){
   const titles={overview:'Overview',clients:'Mes clients',bilans:'Questionnaires','bilans-all':'Bilans hebdo','nut-plans':'Plans alimentaires','nut-alim':'Aliments BDD','nut-repas':'Repas & Recettes','tr-progs':'Programmes','tr-seances':'Séances','tr-exos':'Exercices',learning:'Learning',equipe:'Équipe',settings:'Paramètres','q-editor':'Éditeur questionnaires',contracts:'Contrats',payments:'Suivi paiements',notifications:'Notifications','admin-coaches':'Gestion Coachs','admin-clients':'Tous les clients','rec-forms':'Questionnaires recrutement','rec-responses':'Candidatures','reward-requests':'Récompenses',marketing:'Marketing & Finances'};
   document.getElementById('tbTitle').textContent=titles[name]||name;
   document.getElementById('backBtn').style.display='none';
-  const actMap={overview:`<button class="btn btn-dark" onclick="openNewClientModal()">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openNewClientModal()">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`,'rec-forms':`<button class="btn btn-dark" onclick="openRecFormBuilder()">+ Questionnaire</button>`};
+  const actMap={overview:`<button class="btn btn-dark" onclick="openNewClientModal()">+ Nouveau client</button>`,clients:`<button class="btn btn-dark" onclick="openNewClientModal()">+ Nouveau client</button>`,'nut-plans':`<button class="btn btn-ghost btn-sm" onclick="startMacrosPlan()">📊 Plan macros</button><button class="btn btn-dark btn-sm" onclick="startFullPlan()">🍽️ Plan complet</button>`,'tr-progs':`<button class="btn btn-dark" onclick="openProgBuilder()">+ Programme</button><button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700" onclick="openGenTrainPlanStandalone()">🤖 Programme IA</button>`,'tr-seances':`<button class="btn btn-dark" onclick="openSeanceBuilder()">+ Séance</button>`,'tr-exos':`<button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button>`,learning:`<button class="btn btn-dark" onclick="openMod()">+ Module</button>`,equipe:`<button class="btn btn-dark btn-sm" onclick="openCoach()">+ Coach</button>`,'rec-forms':`<button class="btn btn-dark" onclick="openRecFormBuilder()">+ Questionnaire</button>`};
   document.getElementById('tbActs').innerHTML=actMap[name]||'';
   if(name==='bilans')renderBilans();
   if(name==='nut-plans'){closeProgBuilder();closePlanBuilder();renderPlansListPage();}
@@ -9241,9 +9241,10 @@ async function deleteCalendarEvent(id){
 /* ===== AI TRAINING PLAN ===== */
 let aiTrainPlanData=null;
 const GTP_DAY_TYPES=[['muscu','💪 Musculation'],['running','🏃 Running'],['natation','🏊 Natation'],['hybride','🔄 Hybride']];
+let _gtpStandalone=false;
+function openGenTrainPlanStandalone(){_gtpStandalone=true;openGenTrainPlanModal();}
 function openGenTrainPlanModal(){
-  if(!curClient){toast('Sélectionne un client');return;}
-  const q=curQ||{};
+  const q=(curClient&&curQ)?curQ:{};
   const profile=[];
   if(q.sex)profile.push(q.sex==='male'?'Homme':'Femme');
   if(q.age)profile.push(q.age+' ans');
@@ -9362,7 +9363,9 @@ async function generateAITrainPlan(){
   }
 }
 function renderAITrainPlan(plan){
-  const el=document.getElementById('tc-training');if(!el)return;
+  let el=document.getElementById('tc-training');
+  if(!el||_gtpStandalone){el=document.getElementById('progListWrap');if(!el)return;}
+  if(!el)return;
   const nbExos=plan.jours.reduce((s,j)=>s+['warmup','workout','cooldown'].reduce((ss,sec)=>ss+(j[sec]||[]).reduce((sss,ex)=>sss+(ex.superset?(ex.exercises||[]).length:1),0),0),0);
   const dbExos=plan.jours.reduce((s,j)=>s+['warmup','workout','cooldown'].reduce((ss,sec)=>ss+(j[sec]||[]).reduce((sss,ex)=>{if(ex.superset)return sss+(ex.exercises||[]).filter(e=>e.from_db).length;return sss+(ex.from_db?1:0);},0),0),0);
   let h=`<div style="margin-bottom:14px;padding:16px;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:12px;color:#fff">
@@ -9460,11 +9463,12 @@ function _atpRunBlock(b){
 }
 async function saveAITrainPlan(skipRender){
   if(!aiTrainPlanData||!aiTrainPlanData.jours){toast('Pas de programme à sauvegarder');return null;}
-  const clientName=(curClient.first_name||'')+' '+(curClient.last_name||'');
+  const cl=curClient;
+  const clientName=cl?((cl.first_name||'')+' '+(cl.last_name||'')):null;
   const prog={
     id:aiTrainPlanData.savedAsId||Date.now(),
     coach_id:currentCoach.id,
-    nom:aiTrainPlanData.nom||'Programme IA — '+(curClient?curClient.first_name:'Client'),
+    nom:aiTrainPlanData.nom||'Programme IA'+(cl?' — '+cl.first_name:''),
     desc:aiTrainPlanData.desc||'',
     tags:['IA'],
     jours:aiTrainPlanData.jours.map(j=>({
@@ -9475,10 +9479,10 @@ async function saveAITrainPlan(skipRender){
       cooldown:(j.cooldown||[]).map(_atpCleanExo),
       instr:j.instr||''
     })),
-    clientId:curClient.id,
+    clientId:cl?cl.id:null,
     clientNom:clientName,
-    clientIds:[curClient.id],
-    clientNoms:[clientName],
+    clientIds:cl?[cl.id]:[],
+    clientNoms:clientName?[clientName]:[],
     createdAt:new Date().toISOString()
   };
   aiTrainPlanData.savedAsId=prog.id;
@@ -9498,15 +9502,11 @@ function _atpCleanExo(ex){
 async function saveAndEditAITrainPlan(){
   const progId=await saveAITrainPlan(true);
   if(!progId)return;
-  // Load the program directly from progs (just saved)
   const prog=progs.find(p=>p.id===progId);
-  if(!prog){toast('Programme introuvable — essaie depuis l\'onglet Training');return;}
+  if(!prog){toast('Programme introuvable');return;}
   const cl=curClient;
-  document.getElementById('detPage').classList.remove('show');
-  showPage('tr-progs',document.getElementById('nav-tr-progs'));
-  openSub('sub-train','arr-tr');
-  setTimeout(()=>{
-    // Inject directly into builder state instead of relying on openProgBuilder(id)
+  // Inject into builder
+  function _openBuilder(){
     progEditId=progId;
     progDays=JSON.parse(JSON.stringify(prog.jours||[]));
     progDayIdx=0;
@@ -9523,7 +9523,17 @@ async function saveAndEditAITrainPlan(){
     document.getElementById('progBuilderWrap').style.display='block';
     document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="closeProgBuilder()">← Retour</button><button class="btn btn-gold btn-sm" onclick="saveProg()">💾 Enregistrer</button>`;
     progFromClientId=cl?.id||null;
-  },400);
+  }
+  if(_gtpStandalone){
+    // Already on tr-progs page
+    _openBuilder();
+    _gtpStandalone=false;
+  } else {
+    document.getElementById('detPage').classList.remove('show');
+    showPage('tr-progs',document.getElementById('nav-tr-progs'));
+    openSub('sub-train','arr-tr');
+    setTimeout(()=>{_openBuilder();},400);
+  }
 }
 
 /* ===== MARKETING & FINANCES ===== */
