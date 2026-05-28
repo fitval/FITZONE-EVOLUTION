@@ -45,6 +45,7 @@ Deno.serve(async (req: Request) => {
     const dayNames: string[] = config.day_names || [];
     const dayTypes: string[] = config.day_types || [];
     const goal = config.goal || "remise en forme";
+    const priorityMuscles = config.priority_muscles || "";
     const experience = config.experience_level || "intermédiaire";
     const sessionDuration = config.session_duration || 60;
     const equipment = config.equipment || "Salle de musculation complète";
@@ -80,6 +81,7 @@ ${clientText}
 === PARAMÈTRES DU PROGRAMME ===
 - Objectif: ${goal}
 - Niveau: ${experience}
+${priorityMuscles ? "- Groupe(s) musculaire(s) à PRIORISER: " + priorityMuscles : "- Pas de groupe prioritaire : répartition équilibrée selon l'objectif"}
 - Nombre de jours: ${nbDays}
 - Durée par séance: ${sessionDuration} minutes
 - Équipement disponible: ${equipment}
@@ -90,6 +92,35 @@ ${preferences ? "- Préférences: " + preferences : ""}
 === PLANNING DES JOURS ===
 ${dayDescs}
 ${exoDBText}
+=== MÉTHODE DE PROGRAMMATION (à respecter impérativement) ===
+PRIORISATION : ${priorityMuscles ? `groupe(s) à prioriser = ${priorityMuscles}. Toute la construction (ordre des exercices, volume, fréquence, split) découle de cette priorité.` : `aucune priorité précise — répartis le volume de façon équilibrée selon l'objectif.`}
+
+1. ORDRE DES EXERCICES dans CHAQUE séance :
+   - Commence par 1 ou 2 exercices d'une ZONE SECONDAIRE qui échauffent indirectement la zone principale tout en ajoutant du volume utile (ex : avant une séance dos → crunchs à la poulie ou relevés de jambes, qui échauffent les dorsaux et travaillent les abdos).
+   - Enchaîne avec les exercices qui ciblent le GROUPE PRIORITAIRE, en plaçant les exercices polyarticulaires lourds en premier (client frais).
+   - Termine par l'isolation et les petits muscles.
+
+2. NOMBRE D'EXERCICES & FRÉQUENCE :
+   - Privilégie MOINS d'exercices différents mais répétés avec une FRÉQUENCE de 2x/semaine, plutôt que beaucoup d'exercices vus une seule fois — surtout pour un débutant.
+   - Le nombre d'exercices par séance découle du volume visé et de la durée de séance.
+
+3. VOLUME PAR GROUPE MUSCULAIRE (séries/semaine, en additionnant TOUTES les séances) :
+   - Groupes peu prioritaires : ~6 séries/semaine (maintien).
+   - Groupes prioritaires : 12 à 16 séries/semaine.
+   - Pas de chiffre magique, reste dans ces fourchettes.
+
+4. SPLIT (répartition sur les ${nbDays} jours) :
+   - Construis le split pour MAXIMISER la fréquence sur le(s) groupe(s) prioritaire(s).
+   - Vise une fréquence de 2x/semaine sur l'ENSEMBLE des groupes musculaires si le nombre de jours le permet.
+
+5. TEMPS DE REPOS (exprime-les en secondes, ex : "90s", "180s", "240s") :
+   - Petits groupes (mollets, biceps, épaules isolation) : ~90s.
+   - Gros exercices polyarticulaires (squat, hack squat, chest press, soulevé de terre) : 180 à 240s.
+   - MAIS borne le tout par la durée de séance (${sessionDuration} min) : si la séance est courte, réduis le nombre d'exercices et/ou les repos pour tenir dans le temps imparti. Ne mets JAMAIS 10 exercices à 180s de repos dans une séance de 30 min.
+
+6. SURCHARGE PROGRESSIVE :
+   - Ne programme PAS de progression chiffrée. Elle est gérée par le client via la fourchette de répétitions : c'est à lui de monter la charge / les reps à l'intérieur de la fourchette imposée.
+
 === FOURCHETTES DE RÉPÉTITIONS ===
 ⚠️ RÈGLE OBLIGATOIRE : Tu dois utiliser des FOURCHETTES de répétitions (pas des valeurs uniques). Cela permet au client de progresser dans la fourchette.
 Fourchettes autorisées :
@@ -132,10 +163,10 @@ Toutes les séries d'un même exercice utilisent la MÊME fourchette de reps. Ne
           "muscle": "Pectoraux",
           "equip": "Barre",
           "setsData": [
-            {"reps": "8/12", "rest": "120s", "rir": "2"},
-            {"reps": "8/12", "rest": "120s", "rir": "2"},
-            {"reps": "8/12", "rest": "120s", "rir": "1"},
-            {"reps": "8/12", "rest": "120s", "rir": "0"}
+            {"reps": "8/12", "rest": "180s", "rir": "2"},
+            {"reps": "8/12", "rest": "180s", "rir": "2"},
+            {"reps": "8/12", "rest": "180s", "rir": "1"},
+            {"reps": "8/12", "rest": "180s", "rir": "0"}
           ],
           "notes": "Contrôle la descente, 2s excentrique",
           "from_db": true

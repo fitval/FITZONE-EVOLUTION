@@ -1523,6 +1523,9 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
         </select>
       </div>
     </div>
+    <div class="fg"><label class="fl">Groupe(s) musculaire(s) à prioriser</label>
+      <input class="fi" id="gtpPriority" placeholder="Dos, épaules… (vide = équilibré selon l'objectif)">
+    </div>
     <div class="fr2">
       <div class="fg"><label class="fl">Durée par séance (min)</label>
         <input class="fi" type="number" id="gtpDuration" value="60" min="20" max="120">
@@ -9313,6 +9316,7 @@ async function generateAITrainPlan(){
     day_names:dayNames,
     day_types:dayTypes,
     goal:document.getElementById('gtpGoal').value,
+    priority_muscles:document.getElementById('gtpPriority')?.value||'',
     experience_level:document.getElementById('gtpLevel').value,
     session_duration:parseInt(document.getElementById('gtpDuration').value)||60,
     equipment:document.getElementById('gtpEquip').value,
