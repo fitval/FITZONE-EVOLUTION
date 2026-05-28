@@ -1054,6 +1054,60 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
     <div class="mf"><button class="btn btn-ghost" onclick="closeM('mClientContract')">Fermer</button></div>
   </div></div>
 
+  <!-- MODAL: ADD / REPLACE CONTRACT (avenant ou autre contrat depuis la fiche client) -->
+  <div class="overlay" id="mAddContract"><div class="modal" style="max-width:1040px">
+    <div class="mh"><div class="mt" id="acTitle">Contrat</div><button class="mc" onclick="closeM('mAddContract')">✕</button></div>
+    <div class="mb">
+      <div id="acInfo" style="background:var(--gold-pale);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <!-- LEFT: FORM -->
+        <div>
+          <div class="cl cl-gold" style="font-size:11px;margin-bottom:8px">📄 CONTENU DU CONTRAT</div>
+          <div class="fg"><label class="fl">Partir d'un modèle <span class="fl-o">(remplit l'éditeur)</span></label><select class="fs" id="acTpl" onchange="acFillFromTemplate()"><option value="">— Choisir un modèle —</option></select></div>
+          <div class="fg"><label class="fl">Texte du contrat <span class="fl-o">(éditable · variables {{first_name}}, {{amount}}…)</span></label><textarea class="fi" id="acContent" rows="10" oninput="acPreviewUpdate()" style="resize:vertical;font-family:ui-monospace,monospace;font-size:12px"></textarea></div>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+          <div class="cl cl-gold" style="font-size:11px;margin-bottom:8px">⏱️ DURÉE DU COACHING</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+            <button type="button" class="nf-dur-btn" data-dur="3" onclick="acSetDuration(3)">3 mois</button>
+            <button type="button" class="nf-dur-btn" data-dur="6" onclick="acSetDuration(6)">6 mois</button>
+            <button type="button" class="nf-dur-btn" data-dur="9" onclick="acSetDuration(9)">9 mois</button>
+            <button type="button" class="nf-dur-btn" data-dur="12" onclick="acSetDuration(12)">12 mois</button>
+            <button type="button" class="nf-dur-btn" data-dur="custom" onclick="acSetDuration('custom')">Autre</button>
+          </div>
+          <div id="acDurCustom" style="display:none" class="fr2">
+            <div class="fg"><label class="fl">Durée (mois)</label><input class="fi" type="number" id="acContractDuration" value="3" min="1" oninput="acPreviewUpdate()"></div>
+            <div class="fg"><label class="fl">Date de début</label><input class="fi" type="date" id="acContractStart" oninput="acPreviewUpdate()"></div>
+          </div>
+          <div id="acDurInline" class="fg"><label class="fl">Date de début</label><input class="fi" type="date" id="acContractStart2" oninput="document.getElementById('acContractStart').value=this.value;acPreviewUpdate()"></div>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+          <div class="cl cl-gold" style="font-size:11px;margin-bottom:8px">💰 PAIEMENT</div>
+          <div class="fg"><label class="fl">Montant total (€) *</label><input class="fi" type="number" step="0.01" id="acContractAmount" placeholder="1200" oninput="acPreviewUpdate();acPlanRecompute()"></div>
+          <div class="fg"><label class="fl">Format de paiement</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <button type="button" class="nf-plan-btn" data-plan="one_shot" onclick="acSetPlan('one_shot')">💳 1 fois</button>
+              <button type="button" class="nf-plan-btn" data-plan="recurring" onclick="acSetPlan('recurring')">🔁 Récurrent</button>
+              <button type="button" class="nf-plan-btn" data-plan="downpayment" onclick="acSetPlan('downpayment')">💵 Acompte + récurrent</button>
+              <button type="button" class="nf-plan-btn" data-plan="installments" onclick="acSetPlan('installments')">📅 Échéances libres</button>
+            </div>
+          </div>
+          <div id="acPlanDetails"></div>
+        </div>
+
+        <!-- RIGHT: LIVE PREVIEW -->
+        <div>
+          <div class="cl cl-gold" style="font-size:11px;margin-bottom:8px">👁️ APERÇU LIVE</div>
+          <div id="acPlanSummary" style="background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:12px;line-height:1.6"></div>
+          <div id="acPreview" style="background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:16px 20px;max-height:500px;overflow-y:auto;font-size:12px;line-height:1.55;color:var(--text)">
+            <div style="color:var(--text3);font-style:italic">Choisis un modèle ou écris le contenu du contrat.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-ghost" onclick="closeM('mAddContract')">Annuler</button><button class="btn btn-dark" id="acSaveBtn" onclick="saveAddContract()">Enregistrer le contrat</button></div>
+  </div></div>
+
   <!-- MODAL: PAYMENT EDIT / CREATE -->
   <div class="overlay" id="mPayment"><div class="modal">
     <div class="mh"><div class="mt" id="payMT">Nouvelle échéance</div><button class="mc" onclick="closeM('mPayment')">✕</button></div>
@@ -2370,8 +2424,9 @@ function renderDetHero(){
 async function openClientContractsList(clientId){
   const{data:contracts,error}=await db.from('client_contracts').select('*').eq('client_id',clientId).order('created_at',{ascending:false});
   if(error){toast('Erreur: '+error.message);return;}
-  if(!contracts||!contracts.length){toast('Aucun contrat pour ce client');return;}
-  // S'il n'y a qu'un seul contrat, l'ouvrir directement
+  // Aucun contrat → proposer directement d'en créer un
+  if(!contracts||!contracts.length){openAddContractModal(clientId,'replace');return;}
+  // S'il n'y a qu'un seul contrat, l'ouvrir directement (la vue détail propose avenant/remplacement)
   if(contracts.length===1){viewClientContract(contracts[0].id);return;}
   // Sinon afficher la liste pour que le coach choisisse
   const body=document.getElementById('clientContractBody');
@@ -2380,7 +2435,8 @@ async function openClientContractsList(clientId){
     const status=c.signed_at?`<span style="background:rgba(34,197,94,.12);color:#16a34a;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800">✓ Signé ${new Date(c.signed_at).toLocaleDateString('fr-FR')}</span>`:`<span style="background:rgba(239,68,68,.12);color:#dc2626;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:800">⏳ En attente</span>`;
     return`<div class="plan-card" style="margin-bottom:8px;cursor:pointer" onclick="viewClientContract('${c.id}')"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:14px;font-weight:700">${c.template_name||'Contrat'}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Créé le ${dt} · ${parseFloat(c.amount_total||0).toFixed(2)}€</div></div>${status}</div></div>`;
   }).join('');
-  body.innerHTML=`<div style="padding:18px 22px"><div style="font-size:13px;color:var(--text3);margin-bottom:12px">${contracts.length} contrat${contracts.length>1?'s':''} pour ce client — clique pour voir le détail</div>${list}</div>`;
+  const actions=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><button class="btn btn-sm btn-dark" onclick="closeM('mClientContract');openAddContractModal('${clientId}','avenant')">✏️ Modifier (avenant)</button><button class="btn btn-sm btn-ghost" onclick="closeM('mClientContract');openAddContractModal('${clientId}','replace')">🔄 Remplacer par un autre contrat</button></div>`;
+  body.innerHTML=`<div style="padding:18px 22px">${actions}<div style="font-size:13px;color:var(--text3);margin-bottom:12px">${contracts.length} contrat${contracts.length>1?'s':''} pour ce client — clique pour voir le détail</div>${list}</div>`;
   openM('mClientContract');
 }
 async function setBilanDay(day){
@@ -11171,46 +11227,47 @@ function nfInstallmentsRender(){
   ctn.innerHTML=h;
   nfPreviewUpdate();
 }
-function _nfCollectPlanData(){
-  const total=parseFloat(document.getElementById('nfContractAmount')?.value)||0;
-  const plan=_nfCurrentPlan;
+/* Calcul pur de l'échéancier (sans DOM) — source unique partagée par le modal nouveau client et le modal avenant/contrat */
+function _computeSchedule({total,plan,startStr,n,freq,per,down,delay,items}){
   let data={},desc='',schedule=[];
-  const startStr=document.getElementById('nfContractStart')?.value||new Date().toISOString().slice(0,10);
   const start=new Date(startStr);
-  const stepDays=(freq)=>freq==='week'?7:freq==='2weeks'?14:null; // null=mensuel
+  const stepDays=(f)=>f==='week'?7:f==='2weeks'?14:null; // null=mensuel
   if(plan==='one_shot'){
     desc=`Paiement unique de ${total.toFixed(2)}€`;
     schedule.push({date:startStr,amount:total,label:null});
   } else if(plan==='recurring'){
-    const n=parseInt(document.getElementById('nfPlanN')?.value)||1;
-    const freq=document.getElementById('nfFreq')?.value||'month';
-    const per=parseFloat(document.getElementById('nfPerAmount')?.value)||(total/n);
-    data={plan:'recurring',n,freq,per};
+    const per2=per||(total/(n||1));
+    data={plan:'recurring',n,freq,per:per2};
     const freqL=freq==='week'?'semaine':freq==='2weeks'?'2 semaines':'mois';
-    desc=`${n} échéances de ${per.toFixed(2)}€ / ${freqL}`;
+    desc=`${n} échéances de ${per2.toFixed(2)}€ / ${freqL}`;
     const dStep=stepDays(freq);
-    for(let i=0;i<n;i++){const d=new Date(start);if(dStep)d.setDate(d.getDate()+i*dStep);else d.setMonth(d.getMonth()+i);schedule.push({date:d.toISOString().slice(0,10),amount:per,label:null});}
+    for(let i=0;i<n;i++){const d=new Date(start);if(dStep)d.setDate(d.getDate()+i*dStep);else d.setMonth(d.getMonth()+i);schedule.push({date:d.toISOString().slice(0,10),amount:per2,label:null});}
   } else if(plan==='downpayment'){
-    const down=parseFloat(document.getElementById('nfPlanDown')?.value)||0;
-    const n=parseInt(document.getElementById('nfPlanN')?.value)||1;
-    const freq=document.getElementById('nfFreq')?.value||'month';
-    const delay=parseInt(document.getElementById('nfPlanDelay')?.value)||30;
     const rest=total-down;
-    const per=parseFloat(document.getElementById('nfPerAmount')?.value)||(n>0?rest/n:0);
-    data={plan:'downpayment',down,n,freq,delay,per};
+    const per2=per||(n>0?rest/n:0);
+    data={plan:'downpayment',down,n,freq,delay,per:per2};
     const freqL=freq==='week'?'semaine':freq==='2weeks'?'2 semaines':'mois';
-    desc=`Acompte de ${down.toFixed(2)}€ puis ${n} échéances de ${per.toFixed(2)}€ / ${freqL}`;
+    desc=`Acompte de ${down.toFixed(2)}€ puis ${n} échéances de ${per2.toFixed(2)}€ / ${freqL}`;
     schedule.push({date:startStr,amount:down,label:'Acompte'});
     const start2=new Date(start);start2.setDate(start2.getDate()+delay);
     const dStep=stepDays(freq);
-    for(let i=0;i<n;i++){const d=new Date(start2);if(dStep)d.setDate(d.getDate()+i*dStep);else d.setMonth(d.getMonth()+i);schedule.push({date:d.toISOString().slice(0,10),amount:per,label:null});}
+    for(let i=0;i<n;i++){const d=new Date(start2);if(dStep)d.setDate(d.getDate()+i*dStep);else d.setMonth(d.getMonth()+i);schedule.push({date:d.toISOString().slice(0,10),amount:per2,label:null});}
   } else if(plan==='installments'){
-    const items=[];document.querySelectorAll('[data-inst-date]').forEach(el=>{const i=parseInt(el.dataset.instDate);const amt=parseFloat(document.querySelector(`[data-inst-amt="${i}"]`)?.value)||0;items.push({date:el.value,amount:amt});});
     data={plan:'installments',items};
     desc=`${items.length} échéances libres (total ${items.reduce((s,it)=>s+it.amount,0).toFixed(2)}€)`;
     schedule=items.map(it=>({date:it.date,amount:it.amount,label:null}));
   }
   return{data,desc,schedule};
+}
+function _nfCollectPlanData(){
+  const total=parseFloat(document.getElementById('nfContractAmount')?.value)||0;
+  const plan=_nfCurrentPlan;
+  const startStr=document.getElementById('nfContractStart')?.value||new Date().toISOString().slice(0,10);
+  let n,freq,per,down,delay,items;
+  if(plan==='recurring'){n=parseInt(document.getElementById('nfPlanN')?.value)||1;freq=document.getElementById('nfFreq')?.value||'month';per=parseFloat(document.getElementById('nfPerAmount')?.value)||0;}
+  else if(plan==='downpayment'){down=parseFloat(document.getElementById('nfPlanDown')?.value)||0;n=parseInt(document.getElementById('nfPlanN')?.value)||1;freq=document.getElementById('nfFreq')?.value||'month';delay=parseInt(document.getElementById('nfPlanDelay')?.value)||30;per=parseFloat(document.getElementById('nfPerAmount')?.value)||0;}
+  else if(plan==='installments'){items=[];document.querySelectorAll('#nfPlanDetails [data-inst-date]').forEach(el=>{const i=parseInt(el.dataset.instDate);const amt=parseFloat(document.querySelector(`#nfPlanDetails [data-inst-amt="${i}"]`)?.value)||0;items.push({date:el.value,amount:amt});});}
+  return _computeSchedule({total,plan,startStr,n,freq,per:per||0,down:down||0,delay:delay||30,items:items||[]});
 }
 function nfPreviewUpdate(){
   const first=document.getElementById('nfFirst')?.value||'Prénom';
@@ -11268,6 +11325,165 @@ async function _attachContractToClient(newClient,tplId){
   const pays=schedule.map(s=>({client_contract_id:cc.id,coach_id:currentCoach.id,client_id:newClient.id,due_date:s.date,amount:Math.round((parseFloat(s.amount)||0)*100)/100,label:s.label||null,note:null}));
   if(pays.length){const{error:pe}=await db.from('payments').insert(pays);if(pe)console.error('[PAYMENTS]',pe);}
   return cc;
+}
+
+/* ===== AVENANT / NOUVEAU CONTRAT depuis la fiche client ===== */
+let _acCurrentPlan='one_shot',_acCurrentDur=3,_acMode='replace',_acClientId=null;
+async function openAddContractModal(clientId,mode){
+  const c=allClients.find(x=>x.id===clientId)||curClient;
+  if(!c){toast('Client introuvable');return;}
+  _acClientId=clientId;_acMode=mode==='avenant'?'avenant':'replace';
+  document.getElementById('acTitle').textContent=_acMode==='avenant'?'Modifier le contrat (avenant)':'Remplacer / nouveau contrat';
+  document.getElementById('acInfo').innerHTML=`<strong>${esc(c.first_name||'')} ${esc(c.last_name||'')}</strong> — ${_acMode==='avenant'?'tu repars du contrat actuel, tu l\'édites, puis le client le re-signe.':'choisis un modèle ; le client signera la nouvelle version.'} ⚠️ Tout contrat <strong>non signé</strong> existant sera remplacé (les contrats déjà signés sont conservés).`;
+  document.getElementById('acContractAmount').value='';
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('acContractStart').value=today;
+  document.getElementById('acContractStart2').value=today;
+  document.getElementById('acContent').value='';
+  document.getElementById('acTpl').innerHTML='<option value="">— Choisir un modèle —</option>';
+  acSetDuration(3);acSetPlan('one_shot');
+  await _loadContractTemplates();
+  const sel=document.getElementById('acTpl');
+  sel.innerHTML='<option value="">— Choisir un modèle —</option>'+_contractTemplates.map(t=>`<option value="${t.id}">${esc(t.name||'Modèle')}</option>`).join('');
+  if(_acMode==='avenant'){
+    const{data:existing}=await db.from('client_contracts').select('*').eq('client_id',clientId).is('signed_at',null).order('created_at',{ascending:false}).limit(1);
+    const cur=existing&&existing[0];
+    const tpl=cur&&_contractTemplates.find(t=>t.id===cur.template_id);
+    if(tpl){sel.value=tpl.id;document.getElementById('acContent').value=tpl.content_html||'';}
+    else if(cur){document.getElementById('acContent').value=cur.content_snapshot||'';}
+  }
+  acPreviewUpdate();
+  openM('mAddContract');
+}
+function acFillFromTemplate(){
+  const t=_contractTemplates.find(x=>x.id===document.getElementById('acTpl').value);
+  if(t){
+    const ta=document.getElementById('acContent');
+    if(ta.value.trim()&&!confirm('Remplacer le contenu de l\'éditeur par ce modèle ?')){acPreviewUpdate();return;}
+    ta.value=t.content_html||'';
+  }
+  acPreviewUpdate();
+}
+function acSetDuration(n){
+  _acCurrentDur=n;
+  document.querySelectorAll('#mAddContract .nf-dur-btn').forEach(b=>b.classList.toggle('active',String(b.dataset.dur)===String(n)));
+  const cust=document.getElementById('acDurCustom'),inl=document.getElementById('acDurInline');
+  if(n==='custom'){cust.style.display='grid';inl.style.display='none';}
+  else{cust.style.display='none';inl.style.display='block';document.getElementById('acContractDuration').value=n;}
+  acPreviewUpdate();
+}
+function acSetPlan(type){
+  _acCurrentPlan=type;
+  document.querySelectorAll('#mAddContract .nf-plan-btn').forEach(b=>b.classList.toggle('active',b.dataset.plan===type));
+  acPlanRecompute();
+}
+function acPlanRecompute(){
+  const pd=document.getElementById('acPlanDetails');if(!pd)return;
+  const total=parseFloat(document.getElementById('acContractAmount')?.value)||0;
+  const plan=_acCurrentPlan;
+  if(plan==='one_shot'){
+    pd.innerHTML=`<div style="background:var(--gold-pale);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);margin-top:8px">💳 <strong>${total.toFixed(2)}€</strong> à la signature du contrat.</div>`;
+  } else if(plan==='recurring'){
+    pd.innerHTML=`<div class="fr2" style="margin-top:8px"><div class="fg"><label class="fl">Fréquence</label><select class="fs" id="acFreq" onchange="acPreviewUpdate()"><option value="month">Tous les mois</option><option value="week">Toutes les semaines</option><option value="2weeks">Toutes les 2 semaines</option></select></div><div class="fg"><label class="fl">Nombre d'échéances</label><input class="fi" type="number" id="acPlanN" value="3" min="1" oninput="acPreviewUpdate()"></div></div>
+      <div class="fg"><label class="fl">Montant par échéance (€) <span class="fl-o">(auto-calculé, modifiable)</span></label><input class="fi" type="number" step="0.01" id="acPerAmount" value="${(total/3).toFixed(2)}" oninput="acPreviewUpdate()"></div>`;
+    setTimeout(()=>{const n=parseInt(document.getElementById('acPlanN')?.value)||3;const el=document.getElementById('acPerAmount');if(el)el.value=(total/n).toFixed(2);acPreviewUpdate();},10);
+  } else if(plan==='downpayment'){
+    pd.innerHTML=`<div class="fr2" style="margin-top:8px"><div class="fg"><label class="fl">Acompte (€)</label><input class="fi" type="number" step="0.01" id="acPlanDown" placeholder="500" oninput="acPreviewUpdate()"></div><div class="fg"><label class="fl">Nb mensualités restantes</label><input class="fi" type="number" id="acPlanN" value="3" min="1" oninput="acPreviewUpdate()"></div></div>
+      <div class="fr2"><div class="fg"><label class="fl">Fréquence</label><select class="fs" id="acFreq" onchange="acPreviewUpdate()"><option value="month">Mensuel</option><option value="week">Hebdo</option><option value="2weeks">Toutes les 2 semaines</option></select></div><div class="fg"><label class="fl">Délai avant 1ère échéance (jours)</label><input class="fi" type="number" id="acPlanDelay" value="30" oninput="acPreviewUpdate()"></div></div>
+      <div class="fg"><label class="fl">Montant par échéance (€) <span class="fl-o">(après acompte)</span></label><input class="fi" type="number" step="0.01" id="acPerAmount" placeholder="Auto" oninput="acPreviewUpdate()"></div>`;
+  } else if(plan==='installments'){
+    pd.innerHTML=`<div class="fg" style="margin-top:8px"><label class="fl">Nb d'échéances</label><input class="fi" type="number" id="acPlanN" value="3" min="1" oninput="acInstallmentsRender()"></div><div id="acInstallmentsList"></div>`;
+    acInstallmentsRender();
+  }
+  acPreviewUpdate();
+}
+function acInstallmentsRender(){
+  const n=parseInt(document.getElementById('acPlanN')?.value)||3;const tot=parseFloat(document.getElementById('acContractAmount')?.value)||0;
+  const per=(tot/n).toFixed(2);
+  const ctn=document.getElementById('acInstallmentsList');if(!ctn)return;
+  let h='<div style="font-size:11px;color:var(--text3);margin:6px 0 3px">Dates et montants personnalisables :</div>';
+  const start=document.getElementById('acContractStart')?.value||new Date().toISOString().slice(0,10);
+  for(let i=0;i<n;i++){const d=new Date(start);d.setMonth(d.getMonth()+i);const ds=d.toISOString().slice(0,10);
+    h+=`<div class="fr2" style="gap:6px;margin-bottom:4px"><input class="fi" type="date" data-inst-date="${i}" value="${ds}" oninput="acPreviewUpdate()"><input class="fi" type="number" step="0.01" data-inst-amt="${i}" value="${per}" placeholder="Montant" oninput="acPreviewUpdate()"></div>`;}
+  ctn.innerHTML=h;acPreviewUpdate();
+}
+function _acCollectPlanData(){
+  const total=parseFloat(document.getElementById('acContractAmount')?.value)||0;
+  const plan=_acCurrentPlan;
+  const startStr=document.getElementById('acContractStart')?.value||new Date().toISOString().slice(0,10);
+  let n,freq,per,down,delay,items;
+  if(plan==='recurring'){n=parseInt(document.getElementById('acPlanN')?.value)||1;freq=document.getElementById('acFreq')?.value||'month';per=parseFloat(document.getElementById('acPerAmount')?.value)||0;}
+  else if(plan==='downpayment'){down=parseFloat(document.getElementById('acPlanDown')?.value)||0;n=parseInt(document.getElementById('acPlanN')?.value)||1;freq=document.getElementById('acFreq')?.value||'month';delay=parseInt(document.getElementById('acPlanDelay')?.value)||30;per=parseFloat(document.getElementById('acPerAmount')?.value)||0;}
+  else if(plan==='installments'){items=[];document.querySelectorAll('#acPlanDetails [data-inst-date]').forEach(el=>{const i=parseInt(el.dataset.instDate);const amt=parseFloat(document.querySelector(`#acPlanDetails [data-inst-amt="${i}"]`)?.value)||0;items.push({date:el.value,amount:amt});});}
+  return _computeSchedule({total,plan,startStr,n,freq,per:per||0,down:down||0,delay:delay||30,items:items||[]});
+}
+function _acVars(){
+  const c=allClients.find(x=>x.id===_acClientId)||curClient||{};
+  const amount=parseFloat(document.getElementById('acContractAmount')?.value)||0;
+  const duration=parseInt(document.getElementById('acContractDuration')?.value)||_acCurrentDur||3;
+  const startStr=document.getElementById('acContractStart')?.value||'';
+  const{desc}=_acCollectPlanData();
+  const coachName=((currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'')).trim()||'Coach';
+  const bd=c.birth_date?new Date(c.birth_date).toLocaleDateString('fr-FR'):'';
+  const vars={first_name:c.first_name||'',last_name:c.last_name||'',email:c.email||'',birth_date:bd,address:c.address||'',amount:amount?amount.toFixed(2):'',plan_description:desc||'',duration:duration||'',start_date:startStr?new Date(startStr).toLocaleDateString('fr-FR'):'',coach_name:coachName};
+  return{vars,desc,amount,duration,startStr};
+}
+function acPreviewUpdate(){
+  const{vars,desc}=_acVars();
+  const{schedule}=_acCollectPlanData();
+  const sum=document.getElementById('acPlanSummary');
+  if(sum){
+    const totalSched=schedule.reduce((s,x)=>s+(parseFloat(x.amount)||0),0);
+    let sch='';
+    if(schedule.length){sch=`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:4px">ÉCHÉANCIER</div>`+schedule.map((s,i)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span>${i+1}. ${s.date?new Date(s.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):'—'}${s.label?' ('+s.label+')':''}</span><span style="font-weight:700;color:var(--gold)">${(parseFloat(s.amount)||0).toFixed(2)}€</span></div>`).join('')+`<div style="display:flex;justify-content:space-between;padding:4px 0 0;margin-top:4px;border-top:1px solid var(--border);font-size:12px"><strong>TOTAL</strong><strong style="color:var(--gold)">${totalSched.toFixed(2)}€</strong></div></div>`;}
+    sum.innerHTML=`<div style="color:var(--text3)">${desc||'Aucun plan de paiement'}</div>${sch}`;
+  }
+  const prev=document.getElementById('acPreview');
+  const raw=document.getElementById('acContent')?.value||'';
+  if(prev)prev.innerHTML=raw.trim()?contractTextToHtml(_applyContractVars(raw,vars)):'<div style="color:var(--text3);font-style:italic">Choisis un modèle ou écris le contenu du contrat.</div>';
+}
+async function saveAddContract(){
+  const clientId=_acClientId;const c=allClients.find(x=>x.id===clientId)||curClient;
+  if(!c){toast('Client introuvable');return;}
+  const raw=document.getElementById('acContent').value;
+  if(!raw.trim()){toast('Le contenu du contrat est vide');return;}
+  const btn=document.getElementById('acSaveBtn');btn.disabled=true;btn.textContent='⏳…';
+  try{
+    const{vars,amount,duration,startStr}=_acVars();
+    const{data:planData,schedule}=_acCollectPlanData();
+    const rendered=contractTextToHtml(_applyContractVars(raw,vars));
+    const tpl=_contractTemplates.find(t=>t.id===document.getElementById('acTpl').value);
+    // 1. Supprimer les contrats non signés existants + leurs paiements en attente
+    const{data:old}=await db.from('client_contracts').select('id').eq('client_id',clientId).is('signed_at',null);
+    const oldIds=(old||[]).map(o=>o.id);
+    if(oldIds.length){
+      await db.from('payments').delete().in('client_contract_id',oldIds).eq('status','pending');
+      await db.from('client_contracts').delete().in('id',oldIds);
+    }
+    // 2. Insérer le nouveau contrat
+    const{data:cc,error}=await db.from('client_contracts').insert({
+      coach_id:currentCoach.id,client_id:clientId,template_id:tpl?.id||null,
+      template_name:_acMode==='avenant'?((tpl?.name||'Contrat')+' (avenant)'):(tpl?.name||'Contrat'),
+      content_snapshot:rendered,amount_total:amount,plan_type:_acCurrentPlan,plan_data:planData,
+      duration_months:duration,start_date:startStr||null
+    }).select().single();
+    if(error){if(_isMigrationError(error)){_showMigrationAlert('contracts');throw new Error('Migration SQL contrats manquante');}throw error;}
+    // 3. Paiements associés
+    const pays=schedule.map(s=>({client_contract_id:cc.id,coach_id:currentCoach.id,client_id:clientId,due_date:s.date,amount:Math.round((parseFloat(s.amount)||0)*100)/100,label:s.label||null,note:null}));
+    if(pays.length){const{error:pe}=await db.from('payments').insert(pays);if(pe)console.error('[PAYMENTS]',pe);}
+    // 4. Statut : si le client n'a pas encore signé/onboardé, on le (re)met en attente de signature
+    let activeNote='';
+    if(c.status==='contract_pending'||c.status==='questionnaire_pending'){
+      await db.from('clients').update({status:'contract_pending'}).eq('id',clientId);
+      c.status='contract_pending';const idx=allClients.findIndex(x=>x.id===clientId);if(idx>=0)allClients[idx].status='contract_pending';
+    } else {
+      activeNote=' — préviens-le pour qu\'il le signe via son lien';
+    }
+    closeM('mAddContract');
+    toast((_acMode==='avenant'?'Avenant créé ✓':'Contrat remplacé ✓')+activeNote);
+    if(curClient&&curClient.id===clientId)renderDetHero();
+  }catch(e){console.error('[ADD CONTRACT]',e);toast('Erreur: '+(e.message||e));}
+  btn.disabled=false;btn.textContent='Enregistrer le contrat';
 }
 
 /* ===== SUIVI PAIEMENTS (vue tableur) ===== */
@@ -11740,7 +11956,11 @@ async function viewClientContract(ccId){
   const{data:c}=await db.from('client_contracts').select('*').eq('id',ccId).maybeSingle();
   if(!c){toast('Contrat introuvable');return;}
   const body=document.getElementById('clientContractBody');
-  let h=`<div style="padding:20px 24px">${c.content_snapshot||'<em>Contrat vide</em>'}</div>`;
+  const acts=c.signed_at
+    ? `<button class="btn btn-sm btn-dark" onclick="closeM('mClientContract');openAddContractModal('${c.client_id}','avenant')">➕ Créer un avenant</button>`
+    : `<button class="btn btn-sm btn-dark" onclick="closeM('mClientContract');openAddContractModal('${c.client_id}','avenant')">✏️ Modifier (avenant)</button><button class="btn btn-sm btn-ghost" onclick="closeM('mClientContract');openAddContractModal('${c.client_id}','replace')">🔄 Remplacer par un autre contrat</button>`;
+  let h=`<div style="display:flex;gap:8px;flex-wrap:wrap;padding:14px 24px 0">${acts}</div>`;
+  h+=`<div style="padding:16px 24px">${c.content_snapshot||'<em>Contrat vide</em>'}</div>`;
   h+=`<div style="margin:20px 24px 0;padding:16px;background:var(--bg2);border-radius:10px;font-size:12px;color:var(--text2);line-height:1.8">`;
   if(c.signed_at){
     h+=`<div style="color:#16a34a;font-weight:800;margin-bottom:6px">✅ Contrat signé</div>`;

@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-05-28 (méthode de programmation coach encodée dans le prompt training IA : fourchettes reps + priorisation + volume/split/repos)
+**Dernière mise à jour** : 2026-05-28 (avenant / remplacement de contrat depuis la fiche client + méthode de programmation coach encodée dans le prompt training IA)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -77,6 +77,8 @@
 - `saveClientPlanEdit()` utilise `upsert` avec `coach_id` (compatible RLS), pas `update`
 - Variable globale = `allClients` (PAS `clients`)
 - `mealItems(meal)` dans client.html : retourne `meal.items || meal.alims || []` (compatibilité plans manuels vs IA)
+- **Contrats depuis la fiche client** : bouton 📄 Contrat → `openClientContractsList`. La vue contrat propose « ✏️ Modifier (avenant) » et « 🔄 Remplacer par un autre contrat » → modal `mAddContract` / `openAddContractModal(clientId, 'avenant'|'replace')`. Les deux SUPPRIMENT les contrats non signés existants (+ paiements `pending`) puis recréent un `client_contracts` + `payments`. Les contrats DÉJÀ SIGNÉS ne sont jamais supprimés (avenant = nouveau contrat à côté). Statut repassé à `contract_pending` seulement si le client n'est pas encore actif. Limite connue : un client `active` ne peut pas signer via questionnaire.html (redirigé) — OK pour les clients en attente.
+- Math des échéanciers de paiement centralisée dans `_computeSchedule()` (pure, sans DOM), utilisée par `_nfCollectPlanData` (nouveau client) ET `_acCollectPlanData` (avenant). Une seule source pour les 4 plans : one_shot / recurring / downpayment / installments.
 - App client charge `coachAlims` (base aliments du coach) pour les équivalences alimentaires
 - `getBilanCountdown()` retourne `{days, label, isBilanDay, bilanDoneThisWeek}` — utilisé pour la bulle bilan sur Home
 - Onglet Bilan retiré de la tab-bar mais `tabBilan` section HTML reste (accessible via `switchTab('Bilan')` depuis Home)
