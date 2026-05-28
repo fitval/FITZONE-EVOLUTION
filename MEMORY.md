@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-05-04 (scan code-barres app client + fix plan IA dupliqué)
+**Dernière mise à jour** : 2026-05-28 (méthode de programmation coach encodée dans le prompt training IA : fourchettes reps + priorisation + volume/split/repos)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -64,6 +64,7 @@
 
 ### Supabase Edge Functions
 - **`generate-meal-plan`** : génère un plan alimentaire 7 jours via Claude Sonnet (streaming), déployée avec `--no-verify-jwt`
+- **`generate-training-plan`** : génère un programme d'entraînement via Claude Sonnet (streaming). Prompt encode la méthode de programmation du coach : fourchettes de reps (5/8, 8/12, 10/15, 12/16, max), exos UNIQUEMENT depuis la bibliothèque, champ `priority_muscles` qui pilote ordre/volume(6-16 séries/sem)/fréquence/split, repos 90s petits muscles → 180-240s gros polyart borné par durée séance. Form : modal `mGenTrainPlan`, champ `gtpPriority`
 - **`analyze-recipe`** : analyse screenshot de recette via Claude Vision, déployée avec `--no-verify-jwt`
 - **Secret** : `ANTHROPIC_API_KEY` configuré sur Supabase
 - **Clé publishable** : `sb_publishable_...` (pas un JWT standard → `--no-verify-jwt` obligatoire)
