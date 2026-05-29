@@ -2542,6 +2542,35 @@ async function _loadQCustomLabels(){
     if(cu&&typeof cu==='object')Object.values(cu).forEach(arr=>{(Array.isArray(arr)?arr:[]).forEach(q=>{if(q&&q.id)_qCustomLabelMap[q.id]=q.label||q.id;});});
   }catch(e){console.warn('[Q LABELS]',e);}
 }
+// Récupère toutes les photos du questionnaire (tableaux d'URLs dans extra_questions)
+function _qExtractPhotos(q){
+  const out=[];const xq=(q&&q.extra_questions)||{};
+  Object.keys(xq).forEach(k=>{
+    const v=xq[k];
+    if(Array.isArray(v)&&v.length&&v.every(x=>typeof x==='string'&&/^https?:\/\//.test(x))){
+      out.push({label:(_qCustomLabelMap&&_qCustomLabelMap[k])||k,urls:v});
+    }
+  });
+  return out;
+}
+// Section "Photos du questionnaire" : galerie visible en haut de l'onglet questionnaire.
+// Chaque photo est cliquable (ouvre l'original dans Drive) même si l'aperçu inline est bloqué.
+function _qPhotosSectionHtml(q){
+  const groups=_qExtractPhotos(q);
+  if(!groups.length)return'';
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const total=groups.reduce((n,g)=>n+g.urls.length,0);
+  let body='';
+  groups.forEach(g=>{
+    body+=`<div style="margin-bottom:10px"><div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:6px">${esc(g.label)} (${g.urls.length})</div><div style="display:flex;flex-wrap:wrap;gap:8px">`;
+    g.urls.forEach(u=>{
+      const d=_qDriveDirectUrl(u);const id=_qDriveId(u);const thumb=id?'https://drive.google.com/thumbnail?id='+id+'&sz=w600':d;
+      body+=`<a href="${esc(u)}" target="_blank" rel="noopener" title="Ouvrir la photo dans Drive" style="display:flex;flex-direction:column;align-items:center;gap:3px;width:112px;text-decoration:none"><div style="position:relative;width:112px;height:112px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden">📷<img src="${esc(d)}" referrerpolicy="no-referrer" loading="lazy" onerror="if(this.dataset.s){this.style.display='none'}else{this.dataset.s=1;this.src='${thumb}'}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></div><span style="font-size:10px;color:var(--gold);font-weight:700">⤢ Ouvrir</span></a>`;
+    });
+    body+=`</div></div>`;
+  });
+  return`<div class="qsec"><div class="qsec-label">📷 Photos du questionnaire (${total})</div>${body}</div>`;
+}
 function _qRenderAllAnswers(q){
   if(!q)return'';
   const escHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -2586,9 +2615,9 @@ function _qRenderAllAnswers(q){
       if(v===undefined||v===null||v==='')return;
       let html;
       if(Array.isArray(v)){
-        // Photos array (URLs)
+        // Tableau d'URLs = photos → affichées dans la section "Photos du questionnaire" en haut
         if(v.every(x=>typeof x==='string'&&/^https?:\/\//.test(x))){
-          html=`<div style="display:flex;flex-wrap:wrap;gap:6px">${v.map(u=>{const d=_qDriveDirectUrl(u);const id=_qDriveId(u);const thumb=id?'https://drive.google.com/thumbnail?id='+id+'&sz=w400':d;return`<a href="${escHtml(u)}" target="_blank" rel="noopener" style="display:block"><img src="${escHtml(d)}" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null;this.src='${thumb}'" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"></a>`;}).join('')}</div>`;
+          html=`<span style="color:var(--text3)">📷 ${v.length} photo${v.length>1?'s':''} — voir la section « Photos du questionnaire » en haut</span>`;
         } else {
           html=escHtml(v.join(', '));
         }
@@ -2629,6 +2658,7 @@ function renderQTab(){
       <div class="qi"><div class="qil">Poids</div><div class="qiv">${q.weight_kg||'—'} kg</div></div>
       ${q.weight_goal?`<div class="qi"><div class="qil">Poids cible</div><div class="qiv">${q.weight_goal} kg</div></div>`:''}
     </div></div>
+    ${_qPhotosSectionHtml(q)}
     <div class="qsec"><div class="qsec-label" style="display:flex;justify-content:space-between;align-items:center">Objectifs & mode de vie <button class="btn btn-ghost btn-xs" onclick="openEditFoodProfile()" style="font-size:11px;padding:2px 8px">✏️ Modifier profil alimentaire</button></div><div class="qgrid">
       <div class="qi"><div class="qil">Objectif</div><div class="qiv">${gm[q.goal]||q.goal||'—'}</div></div>
       <div class="qi"><div class="qil">Motivation</div><div class="qiv">${q.motivation_score||'—'} / 10</div></div>
