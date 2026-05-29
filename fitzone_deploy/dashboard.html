@@ -871,6 +871,7 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
   <div class="page" id="page-tr-exos">
     <div class="sh"><div class="st">Bibliothèque d'exercices</div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="openGSheet('exercises')">📊 Google Sheets</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('importExoFile').click()">📥 Importer CSV</button><button class="btn btn-dark btn-sm" onclick="openExo()">+ Exercice</button></div></div>
     <input type="file" id="importExoFile" accept=".csv,.json,.tsv,.txt" style="display:none" onchange="importExosFile(this)">
+    <div class="fg" style="margin-bottom:12px"><input class="fi" id="exoSearchInput" placeholder="🔍 Rechercher un exercice (nom, muscle, matériel)…" oninput="exoSearch(this.value)"></div>
     <div id="exoPageList"></div>
   </div>
 
@@ -1052,6 +1053,13 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
     <div class="mh"><div class="mt">Contrat client</div><button class="mc" onclick="closeM('mClientContract')">✕</button></div>
     <div class="mb" id="clientContractBody" style="max-height:70vh;overflow-y:auto"></div>
     <div class="mf"><button class="btn btn-ghost" onclick="closeM('mClientContract')">Fermer</button></div>
+  </div></div>
+
+  <!-- MODAL: RÉCUPÉRER LES RÉPONSES DU QUESTIONNAIRE (doublon de fiche) -->
+  <div class="overlay" id="mRecoverQ"><div class="modal" style="max-width:640px">
+    <div class="mh"><div class="mt">Récupérer les réponses du questionnaire</div><button class="mc" onclick="closeM('mRecoverQ')">✕</button></div>
+    <div class="mb" id="recoverQBody" style="max-height:70vh;overflow-y:auto"></div>
+    <div class="mf"><button class="btn btn-ghost" onclick="closeM('mRecoverQ')">Fermer</button></div>
   </div></div>
 
   <!-- MODAL: ADD / REPLACE CONTRACT (avenant ou autre contrat depuis la fiche client) -->
@@ -2663,7 +2671,8 @@ function renderQTab(){
     else if(received){extra=`<div class="es" style="color:#b45a1e;margin-top:6px">⚠️ Le statut indique « reçu » mais aucune réponse n'est trouvée pour cette fiche. Cause probable : la fiche a été recréée (doublon) et les réponses sont rattachées à l'ancien profil, ou les réponses ont été supprimées.</div>`;}
     const title=received?'Réponses introuvables':'Questionnaire non reçu';
     const sub=received?'':'Envoie le lien ci-dessus au client';
-    document.getElementById('tc-questionnaire').innerHTML=lh+`<div class="empty"><div class="ei">📋</div><div class="et">${title}</div><div class="es">${sub}</div>${extra}</div><div style="text-align:center;margin-top:10px"><button class="btn btn-sm" style="background:#fee;color:#c03030;border:1px solid #fcc;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer" onclick="resetQuestionnaire()">🔄 Réinitialiser le questionnaire</button></div>`;return;}
+    const recoverBtn=received?`<button class="btn btn-gold btn-sm" style="font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer;margin-right:6px" onclick="openRecoverQuestionnaire()">🔗 Récupérer les réponses</button>`:'';
+    document.getElementById('tc-questionnaire').innerHTML=lh+`<div class="empty"><div class="ei">📋</div><div class="et">${title}</div><div class="es">${sub}</div>${extra}</div><div style="text-align:center;margin-top:10px">${recoverBtn}<button class="btn btn-sm" style="background:#fee;color:#c03030;border:1px solid #fcc;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer" onclick="resetQuestionnaire()">🔄 Réinitialiser le questionnaire</button></div>`;return;}
   const gm={loss:'Perte de poids',mass:'Prise de masse',recomp:'Recomposition',maintain:'Maintien',performance:'Performance'};
   const am={'1.2':'Sédentaire','1.375':'Légèrement actif','1.55':'Modérément actif','1.725':'Très actif','1.9':'Extrêmement actif'};
   const dm={omni:'Omnivore',vgt:'Végétarien',vgn:'Végétalien',pes:'Pescétarien'};
@@ -2702,6 +2711,48 @@ function renderQTab(){
     </div>`;
 }
 
+/* Récupère les réponses d'une fiche en doublon et les rattache à la fiche actuelle */
+async function openRecoverQuestionnaire(){
+  const c=curClient;if(!c)return;
+  const body=document.getElementById('recoverQBody');
+  body.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3)">Recherche des réponses…</div>';
+  openM('mRecoverQ');
+  const norm=s=>(s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+  const fn=norm(c.first_name),ln=norm(c.last_name),em=norm(c.email);
+  // Fiches du même coach qui sont des doublons (même nom complet OU même email), hors fiche actuelle
+  const dups=allClients.filter(x=>x.id!==c.id&&((fn&&ln&&norm(x.first_name)===fn&&norm(x.last_name)===ln)||(em&&norm(x.email)===em)));
+  const candidates=[];
+  for(const d of dups){
+    const{data}=await db.from('questionnaires').select('*').eq('client_id',d.id);
+    (data||[]).forEach(qq=>candidates.push({q:qq,dup:d}));
+  }
+  candidates.sort((a,b)=>{const ta=a.q.submitted_at?Date.parse(a.q.submitted_at)||0:0;const tb=b.q.submitted_at?Date.parse(b.q.submitted_at)||0:0;return tb-ta;});
+  const nom=`${esc(c.first_name||'')} ${esc(c.last_name||'')}`.trim();
+  if(!candidates.length){
+    const link=QBASE+'?token='+c.token;
+    body.innerHTML=`<div style="padding:20px 22px"><div style="font-size:13px;color:var(--text2);line-height:1.6">Aucune réponse retrouvée sur une fiche en doublon de <strong>${nom}</strong>.<br><br>Les réponses ont probablement été supprimées (suppression de l'ancienne fiche, qui efface aussi ses réponses). La solution : renvoie le lien ci-dessous à ${esc(c.first_name||'ton client')} pour qu'il remplisse à nouveau le questionnaire — il sera cette fois rattaché à sa fiche actuelle.</div><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin:14px 0 6px">Lien du questionnaire (fiche actuelle)</div><div class="lbox"><div class="lurl">${link}</div><button class="cbtn" onclick="copyT('${link}')">Copier</button></div></div>`;
+    return;
+  }
+  const rows=candidates.map(cd=>{
+    const dt=cd.q.submitted_at?new Date(cd.q.submitted_at).toLocaleString('fr-FR'):'date inconnue';
+    return`<div class="plan-card" style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:13px;font-weight:700">Réponses du ${dt}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Fiche source : ${esc(cd.dup.first_name||'')} ${esc(cd.dup.last_name||'')} · ${esc(cd.dup.email||'—')} · statut ${cd.dup.status||'?'}</div></div><button class="btn btn-gold btn-sm" onclick="relinkQuestionnaire('${cd.q.id}')">Rattacher à cette fiche</button></div></div>`;
+  }).join('');
+  body.innerHTML=`<div style="padding:18px 22px"><div style="font-size:13px;color:var(--text2);margin-bottom:12px">${candidates.length} réponse(s) trouvée(s) sur une/des fiche(s) en doublon. Rattache la bonne à la fiche actuelle de <strong>${nom}</strong> :</div>${rows}<div style="font-size:11px;color:var(--text3);margin-top:10px">Après rattachement, tu pourras supprimer l'ancienne fiche en doublon depuis la liste des clients.</div></div>`;
+}
+async function relinkQuestionnaire(qId){
+  if(!curClient)return;
+  if(!confirm('Rattacher ces réponses à la fiche actuelle de '+(curClient.first_name||'')+' ?'))return;
+  const{error}=await db.from('questionnaires').update({client_id:curClient.id}).eq('id',qId);
+  if(error){toast('Erreur: '+error.message);return;}
+  if(curClient.status!=='active'&&curClient.status!=='paused'){
+    await db.from('clients').update({status:'questionnaire_done'}).eq('id',curClient.id);
+    curClient.status='questionnaire_done';
+    const idx=allClients.findIndex(x=>x.id===curClient.id);if(idx>=0)allClients[idx].status='questionnaire_done';
+  }
+  closeM('mRecoverQ');
+  toast('Réponses rattachées à la fiche ✓');
+  await openDet(curClient.id);
+}
 async function resetQuestionnaire(){
   if(!curClient)return;
   if(!confirm('Réinitialiser le questionnaire de '+curClient.first_name+' ?\n\nLes réponses actuelles seront supprimées et le client pourra re-remplir le questionnaire.'))return;
@@ -6524,10 +6575,16 @@ function exoRenderReplTags(){
     return e?`<span class="repl-tag">${e.nom} <button class="repl-x" onclick="exoRemoveRepl(${id})">✕</button></span>`:'';
   }).join('');
 }
+let _exoSearch='';
+function exoSearch(v){_exoSearch=v||'';renderExoPage();}
 function renderExoPage(){
   const el=document.getElementById('exoPageList');if(!el)return;
   if(!exos.length){el.innerHTML=`<div class="empty"><div class="ei">🏋️</div><div class="et">Aucun exercice</div><div class="es">Commence par ajouter tes exercices</div></div>`;return;}
-  el.innerHTML=exos.map(e=>`<div class="exo-card">
+  const norm=s=>(s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const qn=norm(_exoSearch).trim();
+  const list=qn?exos.filter(e=>norm(e.nom).includes(qn)||norm(e.muscle).includes(qn)||norm(e.equip).includes(qn)):exos;
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="ei">🔍</div><div class="et">Aucun résultat</div><div class="es">Aucun exercice ne correspond à « ${esc(_exoSearch)} »</div></div>`;return;}
+  el.innerHTML=list.map(e=>`<div class="exo-card">
     <div style="width:40px;height:36px;border-radius:7px;background:var(--dark);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${e.video?`<img src="https://img.youtube.com/vi/${ytId(e.video)}/default.jpg" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent='💪'">`:'💪'}</div>
     <div style="flex:1"><div style="font-size:13px;font-weight:700">${e.nom}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${e.muscle||'—'} · ${e.equip||'—'} · ${e.sets||'?'} séries ${e.reps||'?'} reps</div>${(e.replacements||[]).length?`<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:3px">${e.replacements.map(rid=>{const r=exos.find(x=>x.id===rid);return r?`<span style="font-size:9px;padding:1px 6px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:4px;color:#8a6010;font-weight:600">⇄ ${r.nom}</span>`:''}).join('')}</div>`:''}</div>
     <div style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openExo(${e.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delExo(${e.id})">✕</button></div>
