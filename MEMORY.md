@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-05-29 (fix affichage photos questionnaire sur fiche client : referrerpolicy Drive + section ouverte + labels) + avenant contrat + méthode prog IA
+**Dernière mise à jour** : 2026-05-29 (fix récup questionnaire dans openDet : NULLS FIRST shadowing + multi-soumissions + diagnostic état vide) + galerie photos questionnaire + avenant contrat + méthode prog IA
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -81,6 +81,7 @@
 - Math des échéanciers de paiement centralisée dans `_computeSchedule()` (pure, sans DOM), utilisée par `_nfCollectPlanData` (nouveau client) ET `_acCollectPlanData` (avenant). Une seule source pour les 4 plans : one_shot / recurring / downpayment / installments.
 - **Photos du questionnaire d'intégration** : questions de type `photo` (custom, q_integration_v2). Uploadées sur Google Drive (Apps Script `DRIVE_UPLOAD_URL`), URLs stockées dans `questionnaires.extra_questions[questionId]` (tableau d'URLs). Affichées sur la fiche client → onglet Questionnaire dans une section dédiée « 📷 Photos du questionnaire » EN HAUT (`_qPhotosSectionHtml` + `_qExtractPhotos`), chaque vignette cliquable (ouvre l'original dans Drive même si l'aperçu inline est bloqué, fallback placeholder 📷). Labels mappés via `_qCustomLabelMap` (chargé depuis settings.q_integration + q_integration_v2.custom dans `openDet`). La section « Questions personnalisées » n'affiche plus les photos (juste un renvoi vers la galerie).
 - **Images Google Drive en `<img>`** : OBLIGATOIRE `referrerpolicy="no-referrer"` sinon Google renvoie 403 et l'image est cassée. URL directe via `lh3.googleusercontent.com/d/ID` (`_qDriveDirectUrl`/`driveImgUrl`), fallback `drive.google.com/thumbnail?id=ID&sz=w400` via `onerror`.
+- **Chargement questionnaire dans `openDet`** : ne PAS utiliser `.order('submitted_at',{ascending:false}).limit(1)` — Postgres met les NULL en premier (NULLS FIRST en DESC), donc une ligne sans `submitted_at` masque la vraie réponse. On récupère TOUTES les soumissions et on trie en JS (date la plus récente, NULL = plus ancienne). L'erreur de requête est capturée dans `window._qLoadError` et l'état vide distingue « non reçu » vs « réponses introuvables » (statut reçu mais 0 ligne → doublon de fiche probable).
 - App client charge `coachAlims` (base aliments du coach) pour les équivalences alimentaires
 - `getBilanCountdown()` retourne `{days, label, isBilanDay, bilanDoneThisWeek}` — utilisé pour la bulle bilan sur Home
 - Onglet Bilan retiré de la tab-bar mais `tabBilan` section HTML reste (accessible via `switchTab('Bilan')` depuis Home)

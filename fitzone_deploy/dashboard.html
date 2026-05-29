@@ -2386,8 +2386,18 @@ async function openDet(id){
   // Reset le flag de premier rendu de la roadmap pour que l'auto-scroll
   // vers la semaine courante se déclenche à chaque ouverture de fiche client.
   delete window['_roadRendered_'+id];
-  const{data}=await db.from('questionnaires').select('*').eq('client_id',id).order('submitted_at',{ascending:false}).limit(1);
-  curQ=(data&&data.length)?data[0]:null;
+  // Récupère TOUTES les soumissions du client (un client peut remplir plusieurs fois).
+  // On ne fait pas confiance au tri SQL : "ORDER BY submitted_at DESC" met les NULL en premier
+  // (NULLS FIRST par défaut en Postgres), donc une ligne sans date masquerait la vraie réponse.
+  const{data:qData,error:qErr}=await db.from('questionnaires').select('*').eq('client_id',id);
+  if(qErr)console.error('[QUESTIONNAIRE LOAD] client',id,qErr);
+  window._qLoadError=qErr||null;
+  const qList=Array.isArray(qData)?qData.slice().sort((a,b)=>{
+    const ta=a&&a.submitted_at?(Date.parse(a.submitted_at)||0):0;
+    const tb=b&&b.submitted_at?(Date.parse(b.submitted_at)||0):0;
+    return tb-ta;
+  }):[];
+  curQ=qList[0]||null;
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none';});
   document.getElementById('detPage').classList.add('show');
   if(isAdmin&&!adminCoaches.length) await loadAdminCoaches();
@@ -2645,7 +2655,15 @@ function _qRenderAllAnswers(q){
 function renderQTab(){
   const c=curClient,q=curQ;const link=QBASE+'?token='+c.token;
   const lh=`<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Lien d'invitation</div><div class="lbox"><div class="lurl">${link}</div><button class="cbtn" onclick="copyT('${link}')">Copier</button></div></div>`;
-  if(!q){document.getElementById('tc-questionnaire').innerHTML=lh+`<div class="empty"><div class="ei">📋</div><div class="et">Questionnaire non reçu</div><div class="es">Envoie le lien ci-dessus au client</div></div><div style="text-align:center;margin-top:10px"><button class="btn btn-sm" style="background:#fee;color:#c03030;border:1px solid #fcc;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer" onclick="resetQuestionnaire()">🔄 Réinitialiser le questionnaire</button></div>`;return;}
+  if(!q){
+    const received=(c.status==='questionnaire_done'||c.status==='active'||c.status==='paused');
+    const loadErr=window._qLoadError;
+    let extra='';
+    if(loadErr){extra=`<div class="es" style="color:#c03030;margin-top:6px">⚠️ Erreur de récupération : ${(loadErr.message||loadErr)}</div>`;}
+    else if(received){extra=`<div class="es" style="color:#b45a1e;margin-top:6px">⚠️ Le statut indique « reçu » mais aucune réponse n'est trouvée pour cette fiche. Cause probable : la fiche a été recréée (doublon) et les réponses sont rattachées à l'ancien profil, ou les réponses ont été supprimées.</div>`;}
+    const title=received?'Réponses introuvables':'Questionnaire non reçu';
+    const sub=received?'':'Envoie le lien ci-dessus au client';
+    document.getElementById('tc-questionnaire').innerHTML=lh+`<div class="empty"><div class="ei">📋</div><div class="et">${title}</div><div class="es">${sub}</div>${extra}</div><div style="text-align:center;margin-top:10px"><button class="btn btn-sm" style="background:#fee;color:#c03030;border:1px solid #fcc;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer" onclick="resetQuestionnaire()">🔄 Réinitialiser le questionnaire</button></div>`;return;}
   const gm={loss:'Perte de poids',mass:'Prise de masse',recomp:'Recomposition',maintain:'Maintien',performance:'Performance'};
   const am={'1.2':'Sédentaire','1.375':'Légèrement actif','1.55':'Modérément actif','1.725':'Très actif','1.9':'Extrêmement actif'};
   const dm={omni:'Omnivore',vgt:'Végétarien',vgn:'Végétalien',pes:'Pescétarien'};
