@@ -2391,6 +2391,7 @@ async function openDet(id){
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none';});
   document.getElementById('detPage').classList.add('show');
   if(isAdmin&&!adminCoaches.length) await loadAdminCoaches();
+  await _loadQCustomLabels();
   renderDetHero();renderQTab();renderNutTab();renderRoadTab();
   document.querySelectorAll('#detTabs .tab').forEach(t=>t.classList.remove('active'));
   document.querySelector('#detTabs .tab').classList.add('active');
@@ -2516,12 +2517,30 @@ const Q_ALL_FIELD_DEFS=[
   {key:'extra_info',label:'Autre chose à partager',step:6}
 ];
 const Q_STEP_TITLES={1:'1 · Qui es-tu',2:'2 · Tes objectifs',3:'3 · Santé & historique',4:'4 · Entraînement',5:'5 · Nutrition',6:'6 · Dernière ligne droite'};
+function _qDriveId(url){
+  if(!url||typeof url!=='string')return null;
+  let m=url.match(/\/d\/([^/]+)/);if(m)return m[1];
+  m=url.match(/[?&]id=([^&]+)/);if(m)return m[1];
+  return null;
+}
 function _qDriveDirectUrl(url){
   if(!url||typeof url!=='string'||!url.includes('drive.google.com'))return url;
-  let id=null;
-  const m1=url.match(/\/d\/([^/]+)/);if(m1)id=m1[1];
-  const m2=url.match(/[?&]id=([^&]+)/);if(m2)id=m2[1];
+  const id=_qDriveId(url);
   return id?'https://lh3.googleusercontent.com/d/'+id:url;
+}
+// Map qid -> libellé des questions custom (q_integration + q_integration_v2.custom) du coach
+let _qCustomLabelMap={};
+async function _loadQCustomLabels(){
+  _qCustomLabelMap={};
+  const coachId=curClient?.coach_id||currentCoach?.id;
+  if(!coachId)return;
+  try{
+    const{data}=await db.from('settings').select('q_integration,q_integration_v2').eq('coach_id',coachId).maybeSingle();
+    if(!data)return;
+    (Array.isArray(data.q_integration)?data.q_integration:[]).forEach(q=>{if(q&&q.id)_qCustomLabelMap[q.id]=q.label||q.id;});
+    const cu=data.q_integration_v2&&data.q_integration_v2.custom;
+    if(cu&&typeof cu==='object')Object.values(cu).forEach(arr=>{(Array.isArray(arr)?arr:[]).forEach(q=>{if(q&&q.id)_qCustomLabelMap[q.id]=q.label||q.id;});});
+  }catch(e){console.warn('[Q LABELS]',e);}
 }
 function _qRenderAllAnswers(q){
   if(!q)return'';
@@ -2569,17 +2588,18 @@ function _qRenderAllAnswers(q){
       if(Array.isArray(v)){
         // Photos array (URLs)
         if(v.every(x=>typeof x==='string'&&/^https?:\/\//.test(x))){
-          html=`<div style="display:flex;flex-wrap:wrap;gap:6px">${v.map(u=>{const d=_qDriveDirectUrl(u);return`<a href="${escHtml(u)}" target="_blank" rel="noopener" style="display:block"><img src="${escHtml(d)}" loading="lazy" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"></a>`;}).join('')}</div>`;
+          html=`<div style="display:flex;flex-wrap:wrap;gap:6px">${v.map(u=>{const d=_qDriveDirectUrl(u);const id=_qDriveId(u);const thumb=id?'https://drive.google.com/thumbnail?id='+id+'&sz=w400':d;return`<a href="${escHtml(u)}" target="_blank" rel="noopener" style="display:block"><img src="${escHtml(d)}" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null;this.src='${thumb}'" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"></a>`;}).join('')}</div>`;
         } else {
           html=escHtml(v.join(', '));
         }
       } else {
         html=escHtml(String(v));
       }
-      xrows+=`<div style="display:grid;grid-template-columns:240px 1fr;gap:14px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:12px;color:var(--text3);font-weight:600">${escHtml(k)}</div><div style="font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word">${html}</div></div>`;
+      const label=(_qCustomLabelMap&&_qCustomLabelMap[k])||k;
+      xrows+=`<div style="display:grid;grid-template-columns:240px 1fr;gap:14px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:12px;color:var(--text3);font-weight:600">${escHtml(label)}</div><div style="font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word">${html}</div></div>`;
     });
     if(xrows){
-      h+=`<details style="margin-bottom:8px;border:1px solid var(--gold-border);border-radius:8px;background:var(--white)">
+      h+=`<details open style="margin-bottom:8px;border:1px solid var(--gold-border);border-radius:8px;background:var(--white)">
         <summary style="padding:10px 14px;cursor:pointer;font-size:12px;font-weight:800;color:var(--gold);letter-spacing:.5px;text-transform:uppercase">Questions personnalisées (${xqKeys.length})</summary>
         <div style="padding:0 14px 10px 14px">${xrows}</div>
       </details>`;
