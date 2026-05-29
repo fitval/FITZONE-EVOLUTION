@@ -2711,7 +2711,9 @@ function renderQTab(){
     </div>`;
 }
 
-/* Récupère les réponses d'une fiche en doublon et les rattache à la fiche actuelle */
+/* Récupère les réponses rattachées à une AUTRE fiche et les rattache à la fiche actuelle.
+   On liste TOUTES les réponses lisibles (le RLS limite déjà aux clients du coach / tout si admin),
+   pas seulement les fiches au nom identique — car le doublon peut avoir un nom/email différent. */
 async function openRecoverQuestionnaire(){
   const c=curClient;if(!c)return;
   const body=document.getElementById('recoverQBody');
@@ -2719,25 +2721,34 @@ async function openRecoverQuestionnaire(){
   openM('mRecoverQ');
   const norm=s=>(s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
   const fn=norm(c.first_name),ln=norm(c.last_name),em=norm(c.email);
-  // Fiches du même coach qui sont des doublons (même nom complet OU même email), hors fiche actuelle
-  const dups=allClients.filter(x=>x.id!==c.id&&((fn&&ln&&norm(x.first_name)===fn&&norm(x.last_name)===ln)||(em&&norm(x.email)===em)));
-  const candidates=[];
-  for(const d of dups){
-    const{data}=await db.from('questionnaires').select('*').eq('client_id',d.id);
-    (data||[]).forEach(qq=>candidates.push({q:qq,dup:d}));
-  }
-  candidates.sort((a,b)=>{const ta=a.q.submitted_at?Date.parse(a.q.submitted_at)||0:0;const tb=b.q.submitted_at?Date.parse(b.q.submitted_at)||0:0;return tb-ta;});
   const nom=`${esc(c.first_name||'')} ${esc(c.last_name||'')}`.trim();
-  if(!candidates.length){
-    const link=QBASE+'?token='+c.token;
-    body.innerHTML=`<div style="padding:20px 22px"><div style="font-size:13px;color:var(--text2);line-height:1.6">Aucune réponse retrouvée sur une fiche en doublon de <strong>${nom}</strong>.<br><br>Les réponses ont probablement été supprimées (suppression de l'ancienne fiche, qui efface aussi ses réponses). La solution : renvoie le lien ci-dessous à ${esc(c.first_name||'ton client')} pour qu'il remplisse à nouveau le questionnaire — il sera cette fois rattaché à sa fiche actuelle.</div><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin:14px 0 6px">Lien du questionnaire (fiche actuelle)</div><div class="lbox"><div class="lurl">${link}</div><button class="cbtn" onclick="copyT('${link}')">Copier</button></div></div>`;
+  const{data,error}=await db.from('questionnaires').select('id,client_id,submitted_at,age,goal').neq('client_id',c.id);
+  if(error){body.innerHTML=`<div style="padding:20px 22px;color:#c03030">Erreur de recherche : ${esc(error.message)}</div>`;return;}
+  const byId={};allClients.forEach(x=>byId[x.id]=x);
+  const cands=(data||[]).map(q=>{
+    const cl=byId[q.client_id];
+    const match=cl?((fn&&ln&&norm(cl.first_name)===fn&&norm(cl.last_name)===ln)||(em&&norm(cl.email)===em)):false;
+    return{q,cl,match};
+  });
+  cands.sort((a,b)=>{if(a.match!==b.match)return a.match?-1:1;const ta=a.q.submitted_at?Date.parse(a.q.submitted_at)||0:0;const tb=b.q.submitted_at?Date.parse(b.q.submitted_at)||0:0;return tb-ta;});
+  const link=QBASE+'?token='+c.token;
+  const resendBlock=`<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">Tu ne reconnais aucune réponse ci-dessus ? L'ancienne fiche a probablement été supprimée (ses réponses sont effacées avec elle). Renvoie le lien à ${esc(c.first_name||'ton client')} pour qu'il recommence — ce sera rattaché à sa fiche actuelle.<div class="lbox" style="margin-top:8px"><div class="lurl">${link}</div><button class="cbtn" onclick="copyT('${link}')">Copier</button></div></div>`;
+  if(!cands.length){
+    body.innerHTML=`<div style="padding:20px 22px"><div style="font-size:13px;color:var(--text2);line-height:1.6">Aucune réponse récupérable trouvée pour une autre fiche.${resendBlock}</div>`;
     return;
   }
-  const rows=candidates.map(cd=>{
+  const hasMatch=cands.some(x=>x.match);
+  const rows=cands.map(cd=>{
     const dt=cd.q.submitted_at?new Date(cd.q.submitted_at).toLocaleString('fr-FR'):'date inconnue';
-    return`<div class="plan-card" style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:13px;font-weight:700">Réponses du ${dt}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Fiche source : ${esc(cd.dup.first_name||'')} ${esc(cd.dup.last_name||'')} · ${esc(cd.dup.email||'—')} · statut ${cd.dup.status||'?'}</div></div><button class="btn btn-gold btn-sm" onclick="relinkQuestionnaire('${cd.q.id}')">Rattacher à cette fiche</button></div></div>`;
+    const owner=cd.cl?`${esc(cd.cl.first_name||'')} ${esc(cd.cl.last_name||'')} · ${esc(cd.cl.email||'—')}`:'(fiche supprimée / autre coach)';
+    const badge=cd.match?'<span style="background:var(--gold-pale);border:1px solid var(--gold-border);color:#8a6010;font-size:9px;font-weight:800;padding:1px 6px;border-radius:6px;margin-left:6px">CORRESPOND</span>':'';
+    const extra=cd.q.goal?` · objectif ${esc(cd.q.goal)}`:'';const age=cd.q.age?` · ${cd.q.age} ans`:'';
+    return`<div class="plan-card" style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:13px;font-weight:700">Réponses du ${dt}${badge}</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Fiche source : ${owner}${age}${extra}</div></div><button class="btn btn-gold btn-sm" onclick="relinkQuestionnaire('${cd.q.id}')">Rattacher</button></div></div>`;
   }).join('');
-  body.innerHTML=`<div style="padding:18px 22px"><div style="font-size:13px;color:var(--text2);margin-bottom:12px">${candidates.length} réponse(s) trouvée(s) sur une/des fiche(s) en doublon. Rattache la bonne à la fiche actuelle de <strong>${nom}</strong> :</div>${rows}<div style="font-size:11px;color:var(--text3);margin-top:10px">Après rattachement, tu pourras supprimer l'ancienne fiche en doublon depuis la liste des clients.</div></div>`;
+  const intro=hasMatch
+    ?`Réponses trouvées. Celles qui correspondent au nom/email de <strong>${nom}</strong> sont marquées « CORRESPOND ». Rattache la bonne à sa fiche actuelle :`
+    :`${cands.length} réponse(s) reçue(s) sur d'autres fiches. Aucune ne correspond exactement au nom de <strong>${nom}</strong> — repère la bonne grâce à la date / l'objectif, puis rattache-la :`;
+  body.innerHTML=`<div style="padding:18px 22px"><div style="font-size:13px;color:var(--text2);margin-bottom:12px">${intro}</div>${rows}${resendBlock}</div>`;
 }
 async function relinkQuestionnaire(qId){
   if(!curClient)return;
