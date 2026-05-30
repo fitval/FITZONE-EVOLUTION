@@ -62,12 +62,13 @@ Deno.serve(async (req: Request) => {
     const allergies = config.allergies || [];
     const prepTimeMax = config.prep_time_max || 30;
 
-    const foodDB: Array<{nom: string; kcal: number; prot: number; carb: number; fat: number}> = config.food_database || [];
+    const foodDBFull: Array<{nom: string; kcal: number; prot: number; carb: number; fat: number}> = config.food_database || [];
+    const foodDB = foodDBFull.slice(0, 200);
     const recipesDBFull: Array<{nom: string; type: string; items: Array<{nom: string; qte: number}>; kcal: number; prot: number}> = config.recipes || [];
     const recipesDB = recipesDBFull.slice(0, 50);
 
     const foodDBText = foodDB.length > 0
-      ? `\n=== BASE DE DONNÉES ALIMENTS DU COACH (${foodDB.length} aliments) ===
+      ? `\n=== BASE DE DONNÉES ALIMENTS DU COACH (${foodDB.length}${foodDBFull.length > foodDB.length ? ' premiers sur ' + foodDBFull.length : ''} aliments) ===
 Utilise EN PRIORITÉ ces aliments avec leurs valeurs nutritionnelles exactes :
 ${foodDB.map(f => `- ${f.nom}: ${f.kcal}kcal P:${f.prot}g G:${f.carb}g L:${f.fat}g /100g`).join("\n")}\n`
       : "";
@@ -147,8 +148,8 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
     // Stream from Claude (avoids SDK timeout) but collect all text server-side
     let fullText = "";
     const stream = client.messages.stream({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 30000,
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 20000,
       messages: [{ role: "user", content: prompt }],
     });
     for await (const event of stream) {

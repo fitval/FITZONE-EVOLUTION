@@ -2997,6 +2997,19 @@ async function editFoodLog(id){
 }
 function openPlan(idx){currentPlanIdx=idx;currentDayIdx=0;renderPlanDetail();}
 function mealItems(meal){return meal.items||meal.alims||[];}
+/* Portions cuisinées par repas — multiplicateur appliqué aux quantités et macros */
+let _clMealPortions=(()=>{try{return JSON.parse(localStorage.getItem('fz_mealPortions')||'{}');}catch(e){return{};}})();
+function getMealPortion(planRefId,dayIdx,mealIdx){return _clMealPortions?.[planRefId]?.[dayIdx]?.[mealIdx]??1;}
+function setMealPortion(planRefId,dayIdx,mealIdx,val){
+  val=Math.max(0.5,Math.min(10,Math.round(val*2)/2));
+  if(!_clMealPortions[planRefId])_clMealPortions[planRefId]={};
+  if(!_clMealPortions[planRefId][dayIdx])_clMealPortions[planRefId][dayIdx]={};
+  _clMealPortions[planRefId][dayIdx][mealIdx]=val;
+  try{localStorage.setItem('fz_mealPortions',JSON.stringify(_clMealPortions));}catch(e){}
+  renderPlanDetail();
+}
+function adjustMealPortion(planRefId,dayIdx,mealIdx,delta){setMealPortion(planRefId,dayIdx,mealIdx,getMealPortion(planRefId,dayIdx,mealIdx)+delta);}
+function fmtPortion(p){return p%1===0?String(p):p.toString();}
 function mealCheckKey(planId,dayIdx,ri,date){return`mc:${date}:${planId}:${dayIdx}:${ri}`;}
 function isMealDone(planId,dayIdx,ri){return localStorage.getItem(mealCheckKey(planId,dayIdx,ri,today()))==='1';}
 function toggleMealDone(planId,dayIdx,ri){
@@ -3004,10 +3017,11 @@ function toggleMealDone(planId,dayIdx,ri){
   if(localStorage.getItem(k)==='1')localStorage.removeItem(k);else localStorage.setItem(k,'1');
   renderPlanDetail();
 }
-function calcDayMacros(day){
+function calcDayMacros(day,planRefId,dayIdx){
   let dk=0,dp=0,dc=0,df=0;
-  (day.repas||[]).forEach(meal=>{
-    mealItems(meal).forEach(it=>{const q=(it.qte||100)/100;dk+=(it.kcal||0)*q;dp+=(it.prot||0)*q;dc+=(it.carb||0)*q;df+=(it.fat||0)*q;});
+  (day.repas||[]).forEach((meal,ri)=>{
+    const pm=(planRefId!=null&&dayIdx!=null)?getMealPortion(planRefId,dayIdx,ri):1;
+    mealItems(meal).forEach(it=>{const q=(it.qte||100)/100*pm;dk+=(it.kcal||0)*q;dp+=(it.prot||0)*q;dc+=(it.carb||0)*q;df+=(it.fat||0)*q;});
   });
   return{kcal:dk,prot:dp,carb:dc,fat:df};
 }
@@ -3020,10 +3034,11 @@ function renderPlanDetail(){
     ${p.type==='full'&&jours.length?`<button onclick="openClientGrocery()" style="background:var(--gold);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">🛒 Courses</button>`:''}
   </div>`;
 
-  // Calculate average macros across all days
+  const planRefId=p.id||('idx'+currentPlanIdx);
+  // Calculate average macros across all days (portions appliquées)
   let avgK=0,avgP=0,avgC=0,avgF=0;
   if(jours.length){
-    jours.forEach(day=>{const m=calcDayMacros(day);avgK+=m.kcal;avgP+=m.prot;avgC+=m.carb;avgF+=m.fat;});
+    jours.forEach((day,di)=>{const m=calcDayMacros(day,planRefId,di);avgK+=m.kcal;avgP+=m.prot;avgC+=m.carb;avgF+=m.fat;});
     avgK/=jours.length;avgP/=jours.length;avgC/=jours.length;avgF/=jours.length;
   } else { avgK=p.kcal||0;avgP=p.prot||0;avgC=p.carb||0;avgF=p.fat||0; }
 
@@ -3048,8 +3063,7 @@ function renderPlanDetail(){
   if(p.type==='macros'||!jours.length){if(p.notes)h+=`<div class="card"><div style="font-size:14px;color:var(--text2);line-height:1.5">${p.notes}</div></div>`;document.getElementById('nutriContent').innerHTML=h;return;}
   h+=`<div class="day-tabs">${jours.map((j,i)=>`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderPlanDetail()">${j.nom||'J'+(i+1)}</button>`).join('')}</div>`;
   const day=jours[currentDayIdx];
-  const dayM=calcDayMacros(day);
-  const planRefId=p.id||('idx'+currentPlanIdx);
+  const dayM=calcDayMacros(day,planRefId,currentDayIdx);
   const totalMeals=(day.repas||[]).length;
   const doneMeals=(day.repas||[]).reduce((n,_,ri)=>n+(isMealDone(planRefId,currentDayIdx,ri)?1:0),0);
   // Day summary bar
@@ -3064,8 +3078,9 @@ function renderPlanDetail(){
   const mealIcons={'Petit-déjeuner':'🌅','Déjeuner':'🍽️','Dîner':'🌙','Goûter':'🍎','Collation':'🥤','Collation AM':'🥤','Collation PM':'🥤'};
   (day.repas||[]).forEach((meal,ri)=>{
     const items=mealItems(meal);
+    const portion=getMealPortion(planRefId,currentDayIdx,ri);
     let mk=0,mp=0,mc=0,mf=0;
-    items.forEach(it=>{const q=(it.qte||100)/100;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;});
+    items.forEach(it=>{const q=(it.qte||100)/100*portion;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;});
     const icon=mealIcons[meal.nom]||'🍴';
     const done=isMealDone(planRefId,currentDayIdx,ri);
     h+=`<div class="meal-card${done?' meal-done':''}" style="padding:0;overflow:hidden;margin-bottom:14px;${done?'opacity:.55;':''}transition:opacity .2s">
@@ -3076,16 +3091,25 @@ function renderPlanDetail(){
         <button onclick="event.stopPropagation();toggleMealDone('${planRefId}',${currentDayIdx},${ri})" aria-label="${done?'Décocher repas':'Marquer mangé'}" title="${done?'Décocher':'Marquer mangé'}" style="width:36px;height:36px;border-radius:50%;border:2px solid ${done?'var(--gold)':'var(--border)'};background:${done?'var(--gold)':'var(--white)'};color:${done?'white':'var(--text3)'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:18px;font-weight:800;padding:0;font-family:inherit;line-height:1;transition:all .15s">${done?'✓':''}</button>
       </div>
       <div style="padding:6px 16px 10px">`;
+    // Sélecteur de portions
+    h+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
+      <span style="font-size:12px;font-weight:600;color:var(--text2);flex:1">🍽️ Portions cuisinées</span>
+      <button onclick="event.stopPropagation();adjustMealPortion('${planRefId}',${currentDayIdx},${ri},-0.5)" aria-label="Diminuer les portions" style="width:30px;height:30px;border-radius:50%;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:16px;font-weight:800;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center">−</button>
+      <span style="min-width:32px;text-align:center;font-size:14px;font-weight:800;color:var(--gold)">× ${fmtPortion(portion)}</span>
+      <button onclick="event.stopPropagation();adjustMealPortion('${planRefId}',${currentDayIdx},${ri},0.5)" aria-label="Augmenter les portions" style="width:30px;height:30px;border-radius:50%;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:16px;font-weight:800;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center">+</button>
+    </div>`;
     if(meal.instructions){h+=`<div style="font-size:12px;color:var(--text2);line-height:1.5;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:6px;white-space:pre-line">${meal.instructions}</div>`;}
     if(!items.length) h+=`<div style="font-size:13px;color:var(--text3);padding:10px 0">Aucun aliment</div>`;
     items.forEach((it,ai)=>{
-      const q=(it.qte||100)/100;
+      const baseQ=(it.qte||100)/100;
+      const q=baseQ*portion;
+      const dispQty=Math.round((it.qte||100)*portion);
       const srcColor=it.source==='proteines'?'#4a90d9':it.source==='glucides'?'#c49a2a':'#e07c5a';
       const srcDot=it.source?`<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${srcColor};margin-right:6px;flex-shrink:0"></span>`:'';
       h+=`<div style="display:flex;align-items:center;padding:10px 0;${ai<items.length-1?'border-bottom:1px solid var(--border)':''}">
         ${srcDot}<div style="flex:1;font-size:14px;font-weight:500">${it.nom||'Aliment'}</div>
         ${hideMacros?'':`<button onclick="showFoodSwap(${currentPlanIdx},${currentDayIdx},${ri},${ai})" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer;margin:0 8px;flex-shrink:0">⇄</button>`}
-        <div style="text-align:right;flex-shrink:0"><div style="font-size:13px;font-weight:700">${it.qte||100}g</div>${hideMacros?'':`<div style="font-size:10px;color:var(--text3)">${Math.round((it.kcal||0)*q)} kcal</div>`}</div>
+        <div style="text-align:right;flex-shrink:0"><div style="font-size:13px;font-weight:700">${dispQty}g</div>${hideMacros?'':`<div style="font-size:10px;color:var(--text3)">${Math.round((it.kcal||0)*q)} kcal</div>`}</div>
       </div>`;
     });
     h+=`</div></div>`;
@@ -3117,13 +3141,15 @@ function clBuildGrocery(p,durationDays){
   const agg={};
   const planDays=(p.jours||[]).length||1;
   const mult=durationDays/planDays;
-  (p.jours||[]).forEach(day=>{
-    (day.repas||[]).forEach(meal=>{
+  const planRefId=p.id||('idx'+currentPlanIdx);
+  (p.jours||[]).forEach((day,di)=>{
+    (day.repas||[]).forEach((meal,ri)=>{
+      const pm=getMealPortion(planRefId,di,ri);
       (mealItems(meal)||[]).forEach(a=>{
         const key=(a.nom||'').toLowerCase().trim();if(!key)return;
         const cat=a.cat||clGuessAisle(a.nom,a.source);
         if(!agg[key])agg[key]={nom:a.nom,cat:CL_AISLES.includes(cat)?cat:'Autres',qte:0};
-        agg[key].qte+=(parseFloat(a.qte)||0)*mult;
+        agg[key].qte+=(parseFloat(a.qte)||0)*mult*pm;
       });
     });
   });

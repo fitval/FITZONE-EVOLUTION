@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-05-29 (recherche dans biblio exercices + récupération réponses questionnaire d'un doublon de fiche) + fix récup questionnaire openDet + galerie photos + avenant contrat
+**Dernière mise à jour** : 2026-05-30 (fix 546 generate-meal-plan : Haiku 4.5 + food DB cap 200 + max_tokens 20k ; portions cuisinées côté client) + recherche biblio + récup questionnaire doublon
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -63,7 +63,7 @@
 ## Architecture technique
 
 ### Supabase Edge Functions
-- **`generate-meal-plan`** : génère un plan alimentaire 7 jours via Claude Sonnet (streaming), déployée avec `--no-verify-jwt`
+- **`generate-meal-plan`** : génère un plan alimentaire 7 jours via Claude Haiku 4.5 (`claude-haiku-4-5-20251001`), streaming, max_tokens=20000, food_database capée à 200 items, déployée avec `--no-verify-jwt`. Modèle bumpé depuis Sonnet 4 (mai 2025, trop lent et risque deprecation) — Haiku passe ~59s pour un plan 7j×4 repas, sous la limite 150s d'Edge Functions (sinon erreur 546)
 - **`generate-training-plan`** : génère un programme d'entraînement via Claude Sonnet (streaming). Prompt encode la méthode de programmation du coach : fourchettes de reps (5/8, 8/12, 10/15, 12/16, max), exos UNIQUEMENT depuis la bibliothèque, champ `priority_muscles` qui pilote ordre/volume(6-16 séries/sem)/fréquence/split, repos 90s petits muscles → 180-240s gros polyart borné par durée séance. Form : modal `mGenTrainPlan`, champ `gtpPriority`
 - **`analyze-recipe`** : analyse screenshot de recette via Claude Vision, déployée avec `--no-verify-jwt`
 - **Secret** : `ANTHROPIC_API_KEY` configuré sur Supabase
@@ -84,6 +84,7 @@
 - **Chargement questionnaire dans `openDet`** : ne PAS utiliser `.order('submitted_at',{ascending:false}).limit(1)` — Postgres met les NULL en premier (NULLS FIRST en DESC), donc une ligne sans `submitted_at` masque la vraie réponse. On récupère TOUTES les soumissions et on trie en JS (date la plus récente, NULL = plus ancienne). L'erreur de requête est capturée dans `window._qLoadError` et l'état vide distingue « non reçu » vs « réponses introuvables » (statut reçu mais 0 ligne → doublon de fiche probable).
 - **Récupération réponses doublon** : bouton « 🔗 Récupérer les réponses » sur l'état vide du questionnaire (`openRecoverQuestionnaire`) → liste TOUTES les réponses lisibles par le coach (`questionnaires` avec `.neq('client_id',fiche actuelle)` ; le RLS limite déjà aux clients du coach / tout si admin) — PAS seulement les fiches au nom identique, car le doublon peut avoir un nom/email différent. Les correspondances nom/email sont badgées « CORRESPOND » et triées en tête. `relinkQuestionnaire` rattache (UPDATE `questionnaires.client_id = fiche actuelle`). Réponses orphelines (ancienne fiche supprimée → cascade) NON récupérables via RLS → fallback : renvoyer le lien pour re-remplir.
 - **Recherche bibliothèque exercices** : input `#exoSearchInput` → `exoSearch()` → `_exoSearch` ; `renderExoPage()` filtre `exos` (nom/muscle/equip) en normalisant (lowercase + suppression accents).
+- **Portions cuisinées par repas (client.html)** : sélecteur −/+ sur chaque repas du plan alimentaire (`renderPlanDetail`). Multiplicateur par 0.5, borné [0.5 ; 10], persisté dans `localStorage.fz_mealPortions[planRefId][dayIdx][mealIdx]`. Affecte : quantités/kcal des aliments affichés, totaux du repas, macros journalières (`calcDayMacros` accepte planRefId+dayIdx), moyenne du plan, et liste de courses (`clBuildGrocery` multiplie aussi).
 - App client charge `coachAlims` (base aliments du coach) pour les équivalences alimentaires
 - `getBilanCountdown()` retourne `{days, label, isBilanDay, bilanDoneThisWeek}` — utilisé pour la bulle bilan sur Home
 - Onglet Bilan retiré de la tab-bar mais `tabBilan` section HTML reste (accessible via `switchTab('Bilan')` depuis Home)
