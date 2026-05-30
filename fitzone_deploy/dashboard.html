@@ -4565,7 +4565,8 @@ function pfRenderMeals(){
   w.innerHTML=repas.map((r,ri)=>{const mt=pfCalcMeal(r);return`<div class="meal-block${pfMealIdx===ri?' sel':''}" data-ri="${ri}" draggable="true" ondragstart="pfMealDragStart(event,${ri})" ondragover="event.preventDefault()" ondrop="pfMealDrop(event,${ri})">
     <div class="meal-hdr" onclick="pfSelMeal(${ri})">
       <div style="width:22px;height:22px;border-radius:6px;background:${pfMealIdx===ri?'var(--gold)':'var(--dark)'};color:${pfMealIdx===ri?'var(--dark)':'white'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0">${ri+1}</div>
-      <div class="meal-nm" ondblclick="pfRenameMeal(${ri},this)" title="Double-clic pour renommer">${r.nom}</div>
+      <div class="meal-nm" ondblclick="pfRenameMeal(${ri},this)" title="Clique sur ✎ ou double-clic pour renommer">${r.nom}</div>
+      <button onclick="event.stopPropagation();pfRenameMeal(${ri},this.parentNode.querySelector('.meal-nm'))" title="Renommer ce repas" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 4px">✎</button>
       <div class="meal-macros" id="pf_mt_${ri}">${Math.round(mt.k)} kcal &nbsp;P:${Math.round(mt.p)}g G:${Math.round(mt.g)}g L:${Math.round(mt.l)}g</div>
       <button onclick="event.stopPropagation();pfDelMeal(${ri})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;margin-left:6px" title="Supprimer repas">✕</button>
     </div>
@@ -4581,6 +4582,10 @@ function pfRenderMeals(){
         <button onclick="pfDelFood(${ri},${ai})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px">✕</button>
       </div>`).join('')}
       ${!r.alims.length?`<div style="font-size:12px;color:var(--text3);padding:5px 0;text-align:center;border:1.5px dashed var(--border2);border-radius:8px;padding:9px">Clique sur ce repas, puis cherche un aliment →<br><span style="font-size:10px">ou fais glisser un aliment depuis un autre repas</span></div>`:''}
+      <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">📝 Instructions de préparation <span style="font-weight:400;text-transform:none;letter-spacing:0">— pas de quantités, elles sont gérées par les aliments ci-dessus</span></label>
+        <textarea onclick="event.stopPropagation()" oninput="pfUpdInstr(${ri},this.value)" placeholder="Ex: 1. Cuire le poulet à la poêle 6-8 min de chaque côté. 2. Cuire le riz selon les indications. 3. Servir." rows="${r.instructions?Math.min(8,Math.max(2,r.instructions.split('\n').length+1)):2}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;line-height:1.4;resize:vertical;background:var(--white);box-sizing:border-box">${esc(r.instructions||'')}</textarea>
+      </div>
     </div>
   </div>`}).join('');
 }
@@ -4626,6 +4631,7 @@ function pfRenameMeal(ri,el){
 }
 function pfSelMeal(ri){pfMealIdx=ri;pfRenderMeals();}
 function pfDelMeal(ri){pfDays[pfDayIdx].repas.splice(ri,1);if(pfMealIdx>=pfDays[pfDayIdx].repas.length)pfMealIdx=Math.max(0,pfDays[pfDayIdx].repas.length-1);pfRenderMeals();pfRenderTotals();}
+function pfUpdInstr(ri,v){if(pfDays[pfDayIdx]?.repas[ri])pfDays[pfDayIdx].repas[ri].instructions=v;}
 function pfUpdQte(ri,ai,v){pfDays[pfDayIdx].repas[ri].alims[ai].qte=parseFloat(v)||0;pfRenderMeals();pfRenderTotals();}
 function pfLiveQte(ri,ai,v){
   const a=pfDays[pfDayIdx]?.repas[ri]?.alims[ai];if(!a)return;

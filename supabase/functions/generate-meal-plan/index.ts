@@ -169,7 +169,15 @@ RÈGLES IMPORTANTES :
 7. Respecte strictement les allergies/exclusions
 8. Les noms des jours: ${dayNames.join(", ")}
 9. Le champ "slot" indique le créneau horaire (${mealNames.join(", ")}). Le champ "nom" est le NOM DE LA RECETTE (ex: "Bowl protéiné", "Poulet grillé légumes rôtis", "Salade César"). Ne mets JAMAIS "Petit-déjeuner" ou "Déjeuner" comme nom — donne un vrai nom de plat.
-10. ⚠️ "instructions" est OBLIGATOIRE pour CHAQUE repas, sans exception. Rédige les étapes de préparation prêtes à l'emploi pour le client, même pour un assemblage simple. Ex pour un bowl yaourt-fruits : "1. Verser le yaourt grec dans un bol. 2. Garnir avec les fruits coupés. 3. Saupoudrer d'amandes effilées et arroser de miel." Ex pour un repas viande/légumes : "1. Cuire le poulet à la poêle 6-8 min de chaque côté avec un filet d'huile. 2. Cuire le riz selon les indications du paquet. 3. Faire revenir les légumes à la poêle 5 min. 4. Servir." Pas de repas sans instructions, même les plus simples.
+10. ⚠️ "instructions" est OBLIGATOIRE pour CHAQUE repas, sans exception. Rédige les étapes de préparation prêtes à l'emploi pour le client, même pour un assemblage simple.
+   ⚠️ JAMAIS DE QUANTITÉS dans les instructions (ni g, ni ml, ni cl, ni cuillères, ni "une portion de") — les quantités sont gérées séparément dans le champ "alims" et seront ajustées automatiquement par le système. Dans les instructions, utilise des références GÉNÉRIQUES :
+   ✓ "Verser le yaourt grec dans un bol"
+   ✗ "Verser 200g de yaourt grec dans un bol"
+   ✓ "Cuire le poulet à la poêle 6-8 min de chaque côté"
+   ✗ "Cuire 100g de poulet à la poêle 6-8 min"
+   Ex bowl yaourt-fruits : "1. Verser le yaourt grec dans un bol. 2. Garnir avec les fruits coupés. 3. Saupoudrer d'amandes effilées et arroser d'un filet de miel."
+   Ex repas viande/légumes : "1. Cuire le poulet à la poêle avec un filet d'huile 6-8 min de chaque côté. 2. Cuire le riz selon les indications du paquet. 3. Faire revenir les légumes à la poêle 5 min. 4. Servir."
+   Concentre-toi sur les TECHNIQUES (faire revenir, cuire, mélanger, dresser…) et les TEMPS, pas sur les quantités.
 11. Si tu utilises une recette du coach, reprends son nom exact et ses instructions.
 Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est ajouté par l'IA (false).`;
 
