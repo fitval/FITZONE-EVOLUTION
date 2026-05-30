@@ -9544,14 +9544,32 @@ async function generateAITrainPlan(){
     if(!plan||!plan.jours)throw new Error('Programme invalide reçu du serveur');
     pBar.style.width='95%';pText.textContent='Optimisation…';
     // Match exercises with coach DB
-    const exoMap={};exoLib.forEach(e=>{exoMap[(e.nom||e.name||'').toLowerCase().trim()]=e;});
+    // Lookup tolérant : normalisation + match par tokens (cf. server side).
+    const _exoNorm=s=>(s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+    const _exoStop=new Set(["a","la","le","les","de","du","des","avec","et","au","aux","sur","en","l","d","pour","par","une","un"]);
+    const _exoTok=s=>_exoNorm(s).split(' ').filter(t=>t&&!_exoStop.has(t));
+    const exoMap={},exoLibTok=[];
+    exoLib.forEach(e=>{const k=_exoNorm(e.nom||e.name||'');if(k){exoMap[k]=e;exoLibTok.push({e,tokens:_exoTok(e.nom||e.name||'')});}});
+    const _findLib=name=>{
+      const k=_exoNorm(name);if(!k)return null;
+      if(exoMap[k])return exoMap[k];
+      const aiSet=new Set(_exoTok(name));if(!aiSet.size)return null;
+      let best=null,bestDiff=Infinity;
+      for(const{e,tokens}of exoLibTok){
+        if(!tokens.length)continue;
+        if(!tokens.every(t=>aiSet.has(t)))continue;
+        const d=aiSet.size-tokens.length;
+        if(d<bestDiff){bestDiff=d;best=e;}
+      }
+      return best;
+    };
     plan.jours.forEach(j=>{
       ['warmup','workout','cooldown'].forEach(sec=>{
         (j[sec]||[]).forEach(ex=>{
           if(ex.superset&&ex.exercises){
-            ex.exercises.forEach(sub=>{const m=exoMap[(sub.nom||'').toLowerCase().trim()];if(m){sub.from_db=true;sub.video=m.video||sub.video||'';sub.muscle=m.muscle||sub.muscle;sub.equip=m.equip||sub.equip;sub.notes=sub.notes||m.notes||'';sub.replacements=m.replacements||sub.replacements||[];}else sub.from_db=false;});
+            ex.exercises.forEach(sub=>{const m=_findLib(sub.nom);if(m){sub.from_db=true;sub.nom=m.nom||m.name||sub.nom;sub.video=m.video||sub.video||'';sub.muscle=m.muscle||sub.muscle;sub.equip=m.equip||sub.equip;sub.notes=sub.notes||m.notes||'';sub.replacements=m.replacements||sub.replacements||[];}else sub.from_db=false;});
           }else if(!ex.kind){
-            const m=exoMap[(ex.nom||'').toLowerCase().trim()];if(m){ex.from_db=true;ex.video=m.video||ex.video||'';ex.muscle=m.muscle||ex.muscle;ex.equip=m.equip||ex.equip;ex.notes=ex.notes||m.notes||'';ex.replacements=m.replacements||ex.replacements||[];}else ex.from_db=false;
+            const m=_findLib(ex.nom);if(m){ex.from_db=true;ex.nom=m.nom||m.name||ex.nom;ex.video=m.video||ex.video||'';ex.muscle=m.muscle||ex.muscle;ex.equip=m.equip||ex.equip;ex.notes=ex.notes||m.notes||'';ex.replacements=m.replacements||ex.replacements||[];}else ex.from_db=false;
           }
         });
       });

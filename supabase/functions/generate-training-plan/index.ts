@@ -322,13 +322,51 @@ RÈGLES IMPORTANTES :
       for (const s of sets) if (s.reps !== undefined) s.reps = normalizeReps(s.reps);
     }
 
-    // FILTRER les exos qui ne sont pas EXACTEMENT dans la bibliothèque du coach
-    // (sinon le client se retrouve avec des exos sans vidéo et sans correspondance).
-    const libNames = new Set(
-      exerciseDB.map(e => (e.nom || "").toString().toLowerCase().trim()).filter(Boolean)
-    );
-    const inLib = (n: unknown) => libNames.size === 0 || libNames.has((typeof n === "string" ? n : "").toLowerCase().trim());
-    const removed: string[] = [];
+    // MATCH FLEXIBLE des exos contre la bibliothèque coach.
+    // Le but : tolérer accents/casse/ponctuation, et même de petites variations d'ordre,
+    // tout en RENOMMANT l'exo avec le nom EXACT de la bibliothèque pour que le dashboard
+    // puisse l'enrichir correctement (vidéo, équipement, etc.).
+    function normForMatch(s: unknown): string {
+      return (typeof s === "string" ? s : "")
+        .toLowerCase()
+        .normalize("NFD").replace(/[̀-ͯ]/g, "")  // accents
+        .replace(/[^a-z0-9]+/g, " ")                        // ponctuation → espace
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    const STOP_TOKENS = new Set(["a","la","le","les","de","du","des","avec","et","au","aux","sur","en","l","d","pour","par","une","un","mon","ton"]);
+    function tokenize(s: unknown): string[] {
+      return normForMatch(s).split(" ").filter(t => t && !STOP_TOKENS.has(t));
+    }
+    // Map nom_normalisé → nom_original + tokens
+    const libByNorm = new Map<string, { orig: string; tokens: string[] }>();
+    for (const e of exerciseDB) {
+      const orig = (e.nom || "").toString();
+      const n = normForMatch(orig);
+      if (n) libByNorm.set(n, { orig, tokens: tokenize(orig) });
+    }
+    function matchLib(name: unknown): string | null {
+      if (libByNorm.size === 0) return typeof name === "string" ? name : null;
+      const n = normForMatch(name);
+      if (!n) return null;
+      // 1) exact normalisé
+      const exact = libByNorm.get(n);
+      if (exact) return exact.orig;
+      // 2) tokens : tous les tokens de la biblio doivent être présents dans l'IA → match
+      //    (ex : IA "Rowing à la barre" → tokens [rowing, barre] ⊇ lib "Rowing barre" tokens [rowing, barre])
+      const aiTokens = new Set(tokenize(name));
+      if (aiTokens.size === 0) return null;
+      let best: string | null = null, bestDiff = Infinity;
+      for (const { orig, tokens } of libByNorm.values()) {
+        if (tokens.length === 0) continue;
+        const allIn = tokens.every(t => aiTokens.has(t));
+        if (!allIn) continue;
+        const diff = aiTokens.size - tokens.length; // plus c'est petit, plus c'est proche
+        if (diff < bestDiff) { bestDiff = diff; best = orig; }
+      }
+      return best;
+    }
+    const removed: string[] = [], renamed: string[] = [];
 
     if (plan.jours && Array.isArray(plan.jours)) {
       for (const jour of plan.jours as Array<Record<string, unknown>>) {
@@ -339,19 +377,25 @@ RÈGLES IMPORTANTES :
             if (item.kind === "run") { kept.push(item); continue; }
             if (item.superset) {
               const subs = (item.exercises || []) as Array<Record<string, unknown>>;
-              const subsKept = subs.filter(s => {
-                const ok = inLib(s.nom);
-                if (!ok) removed.push(String(s.nom));
-                if (ok) { s.from_db = true; normalizeSetsData(s); }
-                return ok;
-              });
-              if (subsKept.length === 0) continue; // superset vidé → on saute
+              const subsKept: Array<Record<string, unknown>> = [];
+              for (const s of subs) {
+                const matched = matchLib(s.nom);
+                if (!matched) { removed.push(String(s.nom)); continue; }
+                if (matched !== s.nom) renamed.push(`${s.nom} → ${matched}`);
+                s.nom = matched;
+                s.from_db = true;
+                normalizeSetsData(s);
+                subsKept.push(s);
+              }
+              if (subsKept.length === 0) continue;
               item.exercises = subsKept;
               kept.push(item);
               continue;
             }
-            // exo simple
-            if (!inLib(item.nom)) { removed.push(String(item.nom)); continue; }
+            const matched = matchLib(item.nom);
+            if (!matched) { removed.push(String(item.nom)); continue; }
+            if (matched !== item.nom) renamed.push(`${item.nom} → ${matched}`);
+            item.nom = matched;
             item.from_db = true;
             normalizeSetsData(item);
             kept.push(item);
@@ -360,7 +404,8 @@ RÈGLES IMPORTANTES :
         }
       }
     }
-    if (removed.length) console.warn("[FILTER] exos retirés (hors bibliothèque) :", removed);
+    if (removed.length) console.warn("[FILTER] exos retirés (introuvables même en fuzzy) :", removed);
+    if (renamed.length) console.log("[FILTER] exos renommés vers le nom exact de la biblio :", renamed);
 
     return new Response(JSON.stringify(plan), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
