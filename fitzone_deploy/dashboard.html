@@ -9549,9 +9549,9 @@ async function generateAITrainPlan(){
       ['warmup','workout','cooldown'].forEach(sec=>{
         (j[sec]||[]).forEach(ex=>{
           if(ex.superset&&ex.exercises){
-            ex.exercises.forEach(sub=>{const m=exoMap[(sub.nom||'').toLowerCase().trim()];if(m){sub.from_db=true;sub.video=sub.video||m.video||'';sub.muscle=m.muscle||sub.muscle;}else sub.from_db=false;});
+            ex.exercises.forEach(sub=>{const m=exoMap[(sub.nom||'').toLowerCase().trim()];if(m){sub.from_db=true;sub.video=m.video||sub.video||'';sub.muscle=m.muscle||sub.muscle;sub.equip=m.equip||sub.equip;sub.notes=sub.notes||m.notes||'';sub.replacements=m.replacements||sub.replacements||[];}else sub.from_db=false;});
           }else if(!ex.kind){
-            const m=exoMap[(ex.nom||'').toLowerCase().trim()];if(m){ex.from_db=true;ex.video=ex.video||m.video||'';ex.muscle=m.muscle||ex.muscle;}else ex.from_db=false;
+            const m=exoMap[(ex.nom||'').toLowerCase().trim()];if(m){ex.from_db=true;ex.video=m.video||ex.video||'';ex.muscle=m.muscle||ex.muscle;ex.equip=m.equip||ex.equip;ex.notes=ex.notes||m.notes||'';ex.replacements=m.replacements||ex.replacements||[];}else ex.from_db=false;
           }
         });
       });
@@ -9637,8 +9637,12 @@ function renderAITrainPlan(plan){
 function _atpExoCard(ex){
   const sets=ex.setsData||[];
   const dbBadge=ex.from_db?'<span style="background:#dcfce7;color:#16a34a;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700">BIBLIO</span>':'<span style="background:#fef3c7;color:#d97706;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700">IA</span>';
+  const vidId=ex.video?ytId(ex.video):'';
+  const thumb=vidId
+    ? `<div style="position:relative;width:42px;height:32px;border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0" onclick="watchVid('${(ex.nom||'').replace(/'/g,"\\'")}','${ex.video}','')" title="Voir la vidéo"><img src="https://img.youtube.com/vi/${vidId}/default.jpg" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);font-size:11px;color:#fff">▶</div></div>`
+    : `<div style="width:42px;height:32px;border-radius:6px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0" title="Aucune vidéo dans la bibliothèque pour cet exo">💪</div>`;
   let h=`<div style="background:var(--white);border-radius:8px;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border)">`;
-  h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:13px;font-weight:700">${ex.nom||'Exercice'}</div>${dbBadge}</div>`;
+  h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">${thumb}<div style="flex:1;font-size:13px;font-weight:700">${ex.nom||'Exercice'}</div>${dbBadge}</div>`;
   h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text3);margin-bottom:4px">`;
   if(ex.muscle)h+=`<span>${ex.muscle}</span>`;
   if(ex.equip)h+=`<span>· ${ex.equip}</span>`;
