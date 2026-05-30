@@ -9468,7 +9468,7 @@ function openGenTrainPlanModal(){
   document.getElementById('gtpInjuries').value=q.injuries||'';
   document.getElementById('gtpDisliked').value=q.disliked_exercises||'';
   document.getElementById('gtpPrefs').value='';
-  const exoCount=(typeof exercises!=='undefined'?exercises:[]).length||(typeof coachExos!=='undefined'?coachExos:[]).length||0;
+  const exoCount=(typeof exos!=='undefined'&&Array.isArray(exos))?exos.length:0;
   document.getElementById('gtpDbInfo').textContent=`📦 ${exoCount} exercices dans votre bibliothèque`;
   document.getElementById('gtpLoading').style.display='none';
   document.getElementById('gtpGenBtn').disabled=false;
@@ -9508,7 +9508,7 @@ async function generateAITrainPlan(){
     dayNames.push(document.getElementById('gtpDay'+i)?.value||'Jour '+(i+1));
     dayTypes.push(document.getElementById('gtpDayType'+i)?.value||'muscu');
   }
-  const exoLib=(typeof exercises!=='undefined'&&exercises.length)?exercises:(typeof coachExos!=='undefined'?coachExos:[]);
+  const exoLib=(typeof exos!=='undefined'&&Array.isArray(exos))?exos:[];
   const config={
     nb_days:nbDays,
     day_names:dayNames,
