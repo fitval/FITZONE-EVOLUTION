@@ -61,6 +61,8 @@ Deno.serve(async (req: Request) => {
     const dietType = config.diet_type || "omnivore";
     const allergies = config.allergies || [];
     const prepTimeMax = config.prep_time_max || 30;
+    const equipment: string[] = Array.isArray(config.equipment) ? config.equipment.filter(Boolean) : [];
+    const preferences: string = (config.preferences || "").toString().trim();
 
     const foodDBFull: Array<{nom: string; kcal: number; prot: number; carb: number; fat: number}> = config.food_database || [];
     const foodDB = foodDBFull.slice(0, 200);
@@ -139,6 +141,32 @@ ${clientText}
 - Régime: ${dietType}
 ${allergies.length ? "- Allergies/Exclusions: " + allergies.join(", ") : ""}
 - Temps de préparation max: ${prepTimeMax} minutes
+${equipment.length ? "- Matériel de cuisine disponible : " + equipment.join(", ") + " (n'utilise QUE des techniques compatibles avec ce matériel)" : ""}
+${preferences ? "- Préférences du client : " + preferences : ""}
+
+=== STRUCTURE DES REPAS (OBLIGATOIRE — SIMPLE ET GOÛTEUX) ===
+
+Chaque repas DOIT suivre l'UNE de ces deux structures, jamais autre chose :
+
+▸ OPTION A — RECETTE DU COACH (priorité) :
+  Si une recette de la base ci-dessous correspond au type de créneau et aux macros cibles, REPRENDS-LA : son nom, ses ingrédients, ses instructions. Adapte uniquement les quantités pour atteindre les macros du créneau.
+
+▸ OPTION B — REPAS SIMPLE STRUCTURÉ (si aucune recette ne convient) :
+  Combine UNIQUEMENT ces 4 briques + assaisonnement :
+    1. 1 source de PROTÉINES (poulet, poisson, œufs, viande maigre, tofu, fromage blanc 0%, skyr, whey…)
+    2. 1 source de GLUCIDES (riz, pâtes, pommes de terre, patate douce, pain complet, flocons d'avoine, quinoa…)
+    3. 1 source de FIBRES (légumes verts/colorés OU fruits selon le créneau — brocoli, épinards, courgette, tomate, salade, baies…)
+    4. 1 source de LIPIDES (huile d'olive, amandes, noix, avocat, beurre d'amande, fromage gras…)
+    + 1 (max 2) CONDIMENT(S) issus de la base aliments du coach pour rehausser le goût (ex : sauce tomate, crème fraîche, citron, moutarde, miel…). À mettre dans "alims" avec une qte modérée.
+    + 2 à 3 ÉPICES / HERBES dans les instructions pour donner du goût (ex : paprika, cumin, curry, herbes de Provence, ail, gingembre, basilic, persil, piment, poivre, thym, romarin…)
+
+⚠️ RÈGLES STRICTES sur les ingrédients d'un repas simple :
+  • MAXIMUM 5 entrées dans le champ "alims" (4 briques + 1 condiment, parfois +1 deuxième condiment)
+  • Toutes les entrées de "alims" DOIVENT venir de la BASE DE DONNÉES ALIMENTS DU COACH ci-dessous (incluant les condiments et sauces)
+  • Les ÉPICES SÈCHES / HERBES (paprika, cumin, persil, sel, poivre, herbes…) NE VONT PAS dans "alims" — elles sont mentionnées UNIQUEMENT dans "instructions" pour donner du goût (leurs macros sont négligeables, pas besoin de les compter)
+  • Aucun ingrédient inventé. Aucun ingrédient hors base.
+
+Objectif : un repas peu d'aliments, équilibré, goûteux grâce aux épices et 1-2 condiments, simple et rapide à préparer.
 ${foodDBText}${recipesText}
 === FORMAT JSON REQUIS ===
 {
@@ -147,11 +175,15 @@ ${foodDBText}${recipesText}
       "nom": "Lundi",
       "repas": [
         {
-          "nom": "Porridge protéiné aux fruits",
-          "slot": "Petit-déjeuner",
-          "instructions": "1. Faire chauffer le lait. 2. Ajouter les flocons et cuire 3min. 3. Ajouter la whey et les fruits.",
+          "nom": "Poulet riz brocoli sauce tomate",
+          "slot": "Déjeuner",
+          "instructions": "1. Cuire le poulet à la poêle avec un filet d'huile d'olive 7-8 min de chaque côté, assaisonner avec du paprika, du cumin et un peu d'ail. 2. Cuire le riz selon les indications. 3. Faire revenir le brocoli à la poêle 5 min, ajouter une pincée de thym. 4. Servir le tout nappé d'une cuillerée de sauce tomate.",
           "alims": [
-            {"nom": "Flocons d'avoine", "qte": 80, "kcal": 68, "prot": 2.4, "carb": 12, "fat": 1.4, "source": "coach_db", "from_db": true}
+            {"nom": "Blanc de poulet", "qte": 130, "kcal": 110, "prot": 23, "carb": 0, "fat": 1.5, "source": "coach_db", "from_db": true},
+            {"nom": "Riz blanc", "qte": 60, "kcal": 350, "prot": 7, "carb": 78, "fat": 0.5, "source": "coach_db", "from_db": true},
+            {"nom": "Brocoli", "qte": 150, "kcal": 35, "prot": 2.8, "carb": 7, "fat": 0.4, "source": "coach_db", "from_db": true},
+            {"nom": "Huile d'olive", "qte": 8, "kcal": 900, "prot": 0, "carb": 0, "fat": 100, "source": "coach_db", "from_db": true},
+            {"nom": "Sauce tomate", "qte": 40, "kcal": 35, "prot": 1.5, "carb": 6, "fat": 0.3, "source": "coach_db", "from_db": true}
           ]
         }
       ]
@@ -170,7 +202,7 @@ RÈGLES IMPORTANTES :
 8. Les noms des jours: ${dayNames.join(", ")}
 9. Le champ "slot" indique le créneau horaire (${mealNames.join(", ")}). Le champ "nom" est le NOM DE LA RECETTE (ex: "Bowl protéiné", "Poulet grillé légumes rôtis", "Salade César"). Ne mets JAMAIS "Petit-déjeuner" ou "Déjeuner" comme nom — donne un vrai nom de plat.
 10. ⚠️ "instructions" est OBLIGATOIRE pour CHAQUE repas, sans exception. Rédige les étapes de préparation prêtes à l'emploi pour le client, même pour un assemblage simple.
-   ⚠️ JAMAIS DE QUANTITÉS dans les instructions (ni g, ni ml, ni cl, ni cuillères, ni "une portion de") — les quantités sont gérées séparément dans le champ "alims" et seront ajustées automatiquement par le système. Dans les instructions, utilise des références GÉNÉRIQUES :
+   ⚠️ JAMAIS DE QUANTITÉS dans les instructions (ni g, ni ml, ni cl, ni cuillères, ni "une portion de", ni "150ml d'eau" — pas même pour les liquides de cuisson) — les quantités sont gérées séparément dans le champ "alims" et seront ajustées automatiquement par le système. Pour les liquides de cuisson, dis "couvrir d'eau", "verser un peu de lait" ou "ajouter de l'eau jusqu'à recouvrir", jamais avec un volume. Dans les instructions, utilise des références GÉNÉRIQUES :
    ✓ "Verser le yaourt grec dans un bol"
    ✗ "Verser 200g de yaourt grec dans un bol"
    ✓ "Cuire le poulet à la poêle 6-8 min de chaque côté"
