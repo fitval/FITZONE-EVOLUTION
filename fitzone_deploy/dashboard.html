@@ -3743,7 +3743,113 @@ function _renderProgressionContent(el,reRenderFn){
         </div>
       </div>
     </div>
-    <div style="margin-top:16px"><button class="btn btn-dark btn-sm" onclick="addDailyLog()">+ Ajouter une entrée</button></div>`;
+    <div style="margin-top:16px"><button class="btn btn-dark btn-sm" onclick="addDailyLog()">+ Ajouter une entrée</button></div>
+    ${_renderWeeklyDailyGrid(logs,window._dlQuestions||DEFAULT_Q_DAILY)}`;
+  // Async load des questions personnalisées du coach (re-render si différent du cache)
+  if(currentCoach){
+    db.from('settings').select('q_daily').eq('coach_id',currentCoach.id).maybeSingle().then(({data})=>{
+      const newQ=(data&&Array.isArray(data.q_daily)&&data.q_daily.length)?data.q_daily:DEFAULT_Q_DAILY;
+      const cur=window._dlQuestions||DEFAULT_Q_DAILY;
+      if(JSON.stringify(newQ)!==JSON.stringify(cur)){window._dlQuestions=newQ;try{eval(reRender);}catch(e){}}
+      else window._dlQuestions=newQ;
+    }).catch(()=>{});
+  }
+}
+/* Vue hebdomadaire des données quotidiennes (style screenshot Notion-like).
+   - Une "boîte" par semaine (Lun→Dim) entre la 1ère entrée du client et aujourd'hui.
+   - Colonnes = questions q_daily, groupées par section.
+   - Cellules vides quand pas de réponse pour ce jour.
+   - Ligne MOYENNES en bas de chaque semaine pour les questions numériques. */
+function _renderWeeklyDailyGrid(logs, qDaily){
+  if(!Array.isArray(logs)||!logs.length){
+    return '<div style="margin-top:20px;padding:24px;text-align:center;color:var(--text3);font-size:13px;background:var(--white);border:1.5px dashed var(--border);border-radius:10px">📅 Pas encore de données quotidiennes. La vue hebdomadaire apparaîtra dès la première saisie du client.</div>';
+  }
+  const sorted=logs.slice().sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:0));
+  // Sections (préserve l'ordre)
+  const sections=[],secMap=new Map();
+  (qDaily||[]).forEach(q=>{const s=q.section||'AUTRE';if(!secMap.has(s)){secMap.set(s,[]);sections.push(s);}secMap.get(s).push(q);});
+  if(!sections.length)return '';
+  // Calcul semaines (Lun→Dim) entre première entrée et aujourd'hui
+  const startOfMon=d=>{const x=new Date(d);x.setHours(0,0,0,0);const day=x.getDay();x.setDate(x.getDate()-((day+6)%7));return x;};
+  const dateKey=d=>d.toISOString().slice(0,10);
+  const firstMon=startOfMon(new Date(sorted[0].date));
+  const today=new Date();today.setHours(0,0,0,0);
+  const lastMon=startOfMon(today);
+  const weeks=[];let cur=new Date(firstMon),wn=1;
+  while(cur<=lastMon){
+    const ws=new Date(cur),we=new Date(cur);we.setDate(we.getDate()+6);
+    const days=[];
+    for(let i=0;i<7;i++){const d=new Date(cur);d.setDate(d.getDate()+i);const ds=dateKey(d);days.push({date:new Date(d),dateStr:ds,log:sorted.find(l=>l.date===ds),inFuture:d>today});}
+    weeks.push({n:wn,wStart:ws,wEnd:we,days});
+    wn++;cur.setDate(cur.getDate()+7);
+  }
+  // Helpers cellule
+  const ratingBg=(v,scale)=>{const f=parseFloat(v);if(isNaN(f))return '';const r=Math.max(0,Math.min(1,(f-1)/((scale||5)-1)));const R=r<0.5?255:Math.round(255*(1-2*(r-0.5)));const G=r<0.5?Math.round(255*2*r):220;return `background:rgba(${R},${G},90,.22)`;};
+  const fmtCell=(val,q,inFuture)=>{
+    if(val==null||val===''){const bg=inFuture?'background:#f5f3ee':'';return `<td style="padding:5px 8px;border:1px solid #e8e4dc;${bg}"></td>`;}
+    let style='padding:5px 8px;border:1px solid #e8e4dc;text-align:right;font-size:11px;color:#1a1916',disp=String(val);
+    if(q.type==='rating'){const sc=q.scale||5;style+=';text-align:center;font-weight:800;'+ratingBg(val,sc);disp=parseFloat(val);if(isNaN(disp))disp=val;}
+    else if(q.type==='percent'){style+=';text-align:center;font-weight:700;'+ratingBg(parseFloat(val)/100*4+1,5);disp=Math.round(parseFloat(val))+'%';}
+    else if(q.type==='textarea'){style=style.replace('text-align:right','text-align:left');style+=';font-style:italic;color:var(--text2);max-width:160px';if(disp.length>50)disp=disp.slice(0,48)+'…';}
+    else if(q.type==='number'){
+      const n=parseFloat(val);
+      if(!isNaN(n)){
+        if(q.unit==='h'){const h=Math.floor(n),m=Math.round((n-h)*60);disp=h+'h'+(m?String(m).padStart(2,'0'):'00');}
+        else if(q.step&&q.step<1)disp=n.toFixed(1);
+        else disp=(n>=1000?n.toLocaleString('fr-FR',{maximumFractionDigits:0}):Math.round(n*10)/10).toString();
+      }
+    }
+    return `<td style="${style}" title="${esc(String(val))}">${esc(String(disp))}</td>`;
+  };
+  const dayLabels=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  let html='<div style="margin-top:28px">';
+  html+='<div style="font-size:13px;font-weight:800;letter-spacing:.5px;color:var(--dark);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px"><span>📅</span><span>Vue hebdomadaire complète</span><span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0">— toutes les réponses du questionnaire quotidien, semaine par semaine</span></div>';
+  weeks.forEach(w=>{
+    const secHead=sections.map(s=>`<th colspan="${secMap.get(s).length}" style="background:#2e1450;color:#f5edcf;padding:6px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;border:1px solid #1d0a36">${esc(s)}</th>`).join('');
+    const qHead=sections.map(s=>secMap.get(s).map(q=>{
+      const u=q.unit?` <span style="opacity:.55;font-weight:500">(${esc(q.unit)})</span>`:q.type==='percent'?' <span style="opacity:.55;font-weight:500">(%)</span>':q.type==='rating'?' <span style="opacity:.55;font-weight:500">(/'+(q.scale||5)+')</span>':'';
+      return `<th style="background:#ece4c7;padding:6px 6px;font-size:10px;font-weight:700;color:#2e1450;border:1px solid #d4c89a;min-width:78px">${esc(q.label||q.id)}${u}</th>`;
+    }).join('')).join('');
+    const rows=w.days.map((d,i)=>{
+      const dt=d.date;
+      const dateCell=`<td style="background:#fafaf6;padding:5px 10px;border:1px solid #e8e4dc;font-size:11px;font-weight:700;color:#2e1450;white-space:nowrap">${dayLabels[i]} ${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}</td>`;
+      const cells=sections.map(s=>secMap.get(s).map(q=>fmtCell(d.log?d.log[q.id]:null,q,d.inFuture)).join('')).join('');
+      return `<tr>${dateCell}${cells}</tr>`;
+    }).join('');
+    const avgCells=sections.map(s=>secMap.get(s).map(q=>{
+      if(['number','rating','percent'].includes(q.type)){
+        const vs=w.days.map(d=>d.log?parseFloat(d.log[q.id]):NaN).filter(v=>!isNaN(v));
+        if(!vs.length)return '<td style="background:#1a1916;border:1px solid #2a2a2a"></td>';
+        const a=vs.reduce((s,v)=>s+v,0)/vs.length;
+        let disp;
+        if(q.type==='percent')disp=Math.round(a)+'%';
+        else if(q.unit==='h'){const h=Math.floor(a),m=Math.round((a-h)*60);disp=h+'h'+(m?String(m).padStart(2,'0'):'00');}
+        else disp=a.toFixed(1).replace(/\.0$/,'');
+        return `<td style="background:#1a1916;color:#f5edcf;padding:6px 8px;border:1px solid #2a2a2a;text-align:center;font-weight:800;font-size:12px">${disp}</td>`;
+      }
+      return '<td style="background:#1a1916;border:1px solid #2a2a2a"></td>';
+    }).join('')).join('');
+    const avgRow=`<tr><td style="background:#1a1916;color:#f5edcf;padding:6px 10px;border:1px solid #2a2a2a;font-size:10px;font-weight:800;letter-spacing:1.5px">MOYENNES</td>${avgCells}</tr>`;
+    const startFr=w.wStart.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+    const endFr=w.wEnd.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+    html+=`<div style="margin-bottom:20px;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="display:flex;align-items:center;gap:14px;background:#2e1450;color:white;padding:12px 16px">
+        <div style="font-size:20px;font-weight:900;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:2px 12px;min-width:34px;text-align:center">${w.n}</div>
+        <div style="font-size:13px;font-weight:700">Semaine du ${startFr} au ${endFr}</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="border-collapse:collapse;width:100%;background:white;font-size:11px;font-family:inherit">
+          <thead>
+            <tr><th style="background:#2e1450;color:#f5edcf;padding:6px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;border:1px solid #1d0a36;min-width:80px">DATE</th>${secHead}</tr>
+            <tr><th style="background:#ece4c7;border:1px solid #d4c89a"></th>${qHead}</tr>
+          </thead>
+          <tbody>${rows}${avgRow}</tbody>
+        </table>
+      </div>
+    </div>`;
+  });
+  html+='</div>';
+  return html;
 }
 function _dlSlug(s){return String(s||'').replace(/[^a-zA-Z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'').slice(0,40)||'x';}
 async function addDailyLog(){
