@@ -98,13 +98,43 @@ ${clientProfile.injuries ? "Problèmes de santé: " + clientProfile.injuries : "
 ${clientProfile.food_relationship ? "Relation à la nourriture: " + clientProfile.food_relationship : ""}\n`
       : "";
 
+    // Cibles macro PAR CRÉNEAU (répartition égale, à hitter chaque jour pour ce slot)
+    const perSlotKcal = Math.round(kcal / mealsPerDay);
+    const perSlotProt = Math.round(prot / mealsPerDay);
+    const perSlotCarb = Math.round(carb / mealsPerDay);
+    const perSlotFat  = Math.round(fat  / mealsPerDay);
+    const slotTargets = mealNames.map(n => `  • ${n} : ${perSlotKcal} kcal · P ${perSlotProt}g · G ${perSlotCarb}g · L ${perSlotFat}g`).join("\n");
+
+    const exampleSlot = mealNames[0];
     const prompt = `Tu es un nutritionniste du sport expert. Génère un plan alimentaire de 7 jours en JSON STRICT.
+
+╔══════════════════════════════════════════════════════════════════╗
+║  CONTRAINTE STRUCTURELLE PRIORITAIRE — À RESPECTER AVANT TOUT    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+Le plan est STRUCTURÉ PAR CRÉNEAU FIXE. Pour CHAQUE créneau, les apports nutritionnels (kcal, P, G, L) sont CONSTANTS d'un jour à l'autre. Seuls les PLATS varient entre les jours. C'est une règle DURE, prioritaire sur toute notion de "variété".
+
+🎯 CIBLES FIXES PAR CRÉNEAU (à atteindre ±5% CHAQUE JOUR) :
+${slotTargets}
+
+EXEMPLE DE CE QUE TU DOIS PRODUIRE pour le créneau « ${exampleSlot} » sur 3 jours (cible ${perSlotKcal} kcal · P ${perSlotProt}g · G ${perSlotCarb}g · L ${perSlotFat}g) :
+  ✓ Lundi    — Porridge avoine-myrtilles → ${perSlotKcal} kcal · P ${perSlotProt}g · G ${perSlotCarb}g · L ${perSlotFat}g
+  ✓ Mardi    — Œufs brouillés + pain    → ${perSlotKcal} kcal · P ${perSlotProt}g · G ${perSlotCarb}g · L ${perSlotFat}g   ← MÊMES MACROS, plat différent
+  ✓ Mercredi — Yaourt grec + granola    → ${perSlotKcal} kcal · P ${perSlotProt}g · G ${perSlotCarb}g · L ${perSlotFat}g   ← MÊMES MACROS, plat différent
+
+CONTRE-EXEMPLE INTERDIT (ce que tu fais souvent par défaut, NE FAIS PAS) :
+  ✗ Lundi    — Porridge      → 581 kcal · P 35 · G 80 · L 14
+  ✗ Mardi    — Œufs brouillés → 496 kcal · P 36 · G 40 · L 19   ← MACROS DIFFÉRENTES = INTERDIT
+  ✗ Mercredi — Yaourt grec    → 371 kcal · P 32 · G 49 · L 5    ← MACROS DIFFÉRENTES = INTERDIT
+
+COMMENT atteindre les cibles : tu CALIBRES les quantités (champ "qte" en grammes) des ingrédients. Si la portion "normale" d'un porridge donne 450 kcal mais que la cible est ${perSlotKcal}, tu AJUSTES la qte des flocons / ajoutes des amandes / de la whey jusqu'à arriver précisément à la cible. Ne te contente jamais d'une portion "standard" — tu dimensionnes chaque plat pour qu'il TOUCHE les cibles du créneau.
+
+VÉRIFIE AVANT DE RETOURNER : pour chaque créneau, additionne les macros de chaque jour à partir des "qte" × valeurs /100g, et confirme qu'elles sont quasi-identiques (±5%). Si l'écart dépasse 5%, REVOIS LES QUANTITÉS.
+
 ${clientText}
-=== OBJECTIFS NUTRITIONNELS ===
-- Calories: ${kcal} kcal/jour
-- Protéines: ${prot}g/jour
-- Glucides: ${carb}g/jour
-- Lipides: ${fat}g/jour
+=== OBJECTIFS NUTRITIONNELS GLOBAUX ===
+- Calories: ${kcal} kcal/jour (= ${mealsPerDay} × ${perSlotKcal} kcal)
+- Protéines: ${prot}g/jour · Glucides: ${carb}g/jour · Lipides: ${fat}g/jour
 - Repas par jour: ${mealsPerDay} (${mealNames.join(", ")})
 - Régime: ${dietType}
 ${allergies.length ? "- Allergies/Exclusions: " + allergies.join(", ") : ""}
@@ -134,12 +164,12 @@ RÈGLES IMPORTANTES :
 2. Les valeurs kcal/prot/carb/fat sont pour 100g de l'aliment
 3. "qte" est la quantité en grammes à consommer
 4. Utilise "from_db": true si l'aliment vient de la base du coach, false sinon
-5. Les macros de chaque jour doivent être proches des objectifs (±5%)
-6. Varie les repas entre les jours
+5. ⚠️ RÈGLE PRIORITAIRE : MACROS PAR CRÉNEAU IDENTIQUES CHAQUE JOUR (cf. encadré CONTRAINTE STRUCTURELLE en début de prompt). Tolérance ±5% par macro. Si ta première version donne des écarts >5%, AJUSTE les quantités avant de retourner le JSON.
+6. Varie UNIQUEMENT les PLATS / INGRÉDIENTS entre les jours — JAMAIS les macros par créneau. Variété = nouveau plat, pas nouveaux apports.
 7. Respecte strictement les allergies/exclusions
 8. Les noms des jours: ${dayNames.join(", ")}
 9. Le champ "slot" indique le créneau horaire (${mealNames.join(", ")}). Le champ "nom" est le NOM DE LA RECETTE (ex: "Bowl protéiné", "Poulet grillé légumes rôtis", "Salade César"). Ne mets JAMAIS "Petit-déjeuner" ou "Déjeuner" comme nom — donne un vrai nom de plat.
-10. Le champ "instructions" contient les étapes de préparation du repas. Rédige des instructions claires et concises pour CHAQUE repas (sauf les repas restaurant).
+10. ⚠️ "instructions" est OBLIGATOIRE pour CHAQUE repas, sans exception. Rédige les étapes de préparation prêtes à l'emploi pour le client, même pour un assemblage simple. Ex pour un bowl yaourt-fruits : "1. Verser le yaourt grec dans un bol. 2. Garnir avec les fruits coupés. 3. Saupoudrer d'amandes effilées et arroser de miel." Ex pour un repas viande/légumes : "1. Cuire le poulet à la poêle 6-8 min de chaque côté avec un filet d'huile. 2. Cuire le riz selon les indications du paquet. 3. Faire revenir les légumes à la poêle 5 min. 4. Servir." Pas de repas sans instructions, même les plus simples.
 11. Si tu utilises une recette du coach, reprends son nom exact et ses instructions.
 Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est ajouté par l'IA (false).`;
 
@@ -169,6 +199,35 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
             repas.alims = repas.aliments || repas.ingredients || repas.foods || repas.items || [];
           }
           delete repas.aliments; delete repas.ingredients; delete repas.foods; delete repas.items;
+        }
+      }
+    }
+
+    // FORCE CALIBRATION par créneau : scale chaque repas pour atteindre exactement perSlotKcal
+    // (le prompt ne suffit pas à garantir l'identité des macros par slot ; on le force ici).
+    // On scale les "qte" par un facteur = perSlotKcal / kcal_actuel du repas.
+    // Conséquence : kcal par créneau identique chaque jour ; P/G/L suivent la composition du plat.
+    function mealKcal(meal: Record<string, unknown>): number {
+      let k = 0;
+      const alims = (meal.alims || []) as Array<Record<string, unknown>>;
+      for (const a of alims) {
+        const q = (Number(a.qte) || 100) / 100;
+        k += (Number(a.kcal) || 0) * q;
+      }
+      return k;
+    }
+    if (plan.jours && Array.isArray(plan.jours)) {
+      for (const jour of plan.jours as Array<Record<string, unknown>>) {
+        for (const repas of ((jour.repas || []) as Array<Record<string, unknown>>)) {
+          const current = mealKcal(repas);
+          if (current <= 0) continue;
+          const factor = perSlotKcal / current;
+          // garde-fou : on ne scale pas au-delà de [0.5×, 2×] (sinon le plat devient absurde)
+          if (factor < 0.5 || factor > 2) continue;
+          for (const a of (repas.alims as Array<Record<string, unknown>>)) {
+            const qte = Number(a.qte) || 100;
+            a.qte = Math.round(qte * factor * 10) / 10; // arrondi 0,1 g
+          }
         }
       }
     }

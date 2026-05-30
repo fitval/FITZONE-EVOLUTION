@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-05-30 (fix 546 generate-meal-plan : Haiku 4.5 + food DB cap 200 + max_tokens 20k ; portions cuisinées côté client) + recherche biblio + récup questionnaire doublon
+**Dernière mise à jour** : 2026-05-30 (meal-plan : instructions OBLIGATOIRES par repas + rescale forcé pour kcal identiques par créneau ; portions cuisinées client ; fix 546 Haiku 4.5)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -63,7 +63,7 @@
 ## Architecture technique
 
 ### Supabase Edge Functions
-- **`generate-meal-plan`** : génère un plan alimentaire 7 jours via Claude Haiku 4.5 (`claude-haiku-4-5-20251001`), streaming, max_tokens=20000, food_database capée à 200 items, déployée avec `--no-verify-jwt`. Modèle bumpé depuis Sonnet 4 (mai 2025, trop lent et risque deprecation) — Haiku passe ~59s pour un plan 7j×4 repas, sous la limite 150s d'Edge Functions (sinon erreur 546)
+- **`generate-meal-plan`** : génère un plan alimentaire 7 jours via Claude Haiku 4.5 (`claude-haiku-4-5-20251001`), streaming, max_tokens=20000, food_database capée à 200 items, déployée avec `--no-verify-jwt`. Modèle bumpé depuis Sonnet 4 (mai 2025, trop lent et risque deprecation) — Haiku passe ~30-60s pour un plan, sous la limite 150s d'Edge Functions (sinon erreur 546). **Cibles macros par créneau** calculées server-side (`kcal/mealsPerDay`) injectées dans le prompt + RESCALE FORCÉ post-génération (`a.qte *= perSlotKcal / mealKcal`, borné [0.5×, 2×]) → kcal par créneau identique chaque jour (écart 0%). Les P/G/L varient encore selon la composition de chaque plat (scaler les qte fixe le kcal mais pas le ratio). Instructions OBLIGATOIRES sur chaque repas (renforcé dans le prompt).
 - **`generate-training-plan`** : génère un programme d'entraînement via Claude Sonnet (streaming). Prompt encode la méthode de programmation du coach : fourchettes de reps (5/8, 8/12, 10/15, 12/16, max), exos UNIQUEMENT depuis la bibliothèque, champ `priority_muscles` qui pilote ordre/volume(6-16 séries/sem)/fréquence/split, repos 90s petits muscles → 180-240s gros polyart borné par durée séance. Form : modal `mGenTrainPlan`, champ `gtpPriority`
 - **`analyze-recipe`** : analyse screenshot de recette via Claude Vision, déployée avec `--no-verify-jwt`
 - **Secret** : `ANTHROPIC_API_KEY` configuré sur Supabase
