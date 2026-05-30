@@ -122,22 +122,31 @@ PRIORISATION : ${priorityMuscles ? `groupe(s) à prioriser = ${priorityMuscles}.
    - Ne programme PAS de progression chiffrée. Elle est gérée par le client via la fourchette de répétitions : c'est à lui de monter la charge / les reps à l'intérieur de la fourchette imposée.
 
 === FOURCHETTES DE RÉPÉTITIONS ===
-⚠️ RÈGLE OBLIGATOIRE : Tu dois utiliser des FOURCHETTES de répétitions (pas des valeurs uniques). Cela permet au client de progresser dans la fourchette.
-Fourchettes autorisées :
-- "5/8" — force (exercices lourds polyarticulaires)
-- "8/12" — hypertrophie classique
-- "10/15" — hypertrophie + endurance musculaire
-- "12/16" — endurance musculaire, isolation
-- "max" — séries au maximum (ex: dips, tractions poids de corps, gainage)
-- Pour l'échauffement et le cooldown : tu peux utiliser des durées comme "5min", "30s", "45s"
+⚠️ RÈGLE OBLIGATOIRE : Tu dois utiliser UNIQUEMENT ces fourchettes, EXACTEMENT comme écrites (avec tiret, jamais slash) :
+- "5-8" — force (exercices lourds polyarticulaires)
+- "9-12" — hypertrophie classique
+- "10-15" — hypertrophie + endurance musculaire
+- "13-16" — endurance musculaire, isolation
+- "MAX" — séries au maximum (poids de corps difficiles : dips, tractions, gainage)
+- Pour l'échauffement et le cooldown UNIQUEMENT : durées autorisées comme "5min", "30s", "45s"
 
-Choisis la fourchette adaptée à chaque exercice selon son rôle dans la séance :
-- Exercices polyarticulaires lourds (squat, développé couché, soulevé de terre) → "5/8" ou "8/12"
-- Exercices d'isolation (curl, élévations latérales) → "10/15" ou "12/16"
-- Exercices au poids de corps difficiles (tractions, dips) → "max" si le client ne peut pas atteindre 8 reps, sinon "8/12"
-- Adapte au niveau du client : débutant → fourchettes plus hautes (10/15, 12/16), avancé → peut aller sur du 5/8
+Aucune autre valeur n'est acceptée : pas de "8-12", pas de "12-15", pas de "6-10", etc. Strictement les 5 fourchettes ci-dessus + durées pour warmup/cooldown.
 
-Toutes les séries d'un même exercice utilisent la MÊME fourchette de reps. Ne mets PAS des reps différentes par série.
+Choix de la fourchette selon le rôle de l'exercice :
+- Polyarticulaires lourds (squat, développé couché, soulevé de terre, hack squat) → "5-8" ou "9-12"
+- Isolation (curl, élévations latérales, leg extension) → "10-15" ou "13-16"
+- Poids de corps difficiles (tractions, dips) → "MAX" si le client ne peut pas tenir 8 reps, sinon "9-12"
+- Adapte au niveau : débutant → fourchettes plus hautes (10-15, 13-16) ; avancé → peut faire du 5-8
+
+⚠️ STRATÉGIE DE 2 FOURCHETTES SUR LE MÊME EXERCICE (recommandée, non obligatoire) :
+Pour un même exercice, tu peux utiliser DEUX fourchettes différentes entre les séries — c'est OPTIMAL pour gérer la fatigue et combiner force + volume. Dans ce cas, la fourchette la PLUS COURTE (la plus lourde) vient TOUJOURS sur les PREMIÈRES séries (client frais), puis on passe à la fourchette plus longue (plus légère) sur les dernières séries.
+Exemples valides sur 4 séries :
+  • Squat : "5-8" / "5-8" / "9-12" / "9-12"  ← lourd d'abord, hypertrophie après
+  • Développé incliné : "9-12" / "9-12" / "10-15" / "10-15"
+  • Tractions : "MAX" / "MAX" / "9-12" / "9-12"
+INTERDIT : passer du léger au lourd ("9-12" puis "5-8" → impossible, le client est déjà fatigué).
+INTERDIT : utiliser 3 fourchettes différentes sur un même exercice. Maximum 2.
+Si tu n'utilises qu'une seule fourchette pour toutes les séries d'un exercice, c'est OK aussi.
 
 === FORMAT JSON REQUIS ===
 {
@@ -163,10 +172,10 @@ Toutes les séries d'un même exercice utilisent la MÊME fourchette de reps. Ne
           "muscle": "Pectoraux",
           "equip": "Barre",
           "setsData": [
-            {"reps": "8/12", "rest": "180s", "rir": "2"},
-            {"reps": "8/12", "rest": "180s", "rir": "2"},
-            {"reps": "8/12", "rest": "180s", "rir": "1"},
-            {"reps": "8/12", "rest": "180s", "rir": "0"}
+            {"reps": "5-8", "rest": "180s", "rir": "2"},
+            {"reps": "5-8", "rest": "180s", "rir": "1"},
+            {"reps": "9-12", "rest": "180s", "rir": "1"},
+            {"reps": "9-12", "rest": "180s", "rir": "0"}
           ],
           "notes": "Contrôle la descente, 2s excentrique",
           "from_db": true
@@ -179,9 +188,9 @@ Toutes les séries d'un même exercice utilisent la MÊME fourchette de reps. Ne
               "muscle": "Épaules",
               "equip": "Haltères",
               "setsData": [
-                {"reps": "12/16", "rest": "", "rir": "1"},
-                {"reps": "12/16", "rest": "", "rir": "1"},
-                {"reps": "12/16", "rest": "", "rir": "0"}
+                {"reps": "13-16", "rest": "", "rir": "1"},
+                {"reps": "13-16", "rest": "", "rir": "1"},
+                {"reps": "13-16", "rest": "", "rir": "0"}
               ]
             },
             {
@@ -189,9 +198,9 @@ Toutes les séries d'un même exercice utilisent la MÊME fourchette de reps. Ne
               "muscle": "Épaules",
               "equip": "Poulie",
               "setsData": [
-                {"reps": "12/16", "rest": "", "rir": "1"},
-                {"reps": "12/16", "rest": "", "rir": "1"},
-                {"reps": "12/16", "rest": "", "rir": "0"}
+                {"reps": "13-16", "rest": "", "rir": "1"},
+                {"reps": "13-16", "rest": "", "rir": "1"},
+                {"reps": "13-16", "rest": "", "rir": "0"}
               ]
             }
           ],
@@ -244,9 +253,9 @@ RÈGLES IMPORTANTES :
 3. Pour les jours de type "running" ou "natation" ou "hybride" : utilise le format bloc running avec kind:"run"
 4. Pour les supersets : utilise "superset": true avec un tableau "exercises" et "setsRest" pour les repos partagés
 5. Les jours "hybride" peuvent mixer des exercices muscu (warmup/cooldown) et des blocs running (workout), ou inversement
-6. ⚠️ OBLIGATOIRE : Utilise UNIQUEMENT les exercices de la BIBLIOTHÈQUE DU COACH ci-dessus. Tu ne dois proposer AUCUN exercice qui n'est pas dans cette liste. Copie les noms EXACTEMENT comme écrits. Si tu ne trouves pas assez d'exercices dans la bibliothèque pour un groupe musculaire, utilise ceux disponibles même si cela signifie moins de variété. JAMAIS d'exercice inventé.
-7. Tous les exercices doivent avoir "from_db": true (car ils viennent tous de la bibliothèque)
-8. ⚠️ OBLIGATOIRE : Utilise des FOURCHETTES de répétitions (ex: "8/12", "5/8", "12/16", "max") et NON des valeurs uniques. Toutes les séries d'un exercice ont la même fourchette.
+6. ⚠️ RÈGLE LA PLUS IMPORTANTE : Utilise UNIQUEMENT les exercices listés dans la BIBLIOTHÈQUE DU COACH ci-dessus. Tu DOIS copier le nom EXACTEMENT comme écrit (mêmes mots, mêmes accents, mêmes majuscules). Aucun exercice "similaire", aucune reformulation, aucune variation de nom. Exemple : si la bibliothèque contient "Développé couché barre", tu écris "Développé couché barre" — pas "Développé couché à la barre", pas "Bench press", pas "Développé couché avec barre". Si tu n'es pas SÛR à 100% que le nom est dans la bibliothèque, NE L'UTILISE PAS — choisis-en un autre dans la liste. Tout exercice non présent EXACTEMENT dans la liste sera AUTOMATIQUEMENT SUPPRIMÉ par le système, laissant des séances incomplètes.
+7. Tous les exercices ont "from_db": true (puisqu'ils viennent tous de la bibliothèque — règle 6).
+8. ⚠️ FOURCHETTES DE REPS : utilise EXACTEMENT les 5 fourchettes autorisées avec tiret : "5-8", "9-12", "10-15", "13-16", "MAX". JAMAIS d'autres valeurs (pas de "8-12", pas de "6-10", pas de "8/12" avec slash). Une seule fourchette par exercice, OU deux fourchettes avec la plus COURTE en premier (cf. STRATÉGIE DE 2 FOURCHETTES plus haut).
 9. Adapte le volume et l'intensité au niveau du client (${experience})
 10. Respecte la durée de séance (~${sessionDuration} min)
 11. Inclus un échauffement (warmup) et un retour au calme (cooldown) pour chaque jour
@@ -278,6 +287,80 @@ RÈGLES IMPORTANTES :
         });
       }
     }
+
+    // Normaliser les reps vers les 5 fourchettes autorisées (tiret).
+    const ALLOWED_RANGES: Array<[number, number]> = [[5,8],[9,12],[10,15],[13,16]];
+    function normalizeReps(raw: unknown): string {
+      if (typeof raw !== "string") return String(raw ?? "");
+      const s = raw.trim();
+      if (!s) return s;
+      // durées warmup/cooldown : laisser passer
+      if (/^(\d+(?:[.,]\d+)?\s*(min|s|sec))$/i.test(s)) return s;
+      const low = s.toLowerCase();
+      if (low === "max" || low === "maximum") return "MAX";
+      // single number → range qui le contient
+      const single = s.match(/^(\d+)$/);
+      if (single) {
+        const v = parseInt(single[1]);
+        for (const [a,b] of ALLOWED_RANGES) if (v >= a && v <= b) return `${a}-${b}`;
+        // hors gammes : closest
+      }
+      // range "a-b" ou "a/b"
+      const m = s.match(/^(\d+)\s*[\/\-–—]\s*(\d+)$/);
+      if (!m) return s; // format inconnu, laisser
+      const a = parseInt(m[1]), b = parseInt(m[2]);
+      // map vers la fourchette la plus proche (somme des distances)
+      let best: [number, number] = ALLOWED_RANGES[0], bestDist = Infinity;
+      for (const r of ALLOWED_RANGES) {
+        const d = Math.abs(a - r[0]) + Math.abs(b - r[1]);
+        if (d < bestDist) { bestDist = d; best = r; }
+      }
+      return `${best[0]}-${best[1]}`;
+    }
+    function normalizeSetsData(ex: Record<string, unknown>) {
+      const sets = (ex.setsData || []) as Array<Record<string, unknown>>;
+      for (const s of sets) if (s.reps !== undefined) s.reps = normalizeReps(s.reps);
+    }
+
+    // FILTRER les exos qui ne sont pas EXACTEMENT dans la bibliothèque du coach
+    // (sinon le client se retrouve avec des exos sans vidéo et sans correspondance).
+    const libNames = new Set(
+      exerciseDB.map(e => (e.nom || "").toString().toLowerCase().trim()).filter(Boolean)
+    );
+    const inLib = (n: unknown) => libNames.size === 0 || libNames.has((typeof n === "string" ? n : "").toLowerCase().trim());
+    const removed: string[] = [];
+
+    if (plan.jours && Array.isArray(plan.jours)) {
+      for (const jour of plan.jours as Array<Record<string, unknown>>) {
+        for (const sec of ["warmup", "workout", "cooldown"] as const) {
+          const items = (jour[sec] || []) as Array<Record<string, unknown>>;
+          const kept: Array<Record<string, unknown>> = [];
+          for (const item of items) {
+            if (item.kind === "run") { kept.push(item); continue; }
+            if (item.superset) {
+              const subs = (item.exercises || []) as Array<Record<string, unknown>>;
+              const subsKept = subs.filter(s => {
+                const ok = inLib(s.nom);
+                if (!ok) removed.push(String(s.nom));
+                if (ok) { s.from_db = true; normalizeSetsData(s); }
+                return ok;
+              });
+              if (subsKept.length === 0) continue; // superset vidé → on saute
+              item.exercises = subsKept;
+              kept.push(item);
+              continue;
+            }
+            // exo simple
+            if (!inLib(item.nom)) { removed.push(String(item.nom)); continue; }
+            item.from_db = true;
+            normalizeSetsData(item);
+            kept.push(item);
+          }
+          jour[sec] = kept;
+        }
+      }
+    }
+    if (removed.length) console.warn("[FILTER] exos retirés (hors bibliothèque) :", removed);
 
     return new Response(JSON.stringify(plan), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
