@@ -3805,14 +3805,14 @@ function _renderWeeklyDailyGrid(logs, qDaily){
   let html='<div style="margin-top:28px">';
   html+='<div style="font-size:13px;font-weight:800;letter-spacing:.5px;color:var(--dark);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px"><span>📅</span><span>Vue hebdomadaire complète</span><span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0">— toutes les réponses du questionnaire quotidien, semaine par semaine</span></div>';
   weeks.forEach(w=>{
-    const secHead=sections.map(s=>`<th colspan="${secMap.get(s).length}" style="background:#2e1450;color:#f5edcf;padding:6px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;border:1px solid #1d0a36">${esc(s)}</th>`).join('');
+    const secHead=sections.map(s=>`<th colspan="${secMap.get(s).length}" style="background:#CC9942;color:#fff;padding:6px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;border:1px solid #a67a2e">${esc(s)}</th>`).join('');
     const qHead=sections.map(s=>secMap.get(s).map(q=>{
       const u=q.unit?` <span style="opacity:.55;font-weight:500">(${esc(q.unit)})</span>`:q.type==='percent'?' <span style="opacity:.55;font-weight:500">(%)</span>':q.type==='rating'?' <span style="opacity:.55;font-weight:500">(/'+(q.scale||5)+')</span>':'';
-      return `<th style="background:#ece4c7;padding:6px 6px;font-size:10px;font-weight:700;color:#2e1450;border:1px solid #d4c89a;min-width:78px">${esc(q.label||q.id)}${u}</th>`;
+      return `<th style="background:#ece4c7;padding:6px 6px;font-size:10px;font-weight:700;color:#8a6010;border:1px solid #d4c89a;min-width:78px">${esc(q.label||q.id)}${u}</th>`;
     }).join('')).join('');
     const rows=w.days.map((d,i)=>{
       const dt=d.date;
-      const dateCell=`<td style="background:#fafaf6;padding:5px 10px;border:1px solid #e8e4dc;font-size:11px;font-weight:700;color:#2e1450;white-space:nowrap">${dayLabels[i]} ${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}</td>`;
+      const dateCell=`<td style="background:#fafaf6;padding:5px 10px;border:1px solid #e8e4dc;font-size:11px;font-weight:700;color:#8a6010;white-space:nowrap">${dayLabels[i]} ${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}</td>`;
       const cells=sections.map(s=>secMap.get(s).map(q=>fmtCell(d.log?d.log[q.id]:null,q,d.inFuture)).join('')).join('');
       return `<tr>${dateCell}${cells}</tr>`;
     }).join('');
@@ -3833,14 +3833,14 @@ function _renderWeeklyDailyGrid(logs, qDaily){
     const startFr=w.wStart.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
     const endFr=w.wEnd.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
     html+=`<div style="margin-bottom:20px;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)">
-      <div style="display:flex;align-items:center;gap:14px;background:#2e1450;color:white;padding:12px 16px">
+      <div style="display:flex;align-items:center;gap:14px;background:#CC9942;color:#fff;padding:12px 16px">
         <div style="font-size:20px;font-weight:900;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:2px 12px;min-width:34px;text-align:center">${w.n}</div>
         <div style="font-size:13px;font-weight:700">Semaine du ${startFr} au ${endFr}</div>
       </div>
       <div style="overflow-x:auto">
         <table style="border-collapse:collapse;width:100%;background:white;font-size:11px;font-family:inherit">
           <thead>
-            <tr><th style="background:#2e1450;color:#f5edcf;padding:6px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;border:1px solid #1d0a36;min-width:80px">DATE</th>${secHead}</tr>
+            <tr><th style="background:#CC9942;color:#fff;padding:6px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;border:1px solid #a67a2e;min-width:80px">DATE</th>${secHead}</tr>
             <tr><th style="background:#ece4c7;border:1px solid #d4c89a"></th>${qHead}</tr>
           </thead>
           <tbody>${rows}${avgRow}</tbody>
