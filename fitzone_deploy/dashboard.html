@@ -9468,8 +9468,10 @@ function openGenTrainPlanModal(){
   document.getElementById('gtpInjuries').value=q.injuries||'';
   document.getElementById('gtpDisliked').value=q.disliked_exercises||'';
   document.getElementById('gtpPrefs').value='';
-  const exoCount=(typeof exos!=='undefined'&&Array.isArray(exos))?exos.length:0;
-  document.getElementById('gtpDbInfo').textContent=`📦 ${exoCount} exercices dans votre bibliothèque`;
+  // exos = global chargé via loadAllData (dbLoad('exercises') + fallback fz_exos).
+  // Si jamais le global est vide (cache, ordre de chargement), on retombe sur lsGet directement.
+  const _libArr=(typeof exos!=='undefined'&&Array.isArray(exos)&&exos.length)?exos:(typeof lsGet==='function'?(lsGet('fz_exos',[])||[]):[]);
+  document.getElementById('gtpDbInfo').textContent=`📦 ${_libArr.length} exercices dans votre bibliothèque`;
   document.getElementById('gtpLoading').style.display='none';
   document.getElementById('gtpGenBtn').disabled=false;
   document.getElementById('gtpGenBtn').textContent='🤖 Générer le programme';
@@ -9508,7 +9510,7 @@ async function generateAITrainPlan(){
     dayNames.push(document.getElementById('gtpDay'+i)?.value||'Jour '+(i+1));
     dayTypes.push(document.getElementById('gtpDayType'+i)?.value||'muscu');
   }
-  const exoLib=(typeof exos!=='undefined'&&Array.isArray(exos))?exos:[];
+  const exoLib=(typeof exos!=='undefined'&&Array.isArray(exos)&&exos.length)?exos:(typeof lsGet==='function'?(lsGet('fz_exos',[])||[]):[]);
   const config={
     nb_days:nbDays,
     day_names:dayNames,
