@@ -221,6 +221,14 @@
 - **Console log debug** : `[WORKOUT SAVE]` dans `finalizeWorkout()` pour tracer les données sauvegardées
 - **Champ comment** sauvegardé dans `train_logs` (était ignoré avant)
 
+### Session 2026-05-31 (fix bilan « pas reçu côté coach »)
+- **Symptôme** : bilans hebdo de certains clients récents (Clément, Béatrice) jamais reçus côté coach (ni notif Discord, ni données), alors que d'autres clients passaient bien.
+- **Diagnostic (écarté un par un, preuves en base)** : coach_id OK (identique à des clients qui marchent), RLS OK (`auth_bilans_client_insert` = même policy que `daily_logs`/`train_logs` où ils écrivent sans souci), identité auth OK (linkage clients.user_id ↔ auth.users correct, pas de doublon), aucune régression de code (aucun commit sur `submitBilan`). Tous les bilans récents en base sont bien soumis par les clients (`reponses` rempli).
+- **Vraie cause** : `submitBilan()` uploadait les photos sur Google Drive **avant** l'insert, dans un `try` **sans `catch`** et **sans timeout**. Un upload Drive figé (Apps Script flaky) bloquait toute la soumission ; le `finally` ne tournait jamais → `_bilanSubmitting` restait à `true` → tous les clics « Envoyer » suivants ignorés en silence. Touche les sessions client coincées (par instance, d'où « seulement certains clients »).
+- **Fix** (`client.html`, commit `7a094d0`) : insert/update du bilan **en premier** (le bilan + la notif Discord ne dépendent plus des photos) → upload Drive **en arrière-plan** puis update de la ligne (non bloquant) → **timeout 30s** (AbortController) sur le fetch Drive → `catch` qui affiche l'erreur → gamification isolée dans son propre try.
+- **À faire** : demander à Clément/Béatrice de **recharger l'app** (vider le cache) puis re-soumettre un bilan ; vérifier la réception + la notif Discord « Bilan Hebdo ».
+- **Webhook Discord** : config coach OK (settings.notifications contient bien `bilan_submitted` → webhook « Bilan Hebdo » activé). `notify-webhook` se déclenche côté client après insert réussi.
+
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
 
