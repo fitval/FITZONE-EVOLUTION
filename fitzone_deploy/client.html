@@ -663,7 +663,11 @@ async function uploadToDrive(base64,fileName,mimeType){
   try{
     mimeType=mimeType||'image/jpeg';
     console.log('[DRIVE] Uploading',fileName,'size:',Math.round(base64.length/1024)+'KB','type:',mimeType);
-    const res=await fetch(DRIVE_UPLOAD_URL,{method:'POST',redirect:'follow',body:JSON.stringify({base64,fileName,mimeType})});
+    // Timeout dur : un Apps Script qui se fige ne doit jamais bloquer la soumission
+    const _ctl=new AbortController();const _to=setTimeout(()=>_ctl.abort(),30000);
+    let res;
+    try{res=await fetch(DRIVE_UPLOAD_URL,{method:'POST',redirect:'follow',body:JSON.stringify({base64,fileName,mimeType}),signal:_ctl.signal});}
+    finally{clearTimeout(_to);}
     console.log('[DRIVE] Response status:',res.status,res.type);
     const text=await res.text();
     console.log('[DRIVE] Response body:',text.substring(0,200));
@@ -3668,31 +3672,33 @@ async function submitBilan(){
   const origBtnHtml=submitBtn?submitBtn.innerHTML:'';
   if(submitBtn){submitBtn.disabled=true;submitBtn.style.opacity='.6';submitBtn.style.cursor='wait';submitBtn.innerHTML='Envoi en cours…';}
   try{
-    // Upload photos to Google Drive (fallback to base64 if Drive unavailable)
-    let uploadedPhotos=bilanPhotos;
-    if(bilanPhotos.length&&DRIVE_UPLOAD_URL&&!DRIVE_UPLOAD_URL.startsWith('REMPLACER')){
-      toast('Upload des photos en cours…');
-      uploadedPhotos=await uploadPhotosToDrive(bilanPhotos);
-    }
-    let error;
-    if(bilanEditMode&&bilanEditId){
-      // Update existing bilan
-      const{error:e}=await db.from('bilans').update({titre:'Bilan du '+fmtDate(d),date:d,photos:uploadedPhotos,reponses:rep,read:false}).eq('id',bilanEditId);
-      error=e;
+    const titre='Bilan du '+fmtDate(d);
+    const wasEdit=!!(bilanEditMode&&bilanEditId);
+    // Photos déjà uploadées (URLs https) vs nouvelles (base64) à envoyer à Drive
+    const keptUrls=bilanPhotos.filter(p=>typeof p==='string'&&p.startsWith('https://'));
+    const toUpload=bilanPhotos.filter(p=>typeof p==='string'&&!p.startsWith('https://'));
+    const photoCount=bilanPhotos.length;
+    const attitudeVal=bilanAttitude;
+
+    // 1) On ENREGISTRE LE BILAN TOUT DE SUITE (texte + photos déjà connues),
+    //    SANS attendre Drive : une photo lente/HS ne doit jamais faire perdre le bilan ni la notif coach.
+    let bilanId=bilanEditId;
+    if(wasEdit){
+      const{error}=await db.from('bilans').update({titre,date:d,photos:keptUrls,reponses:rep,read:false}).eq('id',bilanEditId);
+      if(error){toast('Erreur: '+error.message);return;}
     } else {
-      const{error:e}=await db.from('bilans').insert({coach_id:clientData.coach_id,client_id:clientData.id,titre:'Bilan du '+fmtDate(d),date:d,photos:uploadedPhotos,reponses:rep,read:false});
-      error=e;
+      const{data,error}=await db.from('bilans').insert({coach_id:clientData.coach_id,client_id:clientData.id,titre,date:d,photos:keptUrls,reponses:rep,read:false}).select('id').single();
+      if(error){toast('Erreur: '+error.message);return;}
+      bilanId=data&&data.id;
     }
-    if(error){toast('Erreur: '+error.message);return;}
-    const wasEdit=bilanEditMode;
-    bilanEditMode=false;bilanEditId=null;bilanAttitude=0;bilanPhotos=[];
-    toast(wasEdit?'Bilan mis à jour ✓':'Bilan envoyé ✓');
-    const{data}=await db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false});bilans=data||[];
-    // Gamification: award bilan points
+
+    // 2) Bilan sauvegardé → on notifie le coach (Discord) et on crédite les points immédiatement.
+    //    Isolé dans son propre try : un souci de gamification ne doit pas masquer le succès du bilan.
     if(!wasEdit){
-      await awardPoints('bilan_submit',75,{date:d});
-      if(uploadedPhotos.length>0) await awardPoints('bilan_photo',50,{photos:uploadedPhotos.length});
-      // Notification webhooks (fire-and-forget)
+      try{
+        await awardPoints('bilan_submit',75,{date:d});
+        if(photoCount>0) await awardPoints('bilan_photo',50,{photos:photoCount});
+      }catch(pe){console.warn('[bilan points]',pe);}
       fetch(SUPA+'/functions/v1/notify-webhook',{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
@@ -3703,13 +3709,31 @@ async function submitBilan(){
             first_name:clientData.first_name,
             last_name:clientData.last_name,
             date:d,
-            attitude:bilanAttitude||rep.attitude,
+            attitude:attitudeVal||rep.attitude,
             weight:rep['Poids']||rep.poids||null
           }
         })
       }).catch(e=>console.warn('[notify]',e));
     }
+
+    // 3) Upload des photos EN ARRIÈRE-PLAN, puis on complète la ligne (non bloquant)
+    if(toUpload.length&&DRIVE_UPLOAD_URL&&!DRIVE_UPLOAD_URL.startsWith('REMPLACER')&&bilanId){
+      toast(wasEdit?'Bilan mis à jour ✓ — photos en cours…':'Bilan envoyé ✓ — photos en cours…');
+      uploadPhotosToDrive(bilanPhotos).then(uploaded=>{
+        const clean=(uploaded||[]).filter(Boolean);
+        if(clean.length) return db.from('bilans').update({photos:clean}).eq('id',bilanId);
+      }).catch(e=>console.warn('[bilan photos]',e));
+    } else {
+      toast(wasEdit?'Bilan mis à jour ✓':'Bilan envoyé ✓');
+    }
+
+    // 4) Reset état + refetch local
+    bilanEditMode=false;bilanEditId=null;bilanAttitude=0;bilanPhotos=[];
+    const{data:bl}=await db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false});bilans=bl||[];
     switchTab('Home');
+  } catch(e){
+    console.error('[submitBilan]',e);
+    toast('Erreur lors de l\'envoi : '+(e&&e.message?e.message:e));
   } finally {
     _bilanSubmitting=false;
     // Restaure le bouton si on est resté sur le formulaire (erreur)
