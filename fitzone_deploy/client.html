@@ -464,6 +464,14 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .act-chip span{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .act-chip.act-on{background:var(--gold);border-color:var(--gold);color:#fff}
 .act-chip.act-on span{color:#fff}
+/* Activity list card animations */
+.act-card{position:relative}
+@keyframes actCardIn{0%{opacity:0;transform:translateY(-16px) scale(.95);box-shadow:0 0 0 6px rgba(196,154,42,.45)}55%{transform:translateY(2px) scale(1.015)}100%{opacity:1;transform:translateY(0) scale(1);box-shadow:0 1px 3px rgba(0,0,0,.06)}}
+.act-just-added{animation:actCardIn .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes actCardOut{0%{opacity:1;transform:translateX(0);max-height:160px}100%{opacity:0;transform:translateX(50px);max-height:0;margin-bottom:0;padding-top:0;padding-bottom:0;border-width:0}}
+.act-removing{animation:actCardOut .32s ease forwards;overflow:hidden;pointer-events:none}
+.act-del-btn{background:none;border:none;color:var(--text3);font-size:15px;cursor:pointer;padding:6px;flex-shrink:0;align-self:center;border-radius:8px;transition:background .15s,color .15s;font-family:var(--font);line-height:1}
+.act-del-btn:hover,.act-del-btn:active{background:#fef2f2;color:#ef4444}
 /* Calendar */
 .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .cal-nav{display:flex;align-items:center;gap:10px}
@@ -1331,7 +1339,8 @@ function renderActivitiesView(){
     const rpe=ex.rpe?ex.rpe+'/10':'';
     const chips=[dur,rpe].filter(Boolean);
     const detailText=ex.details||'';
-    h+=`<div style="background:var(--white);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+    const justAdded=String(l.id)===String(window._actJustAdded||'');
+    h+=`<div id="actCard_${l.id}" class="act-card${justAdded?' act-just-added':''}" style="background:var(--white);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
       <div style="width:44px;height:44px;border-radius:12px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${ico}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:14px;font-weight:700">${aType}</div>${rpe?`<div style="font-size:12px;font-weight:800;color:${ex.rpe<=3?'#22c55e':ex.rpe<=6?'var(--gold)':ex.rpe<=8?'#f97316':'#ef4444'};background:${ex.rpe<=3?'#f0fdf4':ex.rpe<=6?'var(--gold-pale)':ex.rpe<=8?'#fff7ed':'#fef2f2'};padding:2px 8px;border-radius:8px">${rpe}</div>`:''}</div>
@@ -1339,9 +1348,28 @@ function renderActivitiesView(){
         ${detailText?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${detailText}</div>`:''}
         ${l.comment&&l.comment!==detailText?`<div style="font-size:11px;color:var(--text3);margin-top:4px;font-style:italic">${l.comment}</div>`:''}
       </div>
+      <button class="act-del-btn" onclick="delActFromList('${l.id}')" title="Supprimer cette activité">🗑️</button>
     </div>`;
   });
+  window._actJustAdded=null;
   return h;
+}
+async function delActFromList(logId){
+  if(!confirm('Supprimer cette activité ?'))return;
+  const card=document.getElementById('actCard_'+logId);
+  try{
+    const{error}=await db.from('train_logs').delete().eq('id',logId);
+    if(error){toast('Erreur: '+error.message);return;}
+    trainLogs=trainLogs.filter(l=>String(l.id)!==String(logId));
+    if(typeof renderCalendar==='function'&&document.getElementById('calGrid'))try{renderCalendar();}catch(e){}
+    // Animation de sortie puis re-render de la liste
+    if(card){
+      card.classList.add('act-removing');
+      setTimeout(()=>{renderTrainPreview();toast('Activité supprimée');},320);
+    } else {
+      renderTrainPreview();toast('Activité supprimée');
+    }
+  }catch(e){toast('Erreur: '+e.message);}
 }
 let actRating=0;
 function openActivityModal(){
@@ -1432,8 +1460,10 @@ async function saveActivity(){
     const{data,error}=await db.from('train_logs').insert(row).select().single();
     if(error){toast('Erreur: '+error.message);return;}
     if(data)trainLogs.unshift(data);
-    closeModal();toast('Activité enregistrée !');
+    closeModal();toast('Activité enregistrée ! 🎉');
     if(typeof awardPoints==='function')await awardPoints('complementary_activity',20,{activity:actType});
+    window._actJustAdded=data?.id||null; // déclenche l'animation d'entrée de la carte
+    trainSubTab='activites';
     renderTrainPreview();
   }catch(e){console.error('[ACTIVITY]',e);toast('Erreur: '+e.message);}
 }
