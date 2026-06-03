@@ -1524,8 +1524,14 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
       </div>
       <div id="gpRestoDays" style="display:none;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
     </div>
+    <!-- Day count -->
+    <div class="fg"><label class="fl">Nombre de menus / jours</label>
+      <select class="fs" id="gpDaysCount" onchange="gpUpdateDayNames()">
+        <option value="1">1 menu</option><option value="2">2 menus</option><option value="3">3 menus</option><option value="4">4 jours</option><option value="5">5 jours</option><option value="6">6 jours</option><option value="7" selected>7 jours</option>
+      </select>
+    </div>
     <!-- Day names -->
-    <div class="fg"><label class="fl">Noms des jours (7 jours)</label>
+    <div class="fg"><label class="fl">Noms des jours / menus</label>
       <div id="gpDayNamesWrap" style="display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
     <!-- Food DB info -->
@@ -7561,7 +7567,9 @@ function openGenPlanModal(){
   const allEquip=['Four','Cuiseur vapeur','Blender','Poêle','Casserole'];
   const available=allEquip.filter(e=>!equipFromQ.includes(e));
   document.getElementById('gpEquip').value=available.join(', ');
-  // Day names
+  // Day count + names (reset to 7 jours par défaut)
+  document.getElementById('gpDaysCount').value='7';
+  gpDayNames=[...GP_DAYS];
   gpUpdateDayNames();
   // Food DB info
   const dbInfo=document.getElementById('gpDbInfo');
@@ -7584,10 +7592,17 @@ function gpUpdateMealNames(){
 }
 
 let gpDayNames=[...GP_DAYS];
+function gpDayLabel(i){return GP_DAYS[i]||('Menu '+(i+1));}
 function gpUpdateDayNames(){
   const wrap=document.getElementById('gpDayNamesWrap');if(!wrap)return;
-  gpDayNames=[...GP_DAYS];
+  const n=parseInt(document.getElementById('gpDaysCount').value)||7;
+  // Garde les noms déjà saisis, complète/tronque selon le nombre choisi
+  gpDayNames=Array.from({length:n},(_,i)=>gpDayNames[i]||gpDayLabel(i));
   wrap.innerHTML=gpDayNames.map((d,i)=>`<input class="fi" style="width:100px;font-size:12px;height:30px;padding:2px 8px" value="${d}" onchange="gpDayNames[${i}]=this.value">`).join('');
+  const btn=document.getElementById('gpGenBtn');
+  if(btn)btn.textContent='🤖 Générer '+n+(n>1?' jours':' menu');
+  // Les jours resto possibles dépendent des jours choisis
+  if(typeof gpUpdateRestoDays==='function')gpUpdateRestoDays();
 }
 
 function gpUpdateRestoSlot(){
@@ -7603,7 +7618,7 @@ function gpUpdateRestoDays(){
   if(!slot){wrap.style.display='none';gpRestoConfig={};return;}
   wrap.style.display='flex';
   const prev=gpRestoConfig[slot]||[];
-  wrap.innerHTML=GP_DAYS.map(d=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:4px 8px;background:var(--bg2);border-radius:6px">
+  wrap.innerHTML=gpDayNames.map(d=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:4px 8px;background:var(--bg2);border-radius:6px">
     <input type="checkbox" class="gpRestoCb" value="${d}" ${prev.includes(d)?'checked':''} onchange="gpSaveRestoDays()"> ${d}
   </label>`).join('');
 }
@@ -7808,7 +7823,7 @@ async function generateAIPlan(){
     document.getElementById('gpLoadText').textContent='Erreur: '+e.message;
     pBar.style.width='0%';pBar.style.background='#ef4444';pText.textContent=e.message;
   }finally{
-    btn.disabled=false;btn.textContent='🤖 Générer 7 jours';
+    btn.disabled=false;btn.textContent='🤖 Générer '+gpDayNames.length+(gpDayNames.length>1?' jours':' menu');
   }
 }
 

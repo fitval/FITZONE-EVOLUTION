@@ -108,7 +108,8 @@ ${clientProfile.food_relationship ? "Relation à la nourriture: " + clientProfil
     const slotTargets = mealNames.map(n => `  • ${n} : ${perSlotKcal} kcal · P ${perSlotProt}g · G ${perSlotCarb}g · L ${perSlotFat}g`).join("\n");
 
     const exampleSlot = mealNames[0];
-    const prompt = `Tu es un nutritionniste du sport expert. Génère un plan alimentaire de 7 jours en JSON STRICT.
+    const nbDays = dayNames.length;
+    const prompt = `Tu es un nutritionniste du sport expert. Génère un plan alimentaire de ${nbDays} jour${nbDays > 1 ? "s" : ""} (un objet par jour dans "jours", exactement ${nbDays}) en JSON STRICT.
 
 ╔══════════════════════════════════════════════════════════════════╗
 ║  CONTRAINTE STRUCTURELLE PRIORITAIRE — À RESPECTER AVANT TOUT    ║
