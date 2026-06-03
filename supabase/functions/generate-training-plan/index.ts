@@ -7,15 +7,39 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Extrait le PREMIER objet JSON équilibré (gère chaînes/échappements) pour
+// ignorer tout texte parasite avant le "{" et après le "}" de fermeture.
+// Retourne null si l'objet est incomplet (tronqué).
+function extractFirstJSONObject(s: string): string | null {
+  const start = s.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+    } else {
+      if (c === '"') inStr = true;
+      else if (c === "{") depth++;
+      else if (c === "}") { depth--; if (depth === 0) return s.substring(start, i + 1); }
+    }
+  }
+  return null;
+}
+
 function repairAndParseJSON(text: string): Record<string, unknown> {
   let s = text.trim();
   if (s.startsWith("```")) s = s.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
   try { return JSON.parse(s); } catch (_) { /* continue */ }
-  const start = s.indexOf("{");
-  const end = s.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    s = s.substring(start, end + 1);
-    try { return JSON.parse(s); } catch (_) { /* continue */ }
+  const balanced = extractFirstJSONObject(s);
+  if (balanced) {
+    try { return JSON.parse(balanced); } catch (_) { s = balanced; }
+  } else {
+    const start = s.indexOf("{");
+    const end = s.lastIndexOf("}");
+    if (start >= 0 && end > start) s = s.substring(start, end + 1);
   }
   s = s.replace(/,\s*([}\]])/g, "$1");
   s = s.replace(/([{,]\s*)(\w+)\s*:/g, '$1"$2":');
