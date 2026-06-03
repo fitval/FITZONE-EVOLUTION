@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
     });
 
     const tempPassword = crypto.randomUUID() + "Aa1!";
-    let userId: string;
+    let userId: string | null = null;
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: tempPassword,
@@ -42,18 +42,12 @@ Deno.serve(async (req: Request) => {
     });
 
     if (authError) {
-      if (authError.message.includes("already") || authError.message.includes("exists") || authError.message.includes("unique")) {
-        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-        const existing = existingUsers?.users?.find((u: { email?: string }) => u.email === email);
-        if (existing) {
-          userId = existing.id;
-        } else {
-          return new Response(
-            JSON.stringify({ error: authError.message }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-      } else {
+      // Compte déjà existant → on continue (idempotent). L'userId sera résolu
+      // via generateLink ci-dessous (qui renvoie l'utilisateur), pas via
+      // listUsers() qui est paginé (50/page) et rate les comptes au-delà.
+      const msg = (authError.message || "").toLowerCase();
+      const alreadyExists = /already|exists|registered|unique|duplicate/.test(msg);
+      if (!alreadyExists) {
         return new Response(
           JSON.stringify({ error: authError.message }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -66,14 +60,37 @@ Deno.serve(async (req: Request) => {
     // Single CTA: recovery link → client-login.html in "reset" mode
     // After the user sets their password, client-login.html redirects to
     // the right place (contract signing, questionnaire or app) based on status.
-    const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",
       email,
       options: { redirectTo: CLIENT_LOGIN_BASE + '?mode=reset' }
     });
-    const passwordUrl = linkData
-      ? `${supabaseUrl}/auth/v1/verify?token=${linkData.properties.hashed_token}&type=recovery&redirect_to=${encodeURIComponent(CLIENT_LOGIN_BASE + '?mode=reset')}`
-      : CLIENT_LOGIN_BASE;
+    if (linkError || !linkData) {
+      return new Response(
+        JSON.stringify({ error: "Lien de connexion impossible à générer : " + (linkError?.message || "réponse vide") }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // Récupère l'userId depuis le lien si le compte existait déjà
+    if (!userId) {
+      userId = (linkData.user as { id?: string } | undefined)?.id || null;
+    }
+    // Filet de sécurité : pagination complète de listUsers si toujours introuvable
+    if (!userId) {
+      for (let page = 1; page <= 20 && !userId; page++) {
+        const { data: lu } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+        const found = lu?.users?.find((u: { email?: string }) => u.email === email);
+        if (found) userId = found.id;
+        if (!lu?.users?.length) break;
+      }
+    }
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Compte introuvable pour " + email }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const passwordUrl = `${supabaseUrl}/auth/v1/verify?token=${linkData.properties.hashed_token}&type=recovery&redirect_to=${encodeURIComponent(CLIENT_LOGIN_BASE + '?mode=reset')}`;
 
     const coachLine = coach_name ? ` par ${coach_name}` : "";
     const subject = has_contract
@@ -110,22 +127,29 @@ Deno.serve(async (req: Request) => {
       <div style="text-align:center;margin-top:24px;font-size:11px;color:#9e9488">Fitzone Evolution &copy; 2025 — Tu reçois cet email car un coach t'a invité(e). Si ce n'est pas toi, ignore-le.</div>
     </div>`;
 
+    let emailSent = false;
+    let emailError: string | null = null;
     if (RESEND_API_KEY) {
       const resendResp = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({ from: SENDER, to: email, subject, html: emailHtml }),
       });
-      if (!resendResp.ok) {
-        const errBody = await resendResp.text();
-        console.error("Resend error:", resendResp.status, errBody);
+      if (resendResp.ok) {
+        emailSent = true;
+      } else {
+        emailError = `Resend ${resendResp.status}: ${await resendResp.text()}`;
+        console.error("Resend error:", emailError);
       }
     } else {
+      emailError = "RESEND_API_KEY non configurée";
       console.warn("RESEND_API_KEY not set — email not sent");
     }
 
+    // Le compte est créé : on renvoie 200 même si l'email a échoué (non bloquant),
+    // mais on remonte email_sent + email_error pour un message clair côté coach.
     return new Response(
-      JSON.stringify({ user_id: userId, email, email_sent: !!RESEND_API_KEY }),
+      JSON.stringify({ user_id: userId, email, email_sent: emailSent, email_error: emailError }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {

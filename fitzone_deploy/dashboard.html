@@ -2385,9 +2385,10 @@ async function doCreateClient(){
   // Création compte auth + email d'invitation (inclut le lien vers le questionnaire/contrat)
   if(newClient&&e){
     btn.textContent='Envoi de l\'email...';
-    const uid=await createClientAccount(newClient.id,e,f,l,{token:tok,hasContract:!!tplId});
-    if(uid)toast(tplId?'Contrat envoyé au client par email ✓':'Client créé — invitation envoyée');
-    else toast('Client créé mais email non envoyé (vérifie RESEND_API_KEY)');
+    const r=await createClientAccount(newClient.id,e,f,l,{token:tok,hasContract:!!tplId});
+    if(r.userId&&r.emailSent)toast(tplId?'Contrat envoyé au client par email ✓':'Client créé — invitation envoyée');
+    else if(r.userId)toast('Client + compte créés, mais email NON envoyé : '+(r.emailError||'raison inconnue'));
+    else toast('Client créé mais compte non créé : '+(r.error||'erreur inconnue'));
   }
   btn.disabled=false;btn.textContent='Créer et envoyer le contrat →';
   const link=QBASE+'?token='+tok;
@@ -8425,11 +8426,11 @@ async function createClientAccount(clientId,email,firstName,lastName,opts){
       body:JSON.stringify({email,first_name:firstName,last_name:lastName,token:opts.token||null,has_contract:!!opts.hasContract,coach_name:coachName})
     });
     const result=await resp.json();
-    if(result.error){console.warn('Client account creation:',result.error);return null;}
+    if(result.error){console.warn('Client account creation:',result.error);return {error:result.error};}
     // Update client with user_id
     await db.from('clients').update({user_id:result.user_id}).eq('id',clientId);
-    return result.user_id;
-  }catch(err){console.warn('Client account error:',err);return null;}
+    return {userId:result.user_id,emailSent:result.email_sent,emailError:result.email_error||null};
+  }catch(err){console.warn('Client account error:',err);return {error:err.message||'Erreur réseau (Edge Function injoignable)'};}
 }
 
 /* ===== PAUSE / RESUME CLIENT ===== */
@@ -8512,14 +8513,16 @@ async function resendClientInvite(clientId){
   try{const{data:cc}=await db.from('client_contracts').select('id').eq('client_id',c.id).is('signed_at',null).limit(1);hasContract=!!(cc&&cc.length);}catch(e){}
   // If client has no auth account yet, create one (et renvoie le mail avec contrat si applicable)
   if(!c.user_id){
-    const uid=await createClientAccount(c.id,c.email,c.first_name,c.last_name,{token:c.token,hasContract});
-    if(uid){c.user_id=uid;toast('Compte créé + invitation envoyée');}
-    else toast('Erreur lors de la création du compte');
+    const r=await createClientAccount(c.id,c.email,c.first_name,c.last_name,{token:c.token,hasContract});
+    if(r.userId&&r.emailSent){c.user_id=r.userId;toast('Compte créé + invitation envoyée');}
+    else if(r.userId){c.user_id=r.userId;toast('Compte créé, mais email NON envoyé : '+(r.emailError||'raison inconnue'));}
+    else toast('Erreur création compte : '+(r.error||'inconnue'));
     return;
   }
   // Client déjà compte : on réutilise createClientAccount qui supporte l'idempotence pour renvoyer l'email
-  const uid=await createClientAccount(c.id,c.email,c.first_name,c.last_name,{token:c.token,hasContract});
-  if(uid){toast('Email renvoyé à '+c.email);return;}
+  const r=await createClientAccount(c.id,c.email,c.first_name,c.last_name,{token:c.token,hasContract});
+  if(r.userId&&r.emailSent){toast('Email renvoyé à '+c.email);return;}
+  if(r.userId){toast('Email NON envoyé : '+(r.emailError||'raison inconnue'));return;}
   // Client already has account — send password reset via Resend
   try{
     const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:c.email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/client-login.html'})});
