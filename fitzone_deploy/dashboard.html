@@ -2151,30 +2151,34 @@ async function checkAuth(){
   }
   // Role & permissions
   const role=currentCoach?.role||'coach';
+  const isSuperAdmin=role==='super_admin';
   isAdmin=['admin','super_admin'].includes(role);
   const canNutrition=['super_admin','admin','coach','nutrition'].includes(role);
   const canTraining=['super_admin','admin','coach','training'].includes(role);
-  const canDelete=['super_admin','admin'].includes(role);
-  const canManageTeam=['super_admin','admin'].includes(role);
+  const canDelete=['super_admin','admin'].includes(role);          // contenu (plans, exos, aliments...)
+  const canDeleteClient=isSuperAdmin;                               // suppression client = super admin seul
+  const canManageTeam=isSuperAdmin;                                 // onglet Équipe = super admin seul
   // Store globally for use in other functions
-  window._perms={canNutrition,canTraining,canDelete,canManageTeam,isAdmin,role};
+  window._perms={canNutrition,canTraining,canDelete,canDeleteClient,canManageTeam,isAdmin,isSuperAdmin,role};
 
-  // Show/hide sidebar sections based on role
-  if(isAdmin){
+  // Show/hide sidebar sections based on role.
+  // L'admin a accès à tout SAUF : gestion coachs, tous les clients (cross-coach),
+  // marketing, recrutement, équipe, questionnaires (éditeur), contrats, paiements, notifications.
+  // Ces éléments sont réservés au super admin (fondateur).
+  if(isSuperAdmin){
     document.getElementById('admin-sec').style.display='';
     document.getElementById('nav-ac').style.display='';
     document.getElementById('nav-acl').style.display='';
-    document.getElementById('nav-rec-p').style.display='';
-  }
-  if(role==='super_admin'){
     document.getElementById('nav-mk').style.display='';
+    document.getElementById('nav-rec-p').style.display='';
+  }else{
+    // Items visibles par défaut dans le HTML → masqués pour admin / coachs
+    ['nav-eq','nav-qe','nav-ct','nav-pm','nav-nf'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
   }
   // Nutrition section
   if(!canNutrition){document.getElementById('nav-nut-p').style.display='none';document.getElementById('sub-nut').style.display='none';}
   // Training section
   if(!canTraining){document.getElementById('nav-tr-p').style.display='none';document.getElementById('sub-train').style.display='none';}
-  // Team & settings: admin only for team
-  if(!canManageTeam){document.getElementById('nav-eq').style.display='none';}
   // Rewards: visible to all
   // Learning: visible to all
   // Update sidebar with coach info
@@ -2247,6 +2251,9 @@ function openSub(subId,arrId){
 
 /* ===== PAGES ===== */
 function showPage(name,el){
+  // Garde-fou rôle : pages réservées au super admin (évite l'accès via session restaurée)
+  const superOnly=['admin-coaches','admin-clients','marketing','rec-forms','rec-responses','equipe','q-editor','contracts','payments','notifications'];
+  if(superOnly.includes(name)&&!window._perms?.isSuperAdmin){name='overview';el=document.getElementById('nav-ov');}
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none';});
   document.getElementById('detPage').classList.remove('show');
   const pg=document.getElementById('page-'+name);if(pg){pg.style.display='block';pg.classList.add('active');}
@@ -2414,7 +2421,7 @@ async function openDet(id){
   curQ=qList[0]||null;
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none';});
   document.getElementById('detPage').classList.add('show');
-  if(isAdmin&&!adminCoaches.length) await loadAdminCoaches();
+  if(window._perms?.isSuperAdmin&&!adminCoaches.length) await loadAdminCoaches();
   await _loadQCustomLabels();
   renderDetHero();renderQTab();renderNutTab();renderRoadTab();
   document.querySelectorAll('#detTabs .tab').forEach(t=>t.classList.remove('active'));
@@ -2433,15 +2440,15 @@ function renderDetHero(){
   const opts=jours.map((j,i)=>`<option value="${i}"${i===bd?' selected':''}>${j}</option>`).join('');
   const pauseBtn=c.status==='active'?`<button class="btn btn-sm" style="background:rgba(255,160,0,.15);color:#ffb84a;border:1px solid rgba(255,160,0,.25)" onclick="pauseClient('${c.id}')">⏸️ Pause</button>`
     :c.status==='paused'?`<button class="btn btn-sm" style="background:rgba(0,200,100,.15);color:#40d080;border:1px solid rgba(0,200,100,.25)" onclick="resumeClient('${c.id}')">▶️ Réactiver</button>`:'';
-  const delBtn=`<button class="btn btn-sm" style="background:rgba(255,50,50,.12);color:#ff6060;border:1px solid rgba(255,50,50,.2)" onclick="deleteClientStart('${c.id}')">🗑️</button>`;
+  const delBtn=window._perms?.canDeleteClient?`<button class="btn btn-sm" style="background:rgba(255,50,50,.12);color:#ff6060;border:1px solid rgba(255,50,50,.2)" onclick="deleteClientStart('${c.id}')">🗑️</button>`:'';
   const inviteBtn=c.email?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="resendClientInvite('${c.id}')">📧 Invitation</button>`:'';
-  // Coach assignment dropdown (admin only)
+  // Coach assignment dropdown (super admin only)
   let coachSelect='';
-  if(isAdmin&&adminCoaches.length){
+  if(window._perms?.isSuperAdmin&&adminCoaches.length){
     const coachOpts=adminCoaches.map(co=>`<option value="${co.id}"${co.id===c.coach_id?' selected':''}>${esc(co.first_name||'')} ${esc(co.last_name||'')}</option>`).join('');
     coachSelect=`<span style="font-size:11px;color:rgba(255,255,255,.4)">Coach :</span><select onchange="assignClientCoach('${c.id}',this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${coachOpts}</select>`;
   }
-  const contractBtn=`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="openClientContractsList('${c.id}')">📄 Contrat</button>`;
+  const contractBtn=window._perms?.isSuperAdmin?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="openClientContractsList('${c.id}')">📄 Contrat</button>`:'';
   const appBtn=(c.status==='active'||c.status==='questionnaire_done')?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:'';
   document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select>${coachSelect}</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${appBtn}${contractBtn}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${inviteBtn}${pauseBtn}${delBtn}</div>`;
 }
@@ -8280,7 +8287,7 @@ async function loadAdminCoaches(){
 }
 
 async function renderAdminCoaches(){
-  if(!isAdmin)return;
+  if(!window._perms?.isSuperAdmin)return;
   await loadAdminCoaches();
   const{data:cls}=await db.from('clients').select('id,coach_id');
   const counts={};
@@ -8355,7 +8362,7 @@ function esc(s){if(!s)return'';const d=document.createElement('div');d.textConte
 
 /* ===== ADMIN : TOUS LES CLIENTS ===== */
 async function renderAdminClients(){
-  if(!isAdmin)return;
+  if(!window._perms?.isSuperAdmin)return;
   // Load all coaches for filter
   if(!adminCoaches.length) await loadAdminCoaches();
   const sel=document.getElementById('adminClientFilter');
@@ -8445,7 +8452,7 @@ async function resumeClient(id){
 
 /* ===== DELETE CLIENT (double confirmation) ===== */
 function deleteClientStart(id){
-  if(!window._perms?.canDelete){toast('Permission refusée');return;}
+  if(!window._perms?.canDeleteClient){toast('Permission refusée');return;}
   const c=allClients.find(x=>x.id===id)||curClient;
   if(!c)return;
   const name=(c.first_name||'')+' '+(c.last_name||'');
