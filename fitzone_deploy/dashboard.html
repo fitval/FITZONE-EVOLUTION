@@ -7831,6 +7831,16 @@ function renderAIPlan(plan,config){
   const el=document.getElementById('aiPlanResult');
   if(!el||!plan.jours)return;
 
+  // Recalcule les macros réelles depuis les aliments courants (sync ajout/suppression/qté)
+  plan.jours.forEach(j=>(j.repas||[]).forEach(r=>{
+    if(r.is_restaurant)return;
+    const ma=r.alims||[];
+    r.actual_kcal=ma.reduce((s,a)=>s+Math.round((a.kcal||0)*(a.qte||0)/100),0);
+    r.actual_prot=ma.reduce((s,a)=>s+Math.round((a.prot||0)*(a.qte||0)/100),0);
+    r.actual_carb=ma.reduce((s,a)=>s+Math.round((a.carb||0)*(a.qte||0)/100),0);
+    r.actual_fat=ma.reduce((s,a)=>s+Math.round((a.fat||0)*(a.qte||0)/100),0);
+  }));
+
   // Validate plan
   const warnings=validateAIPlan(plan,config);
   const warnHtml=warnings.length?`<div class="ai-warn"><b>⚠️ Alertes de validation (${warnings.length})</b><ul style="margin:4px 0 0 16px;padding:0">${warnings.map(w=>`<li>${w}</li>`).join('')}</ul></div>`:'';
