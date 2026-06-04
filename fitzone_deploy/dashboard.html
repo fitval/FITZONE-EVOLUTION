@@ -1502,6 +1502,17 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
         </select>
       </div>
     </div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Aliments max / repas</label>
+        <input class="fi" type="number" id="gpMaxFoods" value="5" min="2" max="10">
+      </div>
+      <div class="fg"><label class="fl">Source des repas</label>
+        <select class="fs" id="gpFoodMode">
+          <option value="recipes">Recettes du coach (priorité)</option>
+          <option value="foods">Aliments de la base uniquement</option>
+        </select>
+      </div>
+    </div>
     <div class="fg"><label class="fl">Noms des repas</label>
       <div id="gpMealNamesWrap" style="display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
@@ -7583,6 +7594,9 @@ function openGenPlanModal(){
   const dbInfo=document.getElementById('gpDbInfo');
   dbInfo.textContent=`📦 ${alims.length} aliments dans votre base · ${repas.length} recettes disponibles`;
   if(alims.length<10)dbInfo.innerHTML+=` — <span style="color:#ca8a04">Enrichissez votre base pour de meilleurs résultats</span>`;
+  // Source des repas : recettes si dispo, sinon aliments seuls ; aliments max/repas = 5
+  document.getElementById('gpFoodMode').value=repas.length?'recipes':'foods';
+  document.getElementById('gpMaxFoods').value=5;
   // Reset loading
   document.getElementById('gpLoading').style.display='none';
   document.getElementById('gpGenBtn').disabled=false;
@@ -7767,7 +7781,11 @@ async function generateAIPlan(){
   loading.style.display='block';
   document.getElementById('gpLoadText').textContent='Connexion à l\'IA…';
 
+  const useRecipes=document.getElementById('gpFoodMode')?.value!=='foods';
+  const maxFoods=Math.max(2,Math.min(10,parseInt(document.getElementById('gpMaxFoods')?.value)||5));
   const config={
+    use_recipes:useRecipes,
+    max_foods_per_meal:maxFoods,
     kcal:nutSt.lastK,
     prot:nutSt.lastP,
     carb:nutSt.lastC,
@@ -7784,8 +7802,8 @@ async function generateAIPlan(){
     restaurant_margin_kcal:parseInt(document.getElementById('gpRestoKcal').value)||700,
     // Base aliments du coach (valeurs nutritionnelles exactes)
     food_database:alims.map(a=>({nom:a.nom,cat:a.cat||'',source:a.source||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat})),
-    // Recettes existantes du coach — toutes, avec macros complètes
-    recipes:repas.map(r=>({nom:r.nom,type:r.type||'',items:(r.items||[]).map(i=>({nom:i.nom,qte:i.qte,kcal:i.kcal||0,prot:i.prot||0,carb:i.carb||0,fat:i.fat||0})),kcal:r.kcal||0,prot:r.prot||0,carb:r.carb||0,fat:r.fat||0,instr:r.instr||r.instructions||''}))
+    // Recettes existantes du coach — uniquement si le mode "recettes" est actif
+    recipes:useRecipes?repas.map(r=>({nom:r.nom,type:r.type||'',items:(r.items||[]).map(i=>({nom:i.nom,qte:i.qte,kcal:i.kcal||0,prot:i.prot||0,carb:i.carb||0,fat:i.fat||0})),kcal:r.kcal||0,prot:r.prot||0,carb:r.carb||0,fat:r.fat||0,instr:r.instr||r.instructions||''})):[]
   };
 
   const clientProfile={

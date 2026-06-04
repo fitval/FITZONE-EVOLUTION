@@ -89,11 +89,17 @@ Deno.serve(async (req: Request) => {
     const prepTimeMax = config.prep_time_max || 30;
     const equipment: string[] = Array.isArray(config.equipment) ? config.equipment.filter(Boolean) : [];
     const preferences: string = (config.preferences || "").toString().trim();
+    // Mode de composition des repas (choisi par le coach dans le builder) :
+    // - useRecipes = true  → privilégie les recettes du coach, sinon assemble des aliments
+    // - useRecipes = false → assemble UNIQUEMENT des aliments de la base (aucune recette)
+    // - maxFoods = nombre d'aliments max dans le champ "alims" de chaque repas
+    const useRecipes = config.use_recipes !== false;
+    const maxFoods = Math.max(2, Math.min(12, Number(config.max_foods_per_meal) || 5));
 
     const foodDBFull: Array<{nom: string; kcal: number; prot: number; carb: number; fat: number}> = config.food_database || [];
     const foodDB = foodDBFull.slice(0, 200);
     const recipesDBFull: Array<{nom: string; type: string; items: Array<{nom: string; qte: number}>; kcal: number; prot: number}> = config.recipes || [];
-    const recipesDB = recipesDBFull.slice(0, 50);
+    const recipesDB = useRecipes ? recipesDBFull.slice(0, 50) : [];
 
     const foodDBText = foodDB.length > 0
       ? `\n=== BASE DE DONNÉES ALIMENTS DU COACH (${foodDB.length}${foodDBFull.length > foodDB.length ? ' premiers sur ' + foodDBFull.length : ''} aliments) ===
@@ -135,6 +141,41 @@ ${clientProfile.food_relationship ? "Relation à la nourriture: " + clientProfil
 
     const exampleSlot = mealNames[0];
     const nbDays = dayNames.length;
+
+    // Bloc "structure des repas" paramétré selon le mode choisi par le coach.
+    const recipeOption = useRecipes
+      ? `▸ OPTION A — RECETTE DU COACH (priorité) :
+  Si une recette de la base ci-dessous correspond au type de créneau et aux macros cibles, REPRENDS-LA : son nom, ses ingrédients, ses instructions. Adapte uniquement les quantités pour atteindre les macros du créneau.
+
+▸ OPTION B — REPAS SIMPLE STRUCTURÉ (si aucune recette ne convient) :`
+      : `▸ REPAS SIMPLE STRUCTURÉ — composé UNIQUEMENT d'aliments de la base du coach (AUCUNE recette, on assemble des aliments bruts) :`;
+
+    const introStructure = useRecipes
+      ? `Chaque repas DOIT suivre l'UNE de ces deux structures, jamais autre chose :`
+      : `Chaque repas est un assemblage simple d'aliments de la base, jamais une recette toute faite :`;
+
+    const mealStructureText = `=== STRUCTURE DES REPAS (OBLIGATOIRE — SIMPLE ET GOÛTEUX) ===
+
+${introStructure}
+
+${recipeOption}
+  Combine des aliments de la base en couvrant idéalement ces briques (dans la limite de ${maxFoods} aliments) :
+    1. 1 source de PROTÉINES (poulet, poisson, œufs, viande maigre, tofu, fromage blanc 0%, skyr, whey…)
+    2. 1 source de GLUCIDES (riz, pâtes, pommes de terre, patate douce, pain complet, flocons d'avoine, quinoa…)
+    3. 1 source de FIBRES (légumes verts/colorés OU fruits selon le créneau — brocoli, épinards, courgette, tomate, salade, baies…)
+    4. 1 source de LIPIDES (huile d'olive, amandes, noix, avocat, beurre d'amande, fromage gras…)
+    + si la limite de ${maxFoods} le permet : 1 (max 2) CONDIMENT(S) de la base pour rehausser le goût (sauce tomate, crème fraîche, citron, moutarde, miel…), en qte modérée
+    + 2 à 3 ÉPICES / HERBES dans les instructions (paprika, cumin, curry, herbes de Provence, ail, gingembre, basilic, persil, piment, poivre, thym, romarin…)
+  ${maxFoods <= 3 ? `⚠️ Limite serrée (${maxFoods} aliments) : privilégie PROTÉINES + GLUCIDES + (FIBRES ou LIPIDES). Pas de condiment supplémentaire.` : ""}
+
+⚠️ RÈGLES STRICTES sur les ingrédients d'un repas :
+  • MAXIMUM ${maxFoods} entrées dans le champ "alims" — JAMAIS plus, c'est une règle DURE.
+  • Toutes les entrées de "alims" DOIVENT venir de la BASE DE DONNÉES ALIMENTS DU COACH ci-dessous (incluant condiments et sauces)
+  • Les ÉPICES SÈCHES / HERBES (paprika, cumin, persil, sel, poivre, herbes…) NE VONT PAS dans "alims" — uniquement dans "instructions" (macros négligeables)
+  • Aucun ingrédient inventé. Aucun ingrédient hors base.
+
+Objectif : un repas avec peu d'aliments (≤ ${maxFoods}), équilibré, goûteux grâce aux épices et condiments, simple et rapide à préparer.`;
+
     const prompt = `Tu es un nutritionniste du sport expert. Génère un plan alimentaire de ${nbDays} jour${nbDays > 1 ? "s" : ""} (un objet par jour dans "jours", exactement ${nbDays}) en JSON STRICT.
 
 ╔══════════════════════════════════════════════════════════════════╗
@@ -171,29 +212,7 @@ ${allergies.length ? "- Allergies/Exclusions: " + allergies.join(", ") : ""}
 ${equipment.length ? "- Matériel de cuisine disponible : " + equipment.join(", ") + " (n'utilise QUE des techniques compatibles avec ce matériel)" : ""}
 ${preferences ? "- Préférences du client : " + preferences : ""}
 
-=== STRUCTURE DES REPAS (OBLIGATOIRE — SIMPLE ET GOÛTEUX) ===
-
-Chaque repas DOIT suivre l'UNE de ces deux structures, jamais autre chose :
-
-▸ OPTION A — RECETTE DU COACH (priorité) :
-  Si une recette de la base ci-dessous correspond au type de créneau et aux macros cibles, REPRENDS-LA : son nom, ses ingrédients, ses instructions. Adapte uniquement les quantités pour atteindre les macros du créneau.
-
-▸ OPTION B — REPAS SIMPLE STRUCTURÉ (si aucune recette ne convient) :
-  Combine UNIQUEMENT ces 4 briques + assaisonnement :
-    1. 1 source de PROTÉINES (poulet, poisson, œufs, viande maigre, tofu, fromage blanc 0%, skyr, whey…)
-    2. 1 source de GLUCIDES (riz, pâtes, pommes de terre, patate douce, pain complet, flocons d'avoine, quinoa…)
-    3. 1 source de FIBRES (légumes verts/colorés OU fruits selon le créneau — brocoli, épinards, courgette, tomate, salade, baies…)
-    4. 1 source de LIPIDES (huile d'olive, amandes, noix, avocat, beurre d'amande, fromage gras…)
-    + 1 (max 2) CONDIMENT(S) issus de la base aliments du coach pour rehausser le goût (ex : sauce tomate, crème fraîche, citron, moutarde, miel…). À mettre dans "alims" avec une qte modérée.
-    + 2 à 3 ÉPICES / HERBES dans les instructions pour donner du goût (ex : paprika, cumin, curry, herbes de Provence, ail, gingembre, basilic, persil, piment, poivre, thym, romarin…)
-
-⚠️ RÈGLES STRICTES sur les ingrédients d'un repas simple :
-  • MAXIMUM 5 entrées dans le champ "alims" (4 briques + 1 condiment, parfois +1 deuxième condiment)
-  • Toutes les entrées de "alims" DOIVENT venir de la BASE DE DONNÉES ALIMENTS DU COACH ci-dessous (incluant les condiments et sauces)
-  • Les ÉPICES SÈCHES / HERBES (paprika, cumin, persil, sel, poivre, herbes…) NE VONT PAS dans "alims" — elles sont mentionnées UNIQUEMENT dans "instructions" pour donner du goût (leurs macros sont négligeables, pas besoin de les compter)
-  • Aucun ingrédient inventé. Aucun ingrédient hors base.
-
-Objectif : un repas peu d'aliments, équilibré, goûteux grâce aux épices et 1-2 condiments, simple et rapide à préparer.
+${mealStructureText}
 ${foodDBText}${recipesText}
 === FORMAT JSON REQUIS ===
 {
@@ -237,7 +256,8 @@ RÈGLES IMPORTANTES :
    Ex bowl yaourt-fruits : "1. Verser le yaourt grec dans un bol. 2. Garnir avec les fruits coupés. 3. Saupoudrer d'amandes effilées et arroser d'un filet de miel."
    Ex repas viande/légumes : "1. Cuire le poulet à la poêle avec un filet d'huile 6-8 min de chaque côté. 2. Cuire le riz selon les indications du paquet. 3. Faire revenir les légumes à la poêle 5 min. 4. Servir."
    Concentre-toi sur les TECHNIQUES (faire revenir, cuire, mélanger, dresser…) et les TEMPS, pas sur les quantités.
-11. Si tu utilises une recette du coach, reprends son nom exact et ses instructions.
+11. ${useRecipes ? "Si tu utilises une recette du coach, reprends son nom exact et ses instructions." : "AUCUNE recette : chaque repas est un assemblage d'aliments bruts de la base. Donne quand même un nom de plat appétissant."}
+12. MAXIMUM ${maxFoods} aliments par repas dans "alims". C'est une limite STRICTE à ne jamais dépasser.
 Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est ajouté par l'IA (false).`;
 
     const client = new Anthropic({ apiKey });
