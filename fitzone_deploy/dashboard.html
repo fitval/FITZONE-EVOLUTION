@@ -1364,7 +1364,7 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
     <div class="fg"><label class="fl">Vidéo YouTube <span class="fl-o">optionnel</span></label><input class="fi" id="exoVideo" placeholder="https://youtube.com/..." oninput="previewExoVideo(this.value)"></div>
     <div class="fg"><label class="fl">Nom *</label><input class="fi" id="exoNom" placeholder="Développé couché barre"></div>
     <div class="fr2">
-      <div class="fg"><label class="fl">Muscle</label><select class="fs" id="exoMuscle"><option>Poitrine</option><option>Grand dorsal</option><option>Trapèzes</option><option>Deltoïde antérieur</option><option>Deltoïde postérieur</option><option>Deltoïde moyen</option><option>Biceps</option><option>Triceps</option><option>Quadriceps</option><option>Ischio-jambiers</option><option>Mollets</option><option>Fessiers</option><option>Abdominaux</option></select></div>
+      <div class="fg"><label class="fl">Muscle</label><select class="fs" id="exoMuscle"><option>Poitrine</option><option>Grand dorsal</option><option>Trapèzes</option><option>Deltoïde antérieur</option><option>Deltoïde postérieur</option><option>Deltoïde moyen</option><option>Biceps</option><option>Triceps</option><option>Quadriceps</option><option>Ischio-jambiers</option><option>Adducteurs</option><option>Mollets</option><option>Fessiers</option><option>Abdominaux</option></select></div>
       <div class="fg"><label class="fl">Équipement</label><select class="fs" id="exoEquip"><option>Barre</option><option>Haltères</option><option>Machine</option><option>Poulie</option><option>Poids de corps</option><option>Élastique</option></select></div>
     </div>
     <!-- Per-series editor -->
@@ -7126,7 +7126,7 @@ async function deletePartner(i){
 }
 
 /* ===== IMAGES GROUPES MUSCULAIRES ===== */
-const MUSCLE_GROUPS=['Poitrine','Grand dorsal','Trapèzes','Deltoïde antérieur','Deltoïde postérieur','Deltoïde moyen','Biceps','Triceps','Quadriceps','Ischio-jambiers','Mollets','Fessiers','Abdominaux'];
+const MUSCLE_GROUPS=['Poitrine','Grand dorsal','Trapèzes','Deltoïde antérieur','Deltoïde postérieur','Deltoïde moyen','Biceps','Triceps','Quadriceps','Ischio-jambiers','Adducteurs','Mollets','Fessiers','Abdominaux'];
 let muscleImages={}; // { "Biceps": "<url drive>", ... }
 async function loadMuscleImages(){
   if(!currentCoach)return;
