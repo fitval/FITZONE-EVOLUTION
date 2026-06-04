@@ -714,6 +714,8 @@ let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAli
 let currentDayIdx=0,currentPlanIdx=null;
 let trainSubTab='programme';
 let coachActivityTypes=[];
+let coachMuscleImages={}; // { "Biceps": "<url drive>", ... }
+function driveImgUrl(url){if(!url||!url.includes('drive.google.com'))return url;let id=null;const m1=url.match(/\/d\/([^/]+)/);if(m1)id=m1[1];const m2=url.match(/[?&]id=([^&]+)/);if(m2)id=m2[1];return id?'https://lh3.googleusercontent.com/d/'+id:url;}
 let calendarEvents=[];
 let calendarView='month',calendarDate=new Date();
 let workoutActive=false, workoutData=[], workoutStart=null, workoutTimerInterval=null;
@@ -913,9 +915,10 @@ async function loadData(){
   }catch(e){console.error('[PLAN SWAPS]',e);planSwaps=[];}
   // Load coach settings (levels + activity types)
   try{
-    const{data:sData}=await db.from('settings').select('gamif_levels,activity_types').eq('coach_id',clientData.coach_id).limit(1);
+    const{data:sData}=await db.from('settings').select('gamif_levels,activity_types,muscle_group_images').eq('coach_id',clientData.coach_id).limit(1);
     if(sData&&sData[0]){
       if(sData[0].gamif_levels&&sData[0].gamif_levels.length)LEVELS=sData[0].gamif_levels;
+      if(sData[0].muscle_group_images&&typeof sData[0].muscle_group_images==='object')coachMuscleImages=sData[0].muscle_group_images;
       if(Array.isArray(sData[0].activity_types)&&sData[0].activity_types.length)coachActivityTypes=sData[0].activity_types;
       else coachActivityTypes=["Course à pied","Marche","Randonnée","Trail","Vélo","VTT","Natation","Aquagym","Rameur","Surf","Paddle","Ski","Snowboard","Football","Basketball","Handball","Volleyball","Rugby","Tennis","Padel","Badminton","Ping-pong","Squash","Golf","Boxe","Arts martiaux","Judo","Yoga","Pilates","Stretching","Danse","Zumba","CrossFit","HIIT","Corde à sauter","Escalade","Bloc","Gymnastique","Roller","Skateboard","Équitation","Elliptique","Spinning","Marche nordique","Autre"];
     }
@@ -1846,7 +1849,11 @@ function renderExoPreview(ex,idx,explicitLetter){
 
   const repls=ex.replacements||[];
   const swapBtn=repls.length?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer">⇄</button>`:'';
-  return`<div class="exo-preview fade-up" data-repls='${JSON.stringify(repls).replace(/'/g,"&#39;")}'>${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px">${swapBtn}<div class="exo-letter">${letter}</div></div></div>`;
+  // Groupe musculaire + image (configurés par le coach)
+  const muscle=ex.muscle||'';
+  const mUrl=muscle&&coachMuscleImages[muscle]?driveImgUrl(coachMuscleImages[muscle]):'';
+  const muscleRow=muscle?`<div style="display:flex;align-items:center;gap:5px;margin-top:3px">${mUrl?`<img src="${mUrl}" referrerpolicy="no-referrer" style="width:22px;height:22px;border-radius:5px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`:''}<span style="font-size:11px;color:#8a6010;font-weight:700">${muscle}</span></div>`:'';
+  return`<div class="exo-preview fade-up" data-repls='${JSON.stringify(repls).replace(/'/g,"&#39;")}'>${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div>${muscleRow}<div class="exo-chips">${chips}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px">${swapBtn}<div class="exo-letter">${letter}</div></div></div>`;
 }
 
 /* ===== ACTIVE WORKOUT ===== */
