@@ -1314,6 +1314,10 @@ function renderTrainPreview(){
     return;
   }
 
+  // Diagnostic temporaire : nb d'images muscles reçues du coach + aperçu des clés
+  const _miKeys=Object.keys(coachMuscleImages||{});
+  h+=`<div style="font-size:10px;color:var(--text3);margin:2px 0 8px;opacity:.7">🎯 Images muscles reçues : ${_miKeys.length}${_miKeys.length?' ('+_miKeys.slice(0,4).join(', ')+(_miKeys.length>4?'…':'')+')':' — aucune'}</div>`;
+
   let letterIdx=0;
   ['warmup','workout','cooldown'].forEach(sec=>{
     const exos=day[sec]||[];

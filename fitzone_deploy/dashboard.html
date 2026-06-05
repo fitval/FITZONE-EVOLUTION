@@ -7155,17 +7155,30 @@ async function loadMuscleImages(){
   }catch(e){muscleImages={};}
   if(document.getElementById('muscleImgGrid'))renderMuscleImages();
 }
+function muscleImgFormat(url){
+  if(!url)return'none';
+  if(url.startsWith('data:image'))return'b64';
+  if(url.includes('drive.google.com')||url.includes('googleusercontent.com'))return'drive';
+  return'url';
+}
 function renderMuscleImages(){
   const el=document.getElementById('muscleImgGrid');if(!el)return;
-  el.innerHTML=MUSCLE_GROUPS.map(m=>{
+  // Bannière d'avertissement si des images sont en ancien format Drive (invisibles côté client)
+  const driveCount=MUSCLE_GROUPS.filter(m=>muscleImgFormat(muscleImages[m])==='drive').length;
+  const banner=driveCount?`<div style="grid-column:1/-1;background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:12px;color:#b91c1c;font-weight:600">⚠️ ${driveCount} image(s) en ancien format Google Drive — <strong>invisibles côté client</strong>. Recharge cette page (Cmd+Shift+R) puis clique « Changer » pour les ré-uploader.</div>`:'';
+  el.innerHTML=banner+MUSCLE_GROUPS.map(m=>{
     const url=muscleImages[m]||'';
+    const fmt=muscleImgFormat(url);
     const thumb=url
       ? `<img src="${driveImgUrl(url)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='⚠️'">`
       : `<div style="font-size:26px;opacity:.4">💪</div>`;
+    const badge=fmt==='b64'?`<span style="font-size:9px;font-weight:700;color:#15803d;background:#dcfce7;padding:1px 6px;border-radius:5px">✓ OK</span>`
+      :fmt==='drive'?`<span style="font-size:9px;font-weight:700;color:#b91c1c;background:#fee2e2;padding:1px 6px;border-radius:5px">⚠️ Drive — ré-uploader</span>`
+      :'';
     return `<div style="border:1.5px solid var(--border);border-radius:12px;overflow:hidden;background:var(--white)">
       <div style="position:relative;height:120px;background:var(--bg2);display:flex;align-items:center;justify-content:center" id="mImg_${MUSCLE_GROUPS.indexOf(m)}">${thumb}</div>
       <div style="padding:8px 10px">
-        <div style="font-size:12px;font-weight:700;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m}</div>
+        <div style="display:flex;align-items:center;gap:6px;justify-content:space-between"><span style="font-size:12px;font-weight:700;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m}</span>${badge}</div>
         <div style="display:flex;gap:5px;margin-top:6px">
           <label class="btn btn-ghost btn-sm" style="flex:1;text-align:center;cursor:pointer;font-size:11px;padding:5px 0;margin:0">${url?'Changer':'+ Image'}<input type="file" accept="image/*" style="display:none" onchange="muscleUploadImg(this,'${m.replace(/'/g,"\\'")}')"></label>
           ${url?`<button class="btn btn-ghost btn-sm" style="color:#ef4444;font-size:11px;padding:5px 8px" onclick="delMuscleImage('${m.replace(/'/g,"\\'")}')">✕</button>`:''}
