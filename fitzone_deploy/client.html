@@ -721,12 +721,44 @@ let trainSubTab='programme';
 let coachActivityTypes=[];
 let coachMuscleImages={}; // { "Biceps": "<url drive>", ... }
 function driveImgUrl(url){if(!url||!url.includes('drive.google.com'))return url;let id=null;const m1=url.match(/\/d\/([^/]+)/);if(m1)id=m1[1];const m2=url.match(/[?&]id=([^&]+)/);if(m2)id=m2[1];return id?'https://lh3.googleusercontent.com/d/'+id:url;}
-// Résout l'image (base64 ou URL) du muscle ciblé, avec tolérance casse/espaces
+// Normalise un nom de muscle : minuscule, sans accents, sans tirets/slashs, espaces compactés
+function normMuscle(s){return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[-_/]+/g,' ').replace(/\s+/g,' ').trim();}
+// Alias / abréviations courants utilisés sur les exos → forme normalisée d'une clé d'image
+const MUSCLE_ALIASES={
+  'abdos':'abdominaux','abdo':'abdominaux','abdominal':'abdominaux','abs':'abdominaux','ceinture abdominale':'abdominaux','gainage':'abdominaux',
+  'ischios':'ischio jambiers','ischio':'ischio jambiers','ischio jambier':'ischio jambiers','ischiojambiers':'ischio jambiers','ischiojambier':'ischio jambiers','jambiers':'ischio jambiers','femoraux':'ischio jambiers','femoral':'ischio jambiers',
+  'pecs':'poitrine','pec':'poitrine','pectoraux':'poitrine','pectoral':'poitrine','pectoraux superieurs':'poitrine',
+  'dos':'grand dorsal','dorsaux':'grand dorsal','dorsal':'grand dorsal','grands dorsaux':'grand dorsal','lats':'grand dorsal','latissimus':'grand dorsal',
+  'trapeze':'trapezes','traps':'trapezes',
+  'fessier':'fessiers','fesses':'fessiers','glutes':'fessiers','glute':'fessiers','grand fessier':'fessiers','moyen fessier':'fessiers',
+  'quads':'quadriceps','quadri':'quadriceps','cuisses':'quadriceps','cuisse':'quadriceps',
+  'mollet':'mollets',
+  'adducteur':'adducteurs',
+  'epaules':'deltoide moyen','epaule':'deltoide moyen','deltoides':'deltoide moyen','deltoide':'deltoide moyen',
+  'biceps femoral':'ischio jambiers'
+};
+// Pour les 3 deltoïdes : résout vers le bon faisceau selon le mot discriminant
+function resolveDeltoid(n){
+  if(n.includes('anterieur')||n.includes('avant')||n.includes('frontal')||n.includes('clavicul'))return'deltoide anterieur';
+  if(n.includes('posterieur')||n.includes('arriere')||n.includes('dorsal'))return'deltoide posterieur';
+  if(n.includes('moyen')||n.includes('lateral')||n.includes('laterale')||n.includes('externe')||n.includes('median'))return'deltoide moyen';
+  return null;
+}
+// Résout l'image (base64 ou URL) du muscle ciblé, avec correspondance intelligente
 function muscleImgSrc(muscle){
   if(!muscle)return'';
-  let v=coachMuscleImages[muscle];
-  if(!v){const k=(muscle+'').trim().toLowerCase();for(const key in coachMuscleImages){if((key+'').trim().toLowerCase()===k){v=coachMuscleImages[key];break;}}}
+  // index normalisé des clés d'images du coach
+  const idx={};for(const key in coachMuscleImages){idx[normMuscle(key)]=coachMuscleImages[key];}
+  let n=normMuscle(muscle);
+  let v=idx[n];
+  if(!v&&MUSCLE_ALIASES[n])v=idx[MUSCLE_ALIASES[n]];
+  if(!v&&(n.includes('deltoid')||n.includes('epaule'))){const d=resolveDeltoid(n);if(d)v=idx[d];}
   return v?driveImgUrl(v):'';
+}
+// Ouvre l'image du muscle en grand
+function openMuscleImg(muscle){
+  const src=muscleImgSrc(muscle);
+  if(src)openModal('<div style="text-align:center"><img src="'+src+'" referrerpolicy="no-referrer" style="max-width:100%;max-height:78vh;border-radius:14px"><div style="margin-top:10px;font-size:14px;font-weight:800;color:#fff">'+muscle+'</div></div>');
 }
 let calendarEvents=[];
 let calendarView='month',calendarDate=new Date();
@@ -1899,7 +1931,7 @@ function renderExoPreview(ex,idx,explicitLetter){
   // Groupe musculaire ciblé + image (configurés par le coach) — affichée à côté de la vidéo
   const muscle=ex.muscle||'';
   const mSrc=muscleImgSrc(muscle);
-  const muscleBlock=muscle?`<div class="muscle-col"><div class="muscle-thumb">${mSrc?`<img src="${mSrc}" referrerpolicy="no-referrer" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:18px&quot;>🎯</span>'">`:`<span style="font-size:18px">🎯</span>`}</div><div class="muscle-name">${muscle}</div></div>`:'';
+  const muscleBlock=muscle?`<div class="muscle-col"><div class="muscle-thumb"${mSrc?` onclick="event.stopPropagation();openMuscleImg('${(muscle||'').replace(/'/g,"\\'")}')" style="cursor:zoom-in"`:''}>${mSrc?`<img src="${mSrc}" referrerpolicy="no-referrer" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:18px&quot;>🎯</span>'">`:`<span style="font-size:18px">🎯</span>`}</div><div class="muscle-name">${muscle}</div></div>`:'';
   return`<div class="exo-preview fade-up" data-pool='${JSON.stringify(pool).replace(/'/g,"&#39;")}'><div class="exo-media">${thumb}${swapBtn}</div>${muscleBlock}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div class="exo-letter">${letter}</div></div>`;
 }
 
@@ -2034,7 +2066,7 @@ function _renderWoExoCard(ex,ei,opts){
   // Groupe musculaire ciblé + image — affichée à côté de la vidéo
   const muscle=ex.muscle||'';
   const mSrc=muscleImgSrc(muscle);
-  const muscleBlock=muscle?`<div class="muscle-col"><div class="muscle-thumb">${mSrc?`<img src="${mSrc}" referrerpolicy="no-referrer" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:18px&quot;>🎯</span>'">`:`<span style="font-size:18px">🎯</span>`}</div><div class="muscle-name">${muscle}</div></div>`:'';
+  const muscleBlock=muscle?`<div class="muscle-col"><div class="muscle-thumb"${mSrc?` onclick="event.stopPropagation();openMuscleImg('${(muscle||'').replace(/'/g,"\\'")}')" style="cursor:zoom-in"`:''}>${mSrc?`<img src="${mSrc}" referrerpolicy="no-referrer" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:18px&quot;>🎯</span>'">`:`<span style="font-size:18px">🎯</span>`}</div><div class="muscle-name">${muscle}</div></div>`:'';
   let h=`<div class="exo-active-top"><div class="exo-media">${thumb}${swapBtn}</div>${muscleBlock}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div class="exo-letter">${letter}</div></div>`;
   if(ex.showSwap&&canSwap){
     const active=(ex.nom||'').toUpperCase();
