@@ -935,6 +935,12 @@ async function loadData(){
       else coachActivityTypes=["Course à pied","Marche","Randonnée","Trail","Vélo","VTT","Natation","Aquagym","Rameur","Surf","Paddle","Ski","Snowboard","Football","Basketball","Handball","Volleyball","Rugby","Tennis","Padel","Badminton","Ping-pong","Squash","Golf","Boxe","Arts martiaux","Judo","Yoga","Pilates","Stretching","Danse","Zumba","CrossFit","HIIT","Corde à sauter","Escalade","Bloc","Gymnastique","Roller","Skateboard","Équitation","Elliptique","Spinning","Marche nordique","Autre"];
     }
   }catch(e){}
+  // Images muscles : lecture fiable via RPC SECURITY DEFINER (la RLS de settings
+  // bloque la lecture directe de muscle_group_images par le client).
+  try{
+    const{data:miData}=await db.rpc('get_coach_muscle_images',{p_coach_id:clientData.coach_id});
+    if(miData&&typeof miData==='object'&&!Array.isArray(miData))coachMuscleImages=miData;
+  }catch(e){console.warn('[MUSCLE IMG]',e);}
   // Load partner banners
   try{
     const{data:pData}=await db.from('settings').select('partner').eq('coach_id',clientData.coach_id).limit(1);
