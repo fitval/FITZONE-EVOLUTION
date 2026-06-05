@@ -7180,20 +7180,21 @@ function muscleUploadImg(input,muscle){
   reader.onload=()=>{
     const img=new Image();
     img.onload=async()=>{
-      // Downscale (max 360px) et stockage en base64 directement dans settings.
+      // Downscale (max 220px) et stockage en base64 directement dans settings.
       // Pas de Google Drive : évite tout souci de permission/visibilité côté client
       // (le client est un autre utilisateur et ne peut pas toujours voir un fichier Drive).
-      const max=360;let w=img.width,h=img.height;
+      // Petite taille = payload léger (l'image est affichée en vignette ~48px).
+      const max=220;let w=img.width,h=img.height;
       if(w>max||h>max){if(w>=h){h=Math.round(h*max/w);w=max;}else{w=Math.round(w*max/h);h=max;}}
       const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const b64=canvas.toDataURL('image/jpeg',0.82);
+      const b64=canvas.toDataURL('image/jpeg',0.72);
       const idx=MUSCLE_GROUPS.indexOf(muscle);
       const cell=document.getElementById('mImg_'+idx);if(cell)cell.innerHTML='<div style="font-size:12px;color:var(--text3)">Enregistrement…</div>';
       muscleImages[muscle]=b64;
-      await saveMuscleImages();
+      const ok=await saveMuscleImages();
       renderMuscleImages();
-      toast(muscle+' : image enregistrée ✓');
+      toast(ok?(muscle+' : image enregistrée ✓'):(muscle+' : ÉCHEC enregistrement base — réessaie'));
     };
     img.src=reader.result;
   };
@@ -7206,9 +7207,16 @@ async function delMuscleImage(muscle){
   renderMuscleImages();toast('Image retirée');
 }
 async function saveMuscleImages(){
-  if(!currentCoach)return;
+  if(!currentCoach)return false;
   const{error}=await db.from('settings').upsert({coach_id:currentCoach.id,muscle_group_images:muscleImages},{onConflict:'coach_id'});
-  if(error)toast('Erreur sauvegarde: '+error.message);
+  if(error){console.error('[MUSCLE IMG] upsert error:',error);toast('Erreur base: '+error.message);return false;}
+  // Vérifie que c'est bien persisté en base (et lisible) — sinon le client ne verra rien
+  try{
+    const{data}=await db.from('settings').select('muscle_group_images').eq('coach_id',currentCoach.id).maybeSingle();
+    const n=Object.keys((data&&data.muscle_group_images)||{}).length;
+    console.log('[MUSCLE IMG] persisté en base — clés:',n);
+    return n>0;
+  }catch(e){console.warn('[MUSCLE IMG] verif read failed:',e);return true;}
 }
 // Helpers réutilisés par le builder de programme
 function muscleSelectHtml(sel,onchangeAttr){

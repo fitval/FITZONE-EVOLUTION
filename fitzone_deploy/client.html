@@ -123,14 +123,14 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .section-hdr { font-size:13px; font-weight:500; color:var(--text3); margin:18px 0 12px; }
 
 /* Exercise preview card */
-.exo-preview { background:var(--white); border-radius:var(--r); padding:16px; margin-bottom:12px; box-shadow:var(--shadow); display:flex; gap:14px; align-items:flex-start; }
-.exo-thumb { width:122px; height:84px; border-radius:var(--r-xs); overflow:hidden; flex-shrink:0; position:relative; background:var(--dark); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.exo-preview { background:var(--white); border-radius:var(--r); padding:11px; margin-bottom:9px; box-shadow:var(--shadow); display:flex; gap:9px; align-items:flex-start; }
+.exo-thumb { width:96px; height:66px; border-radius:var(--r-xs); overflow:hidden; flex-shrink:0; position:relative; background:var(--dark); display:flex; align-items:center; justify-content:center; cursor:pointer; }
 .exo-thumb img { width:100%; height:100%; object-fit:cover; }
-.muscle-thumb { width:64px; height:64px; border-radius:10px; overflow:hidden; flex-shrink:0; background:var(--bg2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; }
+.muscle-thumb { width:46px; height:46px; border-radius:9px; overflow:hidden; flex-shrink:0; background:var(--bg2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; }
 .muscle-thumb img { width:100%; height:100%; object-fit:cover; }
-.muscle-col { display:flex; flex-direction:column; align-items:center; gap:3px; flex-shrink:0; }
-.muscle-col .muscle-name { font-size:9px; font-weight:800; color:#8a6010; text-align:center; line-height:1.1; max-width:64px; }
-.exo-media { display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
+.muscle-col { display:flex; flex-direction:column; align-items:center; gap:2px; flex-shrink:0; }
+.muscle-col .muscle-name { font-size:8px; font-weight:800; color:#8a6010; text-align:center; line-height:1.05; max-width:48px; }
+.exo-media { display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
 .exo-thumb .play-icon { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.25); }
 .exo-thumb .play-icon svg { width:34px; height:34px; filter:drop-shadow(0 1px 3px rgba(0,0,0,.4)); }
 .exo-thumb-placeholder { font-size:32px; }
@@ -1883,11 +1883,11 @@ function renderExoPreview(ex,idx,explicitLetter){
   if(rirStr!=='')chips+=`<span class="exo-chip">RIR: ${rirStr}</span>`;
 
   const pool=exoPool(ex);
-  const swapBtn=pool.length>1?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" title="Choisir un exercice alternatif" style="display:flex;align-items:center;justify-content:center;gap:4px;width:100%;background:var(--gold);border:none;border-radius:8px;padding:7px 8px;font-size:11px;font-weight:800;color:#1a1a1a;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.15);white-space:nowrap">⇄ Autre exo</button>`:'';
+  const swapBtn=pool.length>1?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" title="Choisir un exercice alternatif" style="display:flex;align-items:center;justify-content:center;gap:3px;width:100%;background:var(--gold);border:none;border-radius:7px;padding:5px 6px;font-size:10px;font-weight:800;color:#1a1a1a;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.15);white-space:nowrap">⇄ Autre</button>`:'';
   // Groupe musculaire ciblé + image (configurés par le coach) — affichée à côté de la vidéo
   const muscle=ex.muscle||'';
   const mSrc=muscleImgSrc(muscle);
-  const muscleBlock=muscle?`<div class="muscle-col"><div class="muscle-thumb">${mSrc?`<img src="${mSrc}" referrerpolicy="no-referrer" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>🎯</span>'">`:`<span style="font-size:24px">🎯</span>`}</div><div class="muscle-name">${muscle}</div></div>`:'';
+  const muscleBlock=muscle?`<div class="muscle-col"><div class="muscle-thumb">${mSrc?`<img src="${mSrc}" referrerpolicy="no-referrer" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:18px&quot;>🎯</span>'">`:`<span style="font-size:18px">🎯</span>`}</div><div class="muscle-name">${muscle}</div></div>`:'';
   return`<div class="exo-preview fade-up" data-pool='${JSON.stringify(pool).replace(/'/g,"&#39;")}'><div class="exo-media">${thumb}${swapBtn}</div>${muscleBlock}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div class="exo-letter">${letter}</div></div>`;
 }
 
@@ -2018,11 +2018,11 @@ function _renderWoExoCard(ex,ei,opts){
   if(restStr)chips+=`<span class="exo-chip">Rest: ${restStr}</span>`;
   const pool=ex._pool||exoPool(ex);
   const canSwap=pool.length>1;
-  const swapBtn=canSwap?`<button onclick="toggleSwap(${ei})" title="Choisir un exercice alternatif" style="display:flex;align-items:center;justify-content:center;gap:4px;width:100%;background:var(--gold);border:none;border-radius:8px;padding:7px 8px;font-size:11px;font-weight:800;color:#1a1a1a;cursor:pointer;white-space:nowrap">⇄ Changer</button>`:'';
+  const swapBtn=canSwap?`<button onclick="toggleSwap(${ei})" title="Choisir un exercice alternatif" style="display:flex;align-items:center;justify-content:center;gap:3px;width:100%;background:var(--gold);border:none;border-radius:7px;padding:5px 6px;font-size:10px;font-weight:800;color:#1a1a1a;cursor:pointer;white-space:nowrap">⇄ Changer</button>`:'';
   // Groupe musculaire ciblé + image — affichée à côté de la vidéo
   const muscle=ex.muscle||'';
   const mSrc=muscleImgSrc(muscle);
-  const muscleBlock=muscle?`<div class="muscle-col"><div class="muscle-thumb">${mSrc?`<img src="${mSrc}" referrerpolicy="no-referrer" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>🎯</span>'">`:`<span style="font-size:24px">🎯</span>`}</div><div class="muscle-name">${muscle}</div></div>`:'';
+  const muscleBlock=muscle?`<div class="muscle-col"><div class="muscle-thumb">${mSrc?`<img src="${mSrc}" referrerpolicy="no-referrer" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:18px&quot;>🎯</span>'">`:`<span style="font-size:18px">🎯</span>`}</div><div class="muscle-name">${muscle}</div></div>`:'';
   let h=`<div class="exo-active-top"><div class="exo-media">${thumb}${swapBtn}</div>${muscleBlock}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div class="exo-letter">${letter}</div></div>`;
   if(ex.showSwap&&canSwap){
     const active=(ex.nom||'').toUpperCase();
