@@ -978,7 +978,10 @@ function fmtDateShort(d){if(!d)return'—';return new Date(d).toLocaleDateString
 function driveDirectUrl(url){if(!url||!url.includes('drive.google.com'))return url;let id=null;const m1=url.match(/\/d\/([^/]+)/);if(m1)id=m1[1];const m2=url.match(/[?&]id=([^&]+)/);if(m2)id=m2[1];return id?'https://lh3.googleusercontent.com/d/'+id:url;}
 function getWeekNumber(d){const dt=new Date(d);dt.setHours(0,0,0,0);dt.setDate(dt.getDate()+3-(dt.getDay()+6)%7);const w1=new Date(dt.getFullYear(),0,4);return 1+Math.round(((dt-w1)/86400000-3+(w1.getDay()+6)%7)/7);}
 function ytId(url){if(!url)return null;const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|.*&v=))([\w-]{11})/);return m?m[1]:null;}
-function today(){return new Date().toISOString().slice(0,10);}
+// Date locale au format YYYY-MM-DD (évite le décalage UTC de toISOString :
+// minuit local converti en UTC tombe la veille en France → -1 jour).
+function localDateStr(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;}
+function today(){return localDateStr(new Date());}
 function openModal(html){document.getElementById('modalContent').innerHTML=html;document.getElementById('modal').classList.add('show');document.body.style.overflow='hidden';}
 function closeModal(){document.getElementById('modal').classList.remove('show');document.body.style.overflow='';}
 
@@ -1148,7 +1151,7 @@ function renderMiniChart(pts){
 function getBilanCountdown(){
   const bilanDay=clientData.bilan_day!=null?parseInt(clientData.bilan_day):5; // 0=dim..6=sam, défaut vendredi
   const now=new Date();
-  const todayStr=now.toISOString().slice(0,10);
+  const todayStr=localDateStr(now);
   const todayDay=now.getDay();
   const isBilanDay=todayDay===bilanDay;
   // Vérifier si un bilan a été fait aujourd'hui
@@ -1176,7 +1179,7 @@ function getBilanCountdown(){
 }
 function getStepsData(){
   const t=new Date(),labels=['J-3','J-2','J-1','Auj.'],bars=[];let ts=0,mx=1;
-  for(let i=3;i>=0;i--){const d=new Date(t);d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10);const log=dailyLogs.find(l=>l.date===ds);const s=log&&log.data&&log.data['Pas']?parseFloat(log.data['Pas']):0;if(s>mx)mx=s;if(i===0)ts=s;bars.push({steps:s,label:labels[3-i]});}
+  for(let i=3;i>=0;i--){const d=new Date(t);d.setDate(d.getDate()-i);const ds=localDateStr(d);const log=dailyLogs.find(l=>l.date===ds);const s=log&&log.data&&log.data['Pas']?parseFloat(log.data['Pas']):0;if(s>mx)mx=s;if(i===0)ts=s;bars.push({steps:s,label:labels[3-i]});}
   bars.forEach(b=>b.h=Math.max(8,Math.round(b.steps/mx*55)));return{today:ts,bars};
 }
 
@@ -1509,7 +1512,7 @@ function renderCalendarWeek(){
   let h=`<div class="cal-header"><div class="cal-nav"><button class="cal-nav-btn" onclick="calendarDate.setDate(calendarDate.getDate()-7);renderCalendar()">‹</button><div class="cal-title">${monthLabel}</div><button class="cal-nav-btn" onclick="calendarDate.setDate(calendarDate.getDate()+7);renderCalendar()">›</button></div><div class="cal-toggle"><button class="cal-toggle-btn active" onclick="calendarView='week';renderCalendar()">Semaine</button><button class="cal-toggle-btn" onclick="calendarView='month';renderCalendar()">Mois</button></div></div>`;
   const dayNames=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
   days.forEach((dd,i)=>{
-    const ds=dd.toISOString().slice(0,10);
+    const ds=localDateStr(dd);
     const isToday=ds===todayStr;
     const entries=getCalendarEntries(ds);
     const dayLabel=dayNames[i]+' '+dd.getDate();
@@ -1548,12 +1551,12 @@ function renderCalendarMonth(){
   const prevMonth=new Date(year,month,0).getDate();
   for(let i=startDay-1;i>=0;i--){
     const dn=prevMonth-i;
-    const ds=new Date(year,month-1,dn).toISOString().slice(0,10);
+    const ds=localDateStr(new Date(year,month-1,dn));
     const entries=getCalendarEntries(ds);
     h+=`<div class="cal-month-cell other" onclick="openCalendarDay('${ds}')"><div class="cal-month-num">${dn}</div><div class="cal-dots">${entries.map(e=>`<div class="cal-dot ${calEntryColor(e.type)}"></div>`).join('')}</div></div>`;
   }
   for(let dn=1;dn<=daysInMonth;dn++){
-    const ds=new Date(year,month,dn).toISOString().slice(0,10);
+    const ds=localDateStr(new Date(year,month,dn));
     const isToday=ds===todayStr;
     const entries=getCalendarEntries(ds);
     h+=`<div class="cal-month-cell${isToday?' today':''}" onclick="openCalendarDay('${ds}')"><div class="cal-month-num">${dn}</div><div class="cal-dots">${entries.map(e=>`<div class="cal-dot ${calEntryColor(e.type)}"></div>`).join('')}</div></div>`;
@@ -1561,7 +1564,7 @@ function renderCalendarMonth(){
   const totalCells=startDay+daysInMonth;
   const remaining=totalCells%7===0?0:7-totalCells%7;
   for(let dn=1;dn<=remaining;dn++){
-    const ds=new Date(year,month+1,dn).toISOString().slice(0,10);
+    const ds=localDateStr(new Date(year,month+1,dn));
     const entries=getCalendarEntries(ds);
     h+=`<div class="cal-month-cell other" onclick="openCalendarDay('${ds}')"><div class="cal-month-num">${dn}</div><div class="cal-dots">${entries.map(e=>`<div class="cal-dot ${calEntryColor(e.type)}"></div>`).join('')}</div></div>`;
   }
@@ -1827,6 +1830,26 @@ async function saveRunDone(){
   }catch(e){console.error('[RUN DONE]',e);toast('Erreur: '+e.message);}
 }
 
+// Pool d'alternatives = exercice d'origine + remplacements du coach, dédupliqué par nom.
+// Calculé une seule fois et conservé sur l'objet → on peut basculer entre toutes les
+// variantes à l'infini ET revenir à l'original (l'original fait partie du pool).
+function exoPool(ex){
+  if(!ex)return[];
+  if(!ex._pool){
+    const seen={},pool=[];
+    const add=o=>{const n=(((o&&o.nom)||o||'')+'').trim();if(!n||seen[n.toUpperCase()])return;seen[n.toUpperCase()]=1;pool.push({nom:n,video:(o&&o.video)||'',muscle:(o&&o.muscle)||''});};
+    add({nom:ex.nom,video:ex.video,muscle:ex.muscle});
+    (ex.replacements||[]).forEach(add);
+    ex._pool=pool;
+  }
+  return ex._pool;
+}
+// Applique le choix d'une variante en conservant le pool (donc toutes les options restent dispo)
+function applyExoPick(exObj,o){
+  if(!exObj)return;
+  if(!exObj._pool)exoPool(exObj);
+  exObj.nom=o.nom;exObj.video=o.video||'';exObj.muscle=o.muscle||exObj.muscle||'';
+}
 function renderExoPreview(ex,idx,explicitLetter){
   const vid=ytId(ex.video);
   const sets=ex.setsData||ex.sets_data||[];
@@ -1847,13 +1870,13 @@ function renderExoPreview(ex,idx,explicitLetter){
   if(restStr)chips+=`<span class="exo-chip">Rest: ${restStr}</span>`;
   if(rirStr!=='')chips+=`<span class="exo-chip">RIR: ${rirStr}</span>`;
 
-  const repls=ex.replacements||[];
-  const swapBtn=repls.length?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer">⇄</button>`:'';
+  const pool=exoPool(ex);
+  const swapBtn=pool.length>1?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer">⇄</button>`:'';
   // Groupe musculaire + image (configurés par le coach)
   const muscle=ex.muscle||'';
   const mUrl=muscle&&coachMuscleImages[muscle]?driveImgUrl(coachMuscleImages[muscle]):'';
   const muscleRow=muscle?`<div style="display:flex;align-items:center;gap:5px;margin-top:3px">${mUrl?`<img src="${mUrl}" referrerpolicy="no-referrer" style="width:22px;height:22px;border-radius:5px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`:''}<span style="font-size:11px;color:#8a6010;font-weight:700">${muscle}</span></div>`:'';
-  return`<div class="exo-preview fade-up" data-repls='${JSON.stringify(repls).replace(/'/g,"&#39;")}'>${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div>${muscleRow}<div class="exo-chips">${chips}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px">${swapBtn}<div class="exo-letter">${letter}</div></div></div>`;
+  return`<div class="exo-preview fade-up" data-pool='${JSON.stringify(pool).replace(/'/g,"&#39;")}'>${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div>${muscleRow}<div class="exo-chips">${chips}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:4px">${swapBtn}<div class="exo-letter">${letter}</div></div></div>`;
 }
 
 /* ===== ACTIVE WORKOUT ===== */
@@ -1919,7 +1942,7 @@ function startWorkout(){
     const prevNote=prev&&prev.note?prev.note:'';
     const prevVideoUrl=prev&&prev.videoUrl?prev.videoUrl:'';
     const wasUnilateral=prev&&prev.unilateral?true:false;
-    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,videoUrl:null,note:prevNote,prevNote,prevVideoUrl,supersetId:ex.supersetId||null,supersetLetter:ex.supersetLetter||'',supersetPosition:ex.supersetPosition||0,supersetTotal:ex.supersetTotal||0,supersetRest:ex.supersetRest||[]});
+    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],_pool:exoPool({nom:ex.nom,video:ex.video,muscle:ex.muscle,replacements:ex.replacements||[]}),bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,videoUrl:null,note:prevNote,prevNote,prevVideoUrl,supersetId:ex.supersetId||null,supersetLetter:ex.supersetLetter||'',supersetPosition:ex.supersetPosition||0,supersetTotal:ex.supersetTotal||0,supersetRest:ex.supersetRest||[]});
   });
 
   // Start elapsed timer
@@ -1981,11 +2004,17 @@ function _renderWoExoCard(ex,ei,opts){
   else thumb=`<div class="exo-thumb"><div class="exo-thumb-placeholder">💪</div></div>`;
   let chips=`<span class="exo-chip">Sets: ${nSets}</span><span class="exo-chip">Reps: ${repsStr}</span>`;
   if(restStr)chips+=`<span class="exo-chip">Rest: ${restStr}</span>`;
-  const hasRepls=(ex.replacements||[]).length>0;
-  let h=`<div class="exo-active-top">${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div><div class="exo-chips">${chips}</div></div><div class="exo-active-actions">${hasRepls?`<button class="exo-menu-btn" onclick="toggleSwap(${ei})" style="font-size:18px;color:var(--gold)">⇄</button>`:''}<div class="exo-letter">${letter}</div></div></div>`;
-  if(ex.showSwap&&ex.replacements.length){
+  const pool=ex._pool||exoPool(ex);
+  const canSwap=pool.length>1;
+  // Groupe musculaire + image (configurés par le coach)
+  const muscle=ex.muscle||'';
+  const mUrl=muscle&&coachMuscleImages[muscle]?driveImgUrl(coachMuscleImages[muscle]):'';
+  const muscleRow=muscle?`<div style="display:flex;align-items:center;gap:5px;margin-top:3px">${mUrl?`<img src="${mUrl}" referrerpolicy="no-referrer" style="width:24px;height:24px;border-radius:5px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`:''}<span style="font-size:11px;color:#8a6010;font-weight:700">${muscle}</span></div>`:'';
+  let h=`<div class="exo-active-top">${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div>${muscleRow}<div class="exo-chips">${chips}</div></div><div class="exo-active-actions">${canSwap?`<button class="exo-menu-btn" onclick="toggleSwap(${ei})" style="font-size:18px;color:var(--gold)">⇄</button>`:''}<div class="exo-letter">${letter}</div></div></div>`;
+  if(ex.showSwap&&canSwap){
+    const active=(ex.nom||'').toUpperCase();
     h+=`<div class="swap-menu">`;
-    ex.replacements.forEach((r,ri)=>{h+=`<div class="swap-item" onclick="swapExo(${ei},${ri})"><span style="color:var(--gold)">↔</span> ${r.nom||r}</div>`;});
+    pool.forEach((o,oi)=>{if((o.nom||'').toUpperCase()===active)return;h+=`<div class="swap-item" onclick="swapExo(${ei},${oi})"><span style="color:var(--gold)">↔</span> ${o.nom}</div>`;});
     h+=`</div>`;
   }
   h+=`<div class="bw-toggle" style="display:flex;gap:16px">
@@ -2314,15 +2343,14 @@ function addSet(ei){
 
 function toggleSwap(ei){workoutData[ei].showSwap=!workoutData[ei].showSwap;renderActiveWorkout();}
 
-function swapExo(ei,ri){
-  const rep=workoutData[ei].replacements[ri];
-  if(rep){
-    workoutData[ei].nom=rep.nom||rep;
-    workoutData[ei].video=rep.video||'';
-    workoutData[ei].showSwap=false;
-    renderActiveWorkout();
-    toast('Exercice remplacé');
-  }
+function swapExo(ei,oi){
+  const ex=workoutData[ei];if(!ex)return;
+  const pool=ex._pool||exoPool(ex);const o=pool[oi];
+  if(!o)return;
+  ex.nom=o.nom;ex.video=o.video||'';ex.muscle=o.muscle||ex.muscle||'';
+  ex.showSwap=false;
+  renderActiveWorkout();
+  toast('Exercice remplacé');
 }
 
 
@@ -2403,7 +2431,7 @@ async function loadFoodLogs(){
   }catch(e){console.error('[FOOD LOGS]',e);foodLogs=[];}
 }
 const FT_MEAL_ICONS={'Petit-déjeuner':'🍳','Collation AM':'🥨','Déjeuner':'🍽️','Goûter':'🍪','Dîner':'🌙','Collation nuit':'🌃'};
-function _ftIsoOf(d){return d.toISOString().slice(0,10);}
+function _ftIsoOf(d){return localDateStr(d);}
 function _ftDayLabel(iso){
   const t=today();
   if(iso===t)return"Aujourd'hui";
@@ -3069,6 +3097,7 @@ function calcDayMacros(day,planRefId,dayIdx){
 function renderPlanDetail(){
   const p=plans[currentPlanIdx],jours=p.jours||[];
   const hideMacros=!!(p.hide_macros||p.hideMacros);
+  const allowSwaps=p.allow_swaps!==false; // équivalences autorisées par le coach (défaut oui)
   nutriView='plan';toggleFab();
   let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
     <button class="back-btn" style="margin-bottom:0;flex:1" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> ${p.nom||'Retour'}</button>
@@ -3149,7 +3178,7 @@ function renderPlanDetail(){
       const srcDot=it.source?`<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${srcColor};margin-right:6px;flex-shrink:0"></span>`:'';
       h+=`<div style="display:flex;align-items:center;padding:10px 0;${ai<items.length-1?'border-bottom:1px solid var(--border)':''}">
         ${srcDot}<div style="flex:1;font-size:14px;font-weight:500">${it.nom||'Aliment'}</div>
-        ${hideMacros?'':`<button onclick="showFoodSwap(${currentPlanIdx},${currentDayIdx},${ri},${ai})" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer;margin:0 8px;flex-shrink:0">⇄</button>`}
+        ${(hideMacros||!allowSwaps)?'':`<button onclick="showFoodSwap(${currentPlanIdx},${currentDayIdx},${ri},${ai})" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer;margin:0 8px;flex-shrink:0">⇄</button>`}
         <div style="text-align:right;flex-shrink:0"><div style="font-size:13px;font-weight:700">${dispQty}g</div>${hideMacros?'':`<div style="font-size:10px;color:var(--text3)">${Math.round((it.kcal||0)*q)} kcal</div>`}</div>
       </div>`;
     });
@@ -3233,23 +3262,22 @@ function renderClientGrocery(){
 /* ===== EXERCISE PREVIEW SWAP ===== */
 function togglePreviewSwap(btn){
   const card=btn.closest('.exo-preview');
-  const repls=JSON.parse(card.dataset.repls||'[]');
-  if(!repls.length)return;
+  const pool=JSON.parse((card.dataset.pool||'[]').replace(/&#39;/g,"'"));
+  if(pool.length<2)return;
   // Toggle existing menu
   const existing=card.querySelector('.swap-menu');
   if(existing){existing.remove();return;}
   // Close other menus
   document.querySelectorAll('.exo-preview .swap-menu').forEach(m=>m.remove());
+  const activeName=card.querySelector('.exo-info-name').textContent; // déjà en MAJUSCULES
   const menu=document.createElement('div');
   menu.className='swap-menu';
   menu.style.cssText='margin-top:8px';
-  repls.forEach(r=>{
-    const name=r.nom||r;
+  pool.filter(o=>(o.nom||'').toUpperCase()!==activeName).forEach(o=>{
     const div=document.createElement('div');
     div.className='swap-item';
-    div.innerHTML=`<span style="color:var(--gold)">↔</span> ${name}`;
+    div.innerHTML=`<span style="color:var(--gold)">↔</span> ${o.nom}`;
     div.onclick=()=>{
-      // Swap in program data
       const p=programs[0],day=(p.jours||[])[currentDayIdx];
       if(!day)return;
       let found=false;
@@ -3257,14 +3285,12 @@ function togglePreviewSwap(btn){
         (day[sec]||[]).forEach(ex=>{
           if(found)return;
           if(ex.superset&&ex.exercises){
-            ex.exercises.forEach(sub=>{if(!found&&sub.nom===card.querySelector('.exo-info-name').textContent){sub.nom=r.nom||name;sub.video=r.video||'';sub.replacements=r.replacements||repls;found=true;}});
-          } else {
-            if(ex.nom&&ex.nom.toUpperCase()===card.querySelector('.exo-info-name').textContent){ex.nom=r.nom||name;ex.video=r.video||'';ex.replacements=r.replacements||repls;found=true;}
-          }
+            ex.exercises.forEach(sub=>{if(!found&&(sub.nom||'').toUpperCase()===activeName){applyExoPick(sub,o);found=true;}});
+          } else if((ex.nom||'').toUpperCase()===activeName){applyExoPick(ex,o);found=true;}
         });
       });
       renderTrainPreview();
-      toast(name+' sélectionné');
+      toast(o.nom+' sélectionné');
     };
     menu.appendChild(div);
   });
