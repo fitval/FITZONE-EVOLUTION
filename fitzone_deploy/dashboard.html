@@ -2987,6 +2987,7 @@ function renderClientPlanEditor(){
   const p=cpEditPlan;
   const jours=p.jours||[];
   const hideMacros=!!(p.hide_macros||p.hideMacros);
+  const allowSwaps=p.allow_swaps!==false;
   let h=`<div class="card" style="padding:16px;margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div>
@@ -2997,9 +2998,13 @@ function renderClientPlanEditor(){
         <button class="btn btn-ghost btn-sm" onclick="cpEditPlan=null;loadPlanDisp()">✕ Annuler</button>
       </div>
     </div>
-    <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;cursor:pointer">
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer">
       <input type="checkbox" ${hideMacros?'checked':''} onchange="cpToggleHideMacros(this.checked)" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer;flex-shrink:0">
       <span style="font-size:12px;color:var(--dark);line-height:1.3"><strong>Masquer les valeurs nutritionnelles côté client</strong> <span style="color:var(--text3);font-weight:500">— le client ne verra ni kcal ni macros</span></span>
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;cursor:pointer">
+      <input type="checkbox" ${allowSwaps?'checked':''} onchange="cpToggleAllowSwaps(this.checked)" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer;flex-shrink:0">
+      <span style="font-size:12px;color:var(--dark);line-height:1.3"><strong>Autoriser les équivalences alimentaires</strong> <span style="color:var(--text3);font-weight:500">— le client peut remplacer un aliment (⇄) en restant dans ses macros</span></span>
     </label>`;
   // Day tabs
   h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;align-items:center">`;
@@ -3048,6 +3053,10 @@ function cpToggleHideMacros(v){
   if(!cpEditPlan)return;
   cpEditPlan.hide_macros=!!v;
   delete cpEditPlan.hideMacros;
+}
+function cpToggleAllowSwaps(v){
+  if(!cpEditPlan)return;
+  cpEditPlan.allow_swaps=!!v;
 }
 function cpUpdateQte(di,ri,ai,val){
   if(!cpEditPlan)return;
@@ -7171,22 +7180,20 @@ function muscleUploadImg(input,muscle){
   reader.onload=()=>{
     const img=new Image();
     img.onload=async()=>{
-      // Downscale (carré max 500px) pour limiter le poids
-      const max=500;let w=img.width,h=img.height;
+      // Downscale (max 360px) et stockage en base64 directement dans settings.
+      // Pas de Google Drive : évite tout souci de permission/visibilité côté client
+      // (le client est un autre utilisateur et ne peut pas toujours voir un fichier Drive).
+      const max=360;let w=img.width,h=img.height;
       if(w>max||h>max){if(w>=h){h=Math.round(h*max/w);w=max;}else{w=Math.round(w*max/h);h=max;}}
       const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const b64=canvas.toDataURL('image/jpeg',0.85);
+      const b64=canvas.toDataURL('image/jpeg',0.82);
       const idx=MUSCLE_GROUPS.indexOf(muscle);
-      const cell=document.getElementById('mImg_'+idx);if(cell)cell.innerHTML='<div style="font-size:12px;color:var(--text3)">Upload…</div>';
-      const fname='muscle_'+idx+'_'+Date.now()+'.jpg';
-      const url=await uploadToDrive(b64,fname);
-      if(url&&url.startsWith('https://')){
-        muscleImages[muscle]=url;
-        await saveMuscleImages();
-        renderMuscleImages();
-        toast(muscle+' : image enregistrée ✓');
-      }else{toast('Erreur upload image');renderMuscleImages();}
+      const cell=document.getElementById('mImg_'+idx);if(cell)cell.innerHTML='<div style="font-size:12px;color:var(--text3)">Enregistrement…</div>';
+      muscleImages[muscle]=b64;
+      await saveMuscleImages();
+      renderMuscleImages();
+      toast(muscle+' : image enregistrée ✓');
     };
     img.src=reader.result;
   };

@@ -1871,7 +1871,7 @@ function renderExoPreview(ex,idx,explicitLetter){
   if(rirStr!=='')chips+=`<span class="exo-chip">RIR: ${rirStr}</span>`;
 
   const pool=exoPool(ex);
-  const swapBtn=pool.length>1?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" style="background:var(--gold-pale);border:1px solid rgba(196,154,42,.3);border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700;color:#8a6010;cursor:pointer">⇄</button>`:'';
+  const swapBtn=pool.length>1?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" title="Choisir un exercice alternatif" style="display:inline-flex;align-items:center;gap:4px;background:var(--gold);border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:800;color:#1a1a1a;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.15);white-space:nowrap">⇄ Autre</button>`:'';
   // Groupe musculaire + image (configurés par le coach)
   const muscle=ex.muscle||'';
   const mUrl=muscle&&coachMuscleImages[muscle]?driveImgUrl(coachMuscleImages[muscle]):'';
@@ -2010,7 +2010,7 @@ function _renderWoExoCard(ex,ei,opts){
   const muscle=ex.muscle||'';
   const mUrl=muscle&&coachMuscleImages[muscle]?driveImgUrl(coachMuscleImages[muscle]):'';
   const muscleRow=muscle?`<div style="display:flex;align-items:center;gap:5px;margin-top:3px">${mUrl?`<img src="${mUrl}" referrerpolicy="no-referrer" style="width:24px;height:24px;border-radius:5px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`:''}<span style="font-size:11px;color:#8a6010;font-weight:700">${muscle}</span></div>`:'';
-  let h=`<div class="exo-active-top">${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div>${muscleRow}<div class="exo-chips">${chips}</div></div><div class="exo-active-actions">${canSwap?`<button class="exo-menu-btn" onclick="toggleSwap(${ei})" style="font-size:18px;color:var(--gold)">⇄</button>`:''}<div class="exo-letter">${letter}</div></div></div>`;
+  let h=`<div class="exo-active-top">${thumb}<div class="exo-info"><div class="exo-info-name">${(ex.nom||'Exercice').toUpperCase()}</div>${muscleRow}<div class="exo-chips">${chips}</div></div><div class="exo-active-actions">${canSwap?`<button onclick="toggleSwap(${ei})" title="Choisir un exercice alternatif" style="display:inline-flex;align-items:center;gap:4px;background:var(--gold);border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:800;color:#1a1a1a;cursor:pointer;white-space:nowrap">⇄ Changer</button>`:''}<div class="exo-letter">${letter}</div></div></div>`;
   if(ex.showSwap&&canSwap){
     const active=(ex.nom||'').toUpperCase();
     h+=`<div class="swap-menu">`;
