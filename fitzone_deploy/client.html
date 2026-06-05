@@ -1320,9 +1320,11 @@ function renderTrainPreview(){
     return;
   }
 
-  // Diagnostic temporaire : nb d'images muscles reçues du coach + aperçu des clés
+  // Diagnostic temporaire : nb d'images reçues + muscle de chaque exo du jour avec ✓/✗ (image trouvée ?)
   const _miKeys=Object.keys(coachMuscleImages||{});
-  h+=`<div style="font-size:10px;color:var(--text3);margin:2px 0 8px;opacity:.7">🎯 Images muscles reçues : ${_miKeys.length}${_miKeys.length?' ('+_miKeys.slice(0,4).join(', ')+(_miKeys.length>4?'…':'')+')':' — aucune'}</div>`;
+  const _dm=[];
+  ['warmup','workout','cooldown'].forEach(sec=>(day[sec]||[]).forEach(ex=>{const g=ex.superset?(ex.exercises||[]):[ex];g.forEach(e=>{if(e.muscle)_dm.push(e.muscle+(muscleImgSrc(e.muscle)?'✓':'✗'));});}));
+  h+=`<div style="font-size:10px;color:var(--text3);margin:2px 0 8px;opacity:.8">🎯 reçues: ${_miKeys.length} | exos: ${[...new Set(_dm)].join(', ')||'aucun muscle sur les exos'}</div>`;
 
   let letterIdx=0;
   ['warmup','workout','cooldown'].forEach(sec=>{
