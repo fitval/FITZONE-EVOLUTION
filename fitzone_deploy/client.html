@@ -3835,7 +3835,11 @@ async function submitBilan(){
       toast(wasEdit?'Bilan mis à jour ✓ — photos en cours…':'Bilan envoyé ✓ — photos en cours…');
       uploadPhotosToDrive(bilanPhotos).then(uploaded=>{
         const clean=(uploaded||[]).filter(Boolean);
-        if(clean.length) return db.from('bilans').update({photos:clean}).eq('id',bilanId);
+        if(clean.length) return db.from('bilans').update({photos:clean}).eq('id',bilanId).select('id');
+      }).then(r=>{
+        if(!r)return;
+        if(r.error)console.error('[bilan photos] update:',r.error.message);
+        else if(!r.data||!r.data.length)console.error('[bilan photos] update 0 ligne (RLS ?)');
       }).catch(e=>console.warn('[bilan photos]',e));
     } else {
       toast(wasEdit?'Bilan mis à jour ✓':'Bilan envoyé ✓');

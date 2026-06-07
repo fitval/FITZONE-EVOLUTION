@@ -215,6 +215,12 @@ CREATE POLICY "auth_bilans_client_insert" ON public.bilans
   FOR INSERT TO authenticated
   WITH CHECK (client_id = public.get_my_client_id() AND public.get_my_client_id() IS NOT NULL);
 
+-- Ajoutée 2026-06-07 : submitBilan ajoute les photos via UPDATE après upload Drive
+CREATE POLICY "auth_bilans_client_update" ON public.bilans
+  FOR UPDATE TO authenticated
+  USING (client_id = public.get_my_client_id() AND public.get_my_client_id() IS NOT NULL)
+  WITH CHECK (client_id = public.get_my_client_id() AND public.get_my_client_id() IS NOT NULL);
+
 CREATE POLICY "anon_bilans_select" ON public.bilans
   FOR SELECT TO anon USING (true);
 
