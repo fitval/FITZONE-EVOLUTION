@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-05-30 (meal-plan : instructions OBLIGATOIRES par repas + rescale forcé pour kcal identiques par créneau ; portions cuisinées client ; fix 546 Haiku 4.5)
+**Dernière mise à jour** : 2026-06-07 (fix photos bilan invisibles : policy RLS UPDATE manquante sur bilans + récupération des photos perdues depuis Drive)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -228,6 +228,16 @@
 - **Fix** (`client.html`, commit `7a094d0`) : insert/update du bilan **en premier** (le bilan + la notif Discord ne dépendent plus des photos) → upload Drive **en arrière-plan** puis update de la ligne (non bloquant) → **timeout 30s** (AbortController) sur le fetch Drive → `catch` qui affiche l'erreur → gamification isolée dans son propre try.
 - **À faire** : demander à Clément/Béatrice de **recharger l'app** (vider le cache) puis re-soumettre un bilan ; vérifier la réception + la notif Discord « Bilan Hebdo ».
 - **Webhook Discord** : config coach OK (settings.notifications contient bien `bilan_submitted` → webhook « Bilan Hebdo » activé). `notify-webhook` se déclenche côté client après insert réussi.
+
+### Session 2026-06-07 (fix photos de bilan invisibles côté coach)
+- **Symptôme** : depuis le fix du 31/05, les photos uploadées par les clients dans leurs bilans hebdo n'apparaissaient plus côté coach (le bilan, lui, arrivait bien).
+- **Cause** : le fix du 31/05 ajoute les photos **après** l'insert via un `update({photos})` en arrière-plan. Or `bilans` n'avait **aucune policy RLS UPDATE** pour le client authentifié (seulement SELECT + INSERT). Avec RLS, un update non autorisé ne renvoie **pas d'erreur** : il touche 0 ligne en silence. Les photos partaient bien sur Drive (GALLERY), mais leurs URLs n'étaient jamais écrites en base.
+- **Fix** (commits `1a56864` + `6c4ffc0`) :
+  - Migration `20260607120000_bilans_client_update.sql` : policy `auth_bilans_client_update` (répare aussi l'édition d'un bilan par le client, cassée pareil).
+  - `client.html` : l'update photos vérifie maintenant le résultat (`.select('id')` + log si erreur ou 0 ligne) — plus d'échec silencieux.
+  - Migration `20260607130000_bilans_recover_photos.sql` : photos perdues (31/05→07/06) retrouvées sur Drive et ré-attachées aux bilans (Clément Corbiere, Jean-Philippe Mallat-Desmortiers ×2, Matys Hoffman, Anthony Laurent, Maxime Gazzera). Vérifié OK par le coach.
+- **Règle à retenir** : tout flux client qui fait un UPDATE/DELETE doit avoir sa policy RLS correspondante — un update bloqué par RLS = 0 ligne, **aucune erreur**. Vérifier `data.length` après les updates critiques.
+- **Risque résiduel** : si le client ferme l'app avant la fin de l'upload en arrière-plan, les photos non uploadées sont perdues (cas de la photo n°5 d'Anthony).
 
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
