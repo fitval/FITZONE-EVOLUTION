@@ -66,6 +66,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .card-dark .card-label { color:rgba(255,255,255,.45); }
 .card-gold .card-label { color:var(--gold); }
 .card-red-border { border:2px solid var(--red); }
+.card-amber-border { border:2px solid #f59e0b; }
 
 /* Rapport card */
 .rapport-card { cursor:pointer; }
@@ -1104,7 +1105,7 @@ function renderHome(){
   document.getElementById('homePhase').textContent=plans.length>0?plans[0].nom:'Mon suivi';
 
   const todayLog=dailyLogs.find(l=>l.date===today());
-  const notFilled=!todayLog;
+  const dailyState=_dailyReportState(todayLog); // 'empty' | 'partial' | 'complete'
   let html='';
 
   // Bannière compte en cours de validation si status=questionnaire_done
@@ -1120,11 +1121,16 @@ function renderHome(){
   // Gamification level strip
   html+=renderHomeLevelStrip();
 
-  // Rapport quotidien - red border if not filled
-  html+=`<div class="card-dark rapport-card${notFilled?' card-red-border':''} fade-up" onclick="showSuiviInline()" style="animation-delay:.05s">
+  // Rapport quotidien — bordure rouge si rien, ambre si pesée faite mais reste à compléter
+  const dailyBorder=dailyState==='empty'?' card-red-border':dailyState==='partial'?' card-amber-border':'';
+  const dailyTitle=dailyState==='complete'?'Rapport complété ✓':'Saisir mes données';
+  const dailySub=dailyState==='empty'?'Poids · Pas · Faim · Énergie...'
+    :dailyState==='partial'?'<span style="color:#f59e0b;font-weight:700">⚠️ Pesée enregistrée — complète le reste ce soir</span>'
+    :'Modifier mes données du jour';
+  html+=`<div class="card-dark rapport-card${dailyBorder} fade-up" onclick="showSuiviInline()" style="animation-delay:.05s">
     <div class="card-label">RAPPORT QUOTIDIEN</div>
     <div style="display:flex;align-items:center;gap:16px">
-      <div style="flex:1"><div class="rapport-title">Saisir mes données</div><div class="rapport-sub">Poids · Pas · Faim · Énergie...</div></div>
+      <div style="flex:1"><div class="rapport-title">${dailyTitle}</div><div class="rapport-sub">${dailySub}</div></div>
       <div class="rapport-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
     </div>
   </div>`;
@@ -3899,6 +3905,17 @@ function pctSliderField(id,label,value){
     <div style="position:relative;height:4px;background:var(--bg2);border-radius:2px;margin-top:-2px;margin-bottom:4px;pointer-events:none"><div id="${id}_fill" style="height:100%;background:linear-gradient(90deg,var(--gold),#e8b84a);border-radius:2px;width:${v}%"></div></div>
   </div>`;
 }
+// État du rapport quotidien d'un jour : 'empty' (rien saisi), 'partial' (pesée/données partielles,
+// au moins une question obligatoire manquante), 'complete' (toutes les obligatoires remplies).
+function _dailyReportState(log){
+  if(!log||!log.data)return 'empty';
+  const d=log.data;
+  const filled=Object.keys(d).filter(k=>k!=='date'&&d[k]!=null&&String(d[k]).trim()!=='');
+  if(!filled.length)return 'empty';
+  const req=dailyQuestions.filter(q=>q.required);
+  const allReq=req.every(q=>{const v=d[q.id];return v!=null&&String(v).trim()!=='';});
+  return allReq?'complete':'partial';
+}
 function renderSuivi(){
   if(!suiviDate)suiviDate=today();
   const log=dailyLogs.find(l=>l.date===suiviDate);
@@ -3928,7 +3945,11 @@ function renderSuivi(){
       h+=`<div class="suivi-field"><div class="suivi-field-label">${q.label}${unit}${subLabel}${req}</div><input type="number" step="${step}" id="dq_${_slug(q.id)}" value="${d[q.id]||''}" placeholder="Ex: ${step<1?'7.5':'10'}"></div>`;
     }
   });
-  h+=`<button class="btn-gold" onclick="saveSuivi()" style="margin-top:8px">Enregistrer</button></div>`;
+  h+=`<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+    <button class="btn-gold" onclick="saveSuivi(false)">Enregistrer le rapport complet</button>
+    <button class="btn-outline" onclick="saveSuivi(true)">⚖️ Enregistrer seulement la pesée</button>
+    <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.4">Tu peux enregistrer ta pesée le matin, puis compléter le reste du rapport le soir.</div>
+  </div></div>`;
 
   // Chart section
   h+=`<div style="margin-top:20px"><div class="card-label" style="color:var(--text3)">ÉVOLUTION DU POIDS</div>`;
@@ -3960,17 +3981,27 @@ function renderChart(data){
   return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--gold)" stop-opacity=".25"/><stop offset="100%" stop-color="var(--gold)" stop-opacity="0"/></linearGradient></defs>${grid}<polygon points="${area}" fill="url(#cg)"/><polyline points="${pts}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>${coords.map((c,i)=>i===coords.length-1?`<circle cx="${c.x}" cy="${c.y}" r="4.5" fill="var(--gold)"/>`:`<circle cx="${c.x}" cy="${c.y}" r="2.5" fill="var(--gold)" opacity=".5"/>`).join('')}${dates}</svg>`;
 }
 
-async function saveSuivi(){
+async function saveSuivi(weighInOnly){
   const data={date:suiviDate};
-  const missing=[];
-  dailyQuestions.forEach(q=>{
-    const el=document.getElementById('dq_'+_slug(q.id));if(!el)return;
-    const raw=(el.value||'').trim();
-    if(raw===''){if(q.required)missing.push(q.label||q.id);return;}
-    if(q.type==='textarea'||q.type==='yesno'||q.type==='choice'){data[q.id]=raw;}
-    else{const num=parseFloat(raw);if(!isNaN(num))data[q.id]=num;}
-  });
-  if(missing.length){toast('Champs requis : '+missing.slice(0,3).join(', '));return;}
+  if(weighInOnly){
+    // Pesée seule : on n'enregistre QUE le poids. Les autres champs (dont le slider %
+    // qui a une valeur par défaut) sont ignorés, et les obligatoires ne bloquent pas.
+    const wq=dailyQuestions.find(q=>q.id==='Poids')||dailyQuestions.find(q=>(q.unit||'').toLowerCase()==='kg');
+    const wEl=wq?document.getElementById('dq_'+_slug(wq.id)):null;
+    const wv=wEl?parseFloat((wEl.value||'').trim()):NaN;
+    if(isNaN(wv)){toast('Saisis ton poids pour enregistrer la pesée');return;}
+    data[wq.id]=wv;
+  } else {
+    const missing=[];
+    dailyQuestions.forEach(q=>{
+      const el=document.getElementById('dq_'+_slug(q.id));if(!el)return;
+      const raw=(el.value||'').trim();
+      if(raw===''){if(q.required)missing.push(q.label||q.id);return;}
+      if(q.type==='textarea'||q.type==='yesno'||q.type==='choice'){data[q.id]=raw;}
+      else{const num=parseFloat(raw);if(!isNaN(num))data[q.id]=num;}
+    });
+    if(missing.length){toast('Champs requis : '+missing.slice(0,3).join(', '));return;}
+  }
 
   const existing=dailyLogs.find(l=>l.date===suiviDate);
   const mergedData=existing?{...existing.data,...data}:data;
@@ -3987,11 +4018,11 @@ async function saveSuivi(){
     toast('Erreur d\'enregistrement : '+(error.message||String(error)));
     return;
   }
-  toast('Données enregistrées !');
+  toast(weighInOnly?'Pesée enregistrée ✓ — pense à compléter ton rapport ce soir':'Données enregistrées !');
   const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
   dailyLogs=nl||[];
-  // Gamification: award points for daily report
-  await awardPoints('daily_report',25,{date:suiviDate});
+  // Gamification : les 25 pts "rapport quotidien" ne sont crédités qu'au rapport COMPLET (pas à la pesée seule).
+  if(!weighInOnly) await awardPoints('daily_report',25,{date:suiviDate});
   if(data['Poids']) await awardPoints('weight_logged',15,{weight:data['Poids']});
   const pasVal=data['Pas'];if(pasVal&&pasVal>=8000) await awardPoints('steps_goal',30,{steps:pasVal});
   const dietVal=data['Alimentation suivie (%)'];
