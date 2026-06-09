@@ -2486,6 +2486,10 @@ async function loadFoodLogs(){
 }
 const FT_MEAL_ICONS={'Petit-déjeuner':'🍳','Collation AM':'🥨','Déjeuner':'🍽️','Goûter':'🍪','Dîner':'🌙','Collation nuit':'🌃'};
 function _ftIsoOf(d){return localDateStr(d);}
+// Parse un nombre saisi par le client en acceptant la virgule décimale (ex: "22,7" → 22.7)
+function _ftNum(v){const n=parseFloat(String(v==null?'':v).replace(',','.').replace(/\s/g,''));return isNaN(n)?0:n;}
+// Affiche une quantité en format français (point → virgule), sans imposer de décimale (100 reste "100")
+function _ftG(v){return String(_ftNum(v)).replace('.',',');}
 function _ftDayLabel(iso){
   const t=today();
   if(iso===t)return"Aujourd'hui";
@@ -2584,7 +2588,7 @@ function renderFoodTracker(){
           ${img?`<img src="${img}" style="width:40px;height:40px;border-radius:9px;object-fit:cover;background:var(--bg2);flex-shrink:0">`:`<div style="width:40px;height:40px;border-radius:9px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🍴</div>`}
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.aliment_nom}</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:1px">${it.qte_g}g · ${Math.round(k)} kcal</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:1px">${_ftG(it.qte_g)}g · ${Math.round(k)} kcal</div>
             <div style="display:flex;gap:8px;margin-top:3px;font-size:10px;font-weight:700">
               <span style="color:#4a90d9">P ${Math.round(p)}g</span>
               <span style="color:var(--gold)">G ${Math.round(cg)}g</span>
@@ -2674,7 +2678,7 @@ function renderPickFoodQty(defaultQty){
     </select>
     <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Quantité consommée</label>
     <div style="display:flex;gap:8px;align-items:center">
-      <input type="number" id="pfaQty" value="${defaultQty}" min="1" inputmode="numeric" style="flex:1;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;text-align:center;font-weight:700" oninput="_pfaUpdateTotals()">
+      <input type="text" id="pfaQty" value="${defaultQty}" inputmode="decimal" style="flex:1;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;text-align:center;font-weight:700" oninput="_pfaUpdateTotals()">
       <span style="font-size:14px;font-weight:700;color:var(--text3)">g</span>
     </div>
     <div id="pfaTotals" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);text-align:center"></div>
@@ -2687,10 +2691,10 @@ function renderPickFoodQty(defaultQty){
 function _pfaUpdateTotals(){
   if(!_pfaCurrent)return;
   const el=document.getElementById('pfaTotals');if(!el)return;
-  const q=parseFloat(document.getElementById('pfaQty')?.value||'0')||0;
+  const q=_ftNum(document.getElementById('pfaQty')?.value);
   const r=q/100;
   const a=_pfaCurrent;
-  el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">POUR ${q}g</div>
+  el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">POUR ${_ftG(q)}g</div>
     <div style="display:flex;justify-content:space-around;font-size:13px;font-weight:700">
       <span style="color:var(--gold)">${Math.round((parseFloat(a.kcal)||0)*r)} kcal</span>
       <span style="color:#4a90d9">P${((parseFloat(a.prot)||0)*r).toFixed(1)}</span>
@@ -2700,7 +2704,7 @@ function _pfaUpdateTotals(){
 }
 function confirmPickFoodAliment(){
   const a=_pfaCurrent;if(!a){toast('Aliment introuvable');return;}
-  const q=parseFloat(document.getElementById('pfaQty')?.value||'0');
+  const q=_ftNum(document.getElementById('pfaQty')?.value);
   if(!q||q<=0){toast('Quantité invalide');return;}
   const meal=document.getElementById('pfaMeal')?.value;
   if(meal&&FT_MEALS.includes(meal))_ftCurrentMeal=meal;
@@ -2711,11 +2715,11 @@ function confirmPickFoodAliment(){
 function openManualFood(){
   const nom=prompt('Nom de l\'aliment :');if(!nom||!nom.trim())return;
   const qte=prompt('Quantité en grammes :','100');if(!qte)return;
-  const q=parseFloat(qte);if(!q||q<=0){toast('Quantité invalide');return;}
-  const k=parseFloat(prompt('Kcal pour 100g :','0'))||0;
-  const p=parseFloat(prompt('Protéines / 100g :','0'))||0;
-  const c=parseFloat(prompt('Glucides / 100g :','0'))||0;
-  const f=parseFloat(prompt('Lipides / 100g :','0'))||0;
+  const q=_ftNum(qte);if(!q||q<=0){toast('Quantité invalide');return;}
+  const k=_ftNum(prompt('Kcal pour 100g :','0'));
+  const p=_ftNum(prompt('Protéines / 100g :','0'));
+  const c=_ftNum(prompt('Glucides / 100g :','0'));
+  const f=_ftNum(prompt('Lipides / 100g :','0'));
   _saveFoodEntry({aliment_nom:nom.trim(),aliment_id:null,qte_g:q,kcal:k,prot:p,carb:c,fat:f});
 }
 async function _saveFoodEntry(entry){
@@ -3054,7 +3058,7 @@ function renderBarcodeProduct(barcode,product){
     </select>
     <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Quantité consommée</label>
     <div style="display:flex;gap:8px;align-items:center">
-      <input type="number" id="bcQty" value="${defaultQty}" min="1" inputmode="numeric" style="flex:1;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;text-align:center;font-weight:700" oninput="_bcUpdateTotals()">
+      <input type="text" id="bcQty" value="${defaultQty}" inputmode="decimal" style="flex:1;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;text-align:center;font-weight:700" oninput="_bcUpdateTotals()">
       <span style="font-size:14px;font-weight:700;color:var(--text3)">g</span>
     </div>
     ${servingG>0?`<div style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center">Portion suggérée : ${Math.round(servingG)}g</div>`:''}
@@ -3067,9 +3071,9 @@ function renderBarcodeProduct(barcode,product){
 function _bcUpdateTotals(){
   if(!_bcCurrent)return;
   const el=document.getElementById('bcTotals');if(!el)return;
-  const q=parseFloat(document.getElementById('bcQty')?.value||'0')||0;
+  const q=_ftNum(document.getElementById('bcQty')?.value);
   const r=q/100;
-  el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">POUR ${q}g</div>
+  el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">POUR ${_ftG(q)}g</div>
     <div style="display:flex;justify-content:space-around;font-size:13px;font-weight:700">
       <span style="color:var(--gold)">${Math.round(_bcCurrent.kcal*r)} kcal</span>
       <span style="color:#4a90d9">P${(_bcCurrent.prot*r).toFixed(1)}</span>
@@ -3079,7 +3083,7 @@ function _bcUpdateTotals(){
 }
 function saveBarcodeFood(){
   if(!_bcCurrent){toast('Aucun produit en mémoire');return;}
-  const q=parseFloat(document.getElementById('bcQty')?.value||'0');
+  const q=_ftNum(document.getElementById('bcQty')?.value);
   if(!q||q<=0){toast('Quantité invalide');return;}
   const meal=document.getElementById('bcMeal')?.value;
   if(meal&&FT_MEALS.includes(meal))_ftCurrentMeal=meal;
@@ -3113,7 +3117,7 @@ async function editFoodLog(id){
   const cur=parseFloat(log.qte_g)||0;
   const v=prompt('Quantité en grammes pour "'+log.aliment_nom+'" :',cur);
   if(v==null)return;
-  const q=parseFloat(v);
+  const q=_ftNum(v);
   if(!q||q<=0){toast('Quantité invalide');return;}
   if(q===cur)return;
   const{data,error}=await db.from('food_logs').update({qte_g:q}).eq('id',id).select().single();
