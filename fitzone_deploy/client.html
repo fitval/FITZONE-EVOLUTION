@@ -670,6 +670,32 @@ const SUPA='https://wsrykmutyhjxdnhnyexl.supabase.co';
 const KEY='sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
 const db=supabase.createClient(SUPA,KEY);
 
+/* ===== CAPTURE D'ERREURS (diagnostic crash séance) =====
+   Mémorise les dernières erreurs JS dans localStorage et, PENDANT une séance,
+   affiche un bandeau avec le message exact pour qu'on sache ce qui plante
+   (au lieu d'un freeze silencieux). Volontairement isolé et sans dépendance. */
+function _fzLogErr(kind,msg,extra){
+  try{
+    const rec={t:new Date().toISOString(),kind,msg:String(msg==null?'':msg).slice(0,400),extra:String(extra||'').slice(0,1500),ctx:(typeof workoutActive!=='undefined'&&workoutActive?'WORKOUT':'')+'|'+(typeof nutriView!=='undefined'?nutriView:''),ua:navigator.userAgent};
+    const arr=JSON.parse(localStorage.getItem('fz_cli_err')||'[]');
+    arr.unshift(rec);
+    localStorage.setItem('fz_cli_err',JSON.stringify(arr.slice(0,8)));
+  }catch(e){}
+  // On n'affiche le bandeau alarmant que pendant une séance (le contexte qu'on debugue),
+  // pour ne pas effrayer les autres clients sur une erreur réseau bénigne.
+  if(typeof workoutActive!=='undefined'&&workoutActive)_fzShowErrBanner(msg);
+}
+function _fzShowErrBanner(msg){
+  try{
+    if(!document.body)return;
+    let b=document.getElementById('fzErrBanner');
+    if(!b){b=document.createElement('div');b.id='fzErrBanner';b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#b91c1c;color:#fff;font:600 12px/1.45 -apple-system,system-ui,sans-serif;padding:10px 12px;box-shadow:0 2px 12px rgba(0,0,0,.35)';document.body.appendChild(b);}
+    b.innerHTML='<div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><div style="font-weight:800;margin-bottom:2px">⚠️ Erreur pendant la séance</div><div style="font-weight:500;word-break:break-word;max-height:90px;overflow:auto">'+String(msg==null?'':msg).replace(/[<>&]/g,' ')+'</div><div style="opacity:.85;margin-top:4px">Fais une capture d\'écran et envoie-la à ton coach 🙏</div></div><button onclick="this.closest(\'#fzErrBanner\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:5px 9px;font-weight:800;cursor:pointer;flex-shrink:0">✕</button></div>';
+  }catch(e){}
+}
+window.addEventListener('error',function(e){_fzLogErr('error',e.message,(e.filename||'')+':'+(e.lineno||'')+':'+(e.colno||'')+'\n'+((e.error&&e.error.stack)||''));});
+window.addEventListener('unhandledrejection',function(e){const r=e&&e.reason;_fzLogErr('promise',(r&&r.message)||r,(r&&r.stack)||'');});
+
 /* ===== GOOGLE DRIVE UPLOAD ===== */
 const DRIVE_UPLOAD_URL='https://script.google.com/macros/s/AKfycbwyZmpo87o-gypfO9herhhsJ1_5YELTICidFLeennSt-OH1sLym9Ytoo45MXybZbgAp/exec';
 
@@ -2379,15 +2405,16 @@ function startRestTimer(sec){
 }
 // Resume timer when app comes back from background
 document.addEventListener('visibilitychange',()=>{
-  if(!document.hidden&&restEndTime>0&&document.getElementById('restOverlay').classList.contains('show')){
+  const ov=document.getElementById('restOverlay');
+  if(!document.hidden&&restEndTime>0&&ov&&ov.classList.contains('show')){
     const remaining=Math.ceil((restEndTime-Date.now())/1000);
     if(remaining<=0){
       clearInterval(restTimerInterval);
-      document.getElementById('restOverlay').classList.remove('show');
+      ov.classList.remove('show');
       if(navigator.vibrate)navigator.vibrate([200,100,200,100,300]);
       restEndTime=0;
     }else{
-      document.getElementById('restTime').textContent=fmtTimer(remaining);
+      const rt=document.getElementById('restTime');if(rt)rt.textContent=fmtTimer(remaining);
     }
   }
 });
