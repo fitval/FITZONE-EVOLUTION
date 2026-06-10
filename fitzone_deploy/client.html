@@ -4924,12 +4924,22 @@ function renderHomeLevelStrip(){
 (function initPWA(){
   const APP_VERSION_KEY='fz_app_version';
 
+  // Une séance (muscu OU running) est-elle en cours ? Si oui, on ne doit JAMAIS
+  // recharger la page : le client perdrait toute sa séance (workoutData est en
+  // mémoire). La mise à jour sera appliquée au prochain retour au premier plan
+  // une fois la séance terminée.
+  function _fzSessionBusy(){return (typeof workoutActive!=='undefined'&&workoutActive)||(typeof runningActive!=='undefined'&&runningActive);}
+
   // Check version.json and force update if version changed
   function checkForUpdate(){
     fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(data=>{
       const saved=localStorage.getItem(APP_VERSION_KEY);
       if(!saved){localStorage.setItem(APP_VERSION_KEY,data.v);return;}
       if(saved!==data.v){
+        // En pleine séance : on NE recharge PAS et on NE mémorise PAS encore la
+        // nouvelle version → la mise à jour sera détectée et appliquée au prochain
+        // passage au premier plan, une fois la séance finie.
+        if(_fzSessionBusy())return;
         localStorage.setItem(APP_VERSION_KEY,data.v);
         // Clear SW cache and reload
         if(navigator.serviceWorker&&navigator.serviceWorker.controller){
@@ -4966,7 +4976,7 @@ function renderHomeLevelStrip(){
         if(nw)nw.addEventListener('statechange',()=>{if(nw.state==='installed'&&navigator.serviceWorker.controller)nw.postMessage({type:'SKIP_WAITING'});});
       });
     }).catch(()=>{});
-    navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload());
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!_fzSessionBusy())location.reload();});
   }
 
   // Detect environment
