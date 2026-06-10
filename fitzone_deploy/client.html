@@ -2476,6 +2476,7 @@ function renderNutriList(){
 
 /* ===== FOOD TRACKER ===== */
 let foodLogs=[];
+let foodFeedback={}; // {date: note} — retours coach publiés sur le tracking
 let ftDate=null;
 const FT_MEALS=['Petit-déjeuner','Collation AM','Déjeuner','Goûter','Dîner','Collation nuit'];
 async function openFoodTracker(){
@@ -2489,6 +2490,11 @@ async function loadFoodLogs(){
     const{data}=await db.from('food_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).order('created_at',{ascending:true}).limit(500);
     foodLogs=data||[];
   }catch(e){console.error('[FOOD LOGS]',e);foodLogs=[];}
+  // Retours coach publiés (RLS : seuls les retours published=true sont lisibles)
+  try{
+    const{data}=await db.from('food_feedback').select('date,note').eq('client_id',clientData.id);
+    foodFeedback={};(data||[]).forEach(f=>{if(f.note)foodFeedback[f.date]=f.note;});
+  }catch(e){foodFeedback={};}
 }
 const FT_MEAL_ICONS={'Petit-déjeuner':'🍳','Collation AM':'🥨','Déjeuner':'🍽️','Goûter':'🍪','Dîner':'🌙','Collation nuit':'🌃'};
 function _ftIsoOf(d){return localDateStr(d);}
@@ -2536,6 +2542,13 @@ function renderFoodTracker(){
     </label>
     <button onclick="ftShiftDate(1)" ${isFuture?'disabled style="opacity:.35;cursor:not-allowed;"':''} style="width:42px;height:42px;background:var(--white);border:1.5px solid var(--border);border-radius:12px;font-size:18px;color:var(--text2);cursor:pointer;font-family:var(--font)">›</button>
   </div>`;
+  // Retour du coach publié pour ce jour
+  if(foodFeedback[ftDate]){
+    h+=`<div style="background:linear-gradient(135deg,#fff8e6,#fffdf7);border:1.5px solid var(--gold-border,rgba(196,154,42,.3));border-left:4px solid var(--gold);border-radius:14px;padding:13px 15px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:#b8882a;margin-bottom:5px">💬 Retour de ton coach</div>
+      <div style="font-size:13.5px;color:var(--text);line-height:1.5;white-space:pre-wrap">${_escHtml(foodFeedback[ftDate])}</div>
+    </div>`;
+  }
   // Scan button
   h+=`<button class="btn-gold" style="width:100%;margin-bottom:14px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px" onclick="openBarcodeScanner(true)"><span style="font-size:18px">📷</span> Scanner un code-barres</button>`;
   // Big total card with circular ring + macro bars

@@ -210,8 +210,17 @@ tr.crow:hover td{background:rgba(0,0,0,.013)}
 .qiv{font-size:13px;font-weight:500;color:var(--dark);line-height:1.5}
 
 /* ROADMAP — style Google Sheets (aligné sur .mk-table) */
-.road-wrap{overflow-x:auto;max-height:75vh;overflow-y:auto;border-radius:var(--radius);border:1.5px solid var(--border);box-shadow:var(--shadow-sm)}
+.road-wrap{overflow-x:auto;max-height:78vh;overflow-y:auto;border-radius:var(--radius);border:1.5px solid var(--border);box-shadow:var(--shadow-sm);scroll-behavior:smooth;overscroll-behavior:contain}
+.road-wrap::-webkit-scrollbar{width:11px;height:11px}
+.road-wrap::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18);border-radius:6px;border:2px solid var(--white)}
+.road-wrap::-webkit-scrollbar-thumb:hover{background:rgba(196,154,42,.55)}
 .road-table{width:100%;background:var(--white)}
+/* Colonne SEM figée horizontalement (panneau gelé type Google Sheets) — le n° de
+   semaine reste toujours visible quand on scrolle vers la droite. */
+.road-table th:nth-child(1),.road-table td:nth-child(1){min-width:42px;width:42px;position:sticky;left:0;z-index:1;border-right:2px solid var(--border2)}
+.road-table thead th:nth-child(1){z-index:4}
+.road-table tbody td:nth-child(1),.road-table tbody tr:nth-child(even) td:nth-child(1){background:var(--white)}
+.road-table tbody tr.rw-cur td:nth-child(1){background:#f9f5ea}
 .road-table table{width:100%;border-collapse:collapse;min-width:1400px}
 .road-table thead th{background:var(--dark);color:rgba(255,255,255,.55);font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:8px 8px;text-align:center;border-right:1px solid rgba(255,255,255,.06);white-space:nowrap;position:sticky;top:0;z-index:2}
 .road-table thead th.th-gold{background:var(--gold);color:rgba(0,0,0,.7)}
@@ -3195,9 +3204,12 @@ function renderRoadTab(){
   const cardios=['Step','LISS','HIIT','Vélo','Course'];
   const sd=curClient.start_date||new Date().toISOString().slice(0,10);
   let saved=lsGet('road_'+curClient.id,{});
-  // Total weeks: default 52, can be extended
-  if(!window['_roadWeeks_'+curClient.id])window['_roadWeeks_'+curClient.id]=Math.max(52,...Object.keys(saved).map(Number).filter(n=>!isNaN(n)));
-  const totalWeeks=window['_roadWeeks_'+curClient.id];
+  // Total weeks affichées = TOUJOURS au moins le max entre 52, la dernière semaine
+  // présente dans les données et l'override "+ semaines". Sans ce recalcul, les
+  // semaines >52 chargées depuis Supabase APRÈS le 1er rendu (override figé à 52)
+  // n'étaient jamais affichées même si les données existaient bien en base.
+  const savedMaxWeek=Math.max(0,...Object.keys(saved).map(Number).filter(n=>!isNaN(n)));
+  const totalWeeks=Math.max(52,savedMaxWeek,window['_roadWeeks_'+curClient.id]||0);
   if(currentCoach&&!window['_roadLoaded_'+curClient.id]){
     window['_roadLoaded_'+curClient.id]=true;
     db.from('roadmaps').select('weeks').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).limit(1).then(({data})=>{
@@ -3274,7 +3286,7 @@ function renderRoadTab(){
   // Toolbar
   let toolbar=`<div class="road-toolbar">
     <div style="display:flex;align-items:center;gap:10px"><label class="fl" style="margin:0">Date de départ :</label><input type="date" class="fi" style="width:175px" value="${sd}" onchange="updateRoadStartDate(this.value)"></div>
-    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3)">${totalWeeks} sem.</span><button class="rbtn" onclick="addRoadWeeks()">+ Ajouter semaines</button></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3)">${totalWeeks} sem.</span><button class="rbtn" onclick="addRoadWeeks()">+ Ajouter semaines</button><button class="rbtn" onclick="roadScrollToToday()" title="Aller à la semaine en cours">📍 Aujourd'hui</button></div>
     <div style="flex:1"></div>`;
   if(roadCopy){
     toolbar+=`<span class="rcopy-info">Copié : <b>${roadCopy.value||'(vide)'}</b> (${roadCopy.field})</span>`;
@@ -3518,9 +3530,24 @@ function addRoadWeeks(){
   if(!n)return;
   const num=parseInt(n);
   if(isNaN(num)||num<1||num>100){toast('Nombre invalide');return;}
-  window['_roadWeeks_'+curClient.id]=(window['_roadWeeks_'+curClient.id]||52)+num;
+  // On part du nombre de semaines RÉELLEMENT affiché (max entre 52, données et override)
+  const saved=lsGet('road_'+curClient.id,{});
+  const savedMaxWeek=Math.max(0,...Object.keys(saved).map(Number).filter(x=>!isNaN(x)));
+  const cur=Math.max(52,savedMaxWeek,window['_roadWeeks_'+curClient.id]||0);
+  window['_roadWeeks_'+curClient.id]=cur+num;
   renderRoadTab();
   toast(num+' semaine'+(num>1?'s':'')+' ajoutée'+(num>1?'s':''));
+  // Scroll jusqu'à la 1re nouvelle semaine pour montrer qu'elles sont bien là
+  setTimeout(()=>{
+    const wrap=document.querySelector('#tc-roadmap .road-wrap');
+    if(wrap)wrap.scrollTo({top:wrap.scrollHeight,behavior:'smooth'});
+  },60);
+}
+function roadScrollToToday(){
+  const el=document.getElementById('tc-roadmap');if(!el)return;
+  const cur=el.querySelector('tr.rw-cur');
+  const wrap=el.querySelector('.road-wrap');
+  if(cur&&wrap)wrap.scrollTo({top:Math.max(0,cur.offsetTop-wrap.offsetTop-60),behavior:'smooth'});
 }
 async function saveRoadmap(){
   if(!curClient)return;
@@ -9601,18 +9628,23 @@ async function awardManualPoints(){
 }
 
 /* ===== CALENDAR (CLIENT DETAIL) ===== */
-let _calView='month',_calDate=new Date(),_calLogs=[],_calEvents=[];
+let _calView='month',_calDate=new Date(),_calLogs=[],_calEvents=[],_calFood=[],_calFoodFb={};
+const FT_MEAL_ORDER=['Petit-déjeuner','Collation AM','Déjeuner','Goûter','Dîner','Collation nuit'];
+const FT_MEAL_ICONS_C={'Petit-déjeuner':'🍳','Collation AM':'🥨','Déjeuner':'🍽️','Goûter':'🍪','Dîner':'🌙','Collation nuit':'🌃'};
 const CAL_ACTIVITY_ICONS={'Natation':'🏊','Randonnée':'🥾','Vélo':'🚴','Course à pied':'🏃','Marche':'🚶','Yoga':'🧘','Pilates':'🤸','Danse':'💃','Escalade':'🧗','Tennis':'🎾','Football':'⚽','Basketball':'🏀','Arts martiaux':'🥋','Ski':'⛷️','Surf':'🏄','Autre':'🏅'};
 async function renderCalendarTab(){
   const el=document.getElementById('tc-calendar');if(!el||!curClient)return;
   _calDate=new Date();_calView='month';
   try{
-    const[logsRes,eventsRes]=await Promise.all([
+    const[logsRes,eventsRes,foodRes,fbRes]=await Promise.all([
       db.from('train_logs').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).limit(120),
-      db.from('calendar_events').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).limit(120)
+      db.from('calendar_events').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).order('date',{ascending:false}).limit(120),
+      db.from('food_logs').select('*').eq('client_id',curClient.id).order('date',{ascending:false}).order('created_at',{ascending:true}).limit(2000),
+      db.from('food_feedback').select('*').eq('coach_id',currentCoach.id).eq('client_id',curClient.id)
     ]);
-    _calLogs=logsRes.data||[];_calEvents=eventsRes.data||[];
-  }catch(e){_calLogs=[];_calEvents=[];}
+    _calLogs=logsRes.data||[];_calEvents=eventsRes.data||[];_calFood=foodRes.data||[];
+    _calFoodFb={};(fbRes.data||[]).forEach(f=>{_calFoodFb[f.date]=f;});
+  }catch(e){_calLogs=[];_calEvents=[];_calFood=[];_calFoodFb={};}
   _renderCal(el);
 }
 function _calEntries(dateStr){
@@ -9628,6 +9660,19 @@ function _calEntries(dateStr){
 }
 function _calDotClass(type){return type==='running'?'cal-d-green':type==='activity'?'cal-d-blue':(type==='session'||type==='rdv'||type==='note'||type==='custom')?'cal-d-purple':'cal-d-gold';}
 function _calIcon(e){if(e.source==='event')return'📌';if(e.type==='running')return'🏃';if(e.type==='activity'){const ex=e.data.exercises&&e.data.exercises[0];return CAL_ACTIVITY_ICONS[ex&&ex.activity_type]||'🏅';}return'💪';}
+// Totaux du tracking alimentaire pour un jour donné (macros stockées /100g)
+function _calFoodDay(dateStr){
+  const logs=_calFood.filter(l=>l.date===dateStr);
+  let kcal=0,prot=0,carb=0,fat=0;
+  logs.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;kcal+=(parseFloat(l.kcal)||0)*q;prot+=(parseFloat(l.prot)||0)*q;carb+=(parseFloat(l.carb)||0)*q;fat+=(parseFloat(l.fat)||0)*q;});
+  return{logs,kcal,prot,carb,fat,count:logs.length};
+}
+// Petit badge kcal affiché sur une case du calendrier (jours où le client a tracké)
+function _calFoodBadge(dateStr){
+  const f=_calFoodDay(dateStr);
+  if(!f.count)return'';
+  return`<div style="margin-top:2px;font-size:9px;font-weight:800;color:#b8882a;background:var(--gold-pale);border-radius:5px;padding:1px 4px;line-height:1.3;white-space:nowrap;display:inline-block">${Math.round(f.kcal)} kcal</div>`;
+}
 function _renderCal(el){
   const d=new Date(_calDate);
   const year=d.getFullYear(),month=d.getMonth();
@@ -9646,7 +9691,7 @@ function _renderCal(el){
     </div>
   </div>`;
   // Legend
-  h+=`<div style="display:flex;gap:12px;margin-bottom:12px;font-size:11px;color:var(--text3)"><span><span class="cal-d-gold"></span> Musculation</span><span><span class="cal-d-green"></span> Running</span><span><span class="cal-d-blue"></span> Activité</span><span><span class="cal-d-purple"></span> Événement</span></div>`;
+  h+=`<div style="display:flex;gap:12px;margin-bottom:12px;font-size:11px;color:var(--text3);flex-wrap:wrap"><span><span class="cal-d-gold"></span> Musculation</span><span><span class="cal-d-green"></span> Running</span><span><span class="cal-d-blue"></span> Activité</span><span><span class="cal-d-purple"></span> Événement</span><span><span style="display:inline-block;font-size:9px;font-weight:800;color:#b8882a;background:var(--gold-pale);border-radius:4px;padding:0 4px">kcal</span> Tracking repas</span></div>`;
   // Month grid
   const firstDay=new Date(year,month,1);
   let startDay=firstDay.getDay()-1;if(startDay<0)startDay=6;
@@ -9657,19 +9702,19 @@ function _renderCal(el){
   for(let i=startDay-1;i>=0;i--){
     const dn=prevMonth-i;const ds=new Date(year,month-1,dn).toISOString().slice(0,10);
     const entries=_calEntries(ds);
-    h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--bg2);opacity:.35;cursor:pointer" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div></div>`;
+    h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--bg2);opacity:.35;cursor:pointer" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div>${_calFoodBadge(ds)}</div>`;
   }
   for(let dn=1;dn<=daysInMonth;dn++){
     const ds=new Date(year,month,dn).toISOString().slice(0,10);
     const isToday=ds===todayStr;
     const entries=_calEntries(ds);
-    h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--white);cursor:pointer;${isToday?'border:2px solid var(--gold)':''}" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700;${isToday?'color:var(--gold)':''}">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div></div>`;
+    h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--white);cursor:pointer;${isToday?'border:2px solid var(--gold)':''}" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700;${isToday?'color:var(--gold)':''}">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div>${_calFoodBadge(ds)}</div>`;
   }
   const totalCells=startDay+daysInMonth;const remaining=totalCells%7===0?0:7-totalCells%7;
   for(let dn=1;dn<=remaining;dn++){
     const ds=new Date(year,month+1,dn).toISOString().slice(0,10);
     const entries=_calEntries(ds);
-    h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--bg2);opacity:.35;cursor:pointer" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div></div>`;
+    h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--bg2);opacity:.35;cursor:pointer" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div>${_calFoodBadge(ds)}</div>`;
   }
   h+=`</div>`;
   // Day detail area
@@ -9703,8 +9748,77 @@ function _showCalDay(dateStr){
       ${deleteBtn}
     </div>`;
   });
+  // ===== Tracking alimentaire du jour (ce que le client a loggé) =====
+  const fd=_calFoodDay(dateStr);
+  if(fd.count){
+    h+=`<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:800;display:flex;align-items:center;gap:6px">🍽️ Tracking alimentaire <span style="font-size:11px;font-weight:600;color:var(--text3)">${fd.count} aliment${fd.count>1?'s':''}</span></div>
+        <div style="display:flex;gap:5px;align-items:center;font-size:11px;font-weight:700;flex-wrap:wrap">
+          <span style="background:var(--gold-pale);color:#b8882a;padding:3px 9px;border-radius:7px">${Math.round(fd.kcal)} kcal</span>
+          <span style="background:#4a90d91a;color:#4a90d9;padding:3px 8px;border-radius:7px">P ${Math.round(fd.prot)}g</span>
+          <span style="background:#c49a2a1a;color:#c49a2a;padding:3px 8px;border-radius:7px">G ${Math.round(fd.carb)}g</span>
+          <span style="background:#e07c5a1a;color:#e07c5a;padding:3px 8px;border-radius:7px">L ${Math.round(fd.fat)}g</span>
+        </div>
+      </div>`;
+    FT_MEAL_ORDER.forEach(meal=>{
+      const items=fd.logs.filter(l=>l.meal===meal);
+      if(!items.length)return;
+      let mk=0;items.forEach(l=>{mk+=(parseFloat(l.kcal)||0)*(parseFloat(l.qte_g)||0)/100;});
+      h+=`<div style="margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:3px">${FT_MEAL_ICONS_C[meal]||'🍽️'} ${meal} <span style="color:var(--gold);font-weight:800">· ${Math.round(mk)} kcal</span></div>`;
+      items.forEach(it=>{
+        const q=(parseFloat(it.qte_g)||0)/100;
+        const k=(parseFloat(it.kcal)||0)*q,p=(parseFloat(it.prot)||0)*q,c=(parseFloat(it.carb)||0)*q,fg=(parseFloat(it.fat)||0)*q;
+        const g=String(parseFloat(it.qte_g)||0).replace('.',',');
+        h+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--bg);border-radius:8px;margin-bottom:3px;font-size:12px">
+          <div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.aliment_nom||'Aliment')}</div><div style="font-size:10px;color:var(--text3)">${g} g · P${Math.round(p)} G${Math.round(c)} L${Math.round(fg)}</div></div>
+          <div style="font-weight:800;color:#b8882a;white-space:nowrap">${Math.round(k)} kcal</div>
+        </div>`;
+      });
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+  }
+  // ===== Retour du coach sur la journée (publiable vers le client) =====
+  const fb=_calFoodFb[dateStr]||{};
+  const noteVal=fb.note?esc(fb.note):'';
+  h+=`<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:800;display:flex;align-items:center;gap:6px">💬 Retour coach</div>
+      ${fb.id?(fb.published?`<span style="font-size:10px;font-weight:800;color:#16a34a;background:#16a34a1a;padding:3px 9px;border-radius:7px">● Publié — visible client</span>`:`<span style="font-size:10px;font-weight:700;color:var(--text3);background:var(--bg2);padding:3px 9px;border-radius:7px">○ Brouillon privé</span>`):''}
+    </div>
+    <textarea id="cfFbNote" placeholder="Ex: Bonne journée ! Vise +30g de protéines au dîner demain…" style="width:100%;min-height:70px;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;font-family:var(--font);resize:vertical;box-sizing:border-box;outline:none" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">${noteVal}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="saveFoodFeedback('${dateStr}',false)">💾 Enregistrer brouillon</button>
+      <button class="btn btn-dark btn-sm" onclick="saveFoodFeedback('${dateStr}',true)">📤 Envoyer au client</button>
+      ${fb.published?`<button class="btn btn-ghost btn-sm" style="color:#ef4444" onclick="unpublishFoodFeedback('${dateStr}')">Retirer la publication</button>`:''}
+    </div>
+  </div>`;
   h+=`</div>`;
   dd.innerHTML=h;
+}
+async function saveFoodFeedback(dateStr,publish){
+  if(!currentCoach||!curClient)return;
+  const ta=document.getElementById('cfFbNote');
+  const note=ta?ta.value.trim():'';
+  if(publish&&!note){toast('Écris un retour avant de l\'envoyer');return;}
+  const existing=_calFoodFb[dateStr];
+  const published=publish?true:(existing?existing.published:false);
+  const row={coach_id:currentCoach.id,client_id:curClient.id,date:dateStr,note,published,updated_at:new Date().toISOString()};
+  const{data,error}=await db.from('food_feedback').upsert(row,{onConflict:'coach_id,client_id,date'}).select().single();
+  if(error){toast('Erreur: '+error.message);return;}
+  if(data)_calFoodFb[dateStr]=data;
+  toast(publish?'Retour envoyé au client ✓':'Brouillon enregistré ✓');
+  _showCalDay(dateStr);
+}
+async function unpublishFoodFeedback(dateStr){
+  if(!currentCoach||!curClient)return;
+  const{data,error}=await db.from('food_feedback').update({published:false,updated_at:new Date().toISOString()}).eq('coach_id',currentCoach.id).eq('client_id',curClient.id).eq('date',dateStr).select().single();
+  if(error){toast('Erreur: '+error.message);return;}
+  if(data)_calFoodFb[dateStr]=data;
+  toast('Publication retirée');
+  _showCalDay(dateStr);
 }
 function openAddCalendarEvent(dateStr){
   dateStr=dateStr||new Date().toISOString().slice(0,10);
