@@ -1967,11 +1967,7 @@ function startWorkout(){
 
   // Find previous log for same session
   const targetName=day.nom||'Jour '+(currentDayIdx+1);
-  console.log('[WORKOUT DEBUG] trainLogs count:', trainLogs.length);
-  console.log('[WORKOUT DEBUG] looking for session_name:', JSON.stringify(targetName));
-  console.log('[WORKOUT DEBUG] available session_names:', trainLogs.map(l=>JSON.stringify(l.session_name)));
   const prevLog=trainLogs.find(l=>l.session_name===targetName);
-  console.log('[WORKOUT DEBUG] prevLog found:', !!prevLog, prevLog?'exercises:'+JSON.stringify((prevLog.exercises||[]).length):'');
   const prevExos=prevLog?prevLog.exercises||[]:[];
 
   allExos.forEach((ex,i)=>{
@@ -2338,9 +2334,15 @@ function validateSet(ei,si){
   renderActiveWorkout();
 }
 
+let _sharedAudioCtx=null;
 function playRestAlarm(){
   try{
-    const ac=new(window.AudioContext||window.webkitAudioContext)();
+    // IMPORTANT : un seul AudioContext réutilisé pour toute la séance. Avant, on en
+    // créait un par bip de fin de repos sans jamais le fermer → sur les téléphones
+    // peu puissants, l'accumulation (20-40 par séance) faisait planter l'app.
+    if(!_sharedAudioCtx)_sharedAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const ac=_sharedAudioCtx;
+    if(ac.state==='suspended')ac.resume();
     [0,0.15,0.3].forEach(t=>{
       const osc=ac.createOscillator(),gain=ac.createGain();
       osc.connect(gain);gain.connect(ac.destination);
@@ -2433,7 +2435,16 @@ function filmExo(ei){
   const inp=document.getElementById('camInput');
   inp.onchange=function(e){
     const file=e.target.files[0];
-    if(file){workoutData[ei].videoFile=file;workoutData[ei].videoUrl=null;toast('Vidéo ajoutée pour '+workoutData[ei].nom);renderActiveWorkout();}
+    if(file){
+      // Garde-fou : au-delà de ~45 Mo, l'encodage base64 (×1.33 en RAM) fait
+      // planter les téléphones peu puissants. On bloque proprement avec un message.
+      const MAX=45*1024*1024;
+      if(file.size>MAX){
+        toast('Vidéo trop lourde ('+Math.round(file.size/1048576)+' Mo). Filme plus court (max ~45 Mo).');
+        inp.value='';return;
+      }
+      workoutData[ei].videoFile=file;workoutData[ei].videoUrl=null;toast('Vidéo ajoutée pour '+workoutData[ei].nom);renderActiveWorkout();
+    }
     inp.value='';
   };
   inp.click();
