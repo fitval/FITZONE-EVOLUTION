@@ -2494,7 +2494,7 @@ function _planDailyAvg(p){
 }
 function renderNutriList(){
   currentPlanIdx=null;
-  nutriView='list';toggleFab();
+  nutriView='list';toggleFab();_ftClearSaveBar();
   let h=`<div style="display:flex;gap:8px;margin-bottom:16px"><button class="btn-gold" style="flex:1;padding:14px 16px;font-size:14px" onclick="openFoodTracker()">📝 Tracking alimentaire</button></div>`;
   if(!plans.length){h+=`<div class="empty"><div class="empty-icon">🍽️</div><div class="empty-text">Aucun plan nutrition assigné.</div></div>`;document.getElementById('nutriContent').innerHTML=h;return;}
   plans.forEach((p,i)=>{
@@ -2554,7 +2554,7 @@ function ftShiftDate(delta){
   ftDate=_ftIsoOf(d);renderFoodTracker();
 }
 function renderFoodTracker(){
-  nutriView='tracker';toggleFab();
+  nutriView='tracker';toggleFab();_ftClearSaveBar();
   const dayLogs=foodLogs.filter(l=>l.date===ftDate);
   let tK=0,tP=0,tC=0,tF=0;
   dayLogs.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;tK+=(parseFloat(l.kcal)||0)*q;tP+=(parseFloat(l.prot)||0)*q;tC+=(parseFloat(l.carb)||0)*q;tF+=(parseFloat(l.fat)||0)*q;});
@@ -2655,7 +2655,10 @@ function renderFoodTracker(){
           <button onclick="event.stopPropagation();deleteFoodLog('${it.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:8px;flex-shrink:0;font-family:var(--font)" title="Supprimer">✕</button>
         </div>`;
       });
-      h+=`<button onclick="openAddFood('${escMeal}')" style="width:100%;padding:11px;background:var(--bg);border:none;border-top:1px solid var(--border);font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">+ Ajouter un aliment</button>`;
+      h+=`<div style="display:flex;border-top:1px solid var(--border)">
+        <button onclick="openAddFood('${escMeal}')" style="flex:1;padding:11px;background:var(--bg);border:none;font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">+ Ajouter</button>
+        <button onclick="openDuplicateMeal('${escMeal}')" style="flex:1;padding:11px;background:var(--bg);border:none;border-left:1px solid var(--border);font-size:13px;color:var(--text2);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">⧉ Dupliquer</button>
+      </div>`;
       h+=`</div>`;
     }
     h+=`</div>`;
@@ -2672,51 +2675,169 @@ function _ftMacroBar(label,cur,tgt,color){
     <span style="font-size:11px;color:var(--text2);font-weight:600;min-width:62px;text-align:right;font-variant-numeric:tabular-nums">${Math.round(cur)}${tgt?'/'+Math.round(tgt):''}g</span>
   </div>`;
 }
+/* ===== DUPLIQUER UN REPAS (vers un autre créneau / une autre date) ===== */
+function openDuplicateMeal(meal){
+  const items=foodLogs.filter(l=>l.date===ftDate&&l.meal===meal);
+  if(!items.length){toast('Ce repas est vide');return;}
+  const old=document.getElementById('dupOverlay');if(old)old.remove();
+  const overlay=document.createElement('div');
+  overlay.id='dupOverlay';overlay.className='detail-overlay';
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  const escMeal=meal.replace(/'/g,"\\'");
+  overlay.innerHTML=`<div class="detail-sheet">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:18px;font-weight:800;color:var(--dark)">Dupliquer le repas</div>
+      <span onclick="document.getElementById('dupOverlay').remove()" style="font-size:22px;cursor:pointer;color:var(--text3);padding:4px">✕</span>
+    </div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:18px">${items.length} aliment${items.length>1?'s':''} de <strong style="color:var(--text2)">${meal}</strong> seront copiés.</div>
+    <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Vers le repas</label>
+    <select id="dupMeal" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none;background:var(--white);font-weight:600;margin-bottom:16px">
+      ${FT_MEALS.map(m=>`<option value="${m}" ${m===meal?'selected':''}>${m}</option>`).join('')}
+    </select>
+    <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">À la date</label>
+    <input type="date" id="dupDate" value="${ftDate}" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;background:var(--white);font-weight:600;margin-bottom:20px">
+    <button class="btn-gold" style="width:100%;padding:14px;font-size:15px" onclick="confirmDuplicateMeal('${escMeal}')">⧉ Dupliquer</button>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+async function confirmDuplicateMeal(srcMeal){
+  const targetMeal=document.getElementById('dupMeal')?.value||srcMeal;
+  const targetDate=document.getElementById('dupDate')?.value||ftDate;
+  const items=foodLogs.filter(l=>l.date===ftDate&&l.meal===srcMeal);
+  if(!items.length){toast('Ce repas est vide');return;}
+  const rows=items.map(it=>({coach_id:clientData.coach_id,client_id:clientData.id,date:targetDate,meal:targetMeal,aliment_nom:it.aliment_nom,aliment_id:it.aliment_id||null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,...(it.extra?{extra:it.extra}:{})}));
+  let{data,error}=await db.from('food_logs').insert(rows).select();
+  if(error&&/extra/i.test(error.message||'')){
+    const rows2=rows.map(r=>{const{extra,...rest}=r;return rest;});
+    ({data,error}=await db.from('food_logs').insert(rows2).select());
+  }
+  if(error){toast('Erreur: '+error.message);return;}
+  if(data)data.forEach(d=>foodLogs.unshift(d));
+  document.getElementById('dupOverlay')?.remove();
+  const sameDay=targetDate===ftDate;
+  toast(sameDay?'Repas dupliqué ✓':'Dupliqué vers le '+fmtDate(targetDate)+' ✓');
+  if(sameDay)renderFoodTracker();
+}
 let _ftCurrentMeal='Déjeuner';let _ftSearchTerm='';
+let _ftAddTab='aliments';        // 'aliments' | 'recent'
+let _ftSelected={};              // clé -> {aliment, qte_g}
+function _ftKey(a){return String(a&&a.id!=null?a.id:(a&&a.nom||''));}
+function _ftIsUuid(id){return typeof id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);}
 function openAddFood(meal){
-  _ftCurrentMeal=meal;_ftSearchTerm='';
+  _ftCurrentMeal=meal;_ftSearchTerm='';_ftAddTab='aliments';_ftSelected={};
   renderAddFoodPage();
 }
 function renderAddFoodPage(){
   nutriView='addfood';toggleFab();
   const term=(_ftSearchTerm||'').replace(/"/g,'&quot;');
+  const tabBtn=(key,label)=>`<button onclick="_ftAddTab='${key}';renderAddFoodPage()" style="flex:1;padding:9px;border:none;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);${_ftAddTab===key?'background:var(--gold);color:#fff':'background:transparent;color:var(--text3)'}">${label}</button>`;
   let h=`<button class="back-btn" onclick="renderFoodTracker()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Ajouter un aliment</div>`;
   h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${_ftCurrentMeal} · ${fmtDate(ftDate)}</div>`;
-  h+=`<div class="card" style="padding:14px;margin-bottom:12px">
-    <input type="text" id="ftSearch" value="${term}" oninput="_ftSearchTerm=this.value;_ftRenderResults()" placeholder="Rechercher un aliment (poulet, riz, pomme…)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none">
-    <button class="btn-gold" style="margin-top:10px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px" onclick="openBarcodeScanner()"><span style="font-size:18px">📷</span> Scanner un code-barres</button>
-    <button class="btn-gold" style="margin-top:8px;width:100%;background:var(--bg2);color:var(--text)" onclick="openManualFood()">+ Aliment manuel (hors liste)</button>
-  </div>`;
-  h+=`<div id="ftResults"></div>`;
+  h+=`<div style="display:flex;gap:4px;background:var(--bg2);padding:4px;border-radius:12px;margin-bottom:12px">${tabBtn('aliments','Aliments')}${tabBtn('recent','Récemment mangé')}</div>`;
+  if(_ftAddTab==='aliments'){
+    h+=`<div class="card" style="padding:14px;margin-bottom:12px">
+      <input type="text" id="ftSearch" value="${term}" oninput="_ftSearchTerm=this.value;_ftRenderResults()" placeholder="Rechercher un aliment (poulet, riz, pomme…)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none">
+      <button class="btn-gold" style="margin-top:10px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px" onclick="openBarcodeScanner()"><span style="font-size:18px">📷</span> Scanner un code-barres</button>
+      <button class="btn-gold" style="margin-top:8px;width:100%;background:var(--bg2);color:var(--text)" onclick="openManualFood()">+ Aliment manuel (hors liste)</button>
+    </div>`;
+  }
+  h+=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px;padding:0 2px">Tape un aliment pour le sélectionner · tape la quantité pour l'ajuster</div>`;
+  h+=`<div id="ftResults" style="padding-bottom:90px"></div>`;
   document.getElementById('nutriContent').innerHTML=h;
   _ftRenderResults();
-  setTimeout(()=>{const f=document.getElementById('ftSearch');if(f)f.focus();},50);
+  _ftRenderSaveBar();
+  if(_ftAddTab==='aliments')setTimeout(()=>{const f=document.getElementById('ftSearch');if(f)f.focus();},50);
+}
+function _ftRecentAliments(){
+  const sorted=[...foodLogs].sort((a,b)=>{
+    if(a.date!==b.date)return a.date<b.date?1:-1;
+    return (a.created_at||'')<(b.created_at||'')?1:-1;
+  });
+  const seen={},out=[];
+  for(const l of sorted){
+    const key=(l.aliment_nom||'').toLowerCase()+'|'+Math.round(parseFloat(l.kcal)||0);
+    if(seen[key])continue;seen[key]=1;
+    out.push({id:l.aliment_id||null,nom:l.aliment_nom,kcal:l.kcal,prot:l.prot,carb:l.carb,fat:l.fat});
+    if(out.length>=30)break;
+  }
+  return out;
+}
+function _ftFoodRow(a){
+  const k=_ftKey(a);
+  const sel=_ftSelected[k];
+  const q=sel?sel.qte_g:100;
+  const r=q/100;
+  const json=JSON.stringify(a).replace(/"/g,'&quot;');
+  return `<div class="card" style="padding:11px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px;${sel?'border:1.5px solid var(--gold)':''}" onclick="_ftToggleSelect(${json})">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.nom}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">
+        <span style="color:var(--gold);font-weight:800" onclick="event.stopPropagation();pickFoodAliment(${json})">${_ftG(q)}g ›</span> · ${Math.round((parseFloat(a.kcal)||0)*r)} kcal · P${Math.round((parseFloat(a.prot)||0)*r)} G${Math.round((parseFloat(a.carb)||0)*r)} L${Math.round((parseFloat(a.fat)||0)*r)}
+      </div>
+    </div>
+    <div style="width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;${sel?'background:var(--gold);color:#fff':'border:2px solid var(--border);color:transparent'}">✓</div>
+  </div>`;
+}
+function _ftToggleSelect(a){
+  const k=_ftKey(a);
+  if(_ftSelected[k])delete _ftSelected[k];
+  else _ftSelected[k]={aliment:a,qte_g:100};
+  _ftRenderResults();_ftRenderSaveBar();
 }
 function _ftRenderResults(){
   const el=document.getElementById('ftResults');if(!el)return;
-  const term=(_ftSearchTerm||'').toLowerCase().trim();
-  const matches=coachAlims.filter(a=>!term||(a.nom||'').toLowerCase().includes(term)).slice(0,30);
   let h='';
-  if(!matches.length){
-    h=`<div class="empty" style="padding:30px"><div class="empty-icon">🔍</div><div class="empty-text">${term?'Aucun aliment trouvé pour "'+term.replace(/"/g,'&quot;')+'"':'Commence à taper pour rechercher'}</div></div>`;
+  if(_ftAddTab==='recent'){
+    const recents=_ftRecentAliments();
+    if(!recents.length){
+      h=`<div class="empty" style="padding:30px"><div class="empty-icon">🍽️</div><div class="empty-text">Aucun aliment récent. Logge tes repas pour les retrouver ici.</div></div>`;
+    } else {
+      h=recents.map(_ftFoodRow).join('');
+    }
   } else {
-    h=matches.map(a=>`<div class="card" style="padding:12px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px" onclick="pickFoodAliment(${JSON.stringify(a).replace(/"/g,'&quot;')})">
-      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.nom}</div><div style="font-size:10px;color:var(--text3)">100g: ${Math.round(a.kcal||0)} kcal · P${Math.round(a.prot||0)} G${Math.round(a.carb||0)} L${Math.round(a.fat||0)}</div></div>
-      <div style="font-size:18px;color:var(--gold)">+</div>
-    </div>`).join('');
+    const term=(_ftSearchTerm||'').toLowerCase().trim();
+    const matches=coachAlims.filter(a=>!term||(a.nom||'').toLowerCase().includes(term)).slice(0,30);
+    if(!matches.length){
+      h=`<div class="empty" style="padding:30px"><div class="empty-icon">🔍</div><div class="empty-text">${term?'Aucun aliment trouvé pour "'+term.replace(/"/g,'&quot;')+'"':'Commence à taper pour rechercher'}</div></div>`;
+    } else {
+      h=matches.map(_ftFoodRow).join('');
+    }
   }
   el.innerHTML=h;
 }
-let _pfaCurrent=null;
+function _ftRenderSaveBar(){
+  let bar=document.getElementById('ftSaveBar');
+  const n=Object.keys(_ftSelected).length;
+  if(!n){if(bar)bar.remove();return;}
+  if(!bar){bar=document.createElement('div');bar.id='ftSaveBar';document.body.appendChild(bar);}
+  bar.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:150;padding:12px 16px calc(12px + var(--safe-b));background:linear-gradient(to top,var(--bg) 72%,transparent);display:flex;justify-content:center;pointer-events:none';
+  bar.innerHTML=`<button class="btn-gold" style="max-width:420px;width:100%;padding:15px;font-size:15px;box-shadow:0 6px 20px rgba(196,154,42,.4);pointer-events:auto" onclick="confirmAddSelected()">Sauvegarder (${n})</button>`;
+}
+function _ftClearSaveBar(){const b=document.getElementById('ftSaveBar');if(b)b.remove();}
+async function confirmAddSelected(){
+  const entries=Object.values(_ftSelected);
+  if(!entries.length)return;
+  const rows=entries.map(e=>{const a=e.aliment;return{coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,aliment_nom:a.nom,aliment_id:_ftIsUuid(a.id)?a.id:null,qte_g:e.qte_g,kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat};});
+  const{data,error}=await db.from('food_logs').insert(rows).select();
+  if(error){toast('Erreur: '+error.message);return;}
+  if(data)data.forEach(d=>foodLogs.unshift(d));
+  const n=rows.length;_ftSelected={};_ftClearSaveBar();
+  toast(n+' aliment'+(n>1?'s':'')+' ajouté'+(n>1?'s':'')+' ✓');
+  renderFoodTracker();
+}
+let _pfaCurrent=null;let _pfaMode='select';let _pfaEditId=null;
 function pickFoodAliment(a){
-  _pfaCurrent=a;
-  renderPickFoodQty(100);
+  _pfaCurrent=a;_pfaMode='select';_pfaEditId=null;
+  const sel=_ftSelected[_ftKey(a)];
+  renderPickFoodQty(sel?sel.qte_g:100);
 }
 function renderPickFoodQty(defaultQty){
   const a=_pfaCurrent;if(!a)return;
+  _ftClearSaveBar();
+  const isEdit=_pfaMode==='edit';
   const k=parseFloat(a.kcal)||0,p=parseFloat(a.prot)||0,c=parseFloat(a.carb)||0,f=parseFloat(a.fat)||0;
-  let h=`<button class="back-btn" onclick="renderAddFoodPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
+  let h=`<button class="back-btn" onclick="${isEdit?'renderFoodTracker()':'renderAddFoodPage()'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">${a.nom}</div>`;
   h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${_ftCurrentMeal} · ${fmtDate(ftDate)}</div>`;
   h+=`<div class="card" style="padding:16px;margin-bottom:12px">
@@ -2735,12 +2856,14 @@ function renderPickFoodQty(defaultQty){
     </select>
     <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Quantité consommée</label>
     <div style="display:flex;gap:8px;align-items:center">
-      <input type="text" id="pfaQty" value="${defaultQty}" inputmode="decimal" style="flex:1;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;text-align:center;font-weight:700" oninput="_pfaUpdateTotals()">
-      <span style="font-size:14px;font-weight:700;color:var(--text3)">g</span>
+      <button onclick="_pfaStep(-10)" aria-label="Diminuer" style="width:44px;height:46px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:22px;font-weight:800;cursor:pointer;line-height:1;padding:0;flex-shrink:0;font-family:var(--font)">−</button>
+      <input type="text" id="pfaQty" value="${defaultQty}" inputmode="decimal" style="flex:1;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;text-align:center;font-weight:700;min-width:0" oninput="_pfaUpdateTotals()">
+      <button onclick="_pfaStep(10)" aria-label="Augmenter" style="width:44px;height:46px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:22px;font-weight:800;cursor:pointer;line-height:1;padding:0;flex-shrink:0;font-family:var(--font)">+</button>
+      <span style="font-size:14px;font-weight:700;color:var(--text3);flex-shrink:0">g</span>
     </div>
     <div id="pfaTotals" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);text-align:center"></div>
   </div>`;
-  h+=`<button class="btn-gold" style="width:100%;padding:14px;font-size:15px" onclick="confirmPickFoodAliment()">Ajouter au repas</button>`;
+  h+=`<button class="btn-gold" style="width:100%;padding:14px;font-size:15px" onclick="confirmPickFoodAliment()">${isEdit?'Mettre à jour':'Sélectionner'}</button>`;
   document.getElementById('nutriContent').innerHTML=h;
   _pfaUpdateTotals();
   setTimeout(()=>{const q=document.getElementById('pfaQty');if(q){q.focus();q.select();}},50);
@@ -2759,15 +2882,34 @@ function _pfaUpdateTotals(){
       <span style="color:#e07c5a">L${((parseFloat(a.fat)||0)*r).toFixed(1)}</span>
     </div>`;
 }
-function confirmPickFoodAliment(){
+function _pfaStep(delta){
+  const el=document.getElementById('pfaQty');if(!el)return;
+  let v=_ftNum(el.value)+delta;
+  if(v<1)v=1;
+  v=Math.round(v*10)/10;
+  el.value=_ftG(v);
+  _pfaUpdateTotals();
+}
+async function confirmPickFoodAliment(){
   const a=_pfaCurrent;if(!a){toast('Aliment introuvable');return;}
   const q=_ftNum(document.getElementById('pfaQty')?.value);
   if(!q||q<=0){toast('Quantité invalide');return;}
   const meal=document.getElementById('pfaMeal')?.value;
   if(meal&&FT_MEALS.includes(meal))_ftCurrentMeal=meal;
-  const isUuid=typeof a.id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(a.id);
-  _saveFoodEntry({aliment_nom:a.nom,aliment_id:isUuid?a.id:null,qte_g:q,kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat});
+  if(_pfaMode==='edit'){
+    const upd={qte_g:q};if(meal&&FT_MEALS.includes(meal))upd.meal=meal;
+    const{data,error}=await db.from('food_logs').update(upd).eq('id',_pfaEditId).select().single();
+    if(error){toast('Erreur: '+error.message);return;}
+    const idx=foodLogs.findIndex(l=>String(l.id)===String(_pfaEditId));
+    if(idx>=0&&data)foodLogs[idx]=data;
+    _pfaCurrent=null;_pfaEditId=null;_pfaMode='select';
+    toast('Mis à jour ✓');
+    renderFoodTracker();return;
+  }
+  // mode 'select' : on marque l'aliment sélectionné avec sa quantité puis retour à la liste
+  _ftSelected[_ftKey(a)]={aliment:a,qte_g:q};
   _pfaCurrent=null;
+  renderAddFoodPage();
 }
 function openManualFood(){
   const nom=prompt('Nom de l\'aliment :');if(!nom||!nom.trim())return;
@@ -3168,21 +3310,13 @@ async function deleteFoodLog(id){
   foodLogs=foodLogs.filter(l=>String(l.id)!==String(id));
   renderFoodTracker();
 }
-async function editFoodLog(id){
+function editFoodLog(id){
   const log=foodLogs.find(l=>String(l.id)===String(id));
   if(!log)return;
-  const cur=parseFloat(log.qte_g)||0;
-  const v=prompt('Quantité en grammes pour "'+log.aliment_nom+'" :',cur);
-  if(v==null)return;
-  const q=_ftNum(v);
-  if(!q||q<=0){toast('Quantité invalide');return;}
-  if(q===cur)return;
-  const{data,error}=await db.from('food_logs').update({qte_g:q}).eq('id',id).select().single();
-  if(error){toast('Erreur: '+error.message);return;}
-  const idx=foodLogs.findIndex(l=>String(l.id)===String(id));
-  if(idx>=0&&data)foodLogs[idx]=data;
-  toast('Quantité mise à jour ✓');
-  renderFoodTracker();
+  // Les macros stockées dans food_logs sont pour 100g → on reconstruit l'aliment pour l'écran quantité
+  _pfaCurrent={id:log.aliment_id,nom:log.aliment_nom,kcal:log.kcal,prot:log.prot,carb:log.carb,fat:log.fat};
+  _pfaMode='edit';_pfaEditId=id;_ftCurrentMeal=log.meal;
+  renderPickFoodQty(parseFloat(log.qte_g)||100);
 }
 function openPlan(idx){currentPlanIdx=idx;currentDayIdx=0;renderPlanDetail();}
 function mealItems(meal){return meal.items||meal.alims||[];}
