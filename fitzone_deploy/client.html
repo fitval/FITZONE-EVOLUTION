@@ -604,7 +604,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
     <button class="tab-btn active" onclick="switchTab('Home')" id="btnHome">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>Accueil</span>
     </button>
-    <button class="tab-btn" onclick="switchTab('Train')" id="btnTrain">
+    <button class="tab-btn" onclick="trainSubTab='list';switchTab('Train')" id="btnTrain">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 12h2m16 0h2M6 8v8M18 8v8M6 12h12M9 6v12M15 6v12"/></svg><span>Entraînement</span>
     </button>
     <button class="tab-btn" onclick="switchTab('Nutri')" id="btnNutri">
@@ -745,7 +745,7 @@ let clientData=null;
 let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAlims=[],coachExos=[],clientQuest=null,planSwaps=[];
 let macroTarget=null; // Objectif macro fixé par le coach (table plans, calcul macros de base) — sert d'objectif au tracking, indépendamment du plan repas
 let currentDayIdx=0,currentPlanIdx=null;
-let trainSubTab='programme';
+let trainSubTab='list';
 let coachActivityTypes=[];
 let coachMuscleImages={}; // { "Biceps": "<url drive>", ... }
 function driveImgUrl(url){if(!url||!url.includes('drive.google.com'))return url;let id=null;const m1=url.match(/\/d\/([^/]+)/);if(m1)id=m1[1];const m2=url.match(/[?&]id=([^&]+)/);if(m2)id=m2[1];return id?'https://lh3.googleusercontent.com/d/'+id:url;}
@@ -1193,9 +1193,9 @@ function renderHome(){
     const p=programs[0],j=p.jours||[];
     if(j.length>0){
       const d=j[0],cnt=(d.warmup||[]).length+(d.workout||[]).length+(d.cooldown||[]).length;
-      html+=`<div class="card-gold fade-up" style="animation-delay:.2s;cursor:pointer" onclick="switchTab('Train')">
+      html+=`<div class="card-gold fade-up" style="animation-delay:.2s;cursor:pointer" onclick="trainSubTab='programme';switchTab('Train')">
         <div class="card-label">LANCER LA PROCHAINE SÉANCE</div>
-        <div style="display:flex;align-items:center;gap:16px"><div style="flex:1"><div style="font-size:17px;font-weight:700;color:white;margin-bottom:3px">${d.nom||p.nom||'Séance'}</div><div style="font-size:12px;color:rgba(255,255,255,.5)">${cnt} exercices · Jour 1</div></div><button class="workout-go" onclick="event.stopPropagation();switchTab('Train')">Go →</button></div>
+        <div style="display:flex;align-items:center;gap:16px"><div style="flex:1"><div style="font-size:17px;font-weight:700;color:white;margin-bottom:3px">${d.nom||p.nom||'Séance'}</div><div style="font-size:12px;color:rgba(255,255,255,.5)">${cnt} exercices · Jour 1</div></div><button class="workout-go" onclick="event.stopPropagation();trainSubTab='programme';switchTab('Train')">Go →</button></div>
       </div>`;
     }
   }
@@ -1356,16 +1356,38 @@ function _cliRunBlockCard(b,sectionEmoji){
   </div>`;
 }
 
+// Page d'accueil de l'onglet Entraînement (comme la nutrition) : choix programme / activité
+function renderTrainLanding(){
+  workoutActive=false;
+  document.getElementById('trainTitle').textContent='Entraînement';
+  const swb=document.getElementById('startWorkoutBtn');if(swb)swb.remove();
+  let h=`<div style="font-size:13px;color:var(--text3);margin:0 0 16px">Choisis ton programme ou enregistre une activité libre.</div>`;
+  // Bouton activité libre (équivalent du "Tracking alimentaire" côté nutrition)
+  h+=`<div style="display:flex;gap:8px;margin-bottom:16px"><button class="btn-gold" style="flex:1;padding:14px 16px;font-size:14px" onclick="trainSubTab='activites';renderTrainPreview()">🏃 Activité libre</button></div>`;
+  // Programme assigné par le coach
+  if(!programs.length){
+    h+=`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;
+  } else {
+    const p=programs[0];const nb=(p.jours||[]).length;
+    h+=`<div class="card-label" style="color:var(--text3);margin-bottom:8px">MON PROGRAMME</div>`;
+    h+=`<div class="plan-card fade-up" onclick="trainSubTab='programme';renderTrainPreview()">
+      <div class="plan-name">${p.nom||'Programme'}</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:4px">${nb?nb+' séance'+(nb>1?'s':'')+' · touche pour voir':'Aucune séance'}</div>
+    </div>`;
+  }
+  document.getElementById('trainContent').innerHTML=h;
+}
 function renderTrainPreview(){
   workoutActive=false;
-  const toggleHtml=`<div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border)"><button style="padding:10px 20px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:none;color:${trainSubTab==='programme'?'var(--gold)':'var(--text3)'};position:relative;font-family:var(--font)" onclick="trainSubTab='programme';renderTrainPreview()">Programme${trainSubTab==='programme'?'<span style="position:absolute;bottom:-2px;left:0;right:0;height:2px;background:var(--gold)"></span>':''}</button><button style="padding:10px 20px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:none;color:${trainSubTab==='activites'?'var(--gold)':'var(--text3)'};position:relative;font-family:var(--font)" onclick="trainSubTab='activites';renderTrainPreview()">Activités${trainSubTab==='activites'?'<span style="position:absolute;bottom:-2px;left:0;right:0;height:2px;background:var(--gold)"></span>':''}</button></div>`;
-  if(trainSubTab==='activites'){document.getElementById('trainContent').innerHTML=toggleHtml+renderActivitiesView();return;}
-  if(!programs.length){document.getElementById('trainContent').innerHTML=toggleHtml+`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;return;}
+  if(trainSubTab!=='programme'&&trainSubTab!=='activites'){renderTrainLanding();return;}
+  const backBtn=`<button class="back-btn" onclick="trainSubTab='list';renderTrainPreview()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
+  if(trainSubTab==='activites'){document.getElementById('trainTitle').textContent='Activité libre';document.getElementById('trainContent').innerHTML=backBtn+renderActivitiesView();return;}
+  if(!programs.length){document.getElementById('trainTitle').textContent='Entraînement';document.getElementById('trainContent').innerHTML=backBtn+`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;return;}
   const p=programs[0],jours=p.jours||[];
   document.getElementById('trainTitle').textContent=p.nom||'Entraînement';
-  if(!jours.length){document.getElementById('trainContent').innerHTML=toggleHtml+`<div class="empty"><div class="empty-text">Ce programme n'a pas encore de séances.</div></div>`;return;}
+  if(!jours.length){document.getElementById('trainContent').innerHTML=backBtn+`<div class="empty"><div class="empty-text">Ce programme n'a pas encore de séances.</div></div>`;return;}
 
-  let h=toggleHtml+`<div class="day-tabs">${jours.map((j,i)=>{const ico=j.type==='running'?'🏃':'💪';return`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderTrainPreview()">${ico} ${j.nom||'Jour '+(i+1)}</button>`;}).join('')}</div>`;
+  let h=backBtn+`<div class="day-tabs">${jours.map((j,i)=>{const ico=j.type==='running'?'🏃':'💪';return`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderTrainPreview()">${ico} ${j.nom||'Jour '+(i+1)}</button>`;}).join('')}</div>`;
 
   const day=jours[currentDayIdx];
 
