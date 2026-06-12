@@ -116,9 +116,9 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .partner-banner-btn { display:block;width:100%;padding:12px;border:none;border-radius:var(--r-sm);background:var(--gold);color:white;font-size:14px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none }
 
 /* === TRAINING TAB === */
-.day-tabs { display:flex; gap:0; overflow-x:auto; padding:0; border-bottom:2px solid var(--border); -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+.day-tabs { display:flex; flex-wrap:nowrap; gap:0; overflow-x:auto; overflow-y:hidden; padding:0; border-bottom:2px solid var(--border); -webkit-overflow-scrolling:touch; scrollbar-width:none; }
 .day-tabs::-webkit-scrollbar { display:none; }
-.day-tab { padding:12px 20px; font-size:14px; font-weight:600; white-space:nowrap; border:none; cursor:pointer; background:none; color:var(--text3); transition:all .2s; position:relative; }
+.day-tab { flex-shrink:0; padding:12px 20px; font-size:14px; font-weight:600; white-space:nowrap; border:none; cursor:pointer; background:none; color:var(--text3); transition:all .2s; position:relative; }
 .day-tab.active { color:var(--gold); }
 .day-tab.active::after { content:''; position:absolute; bottom:-2px; left:0; right:0; height:2px; background:var(--gold); }
 .section-hdr { font-size:13px; font-weight:500; color:var(--text3); margin:18px 0 12px; }
@@ -2517,6 +2517,10 @@ let foodLogs=[];
 let foodFeedback={}; // {date: note} — retours coach publiés sur le tracking
 let ftDate=null;
 const FT_MEALS=['Petit-déjeuner','Collation AM','Déjeuner','Goûter','Dîner','Collation nuit'];
+// État déplié/replié des repas sur la page tracking (persistant, ouvert par défaut)
+let _ftCollapsed=(()=>{try{return JSON.parse(localStorage.getItem('fz_ftCollapsed')||'{}');}catch(e){return{};}})();
+function _ftIsCollapsed(m){return !!_ftCollapsed[m];}
+function toggleFtMeal(m){_ftCollapsed[m]=!_ftCollapsed[m];try{localStorage.setItem('fz_ftCollapsed',JSON.stringify(_ftCollapsed));}catch(e){}renderFoodTracker();}
 async function openFoodTracker(){
   ftDate=ftDate||today();
   await loadFoodLogs();
@@ -2611,55 +2615,62 @@ function renderFoodTracker(){
       ${_ftMacroBar('L',tF,tgtF,'#e07c5a')}
     </div>
   </div>`;
-  // Meals
+  // Meals — cartes dépliables (état persistant par repas, ouvert par défaut)
   FT_MEALS.forEach(m=>{
     const items=dayLogs.filter(l=>l.meal===m);
     let mK=0,mP=0,mC=0,mF=0;
     items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;mP+=(parseFloat(l.prot)||0)*q;mC+=(parseFloat(l.carb)||0)*q;mF+=(parseFloat(l.fat)||0)*q;});
     const escMeal=m.replace(/'/g,"\\'");
+    const collapsed=_ftIsCollapsed(m);
     const macroPill=(label,val,color)=>`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:8px;background:${color}1a;color:${color};font-size:10px;font-weight:800"><span style="opacity:.75">${label}</span>${Math.round(val)}g</span>`;
-    h+=`<div style="margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:0 4px">
-        <span style="font-size:22px">${FT_MEAL_ICONS[m]||'🍽️'}</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:800">${m}</div>
-          ${items.length?`<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:3px">${macroPill('P',mP,'#4a90d9')}${macroPill('G',mC,'#c49a2a')}${macroPill('L',mF,'#e07c5a')}</div>`:''}
-        </div>
-        ${items.length?`<div style="font-size:14px;font-weight:800;color:var(--gold);white-space:nowrap">${Math.round(mK)} <span style="font-size:10px;color:var(--text3);font-weight:600">kcal</span></div>`:''}
-      </div>`;
-    if(!items.length){
-      h+=`<button onclick="openAddFood('${escMeal}')" style="width:100%;padding:16px;border:1.5px dashed var(--border);background:transparent;border-radius:14px;color:var(--text3);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">
-        <span style="font-size:18px;color:var(--gold);font-weight:900">+</span> Ajouter un aliment
-      </button>`;
-    } else {
-      h+=`<div class="card" style="padding:0;overflow:hidden">`;
-      items.forEach((it,idx)=>{
-        const q=(parseFloat(it.qte_g)||0)/100;
-        const k=(parseFloat(it.kcal)||0)*q;
-        const p=(parseFloat(it.prot)||0)*q;
-        const cg=(parseFloat(it.carb)||0)*q;
-        const fg=(parseFloat(it.fat)||0)*q;
-        const img=(it.extra&&it.extra.image_url)||'';
-        const isLast=idx===items.length-1;
-        h+=`<div onclick="editFoodLog('${it.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;${!isLast?'border-bottom:1px solid var(--border);':''}">
-          ${img?`<img src="${img}" style="width:40px;height:40px;border-radius:9px;object-fit:cover;background:var(--bg2);flex-shrink:0">`:`<div style="width:40px;height:40px;border-radius:9px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🍴</div>`}
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.aliment_nom}</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:1px">${_ftG(it.qte_g)}g · ${Math.round(k)} kcal</div>
-            <div style="display:flex;gap:8px;margin-top:3px;font-size:10px;font-weight:700">
-              <span style="color:#4a90d9">P ${Math.round(p)}g</span>
-              <span style="color:var(--gold)">G ${Math.round(cg)}g</span>
-              <span style="color:#e07c5a">L ${Math.round(fg)}g</span>
-            </div>
-          </div>
-          <button onclick="event.stopPropagation();deleteFoodLog('${it.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:8px;flex-shrink:0;font-family:var(--font)" title="Supprimer">✕</button>
+    h+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">`;
+    // En-tête (tap = déplier/replier)
+    h+=`<div onclick="toggleFtMeal('${escMeal}')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;cursor:pointer;background:linear-gradient(135deg,rgba(196,154,42,.06),rgba(196,154,42,.015))">
+      <span style="font-size:22px">${FT_MEAL_ICONS[m]||'🍽️'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:800">${m}</div>
+        ${items.length?`<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:3px">${macroPill('P',mP,'#4a90d9')}${macroPill('G',mC,'#c49a2a')}${macroPill('L',mF,'#e07c5a')}</div>`:`<div style="font-size:11px;color:var(--text3);margin-top:2px">Aucun aliment</div>`}
+      </div>
+      <div style="font-size:15px;font-weight:800;color:${items.length?'var(--gold)':'var(--text3)'};white-space:nowrap">${Math.round(mK)} <span style="font-size:10px;color:var(--text3);font-weight:600">kcal</span></div>
+      <span style="font-size:13px;color:var(--text3);transition:transform .2s;display:inline-block;transform:rotate(${collapsed?'-90deg':'0deg'});flex-shrink:0">▾</span>
+    </div>`;
+    if(!collapsed){
+      if(!items.length){
+        h+=`<div style="padding:10px 12px 12px">
+          <button onclick="openAddFood('${escMeal}')" style="width:100%;padding:14px;border:1.5px dashed var(--border);background:transparent;border-radius:12px;color:var(--text3);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">
+            <span style="font-size:18px;color:var(--gold);font-weight:900">+</span> Ajouter un aliment
+          </button>
         </div>`;
-      });
-      h+=`<div style="display:flex;border-top:1px solid var(--border)">
-        <button onclick="openAddFood('${escMeal}')" style="flex:1;padding:11px;background:var(--bg);border:none;font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">+ Ajouter</button>
-        <button onclick="openDuplicateMeal('${escMeal}')" style="flex:1;padding:11px;background:var(--bg);border:none;border-left:1px solid var(--border);font-size:13px;color:var(--text2);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">⧉ Dupliquer</button>
-      </div>`;
-      h+=`</div>`;
+      } else {
+        h+=`<div style="border-top:1px solid var(--border)">`;
+        items.forEach((it,idx)=>{
+          const q=(parseFloat(it.qte_g)||0)/100;
+          const k=(parseFloat(it.kcal)||0)*q;
+          const p=(parseFloat(it.prot)||0)*q;
+          const cg=(parseFloat(it.carb)||0)*q;
+          const fg=(parseFloat(it.fat)||0)*q;
+          const img=(it.extra&&it.extra.image_url)||'';
+          const isLast=idx===items.length-1;
+          h+=`<div onclick="editFoodLog('${it.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;${!isLast?'border-bottom:1px solid var(--border);':''}">
+            ${img?`<img src="${img}" style="width:40px;height:40px;border-radius:9px;object-fit:cover;background:var(--bg2);flex-shrink:0">`:`<div style="width:40px;height:40px;border-radius:9px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🍴</div>`}
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.aliment_nom}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:1px">${_ftG(it.qte_g)}g · ${Math.round(k)} kcal</div>
+              <div style="display:flex;gap:8px;margin-top:3px;font-size:10px;font-weight:700">
+                <span style="color:#4a90d9">P ${Math.round(p)}g</span>
+                <span style="color:var(--gold)">G ${Math.round(cg)}g</span>
+                <span style="color:#e07c5a">L ${Math.round(fg)}g</span>
+              </div>
+            </div>
+            <button onclick="event.stopPropagation();deleteFoodLog('${it.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:8px;flex-shrink:0;font-family:var(--font)" title="Supprimer">✕</button>
+          </div>`;
+        });
+        h+=`<div style="display:flex;border-top:1px solid var(--border)">
+          <button onclick="openAddFood('${escMeal}')" style="flex:1;padding:11px;background:var(--bg);border:none;font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">+ Ajouter</button>
+          <button onclick="openDuplicateMeal('${escMeal}')" style="flex:1;padding:11px;background:var(--bg);border:none;border-left:1px solid var(--border);font-size:13px;color:var(--text2);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">⧉ Dupliquer</button>
+        </div>`;
+        h+=`</div>`;
+      }
     }
     h+=`</div>`;
   });
@@ -3318,7 +3329,28 @@ function editFoodLog(id){
   _pfaMode='edit';_pfaEditId=id;_ftCurrentMeal=log.meal;
   renderPickFoodQty(parseFloat(log.qte_g)||100);
 }
-function openPlan(idx){currentPlanIdx=idx;currentDayIdx=0;renderPlanDetail();}
+// Dernier jour/menu sélectionné par plan (persistant entre sessions)
+let _planDay=(()=>{try{return JSON.parse(localStorage.getItem('fz_planDay')||'{}');}catch(e){return{};}})();
+function _planRefIdOf(idx){const p=plans[idx];return p?(p.id||('idx'+idx)):('idx'+idx);}
+function setPlanDay(idx){
+  currentDayIdx=idx;
+  const rid=_planRefIdOf(currentPlanIdx);
+  _planDay[rid]=idx;try{localStorage.setItem('fz_planDay',JSON.stringify(_planDay));}catch(e){}
+  renderPlanDetail();
+}
+// État déplié/replié des repas du plan (persistant, ouvert par défaut)
+let _planMealCollapsed=(()=>{try{return JSON.parse(localStorage.getItem('fz_planMealCollapsed')||'{}');}catch(e){return{};}})();
+function _planMealKey(planRefId,dayIdx,ri){return planRefId+'|'+dayIdx+'|'+ri;}
+function isPlanMealCollapsed(planRefId,dayIdx,ri){return !!_planMealCollapsed[_planMealKey(planRefId,dayIdx,ri)];}
+function togglePlanMeal(planRefId,dayIdx,ri){const k=_planMealKey(planRefId,dayIdx,ri);_planMealCollapsed[k]=!_planMealCollapsed[k];try{localStorage.setItem('fz_planMealCollapsed',JSON.stringify(_planMealCollapsed));}catch(e){}renderPlanDetail();}
+function openPlan(idx){
+  currentPlanIdx=idx;
+  const rid=_planRefIdOf(idx);
+  const saved=parseInt(_planDay[rid]);
+  const jours=(plans[idx]&&plans[idx].jours)||[];
+  currentDayIdx=(!isNaN(saved)&&saved>=0&&saved<jours.length)?saved:0;
+  renderPlanDetail();
+}
 function mealItems(meal){return meal.items||meal.alims||[];}
 /* Portions cuisinées par repas — multiplicateur appliqué aux quantités et macros */
 let _clMealPortions=(()=>{try{return JSON.parse(localStorage.getItem('fz_mealPortions')||'{}');}catch(e){return{};}})();
@@ -3385,7 +3417,7 @@ function renderPlanDetail(){
     </div>`;
   }
   if(p.type==='macros'||!jours.length){if(p.notes)h+=`<div class="card"><div style="font-size:14px;color:var(--text2);line-height:1.5">${p.notes}</div></div>`;document.getElementById('nutriContent').innerHTML=h;return;}
-  h+=`<div class="day-tabs">${jours.map((j,i)=>`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderPlanDetail()">${j.nom||'J'+(i+1)}</button>`).join('')}</div>`;
+  h+=`<div class="day-tabs">${jours.map((j,i)=>`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="setPlanDay(${i})">${j.nom||'J'+(i+1)}</button>`).join('')}</div>`;
   const day=jours[currentDayIdx];
   const dayM=calcDayMacros(day,planRefId,currentDayIdx);
   const totalMeals=(day.repas||[]).length;
@@ -3407,14 +3439,16 @@ function renderPlanDetail(){
     items.forEach(it=>{const q=(it.qte||100)/100*portion;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;});
     const icon=mealIcons[meal.nom]||'🍴';
     const done=isMealDone(planRefId,currentDayIdx,ri);
+    const mealCollapsed=isPlanMealCollapsed(planRefId,currentDayIdx,ri);
     h+=`<div class="meal-card${done?' meal-done':''}" style="padding:0;overflow:hidden;margin-bottom:14px;${done?'opacity:.55;':''}transition:opacity .2s">
-      <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(135deg,rgba(196,154,42,.06),rgba(196,154,42,.02))">
+      <div onclick="togglePlanMeal('${planRefId}',${currentDayIdx},${ri})" style="display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;background:linear-gradient(135deg,rgba(196,154,42,.06),rgba(196,154,42,.02))">
         <span style="font-size:20px">${icon}</span>
         <div style="flex:1"><div style="font-size:15px;font-weight:700;${done?'text-decoration:line-through;color:var(--text3)':''}">${meal.nom||'Repas'}</div></div>
         ${hideMacros?'':`<div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--gold)">${Math.round(mk)} kcal</div><div style="font-size:10px;color:var(--text3);margin-top:1px">P${Math.round(mp)} · G${Math.round(mc)} · L${Math.round(mf)}</div></div>`}
         <button onclick="event.stopPropagation();toggleMealDone('${planRefId}',${currentDayIdx},${ri})" aria-label="${done?'Décocher repas':'Marquer mangé'}" title="${done?'Décocher':'Marquer mangé'}" style="width:36px;height:36px;border-radius:50%;border:2px solid ${done?'var(--gold)':'var(--border)'};background:${done?'var(--gold)':'var(--white)'};color:${done?'white':'var(--text3)'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:18px;font-weight:800;padding:0;font-family:inherit;line-height:1;transition:all .15s">${done?'✓':''}</button>
+        <span style="font-size:13px;color:var(--text3);transition:transform .2s;display:inline-block;transform:rotate(${mealCollapsed?'-90deg':'0deg'});flex-shrink:0">▾</span>
       </div>
-      <div style="padding:6px 16px 10px">`;
+      <div style="padding:6px 16px 10px;${mealCollapsed?'display:none':''}">`;
     // Sélecteur de portions
     h+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
       <span style="font-size:12px;font-weight:600;color:var(--text2);flex:1">🍽️ Portions cuisinées</span>
