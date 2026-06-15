@@ -2772,7 +2772,7 @@ function renderAddFoodPage(){
     h+=`<div class="card" style="padding:14px;margin-bottom:12px">
       <input type="text" id="ftSearch" value="${term}" oninput="_ftSearchTerm=this.value;_ftRenderResults()" placeholder="Rechercher un aliment (poulet, riz, pomme…)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none">
       <button class="btn-gold" style="margin-top:10px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px" onclick="openBarcodeScanner()"><span style="font-size:18px">📷</span> Scanner un code-barres</button>
-      <button class="btn-gold" style="margin-top:8px;width:100%;background:var(--bg2);color:var(--text)" onclick="openManualFood()">+ Aliment manuel (hors liste)</button>
+      <button class="btn-gold" style="margin-top:8px;width:100%;background:var(--bg2);color:var(--text)" onclick="openManualFood()">+ Ajouter un aliment hors base</button>
     </div>`;
   }
   h+=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px;padding:0 2px">Tape un aliment pour le sélectionner · tape la quantité pour l'ajuster</div>`;
@@ -2832,7 +2832,10 @@ function _ftRenderResults(){
     const term=(_ftSearchTerm||'').toLowerCase().trim();
     const matches=coachAlims.filter(a=>!term||(a.nom||'').toLowerCase().includes(term)).slice(0,30);
     if(!matches.length){
-      h=`<div class="empty" style="padding:30px"><div class="empty-icon">🔍</div><div class="empty-text">${term?'Aucun aliment trouvé pour "'+term.replace(/"/g,'&quot;')+'"':'Commence à taper pour rechercher'}</div></div>`;
+      const tqJs=(_ftSearchTerm||'').trim().replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      const tqHtml=(_ftSearchTerm||'').trim().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+      h=`<div class="empty" style="padding:30px 20px 14px"><div class="empty-icon">🔍</div><div class="empty-text">${term?'Aucun aliment trouvé pour « '+tqHtml+' »':'Commence à taper pour rechercher'}</div></div>
+        <button class="btn-gold" style="width:100%" onclick="openManualFood('${tqJs}')">+ ${term?'Ajouter « '+tqHtml+' » en nouvel aliment':'Ajouter un aliment hors base'}</button>`;
     } else {
       h=matches.map(_ftFoodRow).join('');
     }
@@ -2944,15 +2947,105 @@ async function confirmPickFoodAliment(){
   _pfaCurrent=null;
   renderAddFoodPage();
 }
-function openManualFood(){
-  const nom=prompt('Nom de l\'aliment :');if(!nom||!nom.trim())return;
-  const qte=prompt('Quantité en grammes :','100');if(!qte)return;
-  const q=_ftNum(qte);if(!q||q<=0){toast('Quantité invalide');return;}
-  const k=_ftNum(prompt('Kcal pour 100g :','0'));
-  const p=_ftNum(prompt('Protéines / 100g :','0'));
-  const c=_ftNum(prompt('Glucides / 100g :','0'));
-  const f=_ftNum(prompt('Lipides / 100g :','0'));
-  _saveFoodEntry({aliment_nom:nom.trim(),aliment_id:null,qte_g:q,kcal:k,prot:p,carb:c,fat:f});
+/* ===== AJOUT D'UN ALIMENT HORS BASE (par le client, non vérifié) ===== */
+const UNVERIFIED_CAT='Ajouté par client · non vérifié';
+let _mfPhoto=null,_mfPhotoMime=null,_mfPhotoDataUrl=null;
+function openManualFood(prefillNom){
+  _mfPhoto=null;_mfPhotoMime=null;_mfPhotoDataUrl=null;
+  renderManualFoodPage(prefillNom||'');
+}
+function renderManualFoodPage(nom){
+  nutriView='manualfood';toggleFab();_ftClearSaveBar();
+  const safe=(nom||'').replace(/"/g,'&quot;');
+  const inS='width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none';
+  const lbS='font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px';
+  let h=`<button class="back-btn" onclick="renderAddFoodPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
+  h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Nouvel aliment</div>`;
+  h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${_ftCurrentMeal} · ${fmtDate(ftDate)}</div>`;
+  h+=`<div style="background:rgba(196,154,42,.1);border:1px solid var(--gold);border-radius:12px;padding:11px 13px;margin-bottom:14px;font-size:11.5px;color:var(--text2);line-height:1.5">⚠️ Aliment absent de la base. Il sera ajouté comme <b>non vérifié</b> et ton coach pourra le valider. Renseigne les valeurs <b>pour 100g</b>.</div>`;
+  h+=`<div class="card" style="padding:16px;margin-bottom:12px">
+    <label style="${lbS}">Photo (optionnel)</label>
+    <input type="file" accept="image/*" id="mfPhotoInput" style="display:none" onchange="handleManualFoodPhoto(this)">
+    <div id="mfPhotoPreview" onclick="document.getElementById('mfPhotoInput').click()" style="cursor:pointer;border:1.5px dashed var(--border);border-radius:10px;min-height:90px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px;font-weight:600;overflow:hidden">📷 Ajouter une photo</div>
+  </div>`;
+  h+=`<div class="card" style="padding:16px;margin-bottom:12px">
+    <label style="${lbS}">Nom de l'aliment *</label>
+    <input type="text" id="mfNom" value="${safe}" placeholder="Ex : Galette de riz complet" autocomplete="off" autocapitalize="sentences" style="${inS};margin-bottom:14px">
+    <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px">VALEURS POUR 100g</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label style="${lbS}">Kcal *</label><input type="text" id="mfKcal" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
+      <div><label style="${lbS}">Protéines (g)</label><input type="text" id="mfProt" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
+      <div><label style="${lbS}">Glucides (g)</label><input type="text" id="mfCarb" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
+      <div><label style="${lbS}">Lipides (g)</label><input type="text" id="mfFat" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
+    </div>
+    <label style="${lbS};margin-top:14px">Quantité consommée</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="text" id="mfQty" value="100" inputmode="decimal" style="${inS};text-align:center;font-weight:700" oninput="_mfUpdateTotals()">
+      <span style="font-size:14px;font-weight:700;color:var(--text3);flex-shrink:0">g</span>
+    </div>
+    <div id="mfTotals" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);text-align:center"></div>
+  </div>`;
+  h+=`<button class="btn-gold" id="mfSaveBtn" style="width:100%;padding:14px;font-size:15px" onclick="saveManualFood()">Ajouter et enregistrer</button>`;
+  document.getElementById('nutriContent').innerHTML=h;
+  _renderMfPhotoPreview();_mfUpdateTotals();
+  setTimeout(()=>{const f=document.getElementById('mfNom');if(f&&!safe)f.focus();},50);
+}
+function handleManualFoodPhoto(input){
+  const file=input.files&&input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{_mfPhotoDataUrl=reader.result;_mfPhoto=reader.result.split(',')[1];_mfPhotoMime=file.type||'image/jpeg';_renderMfPhotoPreview();};
+  reader.readAsDataURL(file);input.value='';
+}
+function _renderMfPhotoPreview(){
+  const el=document.getElementById('mfPhotoPreview');if(!el)return;
+  el.innerHTML=_mfPhotoDataUrl?`<img src="${_mfPhotoDataUrl}" style="width:100%;max-height:180px;object-fit:cover;border-radius:9px">`:'📷 Ajouter une photo';
+}
+function _mfUpdateTotals(){
+  const el=document.getElementById('mfTotals');if(!el)return;
+  const q=_ftNum(document.getElementById('mfQty')?.value)/100;
+  const k=_ftNum(document.getElementById('mfKcal')?.value)*q;
+  const p=_ftNum(document.getElementById('mfProt')?.value)*q;
+  const c=_ftNum(document.getElementById('mfCarb')?.value)*q;
+  const f=_ftNum(document.getElementById('mfFat')?.value)*q;
+  el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">CE QUE TU AJOUTES</div>
+    <div style="display:flex;justify-content:space-around;font-size:13px;font-weight:700">
+      <span style="color:var(--gold)">${Math.round(k)} kcal</span>
+      <span style="color:#4a90d9">P${p.toFixed(1)}</span>
+      <span style="color:var(--gold)">G${c.toFixed(1)}</span>
+      <span style="color:#e07c5a">L${f.toFixed(1)}</span>
+    </div>`;
+}
+async function saveManualFood(){
+  const nom=(document.getElementById('mfNom')?.value||'').trim();
+  if(!nom){toast('Donne un nom à l\'aliment');return;}
+  const kcal=_ftNum(document.getElementById('mfKcal')?.value);
+  const prot=_ftNum(document.getElementById('mfProt')?.value);
+  const carb=_ftNum(document.getElementById('mfCarb')?.value);
+  const fat=_ftNum(document.getElementById('mfFat')?.value);
+  const qte=_ftNum(document.getElementById('mfQty')?.value);
+  if(!qte||qte<=0){toast('Quantité invalide');return;}
+  const btn=document.getElementById('mfSaveBtn');
+  if(btn){btn.disabled=true;btn.textContent='Enregistrement…';}
+  // 1) Upload photo (optionnel, non bloquant si échec)
+  let photoUrl=null;
+  if(_mfPhoto){
+    try{photoUrl=await uploadToDrive(_mfPhoto,'Aliment_'+nom.replace(/\s+/g,'_').slice(0,40)+'_'+Date.now()+'.jpg',_mfPhotoMime);}catch(e){photoUrl=null;}
+  }
+  // 2) Insertion de l'aliment (non vérifié) dans la base du coach
+  const id=Date.now();
+  const full={id,coach_id:clientData.coach_id,nom,cat:UNVERIFIED_CAT,source:'proteines',kcal,prot,carb,fat,verified:false,added_by_client:clientData.id,photo:photoUrl};
+  let res=await db.from('aliments').insert(full).select().single();
+  if(res.error){
+    // Fallback : migration aliments_client_add.sql pas encore appliquée
+    const core={id,coach_id:clientData.coach_id,nom,cat:UNVERIFIED_CAT,source:'proteines',kcal,prot,carb,fat};
+    res=await db.from('aliments').insert(core).select().single();
+  }
+  if(res.error){toast('Erreur: '+res.error.message);if(btn){btn.disabled=false;btn.textContent='Ajouter et enregistrer';}return;}
+  coachAlims.push(res.data||full);
+  // 3) Log immédiat dans le tracking du jour
+  const extra={unverified:true};if(photoUrl)extra.image_url=driveImgUrl(photoUrl);
+  await _saveFoodEntry({aliment_nom:nom,aliment_id:null,qte_g:qte,kcal,prot,carb,fat,extra});
+  _mfPhoto=null;_mfPhotoMime=null;_mfPhotoDataUrl=null;
 }
 async function _saveFoodEntry(entry){
   const row={coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,...entry};
