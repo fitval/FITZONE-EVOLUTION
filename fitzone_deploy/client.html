@@ -2684,7 +2684,7 @@ function renderFoodTracker(){
                 <span style="color:#e07c5a">L ${Math.round(fg)}g</span>
               </div>
             </div>
-            <button onclick="event.stopPropagation();deleteFoodLog('${it.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:8px;flex-shrink:0;font-family:var(--font)" title="Supprimer">✕</button>
+            <button type="button" onclick="event.stopPropagation();deleteFoodLog('${it.id}')" aria-label="Supprimer" title="Supprimer" style="width:42px;height:42px;border-radius:11px;flex-shrink:0;background:rgba(224,92,74,.12);border:1.5px solid rgba(224,92,74,.4);color:#e05c4a;font-size:20px;font-weight:900;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);padding:0;touch-action:manipulation;-webkit-tap-highlight-color:rgba(224,92,74,.25)">✕</button>
           </div>`;
         });
         h+=`<div style="display:flex;border-top:1px solid var(--border)">
@@ -3429,12 +3429,18 @@ function saveBarcodeFood(){
   });
   _bcCurrent=null;
 }
+let _delFoodBusy=false;
 async function deleteFoodLog(id){
+  if(_delFoodBusy)return;            // évite un double déclenchement (tap + click)
   if(!confirm('Supprimer cet aliment ?'))return;
-  const{error}=await db.from('food_logs').delete().eq('id',id);
-  if(error){toast('Erreur: '+error.message);return;}
-  foodLogs=foodLogs.filter(l=>String(l.id)!==String(id));
-  renderFoodTracker();
+  _delFoodBusy=true;
+  try{
+    const{error}=await db.from('food_logs').delete().eq('id',id);
+    if(error){toast('Erreur: '+error.message);return;}
+    foodLogs=foodLogs.filter(l=>String(l.id)!==String(id));
+    toast('Aliment supprimé ✓');
+    renderFoodTracker();
+  }finally{_delFoodBusy=false;}
 }
 function editFoodLog(id){
   const log=foodLogs.find(l=>String(l.id)===String(id));
