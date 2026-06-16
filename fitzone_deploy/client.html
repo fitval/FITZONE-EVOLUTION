@@ -2802,14 +2802,13 @@ function _ftFoodRow(a){
   const q=sel?sel.qte_g:100;
   const r=q/100;
   const json=JSON.stringify(a).replace(/"/g,'&quot;');
-  return `<div class="card" style="padding:11px 14px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px;${sel?'border:1.5px solid var(--gold)':''}" onclick="_ftToggleSelect(${json})">
+  return `<div class="card" style="padding:11px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:9px;${sel?'border:1.5px solid var(--gold)':''}" onclick="_ftToggleSelect(${json})">
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.nom}</div>
-      <div style="font-size:10px;color:var(--text3);margin-top:2px">
-        <span style="color:var(--gold);font-weight:800" onclick="event.stopPropagation();pickFoodAliment(${json})">${_ftG(q)}g ›</span> · ${Math.round((parseFloat(a.kcal)||0)*r)} kcal · P${Math.round((parseFloat(a.prot)||0)*r)} G${Math.round((parseFloat(a.carb)||0)*r)} L${Math.round((parseFloat(a.fat)||0)*r)}
-      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">${Math.round((parseFloat(a.kcal)||0)*r)} kcal · P${Math.round((parseFloat(a.prot)||0)*r)} G${Math.round((parseFloat(a.carb)||0)*r)} L${Math.round((parseFloat(a.fat)||0)*r)}</div>
     </div>
-    <div style="width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;${sel?'background:var(--gold);color:#fff':'border:2px solid var(--border);color:transparent'}">✓</div>
+    <button type="button" onclick="event.stopPropagation();pickFoodAliment(${json})" aria-label="Modifier la quantité" title="Modifier la quantité" style="flex-shrink:0;display:flex;align-items:center;gap:5px;padding:8px 11px;min-height:38px;border-radius:10px;border:1.5px solid ${sel?'var(--gold)':'var(--border)'};background:${sel?'rgba(196,154,42,.12)':'var(--bg2)'};color:var(--text2);font-size:13px;font-weight:800;font-family:var(--font);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:rgba(196,154,42,.25)"><span style="color:var(--gold)">${_ftG(q)} g</span><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" style="opacity:.6"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
+    <div style="width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;${sel?'background:var(--gold);color:#fff':'border:2px solid var(--border);color:transparent'}">✓</div>
   </div>`;
 }
 function _ftToggleSelect(a){
