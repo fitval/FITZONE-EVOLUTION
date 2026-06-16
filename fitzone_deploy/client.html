@@ -2948,11 +2948,12 @@ async function confirmPickFoodAliment(){
 }
 /* ===== AJOUT D'UN ALIMENT HORS BASE (par le client, non vérifié) ===== */
 const UNVERIFIED_CAT='Ajouté par client · non vérifié';
-let _mfPhoto=null,_mfPhotoMime=null,_mfPhotoDataUrl=null;
+let _mfPhoto=null,_mfPhotoMime=null,_mfPhotoDataUrl=null,_mfBasis='100';
 function openManualFood(prefillNom){
-  _mfPhoto=null;_mfPhotoMime=null;_mfPhotoDataUrl=null;
+  _mfPhoto=null;_mfPhotoMime=null;_mfPhotoDataUrl=null;_mfBasis='100';
   renderManualFoodPage(prefillNom||'');
 }
+function _mfSegStyle(active){return 'flex:1;padding:11px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);touch-action:manipulation;border:1.5px solid '+(active?'var(--gold)':'var(--border)')+';background:'+(active?'var(--gold)':'var(--bg2)')+';color:'+(active?'#fff':'var(--text2)')+';';}
 function renderManualFoodPage(nom){
   nutriView='manualfood';toggleFab();_ftClearSaveBar();
   const safe=(nom||'').replace(/"/g,'&quot;');
@@ -2961,7 +2962,7 @@ function renderManualFoodPage(nom){
   let h=`<button class="back-btn" onclick="renderAddFoodPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Nouvel aliment</div>`;
   h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${_ftCurrentMeal} · ${fmtDate(ftDate)}</div>`;
-  h+=`<div style="background:rgba(196,154,42,.1);border:1px solid var(--gold);border-radius:12px;padding:11px 13px;margin-bottom:14px;font-size:11.5px;color:var(--text2);line-height:1.5">⚠️ Aliment absent de la base. Il sera ajouté comme <b>non vérifié</b> et ton coach pourra le valider. Renseigne les valeurs <b>pour 100g</b>.</div>`;
+  h+=`<div style="background:rgba(196,154,42,.1);border:1px solid var(--gold);border-radius:12px;padding:11px 13px;margin-bottom:14px;font-size:11.5px;color:var(--text2);line-height:1.5">⚠️ Aliment absent de la base. Il sera ajouté comme <b>non vérifié</b> et ton coach pourra le valider. Tu peux saisir les valeurs <b>pour 100g</b> ou <b>par portion</b>.</div>`;
   h+=`<div class="card" style="padding:16px;margin-bottom:12px">
     <label style="${lbS}">Photo (optionnel)</label>
     <input type="file" accept="image/*" id="mfPhotoInput" style="display:none" onchange="handleManualFoodPhoto(this)">
@@ -2970,9 +2971,18 @@ function renderManualFoodPage(nom){
   h+=`<div class="card" style="padding:16px;margin-bottom:12px">
     <label style="${lbS}">Nom de l'aliment *</label>
     <input type="text" id="mfNom" value="${safe}" placeholder="Ex : Galette de riz complet" autocomplete="off" autocapitalize="sentences" style="${inS};margin-bottom:14px">
-    <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px">VALEURS POUR 100g</div>
+    <label style="${lbS}">Unité de saisie</label>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button type="button" id="mfBasis100" onclick="_mfSetBasis('100')" style="${_mfSegStyle(_mfBasis!=='portion')}">Pour 100 g</button>
+      <button type="button" id="mfBasisPortion" onclick="_mfSetBasis('portion')" style="${_mfSegStyle(_mfBasis==='portion')}">Par portion</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div><label style="${lbS}">1 portion = (g)</label><input type="text" id="mfPortionG" inputmode="decimal" placeholder="30" style="${inS}" oninput="_mfPortionChanged()"></div>
+      <div><label style="${lbS}">Nom de la portion</label><input type="text" id="mfPortionLabel" placeholder="c. à soupe, tranche…" autocomplete="off" autocapitalize="none" style="${inS}" oninput="_mfPortionChanged()"></div>
+    </div>
+    <div id="mfBasisNote" style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px">VALEURS POUR 100G</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div><label style="${lbS}">Kcal *</label><input type="text" id="mfKcal" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
+      <div><label style="${lbS}" id="mfLblKcal">Kcal *</label><input type="text" id="mfKcal" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
       <div><label style="${lbS}">Protéines (g)</label><input type="text" id="mfProt" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
       <div><label style="${lbS}">Glucides (g)</label><input type="text" id="mfCarb" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
       <div><label style="${lbS}">Lipides (g)</label><input type="text" id="mfFat" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
@@ -2982,12 +2992,34 @@ function renderManualFoodPage(nom){
       <input type="text" id="mfQty" value="100" inputmode="decimal" style="${inS};text-align:center;font-weight:700" oninput="_mfUpdateTotals()">
       <span style="font-size:14px;font-weight:700;color:var(--text3);flex-shrink:0">g</span>
     </div>
+    <div id="mfQtyHint" style="font-size:11px;color:var(--text3);margin-top:6px;display:none"></div>
     <div id="mfTotals" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);text-align:center"></div>
   </div>`;
   h+=`<button class="btn-gold" id="mfSaveBtn" style="width:100%;padding:14px;font-size:15px" onclick="saveManualFood()">Ajouter et enregistrer</button>`;
   document.getElementById('nutriContent').innerHTML=h;
-  _renderMfPhotoPreview();_mfUpdateTotals();
+  _renderMfPhotoPreview();_mfUpdateBasisUI();_mfUpdateTotals();
   setTimeout(()=>{const f=document.getElementById('mfNom');if(f&&!safe)f.focus();},50);
+}
+function _mfPortionLabel(){return ((document.getElementById('mfPortionLabel')?.value)||'portion').trim()||'portion';}
+function _mfUpdateBasisUI(){
+  const isP=_mfBasis==='portion';
+  const b100=document.getElementById('mfBasis100'),bp=document.getElementById('mfBasisPortion');
+  if(b100)b100.style.cssText=_mfSegStyle(!isP);
+  if(bp)bp.style.cssText=_mfSegStyle(isP);
+  const unit=isP?('1 '+_mfPortionLabel()):'100g';
+  const note=document.getElementById('mfBasisNote');if(note)note.textContent='VALEURS POUR '+unit.toUpperCase();
+  const lk=document.getElementById('mfLblKcal');if(lk)lk.textContent='Kcal / '+unit+' *';
+}
+function _mfPortionChanged(){if(_mfBasis==='portion'){_mfUpdateBasisUI();_mfUpdateTotals();}}
+function _mfSetBasis(b){
+  if(b===_mfBasis){_mfUpdateBasisUI();return;}
+  const pg=_ftNum(document.getElementById('mfPortionG')?.value);
+  if(b==='portion'&&pg<=0){toast('Indique d\'abord le poids d\'une portion (g)');document.getElementById('mfPortionG')?.focus();return;}
+  // Convertit les 4 valeurs affichées de l'ancienne base vers la nouvelle
+  const toPer100=_mfBasis==='portion'?(100/pg):1;
+  const fromPer100=b==='portion'?(pg/100):1;
+  ['mfKcal','mfProt','mfCarb','mfFat'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const v=parseFloat(el.value);if(!isNaN(v))el.value=Math.round(v*toPer100*fromPer100*100)/100;});
+  _mfBasis=b;_mfUpdateBasisUI();_mfUpdateTotals();
 }
 function handleManualFoodPhoto(input){
   const file=input.files&&input.files[0];if(!file)return;
@@ -3001,7 +3033,12 @@ function _renderMfPhotoPreview(){
 }
 function _mfUpdateTotals(){
   const el=document.getElementById('mfTotals');if(!el)return;
-  const q=_ftNum(document.getElementById('mfQty')?.value)/100;
+  const pg=_ftNum(document.getElementById('mfPortionG')?.value);
+  const denom=_mfBasis==='portion'?(pg>0?pg:0):100;   // base de référence des macros saisies
+  const qte=_ftNum(document.getElementById('mfQty')?.value);
+  const q=denom>0?(qte/denom):0;
+  const hint=document.getElementById('mfQtyHint');
+  if(hint){if(_mfBasis==='portion'&&pg>0){hint.style.display='block';hint.textContent='1 '+_mfPortionLabel()+' = '+_ftG(pg)+'g · '+(Math.round((qte/pg)*10)/10)+' '+_mfPortionLabel()+'(s)';}else{hint.style.display='none';}}
   const k=_ftNum(document.getElementById('mfKcal')?.value)*q;
   const p=_ftNum(document.getElementById('mfProt')?.value)*q;
   const c=_ftNum(document.getElementById('mfCarb')?.value)*q;
@@ -3017,10 +3054,15 @@ function _mfUpdateTotals(){
 async function saveManualFood(){
   const nom=(document.getElementById('mfNom')?.value||'').trim();
   if(!nom){toast('Donne un nom à l\'aliment');return;}
-  const kcal=_ftNum(document.getElementById('mfKcal')?.value);
-  const prot=_ftNum(document.getElementById('mfProt')?.value);
-  const carb=_ftNum(document.getElementById('mfCarb')?.value);
-  const fat=_ftNum(document.getElementById('mfFat')?.value);
+  const portionG=_ftNum(document.getElementById('mfPortionG')?.value);
+  const portionLabel=(document.getElementById('mfPortionLabel')?.value||'').trim();
+  if(_mfBasis==='portion'&&portionG<=0){toast('Indique le poids d\'une portion (g)');return;}
+  // Conversion des valeurs saisies vers /100g (stockage canonique)
+  const f100=_mfBasis==='portion'?(100/portionG):1;
+  const kcal=Math.round(_ftNum(document.getElementById('mfKcal')?.value)*f100*100)/100;
+  const prot=Math.round(_ftNum(document.getElementById('mfProt')?.value)*f100*100)/100;
+  const carb=Math.round(_ftNum(document.getElementById('mfCarb')?.value)*f100*100)/100;
+  const fat=Math.round(_ftNum(document.getElementById('mfFat')?.value)*f100*100)/100;
   const qte=_ftNum(document.getElementById('mfQty')?.value);
   if(!qte||qte<=0){toast('Quantité invalide');return;}
   const btn=document.getElementById('mfSaveBtn');
@@ -3032,10 +3074,10 @@ async function saveManualFood(){
   }
   // 2) Insertion de l'aliment (non vérifié) dans la base du coach
   const id=Date.now();
-  const full={id,coach_id:clientData.coach_id,nom,cat:UNVERIFIED_CAT,source:'proteines',kcal,prot,carb,fat,verified:false,added_by_client:clientData.id,photo:photoUrl};
+  const full={id,coach_id:clientData.coach_id,nom,cat:UNVERIFIED_CAT,source:'proteines',kcal,prot,carb,fat,verified:false,added_by_client:clientData.id,photo:photoUrl,portion_g:portionG>0?portionG:null,portion_label:portionLabel||null};
   let res=await db.from('aliments').insert(full).select().single();
   if(res.error){
-    // Fallback : migration aliments_client_add.sql pas encore appliquée
+    // Fallback : migration aliments_client_add.sql / aliments_portion.sql pas encore appliquée
     const core={id,coach_id:clientData.coach_id,nom,cat:UNVERIFIED_CAT,source:'proteines',kcal,prot,carb,fat};
     res=await db.from('aliments').insert(core).select().single();
   }

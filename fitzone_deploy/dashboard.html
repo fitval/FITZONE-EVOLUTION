@@ -1343,10 +1343,18 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
   <div class="mb">
     <div class="fg"><label class="fl">Nom *</label><input class="fi" id="alNom" placeholder="Blanc de poulet cuit"></div>
     <div class="fr2"><div class="fg"><label class="fl">Catégorie</label><select class="fs" id="alCat"><option>Viandes</option><option>Poissons</option><option>Œufs &amp; laitiers</option><option>Légumineuses</option><option>Céréales</option><option>Légumes</option><option>Fruits</option><option>Oléagineux</option><option>Autres</option></select></div><div class="fg"><label class="fl">Source macro</label><select class="fs" id="alSource"><option value="proteines">Protéines</option><option value="glucides">Glucides</option><option value="lipides">Lipides</option></select></div></div>
-    <div style="font-size:10px;color:var(--gold);font-weight:600;margin:-4px 0 6px;letter-spacing:.3px">⚖️ Valeurs pour 100g <strong>cru</strong></div>
-    <div class="fr2"><div class="fg"><label class="fl">Kcal / 100g cru</label><input class="fi" type="number" id="alKcal" placeholder="165"></div><div class="fg"><label class="fl">Protéines (g)</label><input class="fi" type="number" id="alProt" placeholder="31"></div></div>
-    <div class="fr2"><div class="fg"><label class="fl">Glucides (g)</label><input class="fi" type="number" id="alCarb" placeholder="0"></div><div class="fg"><label class="fl">Lipides (g)</label><input class="fi" type="number" id="alFat" placeholder="3.6"></div></div>
+    <div class="fg"><label class="fl">Unité de saisie</label>
+      <div style="display:flex;gap:6px">
+        <button type="button" id="alBasis100" class="btn btn-dark btn-xs" style="flex:1" onclick="_alSetBasis('100')">Pour 100 g</button>
+        <button type="button" id="alBasisPortion" class="btn btn-ghost btn-xs" style="flex:1" onclick="_alSetBasis('portion')">Par portion</button>
+      </div>
+    </div>
+    <div class="fr2"><div class="fg"><label class="fl">1 portion = (g)</label><input class="fi" type="number" id="alPortionG" placeholder="30" oninput="_alPortionChanged()"></div><div class="fg"><label class="fl">Nom de la portion</label><input class="fi" id="alPortionLabel" placeholder="cuillère à soupe, tranche…"></div></div>
+    <div id="alBasisNote" style="font-size:10px;color:var(--gold);font-weight:600;margin:-4px 0 6px;letter-spacing:.3px">⚖️ Valeurs pour 100g <strong>cru</strong></div>
+    <div class="fr2"><div class="fg"><label class="fl" id="alLblKcal">Kcal / 100g</label><input class="fi" type="number" id="alKcal" placeholder="165"></div><div class="fg"><label class="fl" id="alLblProt">Protéines (g)</label><input class="fi" type="number" id="alProt" placeholder="31"></div></div>
+    <div class="fr2"><div class="fg"><label class="fl" id="alLblCarb">Glucides (g)</label><input class="fi" type="number" id="alCarb" placeholder="0"></div><div class="fg"><label class="fl" id="alLblFat">Lipides (g)</label><input class="fi" type="number" id="alFat" placeholder="3.6"></div></div>
     <input type="hidden" id="alEditId">
+    <input type="hidden" id="alBasis" value="100">
   </div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeM('mNewAliment')">Annuler</button><button class="btn btn-dark" onclick="saveAlim()">Ajouter</button></div>
 </div></div>
@@ -5215,13 +5223,49 @@ function printGroceryList(){
 /* ===== ALIMENTS ===== */
 function openAlim(id){
   document.getElementById('alimMT').textContent=id?'Modifier aliment':'Ajouter un aliment';
-  if(id){const a=alims.find(x=>x.id===id);if(!a)return;document.getElementById('alNom').value=a.nom;document.getElementById('alCat').value=a.cat;document.getElementById('alSource').value=a.source||'proteines';document.getElementById('alKcal').value=a.kcal;document.getElementById('alProt').value=a.prot;document.getElementById('alCarb').value=a.carb;document.getElementById('alFat').value=a.fat;document.getElementById('alEditId').value=id;}
-  else{['alNom','alKcal','alProt','alCarb','alFat'].forEach(x=>document.getElementById(x).value='');document.getElementById('alSource').value='proteines';document.getElementById('alEditId').value='';}
+  // Toujours rouvrir en base /100g (valeur canonique stockée)
+  document.getElementById('alBasis').value='100';
+  if(id){const a=alims.find(x=>x.id===id);if(!a)return;document.getElementById('alNom').value=a.nom;document.getElementById('alCat').value=a.cat;document.getElementById('alSource').value=a.source||'proteines';document.getElementById('alKcal').value=a.kcal;document.getElementById('alProt').value=a.prot;document.getElementById('alCarb').value=a.carb;document.getElementById('alFat').value=a.fat;document.getElementById('alPortionG').value=a.portion_g||'';document.getElementById('alPortionLabel').value=a.portion_label||'';document.getElementById('alEditId').value=id;}
+  else{['alNom','alKcal','alProt','alCarb','alFat','alPortionG','alPortionLabel'].forEach(x=>document.getElementById(x).value='');document.getElementById('alSource').value='proteines';document.getElementById('alEditId').value='';}
+  _alUpdateBasisUI();
   openM('mNewAliment');
+}
+function _alUpdateBasisUI(){
+  const b=document.getElementById('alBasis').value;
+  const isP=b==='portion';
+  const lbl=(document.getElementById('alPortionLabel').value||'portion').trim()||'portion';
+  document.getElementById('alBasis100').className='btn btn-xs '+(isP?'btn-ghost':'btn-dark');
+  document.getElementById('alBasisPortion').className='btn btn-xs '+(isP?'btn-dark':'btn-ghost');
+  const unit=isP?('1 '+lbl):'100g';
+  document.getElementById('alBasisNote').innerHTML='⚖️ Valeurs pour <strong>'+unit+'</strong>';
+  document.getElementById('alLblKcal').textContent='Kcal / '+unit;
+  document.getElementById('alLblProt').textContent='Protéines (g)';
+  document.getElementById('alLblCarb').textContent='Glucides (g)';
+  document.getElementById('alLblFat').textContent='Lipides (g)';
+}
+function _alPortionChanged(){if(document.getElementById('alBasis').value==='portion')_alUpdateBasisUI();}
+function _alSetBasis(b){
+  const cur=document.getElementById('alBasis').value;
+  if(b===cur){_alUpdateBasisUI();return;}
+  const pg=parseFloat(document.getElementById('alPortionG').value)||0;
+  if(b==='portion'&&pg<=0){toast('Indique d\'abord le poids d\'une portion (g)');document.getElementById('alPortionG').focus();return;}
+  // Convertit les 4 valeurs affichées de l'ancienne base vers la nouvelle
+  const ids=['alKcal','alProt','alCarb','alFat'];
+  const toPer100=cur==='portion'?(100/pg):1;          // ancienne base -> /100g
+  const fromPer100=b==='portion'?(pg/100):1;            // /100g -> nouvelle base
+  ids.forEach(id=>{const el=document.getElementById(id);const v=parseFloat(el.value);if(!isNaN(v)){el.value=Math.round(v*toPer100*fromPer100*100)/100;}});
+  document.getElementById('alBasis').value=b;
+  _alUpdateBasisUI();
 }
 function saveAlim(){
   const nom=document.getElementById('alNom').value.trim();if(!nom){toast('Nom requis');return;}
-  const a={nom,cat:document.getElementById('alCat').value,source:document.getElementById('alSource').value||'proteines',kcal:parseFloat(document.getElementById('alKcal').value)||0,prot:parseFloat(document.getElementById('alProt').value)||0,carb:parseFloat(document.getElementById('alCarb').value)||0,fat:parseFloat(document.getElementById('alFat').value)||0};
+  const basis=document.getElementById('alBasis').value;
+  const pg=parseFloat(document.getElementById('alPortionG').value)||0;
+  if(basis==='portion'&&pg<=0){toast('Indique le poids d\'une portion (g)');return;}
+  // Facteur de conversion vers /100g (stockage canonique)
+  const f=basis==='portion'?(100/pg):1;
+  const num=id=>(parseFloat(document.getElementById(id).value)||0)*f;
+  const a={nom,cat:document.getElementById('alCat').value,source:document.getElementById('alSource').value||'proteines',kcal:Math.round(num('alKcal')*100)/100,prot:Math.round(num('alProt')*100)/100,carb:Math.round(num('alCarb')*100)/100,fat:Math.round(num('alFat')*100)/100,portion_g:pg||null,portion_label:document.getElementById('alPortionLabel').value.trim()||null};
   const alEditRaw=document.getElementById('alEditId').value;
   const editId=alEditRaw?parseInt(alEditRaw):null;
   if(editId){const i=alims.findIndex(x=>x.id===editId);if(i>=0)alims[i]={...a,id:editId};else alims.push({...a,id:Date.now()});}
