@@ -4229,17 +4229,26 @@ async function submitBilan(){
       }).catch(e=>console.warn('[notify]',e));
     }
 
-    // 3) Upload des photos EN ARRIÈRE-PLAN, puis on complète la ligne (non bloquant)
+    // 3) Upload des photos AVANT de quitter l'écran. Le bilan (texte) est déjà
+    //    enregistré à l'étape 1 → attendre l'upload ne risque plus de faire perdre
+    //    le bilan, mais ça évite la perte des photos quand le client ferme / met
+    //    l'app en arrière-plan pendant un upload en tâche de fond (cause récurrente).
     if(toUpload.length&&DRIVE_UPLOAD_URL&&!DRIVE_UPLOAD_URL.startsWith('REMPLACER')&&bilanId){
-      toast(wasEdit?'Bilan mis à jour ✓ — photos en cours…':'Bilan envoyé ✓ — photos en cours…');
-      uploadPhotosToDrive(bilanPhotos).then(uploaded=>{
+      if(submitBtn){submitBtn.innerHTML='Envoi des photos…';}
+      try{
+        const uploaded=await uploadPhotosToDrive(bilanPhotos);
         const clean=(uploaded||[]).filter(Boolean);
-        if(clean.length) return db.from('bilans').update({photos:clean}).eq('id',bilanId).select('id');
-      }).then(r=>{
-        if(!r)return;
-        if(r.error)console.error('[bilan photos] update:',r.error.message);
-        else if(!r.data||!r.data.length)console.error('[bilan photos] update 0 ligne (RLS ?)');
-      }).catch(e=>console.warn('[bilan photos]',e));
+        if(clean.length){
+          const{data:upd,error:uerr}=await db.from('bilans').update({photos:clean}).eq('id',bilanId).select('id');
+          if(uerr)console.error('[bilan photos] update:',uerr.message);
+          else if(!upd||!upd.length)console.error('[bilan photos] update 0 ligne (RLS ?)');
+        }
+        const total=bilanPhotos.length;
+        toast(clean.length<total?('Bilan envoyé ✓ — '+clean.length+'/'+total+' photos ajoutées'):(wasEdit?'Bilan mis à jour ✓':'Bilan envoyé ✓'));
+      }catch(e){
+        console.warn('[bilan photos]',e);
+        toast('Bilan envoyé ✓ — photos non ajoutées, réessaie depuis le bilan');
+      }
     } else {
       toast(wasEdit?'Bilan mis à jour ✓':'Bilan envoyé ✓');
     }
