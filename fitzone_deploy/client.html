@@ -2514,6 +2514,14 @@ function _planDailyAvg(p){
   const n=jours.length;
   return{k:Math.round(k/n),prot:Math.round(pr/n),carb:Math.round(c/n),fat:Math.round(f/n)};
 }
+// Objectif fixé manuellement par le coach (calcul macros, table plans : kcal_target/protein_g/carb_g/fat_g).
+// Renvoie null si aucun objectif n'a été défini → on retombe alors sur la moyenne du plan repas.
+function _coachObj(){
+  if(macroTarget&&(macroTarget.kcal_target||macroTarget.protein_g||macroTarget.carb_g||macroTarget.fat_g)){
+    return{k:macroTarget.kcal_target||0,prot:macroTarget.protein_g||0,carb:macroTarget.carb_g||0,fat:macroTarget.fat_g||0};
+  }
+  return null;
+}
 function renderNutriList(){
   currentPlanIdx=null;
   nutriView='list';toggleFab();_ftClearSaveBar();
@@ -2588,15 +2596,16 @@ function renderFoodTracker(){
   // PAS la moyenne du plan repas. Le client garde son ancien plan mais l'objectif suit le dernier
   // recalcul du coach en live. Fallback sur la moyenne du plan repas si aucun objectif macro n'existe.
   let tgtK=0,tgtP=0,tgtC=0,tgtF=0;
-  if(macroTarget&&(macroTarget.kcal_target||macroTarget.protein_g||macroTarget.carb_g||macroTarget.fat_g)){
-    tgtK=macroTarget.kcal_target||0;tgtP=macroTarget.protein_g||0;tgtC=macroTarget.carb_g||0;tgtF=macroTarget.fat_g||0;
+  const _co=_coachObj();
+  if(_co){
+    tgtK=_co.k;tgtP=_co.prot;tgtC=_co.carb;tgtF=_co.fat;
   }else if(plans.length){const avg=_planDailyAvg(plans[0]);tgtK=avg.k;tgtP=avg.prot;tgtC=avg.carb;tgtF=avg.fat;}
   const pctK=tgtK?Math.min(100,tK/tgtK*100):0;
   const radius=68,circ=2*Math.PI*radius,off=circ-(Math.min(100,pctK)/100)*circ;
   const isFuture=ftDate>today();
   let h=`<button class="back-btn" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Tracking alimentaire</div>`;
-  h+=`<div style="font-size:13px;color:var(--text3);margin-bottom:14px">${tgtK?'Vise <strong>'+Math.round(tgtK)+' kcal/jour</strong>'+(macroTarget?' fixées par ton coach.':' selon ton plan.'):'Logge tout ce que tu manges pour un suivi précis.'}</div>`;
+  h+=`<div style="font-size:13px;color:var(--text3);margin-bottom:14px">${tgtK?'Vise <strong>'+Math.round(tgtK)+' kcal/jour</strong>'+(_co?' fixées par ton coach.':' selon ton plan.'):'Logge tout ce que tu manges pour un suivi précis.'}</div>`;
   // Date strip prev / clickable label / next
   h+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
     <button onclick="ftShiftDate(-1)" style="width:42px;height:42px;background:var(--white);border:1.5px solid var(--border);border-radius:12px;font-size:18px;color:var(--text2);cursor:pointer;font-family:var(--font)">‹</button>
@@ -3561,10 +3570,14 @@ function renderPlanDetail(){
   } else { avgK=p.kcal||0;avgP=p.prot||0;avgC=p.carb||0;avgF=p.fat||0; }
 
   if(!hideMacros){
+    // En-tête = objectif fixé par le coach (calcul macros) si défini, sinon moyenne du plan repas.
+    const _co=_coachObj();
+    const objK=_co?_co.k:avgK,objP=_co?_co.prot:avgP,objC=_co?_co.carb:avgC,objF=_co?_co.fat:avgF;
+    const headLabel=_co?'TON OBJECTIF JOURNALIER':'MOYENNE JOURNALIÈRE';
     // Macro summary card
-    const totalK=Math.round(avgK),pPct=totalK?Math.round(avgP*4/totalK*100):0,cPct=totalK?Math.round(avgC*4/totalK*100):0,fPct=totalK?Math.round(avgF*9/totalK*100):0;
+    const totalK=Math.round(objK),pPct=totalK?Math.round(objP*4/totalK*100):0,cPct=totalK?Math.round(objC*4/totalK*100):0,fPct=totalK?Math.round(objF*9/totalK*100):0;
     h+=`<div class="card" style="margin-bottom:16px;padding:20px">
-      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">MOYENNE JOURNALIÈRE</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">${headLabel}</div>
       <div style="text-align:center;margin-bottom:14px"><span style="font-size:32px;font-weight:900;color:var(--gold)">${totalK}</span><span style="font-size:14px;color:var(--text3);margin-left:4px">kcal</span></div>
       <div style="display:flex;gap:3px;height:8px;border-radius:4px;overflow:hidden;margin-bottom:14px">
         <div style="flex:${pPct};background:#4a90d9;border-radius:4px 0 0 4px"></div>
@@ -3572,9 +3585,9 @@ function renderPlanDetail(){
         <div style="flex:${fPct};background:#e07c5a;border-radius:0 4px 4px 0"></div>
       </div>
       <div style="display:flex;justify-content:space-around">
-        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#4a90d9">${Math.round(avgP)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Protéines</div></div>
-        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(avgC)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Glucides</div></div>
-        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#e07c5a">${Math.round(avgF)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Lipides</div></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#4a90d9">${Math.round(objP)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Protéines</div></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(objC)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Glucides</div></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#e07c5a">${Math.round(objF)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Lipides</div></div>
       </div>
     </div>`;
   }
