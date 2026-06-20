@@ -2840,7 +2840,7 @@ async function resetQuestionnaire(){
 }
 
 /* NUTRITION TAB */
-function renderNutTab(){
+async function renderNutTab(){
   const q=curQ,el=document.getElementById('tc-nutrition');
   if(!q){el.innerHTML=`<div class="empty"><div class="ei">🥗</div><div class="et">Questionnaire requis</div><div class="es">Le questionnaire doit être rempli d'abord</div></div>`;return;}
   const bmrRaw=q.sex==='male'?88.362+13.397*q.weight_kg+4.799*q.height_cm-5.677*q.age:447.593+9.247*q.weight_kg+3.098*q.height_cm-4.330*q.age;
@@ -2848,7 +2848,19 @@ function renderNutTab(){
   const mods={loss:0.82,mass:1.15,maintain:1.0,recomp:0.95,performance:1.1};
   const kd=Math.round(tdee*(mods[q.goal]||1.0));
   const pg=Math.round(q.weight_kg*2.0),fg=Math.round(q.weight_kg*0.9),cg=Math.max(0,Math.round((kd-pg*4-fg*9)/4));
-  nutSt={tdee,bmr,w:q.weight_kg,lastK:kd,lastP:pg,lastC:cg,lastF:fg};
+  // Recharger l'objectif déjà enregistré par le coach (table plans) pour le réafficher au lieu de
+  // toujours repartir des valeurs calculées. C'est cette donnée qui s'affiche aussi côté client.
+  let saved=null;
+  if(curClient){try{const{data}=await db.from('plans').select('kcal_target,protein_g,carb_g,fat_g').eq('client_id',curClient.id).order('created_at',{ascending:false}).limit(1);const r=data&&data[0];if(r&&(r.kcal_target||r.protein_g||r.carb_g||r.fat_g))saved=r;}catch(e){}}
+  const w0=q.weight_kg||70;
+  const iK=saved?Math.round(saved.kcal_target||0):kd;
+  const iP=saved?Math.round(saved.protein_g||0):pg;
+  const iF=saved?Math.round(saved.fat_g||0):fg;
+  const iC=saved?Math.round(saved.carb_g||0):cg;
+  // Position des curseurs (g/kg) reflétant les grammes enregistrés (cosmétique, clampée aux bornes)
+  const slP0=Math.min(3.5,Math.max(1.0,w0?iP/w0:2.0));
+  const slF0=Math.min(2.0,Math.max(0.5,w0?iF/w0:0.9));
+  nutSt={tdee,bmr,w:w0,lastK:iK,lastP:iP,lastC:iC,lastF:iF};
   el.innerHTML=`<div class="g2" style="margin-bottom:13px">
     <div class="card cp"><div class="cl">Harris-Benedict</div>
       <div class="nrow"><span style="font-size:12px;color:var(--text2)">Sexe</span><select class="nsel" id="nSex" onchange="nRecalc()"><option value="male" ${q.sex==='male'?'selected':''}>Homme</option><option value="female" ${q.sex!=='male'?'selected':''}>Femme</option></select></div>
@@ -2864,24 +2876,24 @@ function renderNutTab(){
     </div>
     <div><div class="card-dark cp" style="border-radius:var(--radius);margin-bottom:10px">
       <div class="cl" style="color:rgba(255,255,255,.28)">Calories / jour</div>
-      <input class="kcal-in" type="number" id="nKcal" value="${kd}" oninput="nMacroUpd()">
+      <input class="kcal-in" type="number" id="nKcal" value="${iK}" oninput="nManual()">
       <div style="font-size:11px;color:rgba(255,255,255,.28);margin-top:4px">TDEE: <span id="nTsub">${tdee}</span> kcal</div>
       <div style="display:flex;gap:6px;margin-top:8px">
         <button onclick="nRecalc()" style="font-size:11px;font-weight:600;color:var(--gold);background:rgba(196,154,42,.15);border:1px solid rgba(196,154,42,.28);border-radius:7px;padding:4px 11px;cursor:pointer;font-family:var(--font)">↺ Recalculer</button>
-        <button onclick="saveNutParams()" style="font-size:11px;font-weight:600;color:white;background:var(--gold);border:1px solid var(--gold);border-radius:7px;padding:4px 11px;cursor:pointer;font-family:var(--font)">💾 Enregistrer</button>
+        <button onclick="saveNutParams()" style="font-size:11px;font-weight:600;color:white;background:var(--gold);border:1px solid var(--gold);border-radius:7px;padding:4px 11px;cursor:pointer;font-family:var(--font)">💾 Enregistrer l'objectif</button>
       </div>
     </div>
     <div class="card cp"><div class="cl">Macros</div>
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:#c49a2a;width:60px">Protéines</div><input type="range" id="slP" min="1.0" max="3.5" step="0.1" value="2.0" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:#c49a2a;cursor:pointer"><input class="medit" type="number" id="eP" value="${pg}" oninput="nManual()" style="color:#c49a2a"><span style="font-size:10px;color:var(--text3)">g</span></div>
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:var(--gold);width:60px">Lipides</div><input type="range" id="slF" min="0.5" max="2.0" step="0.1" value="0.9" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:var(--gold);cursor:pointer"><input class="medit" type="number" id="eF" value="${fg}" oninput="nManual()" style="color:var(--gold)"><span style="font-size:10px;color:var(--text3)">g</span></div>
-      <div style="background:var(--bg);border-radius:8px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:11px;font-weight:700;color:#f59e0b">Glucides (auto)</div><div><span style="font-size:18px;font-weight:800;color:#f59e0b" id="eC">${cg}</span><span style="font-size:10px;color:var(--text3)">g</span></div></div>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:#c49a2a;width:60px">Protéines</div><input type="range" id="slP" min="1.0" max="3.5" step="0.1" value="${slP0.toFixed(1)}" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:#c49a2a;cursor:pointer"><input class="medit" type="number" id="eP" value="${iP}" oninput="nManual()" style="color:#c49a2a"><span style="font-size:10px;color:var(--text3)">g</span></div>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:var(--gold);width:60px">Lipides</div><input type="range" id="slF" min="0.5" max="2.0" step="0.1" value="${slF0.toFixed(1)}" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:var(--gold);cursor:pointer"><input class="medit" type="number" id="eF" value="${iF}" oninput="nManual()" style="color:var(--gold)"><span style="font-size:10px;color:var(--text3)">g</span></div>
+      <div style="background:var(--bg);border-radius:8px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:11px;font-weight:700;color:#f59e0b">Glucides (auto)</div><div><span style="font-size:18px;font-weight:800;color:#f59e0b" id="eC">${iC}</span><span style="font-size:10px;color:var(--text3)">g</span></div></div>
     </div></div>
   </div>
   <div class="card" style="padding:12px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:13px;text-align:center">
-    <div><div style="font-size:20px;font-weight:800" id="rK">${kd.toLocaleString('fr')}</div><div style="font-size:9px;color:var(--text3);font-weight:700;letter-spacing:1px">KCAL</div></div>
-    <div><div style="font-size:20px;font-weight:800;color:#c49a2a" id="rP">${pg}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700;letter-spacing:1px">PROT.</div></div>
-    <div><div style="font-size:20px;font-weight:800;color:#f59e0b" id="rC">${cg}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700;letter-spacing:1px">GLUC.</div></div>
-    <div><div style="font-size:20px;font-weight:800;color:var(--gold)" id="rF">${fg}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700;letter-spacing:1px">LIP.</div></div>
+    <div><div style="font-size:20px;font-weight:800" id="rK">${iK.toLocaleString('fr')}</div><div style="font-size:9px;color:var(--text3);font-weight:700;letter-spacing:1px">KCAL</div></div>
+    <div><div style="font-size:20px;font-weight:800;color:#c49a2a" id="rP">${iP}g</div><div style="font-size:9px;color:#93c5fd;font-weight:700;letter-spacing:1px">PROT.</div></div>
+    <div><div style="font-size:20px;font-weight:800;color:#f59e0b" id="rC">${iC}g</div><div style="font-size:9px;color:#fcd34d;font-weight:700;letter-spacing:1px">GLUC.</div></div>
+    <div><div style="font-size:20px;font-weight:800;color:var(--gold)" id="rF">${iF}g</div><div style="font-size:9px;color:var(--gold-border);font-weight:700;letter-spacing:1px">LIP.</div></div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <button class="btn btn-dark btn-sm" id="btnSP" onclick="savePlanClient()">⚡ Enregistrer plan Supabase</button>
@@ -2890,7 +2902,7 @@ function renderNutTab(){
   </div>
   <div id="planDisp" style="margin-top:12px"></div>
   <div id="aiPlanResult" style="margin-top:12px"></div>`;
-  nMacroUpd();loadPlanDisp();
+  nManual();loadPlanDisp();
 }
 async function saveNutParams(){
   if(!curQ)return;
@@ -2906,7 +2918,12 @@ async function saveNutParams(){
   if(error){toast('Erreur: '+error.message);return;}
   // Update local state
   Object.assign(curQ,updates);
-  toast('Paramètres nutrition enregistrés ✓');
+  // Enregistre AUSSI l'objectif calorique/macros courant (c'est ce bouton que le coach utilise
+  // après avoir ajusté les calories/macros). Sinon l'objectif ne serait jamais persisté côté client.
+  const{error:e2}=await _upsertMacroPlan();
+  if(e2){toast('Erreur objectif: '+e2.message);return;}
+  loadPlanDisp();
+  toast('Objectif & paramètres enregistrés ✓');
 }
 function nRecalc(){
   const s=document.getElementById('nSex')?.value,w=parseFloat(document.getElementById('nW')?.value)||70,a=parseInt(document.getElementById('nA')?.value)||30,h=parseFloat(document.getElementById('nH')?.value)||170;
@@ -3172,10 +3189,20 @@ async function deleteClientPlan(id){
   toast('Plan supprimé');
   loadPlanDisp();
 }
+// Enregistre l'objectif calorique/macros courant (nutSt) dans la table plans.
+// Met à jour la dernière ligne existante (sinon insert) → une seule source de vérité,
+// pas d'accumulation de lignes. C'est cette ligne que lit l'app client (objectif plan + tracking).
+async function _upsertMacroPlan(){
+  if(!curClient)return{error:{message:'Aucun client'}};
+  const vals={kcal_target:nutSt.lastK||0,protein_g:nutSt.lastP||0,carb_g:nutSt.lastC||0,fat_g:nutSt.lastF||0};
+  const{data:existing}=await db.from('plans').select('id').eq('client_id',curClient.id).order('created_at',{ascending:false}).limit(1);
+  if(existing&&existing[0])return await db.from('plans').update(vals).eq('id',existing[0].id);
+  return await db.from('plans').insert([{client_id:curClient.id,...vals,status:'draft',plan_data:{}}]);
+}
 async function savePlanClient(){
   const btn=document.getElementById('btnSP');if(!btn||!curClient)return;
   btn.disabled=true;btn.textContent='⏳…';
-  const{error}=await db.from('plans').insert([{client_id:curClient.id,kcal_target:nutSt.lastK||0,protein_g:nutSt.lastP||0,carb_g:nutSt.lastC||0,fat_g:nutSt.lastF||0,status:'draft',plan_data:{}}]);
+  const{error}=await _upsertMacroPlan();
   btn.disabled=false;btn.textContent='⚡ Enregistrer plan Supabase';
   if(error){toast('Erreur: '+error.message);return;}toast('Plan enregistré ✓');loadPlanDisp();
 }
