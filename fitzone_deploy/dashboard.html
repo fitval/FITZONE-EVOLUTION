@@ -2851,16 +2851,17 @@ async function renderNutTab(){
   // Recharger l'objectif déjà enregistré par le coach (table plans) pour le réafficher au lieu de
   // toujours repartir des valeurs calculées. C'est cette donnée qui s'affiche aussi côté client.
   let saved=null;
-  if(curClient){try{const{data}=await db.from('plans').select('kcal_target,protein_g,carb_g,fat_g').eq('client_id',curClient.id).order('created_at',{ascending:false}).limit(1);const r=data&&data[0];if(r&&(r.kcal_target||r.protein_g||r.carb_g||r.fat_g))saved=r;}catch(e){}}
+  if(curClient){try{const{data}=await db.from('plans').select('kcal_target,protein_g,carb_g,fat_g,water_goal_ml').eq('client_id',curClient.id).order('created_at',{ascending:false}).limit(1);const r=data&&data[0];if(r&&(r.kcal_target||r.protein_g||r.carb_g||r.fat_g||r.water_goal_ml))saved=r;}catch(e){}}
   const w0=q.weight_kg||70;
   const iK=saved?Math.round(saved.kcal_target||0):kd;
   const iP=saved?Math.round(saved.protein_g||0):pg;
   const iF=saved?Math.round(saved.fat_g||0):fg;
   const iC=saved?Math.round(saved.carb_g||0):cg;
+  const iW=saved?Math.round(saved.water_goal_ml||0):0;
   // Position des curseurs (g/kg) reflétant les grammes enregistrés (cosmétique, clampée aux bornes)
   const slP0=Math.min(3.5,Math.max(1.0,w0?iP/w0:2.0));
   const slF0=Math.min(2.0,Math.max(0.5,w0?iF/w0:0.9));
-  nutSt={tdee,bmr,w:w0,lastK:iK,lastP:iP,lastC:iC,lastF:iF};
+  nutSt={tdee,bmr,w:w0,lastK:iK,lastP:iP,lastC:iC,lastF:iF,lastW:iW};
   el.innerHTML=`<div class="g2" style="margin-bottom:13px">
     <div class="card cp"><div class="cl">Harris-Benedict</div>
       <div class="nrow"><span style="font-size:12px;color:var(--text2)">Sexe</span><select class="nsel" id="nSex" onchange="nRecalc()"><option value="male" ${q.sex==='male'?'selected':''}>Homme</option><option value="female" ${q.sex!=='male'?'selected':''}>Femme</option></select></div>
@@ -2887,6 +2888,7 @@ async function renderNutTab(){
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:#c49a2a;width:60px">Protéines</div><input type="range" id="slP" min="1.0" max="3.5" step="0.1" value="${slP0.toFixed(1)}" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:#c49a2a;cursor:pointer"><input class="medit" type="number" id="eP" value="${iP}" oninput="nManual()" style="color:#c49a2a"><span style="font-size:10px;color:var(--text3)">g</span></div>
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:var(--gold);width:60px">Lipides</div><input type="range" id="slF" min="0.5" max="2.0" step="0.1" value="${slF0.toFixed(1)}" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:var(--gold);cursor:pointer"><input class="medit" type="number" id="eF" value="${iF}" oninput="nManual()" style="color:var(--gold)"><span style="font-size:10px;color:var(--text3)">g</span></div>
       <div style="background:var(--bg);border-radius:8px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:11px;font-weight:700;color:#f59e0b">Glucides (auto)</div><div><span style="font-size:18px;font-weight:800;color:#f59e0b" id="eC">${iC}</span><span style="font-size:10px;color:var(--text3)">g</span></div></div>
+      <div style="display:flex;align-items:center;gap:7px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:700;color:#3b9ae1;width:60px">💧 Eau</div><input class="medit" type="number" id="eW" value="${iW||''}" placeholder="2000" oninput="nutSt.lastW=parseInt(this.value)||0" style="color:#3b9ae1"><span style="font-size:10px;color:var(--text3)">ml/jour</span></div>
     </div></div>
   </div>
   <div class="card" style="padding:12px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:13px;text-align:center">
@@ -3194,7 +3196,7 @@ async function deleteClientPlan(id){
 // pas d'accumulation de lignes. C'est cette ligne que lit l'app client (objectif plan + tracking).
 async function _upsertMacroPlan(){
   if(!curClient)return{error:{message:'Aucun client'}};
-  const vals={kcal_target:nutSt.lastK||0,protein_g:nutSt.lastP||0,carb_g:nutSt.lastC||0,fat_g:nutSt.lastF||0};
+  const vals={kcal_target:nutSt.lastK||0,protein_g:nutSt.lastP||0,carb_g:nutSt.lastC||0,fat_g:nutSt.lastF||0,water_goal_ml:nutSt.lastW||0};
   const{data:existing}=await db.from('plans').select('id').eq('client_id',curClient.id).order('created_at',{ascending:false}).limit(1);
   if(existing&&existing[0])return await db.from('plans').update(vals).eq('id',existing[0].id);
   return await db.from('plans').insert([{client_id:curClient.id,...vals,status:'draft',plan_data:{}}]);

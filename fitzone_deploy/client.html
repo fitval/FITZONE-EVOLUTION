@@ -977,7 +977,7 @@ async function loadData(){
     db.from('aliments').select('*').eq('coach_id',clientData.coach_id),
     db.from('exercises').select('*').eq('coach_id',clientData.coach_id),
     db.from('questionnaires').select('weight_kg,weight_goal,goal').eq('client_id',clientData.id).order('submitted_at',{ascending:false}).limit(1),
-    db.from('plans').select('kcal_target,protein_g,carb_g,fat_g,created_at').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(1)
+    db.from('plans').select('kcal_target,protein_g,carb_g,fat_g,water_goal_ml,created_at').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(1)
   ]);
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   clientQuest=(p9.data&&p9.data[0])||null;
@@ -2681,8 +2681,9 @@ async function loadFoodLogs(){
 
 /* ===== COMPTEUR D'EAU / HYDRATATION ===== */
 let waterLogs=[];
-const WATER_GOAL_ML=2000;              // objectif visuel par défaut (2 L)
+const WATER_GOAL_DEFAULT=2000;         // objectif par défaut (2 L) si le coach n'en a pas fixé
 const WATER_QUICK=[200,330,500,750];   // ajouts rapides en mL
+function _waterGoal(){return(macroTarget&&parseInt(macroTarget.water_goal_ml)>0)?parseInt(macroTarget.water_goal_ml):WATER_GOAL_DEFAULT;}
 async function loadWaterLogs(){
   if(!clientData)return;
   try{
@@ -2697,12 +2698,14 @@ function _waterRerender(){
 function renderWaterCard(iso){
   const logs=waterLogs.filter(l=>l.date===iso).sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||''));
   const total=logs.reduce((s,l)=>s+(parseFloat(l.ml)||0),0);
-  const pct=Math.min(100,Math.round(total/WATER_GOAL_ML*100));
+  const goal=_waterGoal();
+  const pct=Math.min(100,Math.round(total/goal*100));
   const litres=(total/1000).toFixed(total%1000===0?0:2).replace('.',',');
+  const goalL=(goal/1000).toFixed(goal%1000===0?0:1).replace('.',',');
   let h=`<div class="card" style="padding:16px;margin-top:16px;margin-bottom:100px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:15px;font-weight:800;color:var(--dark)">💧 Hydratation</div>
-      <div style="font-size:13px;color:var(--text3);font-weight:700">${litres} L / ${WATER_GOAL_ML/1000} L</div>
+      <div style="font-size:13px;color:var(--text3);font-weight:700">${litres} L / ${goalL} L</div>
     </div>
     <div style="height:12px;border-radius:8px;background:var(--bg2);overflow:hidden;margin-bottom:14px"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#4aa3e8,#7cc4ff);border-radius:8px;transition:width .3s"></div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
