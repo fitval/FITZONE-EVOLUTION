@@ -3795,9 +3795,10 @@ function _renderProgressionContent(el,reRenderFn){
   }
   if(period==='week'){
     if(!window._progWeek&&weekOptions.length)window._progWeek=weekOptions[0].start;
+    const cnt=window._progWeekCount||1;
     const sel=window._progWeek;
-    if(sel){const s=new Date(sel);const e=new Date(s);e.setDate(e.getDate()+6);filtered=mData.filter(d=>{const dt=new Date(d.date);return dt>=s&&dt<=e;});}
-    else{const w=new Date(now);w.setDate(w.getDate()-7);filtered=mData.filter(d=>new Date(d.date)>=w);}
+    if(sel){const e=new Date(sel);e.setDate(e.getDate()+6);const s=new Date(sel);s.setDate(s.getDate()-7*(cnt-1));filtered=mData.filter(d=>{const dt=new Date(d.date);return dt>=s&&dt<=e;});}
+    else{const w=new Date(now);w.setDate(w.getDate()-7*cnt);filtered=mData.filter(d=>new Date(d.date)>=w);}
   }
   else if(period==='month'){
     if(!window._progMonth&&monthOptions.length)window._progMonth=monthOptions[0].key;
@@ -3809,8 +3810,13 @@ function _renderProgressionContent(el,reRenderFn){
   // Build sub-period selector HTML
   let subPeriodHtml='';
   if(period==='week'&&weekOptions.length){
+    const cnt=window._progWeekCount||1;
+    const wLbl=cnt>1?'Jusqu\'à la semaine du ':'';
     subPeriodHtml='<select class="fs" style="min-width:220px;font-size:12px" onchange="window._progWeek=this.value;'+reRender+'">';
-    weekOptions.forEach(function(w){subPeriodHtml+='<option value="'+w.start+'"'+(w.start===window._progWeek?' selected':'')+'>'+w.label+'</option>';});
+    weekOptions.forEach(function(w){subPeriodHtml+='<option value="'+w.start+'"'+(w.start===window._progWeek?' selected':'')+'>'+wLbl+w.label+'</option>';});
+    subPeriodHtml+='</select>';
+    subPeriodHtml+='<select class="fs" style="min-width:130px;font-size:12px" onchange="window._progWeekCount=+this.value;'+reRender+'">';
+    [1,2,3,4,6,8,12].forEach(function(n){subPeriodHtml+='<option value="'+n+'"'+(n===cnt?' selected':'')+'>'+(n===1?'1 semaine':n+' semaines')+'</option>';});
     subPeriodHtml+='</select>';
   } else if(period==='month'&&monthOptions.length){
     subPeriodHtml='<select class="fs" style="min-width:180px;font-size:12px" onchange="window._progMonth=this.value;'+reRender+'">';

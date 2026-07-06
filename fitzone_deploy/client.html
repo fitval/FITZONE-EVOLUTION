@@ -746,6 +746,7 @@ let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAli
 let macroTarget=null; // Objectif macro fixé par le coach (table plans, calcul macros de base) — sert d'objectif au tracking, indépendamment du plan repas
 let currentDayIdx=0,currentPlanIdx=null;
 let trainSubTab='list';
+let histMode='sessions',histExo=null;
 let coachActivityTypes=[];
 let coachMuscleImages={}; // { "Biceps": "<url drive>", ... }
 function driveImgUrl(url){if(!url||!url.includes('drive.google.com'))return url;let id=null;const m1=url.match(/\/d\/([^/]+)/);if(m1)id=m1[1];const m2=url.match(/[?&]id=([^&]+)/);if(m2)id=m2[1];return id?'https://lh3.googleusercontent.com/d/'+id:url;}
@@ -971,7 +972,7 @@ async function loadData(){
     db.from('plans_full').select('*').eq('client_id',clientData.id),
     db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false}),
     db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90),
-    db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(30),
+    db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(200),
     db.from('modules').select('*').eq('coach_id',clientData.coach_id),
     db.from('aliments').select('*').eq('coach_id',clientData.coach_id),
     db.from('exercises').select('*').eq('coach_id',clientData.coach_id),
@@ -1363,7 +1364,10 @@ function renderTrainLanding(){
   const swb=document.getElementById('startWorkoutBtn');if(swb)swb.remove();
   let h=`<div style="font-size:13px;color:var(--text3);margin:0 0 16px">Choisis ton programme ou enregistre une activité libre.</div>`;
   // Bouton activité libre (équivalent du "Tracking alimentaire" côté nutrition)
-  h+=`<div style="display:flex;gap:8px;margin-bottom:16px"><button class="btn-gold" style="flex:1;padding:14px 16px;font-size:14px" onclick="trainSubTab='activites';renderTrainPreview()">🏃 Activité libre</button></div>`;
+  h+=`<div style="display:flex;gap:8px;margin-bottom:16px">
+    <button class="btn-gold" style="flex:1;padding:14px 12px;font-size:14px" onclick="trainSubTab='activites';renderTrainPreview()">🏃 Activité libre</button>
+    <button class="btn-gold" style="flex:1;padding:14px 12px;font-size:14px;background:var(--white);color:var(--dark);border:1.5px solid var(--gold-border)" onclick="histMode='sessions';trainSubTab='historique';renderTrainPreview()">📈 Historique</button>
+  </div>`;
   // Programme assigné par le coach
   if(!programs.length){
     h+=`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;
@@ -1379,9 +1383,10 @@ function renderTrainLanding(){
 }
 function renderTrainPreview(){
   workoutActive=false;
-  if(trainSubTab!=='programme'&&trainSubTab!=='activites'){renderTrainLanding();return;}
+  if(trainSubTab!=='programme'&&trainSubTab!=='activites'&&trainSubTab!=='historique'){renderTrainLanding();return;}
   const backBtn=`<button class="back-btn" onclick="trainSubTab='list';renderTrainPreview()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   if(trainSubTab==='activites'){document.getElementById('trainTitle').textContent='Activité libre';document.getElementById('trainContent').innerHTML=backBtn+renderActivitiesView();return;}
+  if(trainSubTab==='historique'){document.getElementById('trainTitle').textContent='Historique';document.getElementById('trainContent').innerHTML=backBtn+renderHistoryView();return;}
   if(!programs.length){document.getElementById('trainTitle').textContent='Entraînement';document.getElementById('trainContent').innerHTML=backBtn+`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;return;}
   const p=programs[0],jours=p.jours||[];
   document.getElementById('trainTitle').textContent=p.nom||'Entraînement';
@@ -1465,6 +1470,110 @@ function renderActivitiesView(){
     </div>`;
   });
   window._actJustAdded=null;
+  return h;
+}
+
+/* ===== HISTORIQUE DES SÉANCES (musculation) ===== */
+function _histSetVals(ex,s){
+  // Renvoie {kg,reps} de la meilleure charge de la série (gère unilatéral)
+  if(ex.unilateral){
+    const kg=Math.max(parseFloat(s.kgL||0)||0,parseFloat(s.kgR||0)||0);
+    const reps=Math.max(parseFloat(s.repsL||0)||0,parseFloat(s.repsR||0)||0);
+    return{kg,reps};
+  }
+  return{kg:parseFloat(s.kg||s.load||0)||0,reps:parseFloat(s.reps||0)||0};
+}
+function renderHistoryView(){
+  const logs=trainLogs.filter(l=>l.type==='strength'&&Array.isArray(l.exercises)&&l.exercises.length).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  let h=`<div class="day-tabs" style="margin-bottom:14px">
+    <button class="day-tab${histMode==='sessions'?' active':''}" onclick="histMode='sessions';renderTrainPreview()">📋 Mes séances</button>
+    <button class="day-tab${histMode==='exos'?' active':''}" onclick="histMode='exos';renderTrainPreview()">📈 Par exercice</button>
+  </div>`;
+  if(!logs.length){h+=`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucune séance de musculation enregistrée pour le moment.<br>Lance une séance depuis ton programme !</div></div>`;return h;}
+  return h+(histMode==='exos'?renderHistoryExos(logs):renderHistorySessions(logs));
+}
+function renderHistorySessions(logs){
+  let h=`<div style="font-size:13px;font-weight:700;color:var(--text3);margin-bottom:10px">${logs.length} séance${logs.length>1?'s':''}</div>`;
+  logs.forEach(l=>{
+    const exs=l.exercises||[];
+    let nSets=0,vol=0;
+    exs.forEach(ex=>(ex.sets||[]).forEach(s=>{const v=_histSetVals(ex,s);if(v.kg>0||v.reps>0)nSets++;vol+=v.kg*v.reps;}));
+    const chips=[`${exs.length} exo${exs.length>1?'s':''}`,`${nSets} série${nSets>1?'s':''}`];
+    if(vol>0)chips.push(`${Math.round(vol)} kg soulevés`);
+    if(l.cycle)chips.push(`RPE ${l.cycle}`);
+    h+=`<div class="act-card" style="background:var(--white);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer" onclick="openWorkoutDetail('${l.id}')">
+      <div style="width:44px;height:44px;border-radius:12px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">💪</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700">${l.session_name||'Séance'}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">${fmtDate(l.date)}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">${chips.join(' · ')}</div>
+      </div>
+      <div style="color:var(--text3);font-size:18px">›</div>
+    </div>`;
+  });
+  return h;
+}
+function openWorkoutDetail(logId){
+  const l=trainLogs.find(x=>String(x.id)===String(logId));if(!l)return;
+  const dateLabel=new Date(l.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  let h=`<div style="padding:20px;max-width:520px;margin:auto">
+    <div style="font-size:18px;font-weight:800">${l.session_name||'Séance'}</div>
+    <div style="font-size:12px;color:var(--text3);text-transform:capitalize;margin-bottom:14px">${dateLabel}${l.cycle?' · RPE '+l.cycle:''}</div>`;
+  (l.exercises||[]).forEach(ex=>{
+    h+=`<div style="background:var(--bg2);border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px">${ex.nom||'Exercice'}${ex.unilateral?' <span style="font-size:10px;color:var(--text3);font-weight:600">(unilatéral)</span>':''}</div>`;
+    (ex.sets||[]).forEach((s,i)=>{
+      let line;
+      if(ex.unilateral){line=`G ${s.kgL||'—'}kg × ${s.repsL||'—'} &nbsp;·&nbsp; D ${s.kgR||'—'}kg × ${s.repsR||'—'}`;}
+      else{const rir=(s.rir!=='' && s.rir!=null && s.rir!==undefined)?' · RIR '+s.rir:'';line=`${s.kg||s.load||'—'} kg × ${s.reps||'—'} reps${rir}`;}
+      h+=`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0;border-top:${i?'1px solid var(--border)':'none'}"><span style="width:22px;height:22px;border-radius:6px;background:var(--gold-pale);color:#8a6010;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0">${i+1}</span><span>${line}</span></div>`;
+    });
+    if(ex.note)h+=`<div style="font-size:11px;color:var(--text3);margin-top:6px;font-style:italic">💬 ${ex.note}</div>`;
+    h+=`</div>`;
+  });
+  if(l.comment)h+=`<div style="font-size:12px;color:var(--text2);margin-top:6px;padding:10px 12px;background:var(--gold-pale);border-radius:10px">💬 ${l.comment}</div>`;
+  h+=`<button class="btn-gold" style="margin-top:16px" onclick="closeModal()">Fermer</button></div>`;
+  openModal(h);
+}
+function renderHistoryExos(logs){
+  const map={};
+  logs.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(l=>{
+    (l.exercises||[]).forEach(ex=>{
+      const nom=(ex.nom||'').trim();if(!nom)return;
+      let maxKg=0,vol=0,bestReps=0;
+      (ex.sets||[]).forEach(s=>{const v=_histSetVals(ex,s);if(v.kg>maxKg){maxKg=v.kg;bestReps=v.reps;}vol+=v.kg*v.reps;});
+      if(maxKg<=0&&vol<=0)return;
+      (map[nom]=map[nom]||[]).push({date:l.date,maxKg,vol,bestReps});
+    });
+  });
+  const names=Object.keys(map).sort((a,b)=>a.localeCompare(b,'fr'));
+  if(!names.length)return`<div class="empty"><div class="empty-icon">📈</div><div class="empty-text">Pas encore de charges enregistrées.<br>Note tes poids pendant tes séances pour suivre ta progression.</div></div>`;
+  if(!histExo||!map[histExo])histExo=names[0];
+  const series=map[histExo];
+  let h=`<select style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--white);font-size:14px;font-weight:700;font-family:var(--font);color:var(--dark);margin-bottom:16px" onchange="histExo=this.value;renderTrainPreview()">`;
+  names.forEach(n=>{h+=`<option value="${n.replace(/"/g,'&quot;')}"${n===histExo?' selected':''}>${n} (${map[n].length})</option>`;});
+  h+=`</select>`;
+  const maxPR=Math.max(...series.map(s=>s.maxKg));
+  const first=series[0].maxKg,last=series[series.length-1].maxKg;
+  const delta=last-first;
+  const pct=first>0?Math.round(delta/first*100):0;
+  const deltaColor=delta>0?'#22c55e':delta<0?'#ef4444':'var(--text3)';
+  const deltaTxt=(delta>0?'+':'')+(Math.round(delta*10)/10)+' kg'+(first>0?` (${pct>0?'+':''}${pct}%)`:'');
+  h+=`<div style="display:flex;gap:8px;margin-bottom:16px">
+    <div style="flex:1;background:var(--white);border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)"><div style="font-size:11px;color:var(--text3);font-weight:700">🏆 Record</div><div style="font-size:22px;font-weight:800;color:var(--gold);margin-top:2px">${maxPR} kg</div></div>
+    <div style="flex:1;background:var(--white);border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)"><div style="font-size:11px;color:var(--text3);font-weight:700">Évolution</div><div style="font-size:18px;font-weight:800;color:${deltaColor};margin-top:4px">${deltaTxt}</div></div>
+    <div style="flex:1;background:var(--white);border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)"><div style="font-size:11px;color:var(--text3);font-weight:700">Séances</div><div style="font-size:22px;font-weight:800;color:var(--dark);margin-top:2px">${series.length}</div></div>
+  </div>`;
+  if(series.length>1){
+    h+=`<div class="card" style="padding:14px;margin-bottom:16px"><div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px">Charge max par séance (kg)</div>${renderChart(series.map(s=>({date:s.date,v:s.maxKg})))}</div>`;
+  }
+  h+=`<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px">Détail</div>`;
+  series.slice().reverse().forEach(s=>{
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--white);border-radius:10px;padding:10px 14px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,.04)">
+      <span style="font-size:13px;color:var(--text2)">${fmtDate(s.date)}</span>
+      <span style="font-size:14px;font-weight:800">${s.maxKg} kg${s.bestReps?` <span style="font-size:12px;color:var(--text3);font-weight:600">× ${s.bestReps}</span>`:''}</span>
+    </div>`;
+  });
   return h;
 }
 async function delActFromList(logId){
