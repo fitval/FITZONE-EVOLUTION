@@ -3844,6 +3844,38 @@ function _renderProgressionContent(el,reRenderFn){
       ${filtered.length<=10?filtered.map((d,i)=>{const x=pad+i*(W-2*pad)/(vals.length-1);return`<text x="${x}" y="${H-5}" text-anchor="middle" font-size="8" fill="var(--text3)">${new Date(d.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</text>`;}).join(''):''}
     </svg>`;
   }
+  // Comparaison des moyennes hebdo (mode Semaine) : semaine de référence vs semaine précédente
+  let statsHtml;
+  if(period==='week'){
+    const ref=window._progWeek||(weekOptions.length?weekOptions[0].start:null);
+    const avgOf=arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:null;
+    const r1=v=>v==null?'—':Math.round(v*10)/10;
+    let curData=[],curVals=[],prevVals=[];
+    if(ref){
+      const cs=new Date(ref);const ce=new Date(cs);ce.setDate(ce.getDate()+6);
+      const ps=new Date(cs);ps.setDate(ps.getDate()-7);const pe=new Date(cs);pe.setDate(pe.getDate()-1);
+      curData=mData.filter(d=>{const dt=new Date(d.date);return dt>=cs&&dt<=ce;});
+      curVals=curData.map(d=>parseFloat(d[selMetric])||0);
+      prevVals=mData.filter(d=>{const dt=new Date(d.date);return dt>=ps&&dt<=pe;}).map(d=>parseFloat(d[selMetric])||0);
+    }
+    const wStart=curVals[0],wEnd=curVals[curVals.length-1];
+    const curAvg=avgOf(curVals),prevAvg=avgOf(prevVals);
+    let avgBadge='';
+    if(curAvg!=null&&prevAvg!=null){
+      const d=curAvg-prevAvg,p=prevAvg?d/prevAvg*100:0,up=d>=0;
+      avgBadge=`<span style="font-size:13px;padding:3px 8px;border-radius:20px;background:${up?'#dcfce7':'#fef2f2'};color:${up?'#22c55e':'#ef4444'};margin-left:6px;white-space:nowrap">${up?'↑':'↓'} ${Math.abs(Math.round(d*10)/10)} (${Math.abs(Math.round(p*10)/10)}%)</span>`;
+    }
+    statsHtml=`
+          <div><div style="font-size:14px;font-weight:700">Début de semaine</div><div style="font-size:10px;color:var(--text3)">${curData[0]?new Date(curData[0].date).toLocaleDateString('fr-FR',{weekday:'long'}):'—'}</div><div style="font-size:26px;font-weight:800;color:var(--dark)">${r1(wStart)}</div></div>
+          <div><div style="font-size:14px;font-weight:700">Fin de semaine</div><div style="font-size:10px;color:var(--text3)">${curData.length?new Date(curData[curData.length-1].date).toLocaleDateString('fr-FR',{weekday:'long'}):'—'}</div><div style="font-size:26px;font-weight:800;color:var(--dark)">${r1(wEnd)}</div></div>
+          <div style="border-top:1px solid var(--border);padding-top:12px"><div style="font-size:13px;font-weight:700;color:var(--text3)">Moy. semaine préc.</div><div style="font-size:10px;color:var(--text3)">${prevVals.length?prevVals.length+' valeur'+(prevVals.length>1?'s':''):'aucune donnée'}</div><div style="font-size:24px;font-weight:800;color:var(--text2)">${r1(prevAvg)}</div></div>
+          <div><div style="font-size:13px;font-weight:700">Moy. semaine actuelle</div><div style="font-size:10px;color:var(--text3)">${curVals.length} valeur${curVals.length>1?'s':''}</div><div style="font-size:26px;font-weight:800;color:var(--dark)">${r1(curAvg)}${avgBadge}</div></div>`;
+  } else {
+    statsHtml=`
+          <div><div style="font-size:14px;font-weight:700">Début</div><div style="font-size:10px;color:var(--text3)">${filtered[0]?new Date(filtered[0].date).toLocaleDateString('fr-FR',{weekday:'long'}):'—'}</div><div style="font-size:28px;font-weight:800;color:var(--dark)">${start}</div></div>
+          <div><div style="font-size:14px;font-weight:700">Fin</div><div style="font-size:10px;color:var(--text3)">${filtered[filtered.length-1]?new Date(filtered[filtered.length-1].date).toLocaleDateString('fr-FR',{weekday:'long'}):'—'}</div><div style="font-size:28px;font-weight:800;color:var(--dark)">${end} <span style="font-size:13px;padding:3px 8px;border-radius:20px;background:${pctChange>=0?'#dcfce7':'#fef2f2'};color:${pctChange>=0?'#22c55e':'#ef4444'}">${pctChange>=0?'↑':'↓'} ${Math.abs(pctChange)}%</span></div></div>
+          <div><div style="font-size:14px;font-weight:700">Moyenne</div><div style="font-size:10px;color:var(--text3)">${filtered.length} valeurs</div><div style="font-size:28px;font-weight:800;color:var(--dark)">${avg}</div></div>`;
+  }
   el.innerHTML=`
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
       <select class="fs" style="min-width:200px" onchange="window._progMetric=this.value;${reRender}">${optHtml}</select>
@@ -3855,10 +3887,7 @@ function _renderProgressionContent(el,reRenderFn){
     <div class="card" style="padding:0;overflow:hidden">
       <div style="display:grid;grid-template-columns:1fr 280px">
         <div style="padding:16px">${chartSvg}</div>
-        <div style="padding:16px;border-left:1px solid var(--border);display:flex;flex-direction:column;gap:14px">
-          <div><div style="font-size:14px;font-weight:700">Début</div><div style="font-size:10px;color:var(--text3)">${filtered[0]?new Date(filtered[0].date).toLocaleDateString('fr-FR',{weekday:'long'}):'—'}</div><div style="font-size:28px;font-weight:800;color:var(--dark)">${start}</div></div>
-          <div><div style="font-size:14px;font-weight:700">Fin</div><div style="font-size:10px;color:var(--text3)">${filtered[filtered.length-1]?new Date(filtered[filtered.length-1].date).toLocaleDateString('fr-FR',{weekday:'long'}):'—'}</div><div style="font-size:28px;font-weight:800;color:var(--dark)">${end} <span style="font-size:13px;padding:3px 8px;border-radius:20px;background:${pctChange>=0?'#dcfce7':'#fef2f2'};color:${pctChange>=0?'#22c55e':'#ef4444'}">${pctChange>=0?'↑':'↓'} ${Math.abs(pctChange)}%</span></div></div>
-          <div><div style="font-size:14px;font-weight:700">Moyenne</div><div style="font-size:10px;color:var(--text3)">${filtered.length} valeurs</div><div style="font-size:28px;font-weight:800;color:var(--dark)">${avg}</div></div>
+        <div style="padding:16px;border-left:1px solid var(--border);display:flex;flex-direction:column;gap:14px">${statsHtml}
         </div>
       </div>
     </div>
