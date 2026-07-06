@@ -2888,7 +2888,7 @@ async function renderNutTab(){
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:#c49a2a;width:60px">Protéines</div><input type="range" id="slP" min="1.0" max="3.5" step="0.1" value="${slP0.toFixed(1)}" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:#c49a2a;cursor:pointer"><input class="medit" type="number" id="eP" value="${iP}" oninput="nManual()" style="color:#c49a2a"><span style="font-size:10px;color:var(--text3)">g</span></div>
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><div style="font-size:11px;font-weight:700;color:var(--gold);width:60px">Lipides</div><input type="range" id="slF" min="0.5" max="2.0" step="0.1" value="${slF0.toFixed(1)}" oninput="nMacroUpd()" style="flex:1;height:4px;accent-color:var(--gold);cursor:pointer"><input class="medit" type="number" id="eF" value="${iF}" oninput="nManual()" style="color:var(--gold)"><span style="font-size:10px;color:var(--text3)">g</span></div>
       <div style="background:var(--bg);border-radius:8px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:11px;font-weight:700;color:#f59e0b">Glucides (auto)</div><div><span style="font-size:18px;font-weight:800;color:#f59e0b" id="eC">${iC}</span><span style="font-size:10px;color:var(--text3)">g</span></div></div>
-      <div style="display:flex;align-items:center;gap:7px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:700;color:#3b9ae1;width:60px">💧 Eau</div><input class="medit" type="number" id="eW" value="${iW||''}" placeholder="2000" oninput="nutSt.lastW=parseInt(this.value)||0" style="color:#3b9ae1"><span style="font-size:10px;color:var(--text3)">ml/jour</span></div>
+      <div style="display:flex;align-items:center;gap:7px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:700;color:#3b9ae1;width:60px">💧 Eau</div><input class="medit" type="number" id="eW" value="${iW||''}" placeholder="2000" oninput="nutSt.lastW=parseInt(this.value)||0" style="color:#3b9ae1;width:90px;text-align:left;padding-left:8px"><span style="font-size:10px;color:var(--text3);margin-right:auto">ml/jour</span><button onclick="saveWaterGoal()" style="font-size:11px;font-weight:600;color:#fff;background:#3b9ae1;border:none;border-radius:7px;padding:5px 11px;cursor:pointer;font-family:var(--font);white-space:nowrap">💾 Enregistrer</button></div>
     </div></div>
   </div>
   <div class="card" style="padding:12px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:13px;text-align:center">
@@ -2926,6 +2926,17 @@ async function saveNutParams(){
   if(e2){toast('Erreur objectif: '+e2.message);return;}
   loadPlanDisp();
   toast('Objectif & paramètres enregistrés ✓');
+}
+async function saveWaterGoal(){
+  if(!curClient){toast('Aucun client');return;}
+  const ml=parseInt(document.getElementById('eW')?.value)||0;
+  nutSt.lastW=ml;
+  const{data:existing}=await db.from('plans').select('id').eq('client_id',curClient.id).order('created_at',{ascending:false}).limit(1);
+  let res;
+  if(existing&&existing[0])res=await db.from('plans').update({water_goal_ml:ml}).eq('id',existing[0].id);
+  else res=await db.from('plans').insert([{client_id:curClient.id,water_goal_ml:ml,status:'draft',plan_data:{}}]);
+  if(res.error){toast('Erreur: '+res.error.message);return;}
+  toast(ml>0?('Objectif eau enregistré : '+ml+' ml ✓'):'Objectif eau réinitialisé ✓');
 }
 function nRecalc(){
   const s=document.getElementById('nSex')?.value,w=parseFloat(document.getElementById('nW')?.value)||70,a=parseInt(document.getElementById('nA')?.value)||30,h=parseFloat(document.getElementById('nH')?.value)||170;
