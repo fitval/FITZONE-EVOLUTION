@@ -982,6 +982,7 @@ async function loadData(){
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   clientQuest=(p9.data&&p9.data[0])||null;
   macroTarget=(p10.data&&p10.data[0])||null;
+  loadWaterLogs(); // compteur d'eau (non bloquant)
   // Load plan swaps (équivalences aliment choisies par le client)
   try{
     const{data:swaps}=await db.from('plan_swaps').select('*').eq('client_id',clientData.id);
@@ -2662,7 +2663,7 @@ function _ftIsCollapsed(m){return !!_ftCollapsed[m];}
 function toggleFtMeal(m){_ftCollapsed[m]=!_ftCollapsed[m];try{localStorage.setItem('fz_ftCollapsed',JSON.stringify(_ftCollapsed));}catch(e){}renderFoodTracker();}
 async function openFoodTracker(){
   ftDate=ftDate||today();
-  await loadFoodLogs();
+  await Promise.all([loadFoodLogs(),loadWaterLogs()]);
   renderFoodTracker();
 }
 async function loadFoodLogs(){
@@ -2676,6 +2677,82 @@ async function loadFoodLogs(){
     const{data}=await db.from('food_feedback').select('date,note').eq('client_id',clientData.id);
     foodFeedback={};(data||[]).forEach(f=>{if(f.note)foodFeedback[f.date]=f.note;});
   }catch(e){foodFeedback={};}
+}
+
+/* ===== COMPTEUR D'EAU / HYDRATATION ===== */
+let waterLogs=[];
+const WATER_GOAL_ML=2000;              // objectif visuel par défaut (2 L)
+const WATER_QUICK=[200,330,500,750];   // ajouts rapides en mL
+async function loadWaterLogs(){
+  if(!clientData)return;
+  try{
+    const{data}=await db.from('water_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).order('created_at',{ascending:true}).limit(400);
+    waterLogs=data||[];
+  }catch(e){console.error('[WATER LOGS]',e);waterLogs=[];}
+}
+function _waterRerender(){
+  if(nutriView==='tracker')renderFoodTracker();
+  else if(nutriView==='plan')renderPlanDetail();
+}
+function renderWaterCard(iso){
+  const logs=waterLogs.filter(l=>l.date===iso).sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||''));
+  const total=logs.reduce((s,l)=>s+(parseFloat(l.ml)||0),0);
+  const pct=Math.min(100,Math.round(total/WATER_GOAL_ML*100));
+  const litres=(total/1000).toFixed(total%1000===0?0:2).replace('.',',');
+  let h=`<div class="card" style="padding:16px;margin-top:16px;margin-bottom:100px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:15px;font-weight:800;color:var(--dark)">💧 Hydratation</div>
+      <div style="font-size:13px;color:var(--text3);font-weight:700">${litres} L / ${WATER_GOAL_ML/1000} L</div>
+    </div>
+    <div style="height:12px;border-radius:8px;background:var(--bg2);overflow:hidden;margin-bottom:14px"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#4aa3e8,#7cc4ff);border-radius:8px;transition:width .3s"></div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${WATER_QUICK.map(ml=>`<button onclick="addWater(${ml},'${iso}')" style="flex:1;min-width:62px;padding:12px 4px;border:1.5px solid var(--gold-border);border-radius:12px;background:var(--white);font-size:15px;font-weight:800;color:#2b7bc4;cursor:pointer;font-family:var(--font)">+${ml}<span style="font-size:10px;font-weight:600;color:var(--text3)"> ml</span></button>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input id="waterCustom" type="number" inputmode="numeric" min="1" placeholder="Autre quantité (ml)" style="flex:1;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--dark)">
+      <button onclick="addWaterCustom('${iso}')" style="padding:12px 18px;border:none;border-radius:12px;background:var(--gold);color:white;font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">Ajouter</button>
+    </div>`;
+  if(logs.length){
+    h+=`<div style="display:flex;flex-direction:column;gap:6px;margin-top:14px">`;
+    logs.forEach(l=>{
+      const t=l.created_at?new Date(l.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
+      h+=`<div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 12px;background:var(--bg2);border-radius:10px">
+        <span style="font-size:15px">💧</span>
+        <span style="font-weight:800;color:var(--dark)">${l.ml} ml</span>
+        ${t?`<span style="color:var(--text3);font-size:12px">${t}</span>`:''}
+        <button onclick="delWater('${l.id}')" style="margin-left:auto;background:none;border:none;color:var(--text3);font-size:15px;cursor:pointer;padding:2px 6px">🗑️</button>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+async function addWater(ml,iso){
+  ml=Math.round(parseFloat(ml)||0);
+  if(ml<=0)return;
+  const row={coach_id:clientData.coach_id,client_id:clientData.id,date:iso,ml};
+  try{
+    const{data,error}=await db.from('water_logs').insert(row).select().single();
+    if(error)throw error;
+    if(data)waterLogs.unshift(data);
+  }catch(e){console.error('[WATER ADD]',e);toast&&toast("Erreur lors de l'ajout");return;}
+  _waterRerender();
+}
+function addWaterCustom(iso){
+  const el=document.getElementById('waterCustom');
+  const ml=el?Math.round(parseFloat(String(el.value).replace(',','.'))||0):0;
+  if(ml<=0){toast&&toast('Saisis une quantité en ml');return;}
+  addWater(ml,iso);
+}
+async function delWater(id){
+  const prev=waterLogs;
+  waterLogs=waterLogs.filter(l=>String(l.id)!==String(id));
+  _waterRerender();
+  try{
+    const{error}=await db.from('water_logs').delete().eq('id',id);
+    if(error)throw error;
+  }catch(e){console.error('[WATER DEL]',e);waterLogs=prev;_waterRerender();toast&&toast('Erreur suppression');}
 }
 const FT_MEAL_ICONS={'Petit-déjeuner':'🍳','Collation AM':'🥨','Déjeuner':'🍽️','Goûter':'🍪','Dîner':'🌙','Collation nuit':'🌃'};
 function _ftIsoOf(d){return localDateStr(d);}
@@ -2814,6 +2891,7 @@ function renderFoodTracker(){
     }
     h+=`</div>`;
   });
+  h+=renderWaterCard(ftDate);
   document.getElementById('nutriContent').innerHTML=h;
 }
 function _ftMacroBar(label,cur,tgt,color){
@@ -3630,6 +3708,7 @@ function openPlan(idx){
   const jours=(plans[idx]&&plans[idx].jours)||[];
   currentDayIdx=(!isNaN(saved)&&saved>=0&&saved<jours.length)?saved:0;
   renderPlanDetail();
+  loadWaterLogs().then(()=>{if(nutriView==='plan')renderPlanDetail();});
 }
 function mealItems(meal){return meal.items||meal.alims||[];}
 /* Portions cuisinées par repas — multiplicateur appliqué aux quantités et macros */
@@ -3700,7 +3779,7 @@ function renderPlanDetail(){
       </div>
     </div>`;
   }
-  if(p.type==='macros'||!jours.length){if(p.notes)h+=`<div class="card"><div style="font-size:14px;color:var(--text2);line-height:1.5">${p.notes}</div></div>`;document.getElementById('nutriContent').innerHTML=h;return;}
+  if(p.type==='macros'||!jours.length){if(p.notes)h+=`<div class="card"><div style="font-size:14px;color:var(--text2);line-height:1.5">${p.notes}</div></div>`;h+=renderWaterCard(today());document.getElementById('nutriContent').innerHTML=h;return;}
   h+=`<div class="day-tabs">${jours.map((j,i)=>`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="setPlanDay(${i})">${j.nom||'J'+(i+1)}</button>`).join('')}</div>`;
   const day=jours[currentDayIdx];
   const dayM=calcDayMacros(day,planRefId,currentDayIdx);
@@ -3756,6 +3835,7 @@ function renderPlanDetail(){
     });
     h+=`</div></div>`;
   });
+  h+=renderWaterCard(today());
   document.getElementById('nutriContent').innerHTML=h;
 }
 
