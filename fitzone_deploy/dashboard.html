@@ -385,6 +385,10 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
 .meal-macros{font-size:11px;color:var(--text3);margin-left:auto}
 .meal-body{padding:10px 13px}
 .food-row{display:grid;grid-template-columns:1fr 24px 58px 60px 48px 48px 48px 18px;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.food-row.pf-food-over{box-shadow:inset 0 2px 0 var(--gold);background:var(--gold-pale)}
+.meal-block.pf-meal-over{outline:2px dashed var(--gold);outline-offset:-2px}
+.meal-drag{cursor:grab}
+.meal-drag:active{cursor:grabbing}
 .eq-btn{background:none;border:1px solid var(--border2);border-radius:5px;cursor:pointer;font-size:11px;padding:2px 4px;color:var(--text3);transition:all .12s;position:relative}
 .eq-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-pale)}
 .eq-drop{position:absolute;top:100%;left:-120px;width:280px;background:var(--white);border:1.5px solid var(--gold-border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:200;max-height:260px;overflow-y:auto;padding:6px;display:none}
@@ -4831,16 +4835,16 @@ function pfRenderTotals(){const t=pfCalcDay(pfDayIdx);document.getElementById('p
 function pfRenderMeals(){
   const w=document.getElementById('pfMeals');if(!w)return;
   const repas=pfDays[pfDayIdx]?.repas||[];
-  w.innerHTML=repas.map((r,ri)=>{const mt=pfCalcMeal(r);return`<div class="meal-block${pfMealIdx===ri?' sel':''}" data-ri="${ri}" draggable="true" ondragstart="pfMealDragStart(event,${ri})" ondragover="event.preventDefault()" ondrop="pfMealDrop(event,${ri})">
+  w.innerHTML=repas.map((r,ri)=>{const mt=pfCalcMeal(r);return`<div class="meal-block${pfMealIdx===ri?' sel':''}" data-ri="${ri}" ondragover="pfMealOver(event,this)" ondragleave="pfMealLeave(this)" ondrop="pfMealDrop(event,${ri})">
     <div class="meal-hdr" onclick="pfSelMeal(${ri})">
-      <div style="width:22px;height:22px;border-radius:6px;background:${pfMealIdx===ri?'var(--gold)':'var(--dark)'};color:${pfMealIdx===ri?'var(--dark)':'white'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0">${ri+1}</div>
+      <div class="meal-drag" draggable="true" ondragstart="pfMealDragStart(event,${ri})" ondragend="pfDragEnd()" title="Glisser pour déplacer ce repas" style="width:22px;height:22px;border-radius:6px;background:${pfMealIdx===ri?'var(--gold)':'var(--dark)'};color:${pfMealIdx===ri?'var(--dark)':'white'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0">${ri+1}</div>
       <div class="meal-nm" ondblclick="pfRenameMeal(${ri},this)" title="Clique sur ✎ ou double-clic pour renommer">${r.nom}</div>
       <button onclick="event.stopPropagation();pfRenameMeal(${ri},this.parentNode.querySelector('.meal-nm'))" title="Renommer ce repas" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 4px">✎</button>
       <div class="meal-macros" id="pf_mt_${ri}">${Math.round(mt.k)} kcal &nbsp;P:${Math.round(mt.p)}g G:${Math.round(mt.g)}g L:${Math.round(mt.l)}g</div>
       <button onclick="event.stopPropagation();pfDelMeal(${ri})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;margin-left:6px" title="Supprimer repas">✕</button>
     </div>
     <div class="meal-body">
-      ${r.alims.map((a,ai)=>`<div class="food-row" draggable="true" ondragstart="pfDragStart(event,${ri},${ai})" ondragover="event.preventDefault();event.stopPropagation()" ondrop="event.stopPropagation();pfDropFood(event,${ri},${ai})" style="cursor:grab">
+      ${r.alims.map((a,ai)=>`<div class="food-row" draggable="true" ondragstart="pfDragStart(event,${ri},${ai})" ondragend="pfDragEnd()" ondragover="pfFoodOver(event,this)" ondragleave="pfFoodLeave(this)" ondrop="pfDropFood(event,${ri},${ai})" style="cursor:grab">
         <div style="font-size:12px;font-weight:600;color:var(--dark);display:flex;align-items:center;gap:5px"><span style="color:var(--text3);font-size:10px">⠿</span>${a.nom}</div>
         <button class="eq-btn" onclick="event.stopPropagation();pfToggleEquiv(this,${ri},${ai})" title="Voir les équivalences">⇄</button>
         <input class="food-qte" type="number" value="${a.qte}" oninput="pfLiveQte(${ri},${ai},this.value)" onclick="event.stopPropagation()" title="Grammes (cru)">
@@ -4859,38 +4863,50 @@ function pfRenderMeals(){
   </div>`}).join('');
 }
 let pfDragData=null;
-function pfDragStart(e,ri,ai){pfDragData={ri,ai,type:'food'};e.dataTransfer.effectAllowed='move';}
-function pfDropFood(e,targetRi,targetAi){
-  e.preventDefault();
-  if(!pfDragData||pfDragData.type==='meal')return;
-  const{ri,ai}=pfDragData;
-  if(ri===targetRi&&ai===targetAi){pfDragData=null;return;}
-  const food=pfDays[pfDayIdx].repas[ri].alims.splice(ai,1)[0];
-  if(ri===targetRi){
-    // Réordonnement dans le même repas
-    const insertAt=ai<targetAi?targetAi:targetAi;
-    pfDays[pfDayIdx].repas[targetRi].alims.splice(insertAt,0,food);
-  }else{
-    // Déplacement entre repas
-    if(targetAi!==undefined)pfDays[pfDayIdx].repas[targetRi].alims.splice(targetAi,0,food);
-    else pfDays[pfDayIdx].repas[targetRi].alims.push(food);
-  }
-  pfMealIdx=targetRi;pfDragData=null;
-  pfRenderMeals();pfRenderTotals();
-}
-// Drag & drop repas (réordonnement)
-let pfMealDrag=null;
-function pfMealDragStart(e,ri){pfDragData={ri,type:'meal'};e.dataTransfer.effectAllowed='move';}
-function pfMealDrop(e,targetRi){
-  e.preventDefault();
-  if(!pfDragData||pfDragData.type!=='meal')return pfDropFood(e,targetRi);
-  const{ri}=pfDragData;
-  if(ri===targetRi){pfDragData=null;return;}
+function pfClearDragCue(){document.querySelectorAll('.pf-food-over,.pf-meal-over').forEach(el=>el.classList.remove('pf-food-over','pf-meal-over'));}
+function pfDragStart(e,ri,ai){e.stopPropagation();pfDragData={type:'food',ri,ai};e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain','f');}catch(_){}}
+function pfMealDragStart(e,ri){pfDragData={type:'meal',ri};e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain','m');}catch(_){}}
+function pfDragEnd(){pfDragData=null;pfClearDragCue();}
+// Survol : surbrillance de la cible
+function pfFoodOver(e,el){if(!pfDragData||pfDragData.type!=='food')return;e.preventDefault();e.stopPropagation();el.classList.add('pf-food-over');}
+function pfFoodLeave(el){el.classList.remove('pf-food-over');}
+function pfMealOver(e,el){if(!pfDragData)return;e.preventDefault();if(pfDragData.type==='meal')el.classList.add('pf-meal-over');}
+function pfMealLeave(el){el.classList.remove('pf-meal-over');}
+// Réordonner un repas (même jour)
+function pfReorderMeal(ri,targetRi){
+  if(ri===targetRi)return;
   const meal=pfDays[pfDayIdx].repas.splice(ri,1)[0];
   pfDays[pfDayIdx].repas.splice(targetRi,0,meal);
-  if(pfMealIdx===ri)pfMealIdx=targetRi;
-  pfDragData=null;
+  pfMealIdx=targetRi;
   pfRenderMeals();pfRenderTotals();toast(meal.nom+' déplacé ✓');
+}
+// Déplacer un aliment vers un autre repas (ajout en fin)
+function pfMoveFoodToMeal(ri,ai,targetRi){
+  if(ri===targetRi)return;
+  const food=pfDays[pfDayIdx].repas[ri].alims.splice(ai,1)[0];
+  pfDays[pfDayIdx].repas[targetRi].alims.push(food);
+  pfMealIdx=targetRi;
+  pfRenderMeals();pfRenderTotals();
+}
+// Drop sur une ligne aliment : réordonner / déplacer à une position précise
+function pfDropFood(e,targetRi,targetAi){
+  e.preventDefault();e.stopPropagation();pfClearDragCue();
+  if(!pfDragData){return;}
+  if(pfDragData.type==='meal'){const ri=pfDragData.ri;pfDragData=null;pfReorderMeal(ri,targetRi);return;}
+  const{ri,ai}=pfDragData;pfDragData=null;
+  if(ri===targetRi&&ai===targetAi)return;
+  const food=pfDays[pfDayIdx].repas[ri].alims.splice(ai,1)[0];
+  pfDays[pfDayIdx].repas[targetRi].alims.splice(targetAi,0,food);
+  pfMealIdx=targetRi;
+  pfRenderMeals();pfRenderTotals();
+}
+// Drop sur la zone du repas (hors ligne aliment) : réordonner repas ou déposer l'aliment à la fin
+function pfMealDrop(e,targetRi){
+  e.preventDefault();pfClearDragCue();
+  if(!pfDragData){return;}
+  const d=pfDragData;pfDragData=null;
+  if(d.type==='food')pfMoveFoodToMeal(d.ri,d.ai,targetRi);
+  else pfReorderMeal(d.ri,targetRi);
 }
 function pfRenameMeal(ri,el){
   const cur=el.textContent;
