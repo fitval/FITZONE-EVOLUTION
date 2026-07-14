@@ -977,12 +977,13 @@ async function loadData(){
     db.from('aliments').select('*').eq('coach_id',clientData.coach_id),
     db.from('exercises').select('*').eq('coach_id',clientData.coach_id),
     db.from('questionnaires').select('weight_kg,weight_goal,goal').eq('client_id',clientData.id).order('submitted_at',{ascending:false}).limit(1),
-    db.from('plans').select('kcal_target,protein_g,carb_g,fat_g,water_goal_ml,created_at').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(1)
+    db.from('plans').select('kcal_target,protein_g,carb_g,fat_g,water_goal_ml,salt_goal_g,created_at').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(1)
   ]);
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   clientQuest=(p9.data&&p9.data[0])||null;
   macroTarget=(p10.data&&p10.data[0])||null;
   loadWaterLogs(); // compteur d'eau (non bloquant)
+  loadSaltLogs(); // compteur de sel (non bloquant)
   // Load plan swaps (équivalences aliment choisies par le client)
   try{
     const{data:swaps}=await db.from('plan_swaps').select('*').eq('client_id',clientData.id);
@@ -2663,7 +2664,7 @@ function _ftIsCollapsed(m){return !!_ftCollapsed[m];}
 function toggleFtMeal(m){_ftCollapsed[m]=!_ftCollapsed[m];try{localStorage.setItem('fz_ftCollapsed',JSON.stringify(_ftCollapsed));}catch(e){}renderFoodTracker();}
 async function openFoodTracker(){
   ftDate=ftDate||today();
-  await Promise.all([loadFoodLogs(),loadWaterLogs()]);
+  await Promise.all([loadFoodLogs(),loadWaterLogs(),loadSaltLogs()]);
   renderFoodTracker();
 }
 async function loadFoodLogs(){
@@ -2702,7 +2703,7 @@ function renderWaterCard(iso){
   const pct=Math.min(100,Math.round(total/goal*100));
   const litres=(total/1000).toFixed(total%1000===0?0:2).replace('.',',');
   const goalL=(goal/1000).toFixed(goal%1000===0?0:1).replace('.',',');
-  let h=`<div class="card" style="padding:16px;margin-top:16px;margin-bottom:100px">
+  let h=`<div class="card" style="padding:16px;margin-top:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:15px;font-weight:800;color:var(--dark)">💧 Hydratation</div>
       <div style="font-size:13px;color:var(--text3);font-weight:700">${litres} L / ${goalL} L</div>
@@ -2756,6 +2757,90 @@ async function delWater(id){
     const{error}=await db.from('water_logs').delete().eq('id',id);
     if(error)throw error;
   }catch(e){console.error('[WATER DEL]',e);waterLogs=prev;_waterRerender();toast&&toast('Erreur suppression');}
+}
+
+/* ===== COMPTEUR DE SEL ===== */
+let saltLogs=[];
+const SALT_GOAL_DEFAULT=6;         // limite par défaut (6 g/jour) si le coach n'en a pas fixé
+const SALT_QUICK=[0.5,1,2,3];      // ajouts rapides en grammes
+function _saltGoal(){return(macroTarget&&parseFloat(macroTarget.salt_goal_g)>0)?parseFloat(macroTarget.salt_goal_g):SALT_GOAL_DEFAULT;}
+function _gFmt(n){return (Math.round((parseFloat(n)||0)*10)/10).toString().replace('.',',');}
+async function loadSaltLogs(){
+  if(!clientData)return;
+  try{
+    const{data}=await db.from('salt_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).order('created_at',{ascending:true}).limit(400);
+    saltLogs=data||[];
+  }catch(e){console.error('[SALT LOGS]',e);saltLogs=[];}
+}
+function _saltRerender(){
+  if(nutriView==='tracker')renderFoodTracker();
+  else if(nutriView==='plan')renderPlanDetail();
+}
+function renderSaltCard(iso){
+  const logs=saltLogs.filter(l=>l.date===iso).sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||''));
+  const total=logs.reduce((s,l)=>s+(parseFloat(l.grams)||0),0);
+  const goal=_saltGoal();
+  const ratio=goal>0?total/goal:0;
+  const pct=Math.min(100,Math.round(ratio*100));
+  const over=ratio>1;
+  // les 2 sémantiques : la barre se remplit vers l'objectif ET change de couleur près/au-delà de la limite
+  let grad='linear-gradient(90deg,#5bbf7a,#7fd89a)';                 // ok (< 80 %)
+  if(over)grad='linear-gradient(90deg,#e8595b,#ff7d7f)';             // dépassée
+  else if(ratio>0.8)grad='linear-gradient(90deg,#e8a94a,#f4c46a)';   // proche de la limite
+  let h=`<div class="card" style="padding:16px;margin-top:16px;margin-bottom:100px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:15px;font-weight:800;color:var(--dark)">🧂 Sel</div>
+      <div style="font-size:13px;color:${over?'#e8595b':'var(--text3)'};font-weight:700">${_gFmt(total)} g / ${_gFmt(goal)} g${over?' ⚠️':''}</div>
+    </div>
+    <div style="height:12px;border-radius:8px;background:var(--bg2);overflow:hidden;margin-bottom:14px"><div style="height:100%;width:${pct}%;background:${grad};border-radius:8px;transition:width .3s"></div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${SALT_QUICK.map(g=>`<button onclick="addSalt(${g},'${iso}')" style="flex:1;min-width:62px;padding:12px 4px;border:1.5px solid var(--gold-border);border-radius:12px;background:var(--white);font-size:15px;font-weight:800;color:#c98a2a;cursor:pointer;font-family:var(--font)">+${_gFmt(g)}<span style="font-size:10px;font-weight:600;color:var(--text3)"> g</span></button>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input id="saltCustom" type="number" inputmode="decimal" step="0.1" min="0.1" placeholder="Autre quantité (g)" style="flex:1;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--dark)">
+      <button onclick="addSaltCustom('${iso}')" style="padding:12px 18px;border:none;border-radius:12px;background:var(--gold);color:white;font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">Ajouter</button>
+    </div>`;
+  if(logs.length){
+    h+=`<div style="display:flex;flex-direction:column;gap:6px;margin-top:14px">`;
+    logs.forEach(l=>{
+      const t=l.created_at?new Date(l.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
+      h+=`<div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 12px;background:var(--bg2);border-radius:10px">
+        <span style="font-size:15px">🧂</span>
+        <span style="font-weight:800;color:var(--dark)">${_gFmt(l.grams)} g</span>
+        ${t?`<span style="color:var(--text3);font-size:12px">${t}</span>`:''}
+        <button onclick="delSalt('${l.id}')" style="margin-left:auto;background:none;border:none;color:var(--text3);font-size:15px;cursor:pointer;padding:2px 6px">🗑️</button>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+async function addSalt(g,iso){
+  g=Math.round((parseFloat(g)||0)*10)/10;
+  if(g<=0)return;
+  const row={coach_id:clientData.coach_id,client_id:clientData.id,date:iso,grams:g};
+  try{
+    const{data,error}=await db.from('salt_logs').insert(row).select().single();
+    if(error)throw error;
+    if(data)saltLogs.unshift(data);
+  }catch(e){console.error('[SALT ADD]',e);toast&&toast("Erreur lors de l'ajout");return;}
+  _saltRerender();
+}
+function addSaltCustom(iso){
+  const el=document.getElementById('saltCustom');
+  const g=el?Math.round((parseFloat(String(el.value).replace(',','.'))||0)*10)/10:0;
+  if(g<=0){toast&&toast('Saisis une quantité en g');return;}
+  addSalt(g,iso);
+}
+async function delSalt(id){
+  const prev=saltLogs;
+  saltLogs=saltLogs.filter(l=>String(l.id)!==String(id));
+  _saltRerender();
+  try{
+    const{error}=await db.from('salt_logs').delete().eq('id',id);
+    if(error)throw error;
+  }catch(e){console.error('[SALT DEL]',e);saltLogs=prev;_saltRerender();toast&&toast('Erreur suppression');}
 }
 const FT_MEAL_ICONS={'Petit-déjeuner':'🍳','Collation AM':'🥨','Déjeuner':'🍽️','Goûter':'🍪','Dîner':'🌙','Collation nuit':'🌃'};
 function _ftIsoOf(d){return localDateStr(d);}
@@ -2895,6 +2980,7 @@ function renderFoodTracker(){
     h+=`</div>`;
   });
   h+=renderWaterCard(ftDate);
+  h+=renderSaltCard(ftDate);
   document.getElementById('nutriContent').innerHTML=h;
 }
 function _ftMacroBar(label,cur,tgt,color){
@@ -3712,6 +3798,7 @@ function openPlan(idx){
   currentDayIdx=(!isNaN(saved)&&saved>=0&&saved<jours.length)?saved:0;
   renderPlanDetail();
   loadWaterLogs().then(()=>{if(nutriView==='plan')renderPlanDetail();});
+  loadSaltLogs().then(()=>{if(nutriView==='plan')renderPlanDetail();});
 }
 function mealItems(meal){return meal.items||meal.alims||[];}
 /* Portions cuisinées par repas — multiplicateur appliqué aux quantités et macros */
@@ -3782,7 +3869,7 @@ function renderPlanDetail(){
       </div>
     </div>`;
   }
-  if(p.type==='macros'||!jours.length){if(p.notes)h+=`<div class="card"><div style="font-size:14px;color:var(--text2);line-height:1.5">${p.notes}</div></div>`;h+=renderWaterCard(today());document.getElementById('nutriContent').innerHTML=h;return;}
+  if(p.type==='macros'||!jours.length){if(p.notes)h+=`<div class="card"><div style="font-size:14px;color:var(--text2);line-height:1.5">${p.notes}</div></div>`;h+=renderWaterCard(today());h+=renderSaltCard(today());document.getElementById('nutriContent').innerHTML=h;return;}
   h+=`<div class="day-tabs">${jours.map((j,i)=>`<button class="day-tab${i===currentDayIdx?' active':''}" onclick="setPlanDay(${i})">${j.nom||'J'+(i+1)}</button>`).join('')}</div>`;
   const day=jours[currentDayIdx];
   const dayM=calcDayMacros(day,planRefId,currentDayIdx);
@@ -3839,6 +3926,7 @@ function renderPlanDetail(){
     h+=`</div></div>`;
   });
   h+=renderWaterCard(today());
+  h+=renderSaltCard(today());
   document.getElementById('nutriContent').innerHTML=h;
 }
 
