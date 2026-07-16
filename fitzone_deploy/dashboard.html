@@ -1984,6 +1984,10 @@ let rpItems=[];
 /* Equipe */
 let coClients=[],coColor='#c49a2a';
 
+// Date locale au format YYYY-MM-DD. toISOString() convertit en UTC : sur un Date
+// à minuit local (UTC+2 l'été), il renvoie la veille à 22:00 → date décalée de -1 jour.
+function localDateStr(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;}
+function todayStrLocal(){return localDateStr(new Date());}
 function lsGet(k,def){try{return JSON.parse(localStorage.getItem(k))||def;}catch{return def;}}
 function lsSave(k,v){localStorage.setItem(k,JSON.stringify(v));}
 const txt=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
@@ -3315,7 +3319,7 @@ function renderRoadTab(){
   window['_roadRendered_'+curClient.id]=true;
   const phases=['','Improvement Season','Photoshoot Prep','Competition Prep','Dieting Phase','Gaining Phase','Maintenance','Health-Focus','Diet Break','Priming','Reverse Diet'];
   const cardios=['Step','LISS','HIIT','Vélo','Course'];
-  const sd=curClient.start_date||new Date().toISOString().slice(0,10);
+  const sd=curClient.start_date||todayStrLocal();
   let saved=lsGet('road_'+curClient.id,{});
   // Total weeks affichées = TOUJOURS au moins le max entre 52, la dernière semaine
   // présente dans les données et l'override "+ semaines". Sans ce recalcul, les
@@ -3447,7 +3451,7 @@ function renderRoadTab(){
     }).catch(()=>{});
   }
   const objList=lsGet('road_obj_'+curClient.id,[]);
-  const todayISO=new Date().toISOString().slice(0,10);
+  const todayISO=todayStrLocal();
   const plus7=new Date();plus7.setDate(plus7.getDate()+7);
   const plus7ISO=plus7.toISOString().slice(0,10);
   const fmtP=d=>new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
@@ -3612,7 +3616,7 @@ async function roadObjAdd(){
   const foreverEl=document.getElementById('roadObjForever');
   const text=(txtEl?.value||'').trim();
   if(!text){toast('Saisis un objectif');return;}
-  const start_date=startEl?.value||new Date().toISOString().slice(0,10);
+  const start_date=startEl?.value||todayStrLocal();
   const end_date=foreverEl?.checked?null:(endEl?.value||null);
   if(end_date&&end_date<start_date){toast('La date de fin doit être après le début');return;}
   const key='road_obj_'+curClient.id;
@@ -3997,7 +4001,7 @@ function _renderWeeklyDailyGrid(logs, qDaily){
   if(!sections.length)return '';
   // Calcul semaines (Lun→Dim) entre première entrée et aujourd'hui
   const startOfMon=d=>{const x=new Date(d);x.setHours(0,0,0,0);const day=x.getDay();x.setDate(x.getDate()-((day+6)%7));return x;};
-  const dateKey=d=>d.toISOString().slice(0,10);
+  const dateKey=d=>localDateStr(d);
   const firstMon=startOfMon(new Date(sorted[0].date));
   const today=new Date();today.setHours(0,0,0,0);
   const lastMon=startOfMon(today);
@@ -4100,7 +4104,7 @@ async function addDailyLog(){
     </div>`;
     document.body.appendChild(m);
   }
-  _renderDailyLogForm(new Date().toISOString().slice(0,10));
+  _renderDailyLogForm(todayStrLocal());
   openM('mDailyLog');
 }
 function _renderDailyLogForm(date){
@@ -4446,7 +4450,7 @@ function addTrainLog(){
   window._tlExos=[{nom:'',notes:'',sets:[{reps:'',load:'',rir:''}]}];
   const render=()=>{
     document.getElementById('trainLogForm').innerHTML=`
-      <div class="fr2"><div class="fg"><label class="fl">Nom de la séance *</label><input class="fi" id="tlSesName" placeholder="Push - Poitrine & Épaules"></div><div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="tlDate" value="${new Date().toISOString().slice(0,10)}"></div></div>
+      <div class="fr2"><div class="fg"><label class="fl">Nom de la séance *</label><input class="fi" id="tlSesName" placeholder="Push - Poitrine & Épaules"></div><div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="tlDate" value="${todayStrLocal()}"></div></div>
       <div class="fg"><label class="fl">Cycle (couleur)</label><select class="fs" id="tlCycle"><option value="1">1 - Violet</option><option value="2">2 - Rouge</option><option value="3">3 - Jaune</option><option value="4">4 - Vert</option></select></div>
       ${window._tlExos.map((ex,ei)=>`<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">
         <div class="fr2" style="margin-bottom:6px"><div class="fg"><label class="fl">Exercice ${ei+1}</label><input class="fi" value="${ex.nom}" onchange="window._tlExos[${ei}].nom=this.value" placeholder="Nom"></div><div class="fg" style="max-width:80px"><button class="btn btn-danger btn-xs" onclick="window._tlExos.splice(${ei},1);(${render.toString()})()">✕</button></div></div>
@@ -4693,11 +4697,11 @@ async function deleteBilanByKey(clientId,rawDate,supaId){
 }
 function addBilan(){
   let m=document.getElementById('mAddBilan');
-  if(!m){m=document.createElement('div');m.className='overlay';m.id='mAddBilan';m.innerHTML=`<div class="modal"><div class="mh"><div class="mt">Nouveau bilan</div><button class="mc" onclick="closeM('mAddBilan')">✕</button></div><div class="mb"><div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="biDate" value="${new Date().toISOString().slice(0,10)}"></div><div class="fg"><label class="fl">Titre</label><input class="fi" id="biTitre" placeholder="Bilan semaine 8"></div><div class="fg"><label class="fl">Poids (kg)</label><input class="fi" type="number" id="biPoids" step="0.1"></div><div class="fg"><label class="fl">Contenu / Notes</label><textarea class="fta" id="biContenu" style="min-height:100px" placeholder="Observations, retours du client…"></textarea></div><div class="fg"><label class="fl">Photos</label><input type="file" id="biPhotos" multiple accept="image/*"></div></div><div class="mf"><button class="btn btn-ghost" onclick="closeM('mAddBilan')">Annuler</button><button class="btn btn-dark" onclick="saveBilan()">Enregistrer</button></div></div>`;document.body.appendChild(m);}
+  if(!m){m=document.createElement('div');m.className='overlay';m.id='mAddBilan';m.innerHTML=`<div class="modal"><div class="mh"><div class="mt">Nouveau bilan</div><button class="mc" onclick="closeM('mAddBilan')">✕</button></div><div class="mb"><div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="biDate" value="${todayStrLocal()}"></div><div class="fg"><label class="fl">Titre</label><input class="fi" id="biTitre" placeholder="Bilan semaine 8"></div><div class="fg"><label class="fl">Poids (kg)</label><input class="fi" type="number" id="biPoids" step="0.1"></div><div class="fg"><label class="fl">Contenu / Notes</label><textarea class="fta" id="biContenu" style="min-height:100px" placeholder="Observations, retours du client…"></textarea></div><div class="fg"><label class="fl">Photos</label><input type="file" id="biPhotos" multiple accept="image/*"></div></div><div class="mf"><button class="btn btn-ghost" onclick="closeM('mAddBilan')">Annuler</button><button class="btn btn-dark" onclick="saveBilan()">Enregistrer</button></div></div>`;document.body.appendChild(m);}
   openM('mAddBilan');
 }
 function saveBilan(){
-  const b={date:document.getElementById('biDate').value||new Date().toISOString().slice(0,10),titre:document.getElementById('biTitre').value,poids:parseFloat(document.getElementById('biPoids').value)||null,contenu:document.getElementById('biContenu').value,photos:[]};
+  const b={date:document.getElementById('biDate').value||todayStrLocal(),titre:document.getElementById('biTitre').value,poids:parseFloat(document.getElementById('biPoids').value)||null,contenu:document.getElementById('biContenu').value,photos:[]};
   const files=document.getElementById('biPhotos').files;
   if(files.length){
     let loaded=0;
@@ -9873,7 +9877,7 @@ function _calFoodBadge(dateStr){
 function _renderCal(el){
   const d=new Date(_calDate);
   const year=d.getFullYear(),month=d.getMonth();
-  const todayStr=new Date().toISOString().slice(0,10);
+  const todayStr=todayStrLocal();
   const monthLabel=d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
   const dotStyle='<style>.cal-d-gold{width:8px;height:8px;border-radius:50%;background:#c49a2a;display:inline-block;margin:1px}.cal-d-green{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin:1px}.cal-d-blue{width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;margin:1px}.cal-d-purple{width:8px;height:8px;border-radius:50%;background:#a855f7;display:inline-block;margin:1px}</style>';
   let h=dotStyle;
@@ -9897,19 +9901,19 @@ function _renderCal(el){
   ['L','M','M','J','V','S','D'].forEach(l=>{h+=`<div style="text-align:center;font-size:10px;font-weight:700;color:var(--text3);padding:6px 0">${l}</div>`;});
   const prevMonth=new Date(year,month,0).getDate();
   for(let i=startDay-1;i>=0;i--){
-    const dn=prevMonth-i;const ds=new Date(year,month-1,dn).toISOString().slice(0,10);
+    const dn=prevMonth-i;const ds=localDateStr(new Date(year,month-1,dn));
     const entries=_calEntries(ds);
     h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--bg2);opacity:.35;cursor:pointer" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div>${_calFoodBadge(ds)}</div>`;
   }
   for(let dn=1;dn<=daysInMonth;dn++){
-    const ds=new Date(year,month,dn).toISOString().slice(0,10);
+    const ds=localDateStr(new Date(year,month,dn));
     const isToday=ds===todayStr;
     const entries=_calEntries(ds);
     h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--white);cursor:pointer;${isToday?'border:2px solid var(--gold)':''}" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700;${isToday?'color:var(--gold)':''}">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div>${_calFoodBadge(ds)}</div>`;
   }
   const totalCells=startDay+daysInMonth;const remaining=totalCells%7===0?0:7-totalCells%7;
   for(let dn=1;dn<=remaining;dn++){
-    const ds=new Date(year,month+1,dn).toISOString().slice(0,10);
+    const ds=localDateStr(new Date(year,month+1,dn));
     const entries=_calEntries(ds);
     h+=`<div style="min-height:48px;border-radius:6px;padding:4px;background:var(--bg2);opacity:.35;cursor:pointer" onclick="_showCalDay('${ds}')"><div style="font-size:11px;font-weight:700">${dn}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${entries.map(e=>`<span class="${_calDotClass(e.type)}"></span>`).join('')}</div>${_calFoodBadge(ds)}</div>`;
   }
@@ -10018,7 +10022,7 @@ async function unpublishFoodFeedback(dateStr){
   _showCalDay(dateStr);
 }
 function openAddCalendarEvent(dateStr){
-  dateStr=dateStr||new Date().toISOString().slice(0,10);
+  dateStr=dateStr||todayStrLocal();
   const html=`<div class="modal" style="padding:24px;max-width:500px">
     <div class="cl cl-gold" style="margin-bottom:16px">NOUVEL ÉVÉNEMENT</div>
     <div class="fg"><label class="fl">Titre</label><input class="fi" id="ceTitle" placeholder="Ex: Séance coaching, RDV suivi..."></div>
@@ -10946,7 +10950,7 @@ function addFin(month,cat){
   const all=getFinData();
   if(!all[month])all[month]={depenses:[],rentrees:[]};
   const defType=cat==='depenses'?finDepTypes[0]:finRenTypes[0];
-  all[month][cat].push({type:defType,label:'',montant:0,date:new Date().toISOString().slice(0,10)});
+  all[month][cat].push({type:defType,label:'',montant:0,date:todayStrLocal()});
   saveFinData(all);renderMkFinance();
 }
 function delFin(month,cat,i){
@@ -11965,7 +11969,7 @@ function nfSetDuration(n){
   const cust=document.getElementById('nfDurCustom');const inl=document.getElementById('nfDurInline');
   if(n==='custom'){cust.style.display='grid';inl.style.display='none';}
   else{cust.style.display='none';inl.style.display='block';document.getElementById('nfContractDuration').value=n;}
-  if(!document.getElementById('nfContractStart2').value)document.getElementById('nfContractStart2').value=new Date().toISOString().slice(0,10);
+  if(!document.getElementById('nfContractStart2').value)document.getElementById('nfContractStart2').value=todayStrLocal();
   if(!document.getElementById('nfContractStart').value)document.getElementById('nfContractStart').value=document.getElementById('nfContractStart2').value;
   nfPreviewUpdate();
 }
@@ -12000,7 +12004,7 @@ function nfInstallmentsRender(){
   const per=(tot/n).toFixed(2);
   const ctn=document.getElementById('nfInstallmentsList');if(!ctn)return;
   let h='<div style="font-size:11px;color:var(--text3);margin:6px 0 3px">Dates et montants personnalisables :</div>';
-  const start=document.getElementById('nfContractStart')?.value||new Date().toISOString().slice(0,10);
+  const start=document.getElementById('nfContractStart')?.value||todayStrLocal();
   for(let i=0;i<n;i++){
     const d=new Date(start);d.setMonth(d.getMonth()+i);const ds=d.toISOString().slice(0,10);
     h+=`<div class="fr2" style="gap:6px;margin-bottom:4px"><input class="fi" type="date" data-inst-date="${i}" value="${ds}" oninput="nfPreviewUpdate()"><input class="fi" type="number" step="0.01" data-inst-amt="${i}" value="${per}" placeholder="Montant" oninput="nfPreviewUpdate()"></div>`;
@@ -12043,7 +12047,7 @@ function _computeSchedule({total,plan,startStr,n,freq,per,down,delay,items}){
 function _nfCollectPlanData(){
   const total=parseFloat(document.getElementById('nfContractAmount')?.value)||0;
   const plan=_nfCurrentPlan;
-  const startStr=document.getElementById('nfContractStart')?.value||new Date().toISOString().slice(0,10);
+  const startStr=document.getElementById('nfContractStart')?.value||todayStrLocal();
   let n,freq,per,down,delay,items;
   if(plan==='recurring'){n=parseInt(document.getElementById('nfPlanN')?.value)||1;freq=document.getElementById('nfFreq')?.value||'month';per=parseFloat(document.getElementById('nfPerAmount')?.value)||0;}
   else if(plan==='downpayment'){down=parseFloat(document.getElementById('nfPlanDown')?.value)||0;n=parseInt(document.getElementById('nfPlanN')?.value)||1;freq=document.getElementById('nfFreq')?.value||'month';delay=parseInt(document.getElementById('nfPlanDelay')?.value)||30;per=parseFloat(document.getElementById('nfPerAmount')?.value)||0;}
@@ -12117,7 +12121,7 @@ async function openAddContractModal(clientId,mode){
   document.getElementById('acTitle').textContent=_acMode==='avenant'?'Modifier le contrat (avenant)':'Remplacer / nouveau contrat';
   document.getElementById('acInfo').innerHTML=`<strong>${esc(c.first_name||'')} ${esc(c.last_name||'')}</strong> — ${_acMode==='avenant'?'tu repars du contrat actuel, tu l\'édites, puis le client le re-signe.':'choisis un modèle ; le client signera la nouvelle version.'} ⚠️ Tout contrat <strong>non signé</strong> existant sera remplacé (les contrats déjà signés sont conservés).`;
   document.getElementById('acContractAmount').value='';
-  const today=new Date().toISOString().slice(0,10);
+  const today=todayStrLocal();
   document.getElementById('acContractStart').value=today;
   document.getElementById('acContractStart2').value=today;
   document.getElementById('acContent').value='';
@@ -12183,7 +12187,7 @@ function acInstallmentsRender(){
   const per=(tot/n).toFixed(2);
   const ctn=document.getElementById('acInstallmentsList');if(!ctn)return;
   let h='<div style="font-size:11px;color:var(--text3);margin:6px 0 3px">Dates et montants personnalisables :</div>';
-  const start=document.getElementById('acContractStart')?.value||new Date().toISOString().slice(0,10);
+  const start=document.getElementById('acContractStart')?.value||todayStrLocal();
   for(let i=0;i<n;i++){const d=new Date(start);d.setMonth(d.getMonth()+i);const ds=d.toISOString().slice(0,10);
     h+=`<div class="fr2" style="gap:6px;margin-bottom:4px"><input class="fi" type="date" data-inst-date="${i}" value="${ds}" oninput="acPreviewUpdate()"><input class="fi" type="number" step="0.01" data-inst-amt="${i}" value="${per}" placeholder="Montant" oninput="acPreviewUpdate()"></div>`;}
   ctn.innerHTML=h;acPreviewUpdate();
@@ -12191,7 +12195,7 @@ function acInstallmentsRender(){
 function _acCollectPlanData(){
   const total=parseFloat(document.getElementById('acContractAmount')?.value)||0;
   const plan=_acCurrentPlan;
-  const startStr=document.getElementById('acContractStart')?.value||new Date().toISOString().slice(0,10);
+  const startStr=document.getElementById('acContractStart')?.value||todayStrLocal();
   let n,freq,per,down,delay,items;
   if(plan==='recurring'){n=parseInt(document.getElementById('acPlanN')?.value)||1;freq=document.getElementById('acFreq')?.value||'month';per=parseFloat(document.getElementById('acPerAmount')?.value)||0;}
   else if(plan==='downpayment'){down=parseFloat(document.getElementById('acPlanDown')?.value)||0;n=parseInt(document.getElementById('acPlanN')?.value)||1;freq=document.getElementById('acFreq')?.value||'month';delay=parseInt(document.getElementById('acPlanDelay')?.value)||30;per=parseFloat(document.getElementById('acPerAmount')?.value)||0;}
@@ -12282,7 +12286,7 @@ async function renderPaymentsPage(){
   const clientsById={};allClients.forEach(c=>clientsById[c.id]=c);
   const contractsById={};(contracts||[]).forEach(c=>contractsById[c.id]=c);
   _allPayments.forEach(p=>{p._client=clientsById[p.client_id];p._contract=contractsById[p.client_contract_id];});
-  const todayStr=new Date().toISOString().slice(0,10);
+  const todayStr=todayStrLocal();
   _allPayments.forEach(p=>{p._overdue=(p.status==='pending'&&p.due_date<todayStr);});
   const comms=_getCommissions();
   // Stats
@@ -12586,7 +12590,7 @@ function commEditDate(cid,role,idx){
   const cm=comms[cid];
   if(!cm[role+'_dates'])cm[role+'_dates']=[];
   const cPays=_allPayments.filter(p=>p.client_id===cid).sort((a,b)=>a.due_date>b.due_date?1:-1);
-  const cur=cm[role+'_dates'][idx]||(cPays[idx]?cPays[idx].due_date:new Date().toISOString().slice(0,10));
+  const cur=cm[role+'_dates'][idx]||(cPays[idx]?cPays[idx].due_date:todayStrLocal());
   const v=prompt('Date de commission (AAAA-MM-JJ) :',cur);
   if(v===null)return;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){toast('Format de date invalide');return;}
@@ -12669,7 +12673,7 @@ function openPaymentModal(id){
   } else {
     document.getElementById('payMT').textContent='Nouvelle échéance';
     document.getElementById('payAmount').value='';
-    document.getElementById('payDueDate').value=new Date().toISOString().slice(0,10);
+    document.getElementById('payDueDate').value=todayStrLocal();
     document.getElementById('payStatus').value='pending';
     document.getElementById('payLabel').value='';
     document.getElementById('payNote').value='';
@@ -12768,7 +12772,7 @@ async function openNewClientModal(){
   // Defaults
   nfSetDuration(3);
   nfSetPlan('one_shot');
-  document.getElementById('nfContractStart2').value=new Date().toISOString().slice(0,10);
+  document.getElementById('nfContractStart2').value=todayStrLocal();
   document.getElementById('nfContractStart').value=document.getElementById('nfContractStart2').value;
   nfPreviewUpdate();
   openM('mNewClient');
