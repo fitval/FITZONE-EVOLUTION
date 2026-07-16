@@ -2664,7 +2664,7 @@ function _ftIsCollapsed(m){return !!_ftCollapsed[m];}
 function toggleFtMeal(m){_ftCollapsed[m]=!_ftCollapsed[m];try{localStorage.setItem('fz_ftCollapsed',JSON.stringify(_ftCollapsed));}catch(e){}renderFoodTracker();}
 async function openFoodTracker(){
   ftDate=ftDate||today();
-  await Promise.all([loadFoodLogs(),loadWaterLogs(),loadSaltLogs()]);
+  await Promise.all([loadFoodLogs(),loadWaterLogs(),loadSaltLogs(),loadRecipes()]);
   renderFoodTracker();
 }
 async function loadFoodLogs(){
@@ -2971,8 +2971,9 @@ function renderFoodTracker(){
           </div>`;
         });
         h+=`<div style="display:flex;border-top:1px solid var(--border)">
-          <button onclick="openAddFood('${escMeal}')" style="flex:1;padding:11px;background:var(--bg);border:none;font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">+ Ajouter</button>
-          <button onclick="openDuplicateMeal('${escMeal}')" style="flex:1;padding:11px;background:var(--bg);border:none;border-left:1px solid var(--border);font-size:13px;color:var(--text2);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">⧉ Dupliquer</button>
+          <button onclick="openAddFood('${escMeal}')" style="flex:1;padding:11px;background:var(--bg);border:none;font-size:13px;color:var(--gold);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:5px">+ Ajouter</button>
+          <button onclick="openDuplicateMeal('${escMeal}')" style="flex:1;padding:11px;background:var(--bg);border:none;border-left:1px solid var(--border);font-size:13px;color:var(--text2);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:5px">⧉ Dupliquer</button>
+          <button onclick="openSaveRecipe('${escMeal}')" style="flex:1;padding:11px;background:var(--bg);border:none;border-left:1px solid var(--border);font-size:13px;color:var(--text2);font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:5px">💾 Enregistrer</button>
         </div>`;
         h+=`</div>`;
       }
@@ -3036,8 +3037,94 @@ async function confirmDuplicateMeal(srcMeal){
   toast(sameDay?'Repas dupliqué ✓':'Dupliqué vers le '+fmtDate(targetDate)+' ✓');
   if(sameDay)renderFoodTracker();
 }
+/* ===== MES RECETTES (repas enregistrés par le client) =====
+   Le client enregistre un repas qu'il vient de tracker (aliments + quantités)
+   sous un nom, puis le ré-ajoute en un tap sur le jour / le repas de son choix. */
+let clientRecipes=[];
+async function loadRecipes(){
+  if(!clientData)return;
+  try{
+    const{data}=await db.from('client_recipes').select('*').eq('client_id',clientData.id).order('created_at',{ascending:false});
+    clientRecipes=data||[];
+  }catch(e){console.error('[RECIPES]',e);clientRecipes=[];}
+}
+// Totaux d'une recette (macros stockées pour 100g, comme food_logs)
+function _recTotals(items){
+  let k=0,p=0,c=0,f=0;
+  (items||[]).forEach(it=>{
+    const q=(parseFloat(it.qte_g)||0)/100;
+    k+=(parseFloat(it.kcal)||0)*q;p+=(parseFloat(it.prot)||0)*q;
+    c+=(parseFloat(it.carb)||0)*q;f+=(parseFloat(it.fat)||0)*q;
+  });
+  return{k,p,c,f};
+}
+function openSaveRecipe(meal){
+  const items=foodLogs.filter(l=>l.date===ftDate&&l.meal===meal);
+  if(!items.length){toast('Ce repas est vide');return;}
+  const old=document.getElementById('recOverlay');if(old)old.remove();
+  const overlay=document.createElement('div');
+  overlay.id='recOverlay';overlay.className='detail-overlay';
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  const escMeal=meal.replace(/'/g,"\\'");
+  const t=_recTotals(items);
+  const list=items.map(it=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.aliment_nom}</span><span style="color:var(--text3);font-weight:700;flex-shrink:0">${_ftG(it.qte_g)}g</span></div>`).join('');
+  overlay.innerHTML=`<div class="detail-sheet">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:18px;font-weight:800;color:var(--dark)">Enregistrer le repas</div>
+      <span onclick="document.getElementById('recOverlay').remove()" style="font-size:22px;cursor:pointer;color:var(--text3);padding:4px">✕</span>
+    </div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:14px">Retrouve-le dans « Mes recettes » pour l'ajouter à n'importe quel jour.</div>
+    <div class="card" style="padding:12px;margin-bottom:16px">
+      <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">${items.length} ALIMENT${items.length>1?'S':''} · ${Math.round(t.k)} KCAL</div>
+      <div style="max-height:150px;overflow-y:auto">${list}</div>
+    </div>
+    <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Nom de la recette</label>
+    <input type="text" id="recName" value="" placeholder="Ex : Poulet riz brocolis" autocomplete="off" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;background:var(--white);font-weight:600;margin-bottom:20px">
+    <button class="btn-gold" style="width:100%;padding:14px;font-size:15px" onclick="confirmSaveRecipe('${escMeal}')">💾 Enregistrer la recette</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>{const n=document.getElementById('recName');if(n)n.focus();},80);
+}
+async function confirmSaveRecipe(meal){
+  const nom=(document.getElementById('recName')?.value||'').trim();
+  if(!nom){toast('Donne un nom à ta recette');return;}
+  const items=foodLogs.filter(l=>l.date===ftDate&&l.meal===meal);
+  if(!items.length){toast('Ce repas est vide');return;}
+  const payload=items.map(it=>({aliment_nom:it.aliment_nom,aliment_id:it.aliment_id||null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,...(it.extra?{extra:it.extra}:{})}));
+  const{data,error}=await db.from('client_recipes').insert({coach_id:clientData.coach_id,client_id:clientData.id,nom,items:payload}).select().single();
+  if(error){toast('Erreur: '+error.message);return;}
+  clientRecipes.unshift(data);
+  document.getElementById('recOverlay')?.remove();
+  toast('Recette « '+nom+' » enregistrée ✓');
+}
+// Ajoute tous les aliments d'une recette au repas / à la date en cours
+async function addRecipeToMeal(id){
+  const rec=clientRecipes.find(r=>r.id===id);if(!rec)return;
+  const items=rec.items||[];
+  if(!items.length){toast('Recette vide');return;}
+  const rows=items.map(it=>({coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,aliment_nom:it.aliment_nom,aliment_id:_ftIsUuid(it.aliment_id)?it.aliment_id:null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,...(it.extra?{extra:it.extra}:{})}));
+  let{data,error}=await db.from('food_logs').insert(rows).select();
+  if(error&&/extra/i.test(error.message||'')){
+    const rows2=rows.map(r=>{const{extra,...rest}=r;return rest;});
+    ({data,error}=await db.from('food_logs').insert(rows2).select());
+  }
+  if(error){toast('Erreur: '+error.message);return;}
+  if(data)data.forEach(d=>foodLogs.unshift(d));
+  _ftSelected={};_ftClearSaveBar();
+  toast('« '+rec.nom+' » ajouté à '+_ftCurrentMeal+' ✓');
+  renderFoodTracker();
+}
+async function deleteRecipe(id){
+  const rec=clientRecipes.find(r=>r.id===id);if(!rec)return;
+  if(!confirm('Supprimer la recette « '+rec.nom+' » ?'))return;
+  const{error}=await db.from('client_recipes').delete().eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  clientRecipes=clientRecipes.filter(r=>r.id!==id);
+  _ftRenderResults();
+  toast('Recette supprimée');
+}
 let _ftCurrentMeal='Déjeuner';let _ftSearchTerm='';
-let _ftAddTab='aliments';        // 'aliments' | 'recent'
+let _ftAddTab='aliments';        // 'aliments' | 'recent' | 'recettes'
 let _ftSelected={};              // clé -> {aliment, qte_g}
 function _ftKey(a){return String(a&&a.id!=null?a.id:(a&&a.nom||''));}
 function _ftIsUuid(id){return typeof id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);}
@@ -3052,7 +3139,7 @@ function renderAddFoodPage(){
   let h=`<button class="back-btn" onclick="renderFoodTracker()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Ajouter un aliment</div>`;
   h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${_ftCurrentMeal} · ${fmtDate(ftDate)}</div>`;
-  h+=`<div style="display:flex;gap:4px;background:var(--bg2);padding:4px;border-radius:12px;margin-bottom:12px">${tabBtn('aliments','Aliments')}${tabBtn('recent','Récemment mangé')}</div>`;
+  h+=`<div style="display:flex;gap:4px;background:var(--bg2);padding:4px;border-radius:12px;margin-bottom:12px">${tabBtn('aliments','Aliments')}${tabBtn('recent','Récemment')}${tabBtn('recettes','Mes recettes')}</div>`;
   if(_ftAddTab==='aliments'){
     h+=`<div class="card" style="padding:14px;margin-bottom:12px">
       <input type="text" id="ftSearch" value="${term}" oninput="_ftSearchTerm=this.value;_ftRenderResults()" placeholder="Rechercher un aliment (poulet, riz, pomme…)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none">
@@ -3060,7 +3147,7 @@ function renderAddFoodPage(){
       <button class="btn-gold" style="margin-top:8px;width:100%;background:var(--bg2);color:var(--text)" onclick="openManualFood()">+ Ajouter un aliment hors base</button>
     </div>`;
   }
-  h+=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px;padding:0 2px">Tape un aliment pour le sélectionner · tape la quantité pour l'ajuster</div>`;
+  h+=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px;padding:0 2px">${_ftAddTab==='recettes'?'Tape une recette pour ajouter tous ses aliments à '+_ftCurrentMeal:'Tape un aliment pour le sélectionner · tape la quantité pour l\'ajuster'}</div>`;
   h+=`<div id="ftResults" style="padding-bottom:90px"></div>`;
   document.getElementById('nutriContent').innerHTML=h;
   _ftRenderResults();
@@ -3105,7 +3192,30 @@ function _ftToggleSelect(a){
 function _ftRenderResults(){
   const el=document.getElementById('ftResults');if(!el)return;
   let h='';
-  if(_ftAddTab==='recent'){
+  if(_ftAddTab==='recettes'){
+    if(!clientRecipes.length){
+      h=`<div class="empty" style="padding:30px 20px"><div class="empty-icon">📖</div><div class="empty-text">Aucune recette enregistrée.<br>Logge un repas, puis appuie sur « 💾 Enregistrer » pour le retrouver ici.</div></div>`;
+    } else {
+      h=clientRecipes.map(rec=>{
+        const t=_recTotals(rec.items);
+        const n=(rec.items||[]).length;
+        const nomHtml=String(rec.nom||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+        return`<div class="card" style="padding:11px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:9px" onclick="addRecipeToMeal('${rec.id}')">
+          <div style="width:40px;height:40px;border-radius:9px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📖</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nomHtml}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">${n} aliment${n>1?'s':''} · ${Math.round(t.k)} kcal</div>
+            <div style="display:flex;gap:8px;margin-top:3px;font-size:10px;font-weight:700">
+              <span style="color:#4a90d9">P ${Math.round(t.p)}g</span>
+              <span style="color:var(--gold)">G ${Math.round(t.c)}g</span>
+              <span style="color:#e07c5a">L ${Math.round(t.f)}g</span>
+            </div>
+          </div>
+          <button type="button" onclick="event.stopPropagation();deleteRecipe('${rec.id}')" aria-label="Supprimer" title="Supprimer" style="width:42px;height:42px;border-radius:11px;flex-shrink:0;background:rgba(224,92,74,.12);border:1.5px solid rgba(224,92,74,.4);color:#e05c4a;font-size:20px;font-weight:900;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);padding:0;touch-action:manipulation;-webkit-tap-highlight-color:rgba(224,92,74,.25)">✕</button>
+        </div>`;
+      }).join('');
+    }
+  } else if(_ftAddTab==='recent'){
     const recents=_ftRecentAliments();
     if(!recents.length){
       h=`<div class="empty" style="padding:30px"><div class="empty-icon">🍽️</div><div class="empty-text">Aucun aliment récent. Logge tes repas pour les retrouver ici.</div></div>`;
