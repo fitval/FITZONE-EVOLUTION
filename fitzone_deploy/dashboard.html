@@ -648,6 +648,7 @@ textarea.rin{text-align:left;resize:vertical;line-height:1.4}
 
   <!-- PAGE: NUTRITION — PLANS -->
   <div class="page" id="page-nut-plans">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><div class="si" style="flex:1;max-width:340px"><span class="si-ico">🔍</span><input id="planSearch" placeholder="Rechercher un plan, un client, un aliment…" oninput="renderPlansListPage()"></div></div>
     <div id="plansPageList"></div>
   </div>
   <div id="planBuilderWrap" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9000;background:var(--bg);overflow-y:auto;padding:20px">
@@ -5172,10 +5173,19 @@ function _planDailyAvg(p){
   const n=jours.length;
   return{k:Math.round(k/n),prot:Math.round(pr/n),carb:Math.round(c/n),fat:Math.round(f/n)};
 }
+function _planSearchText(p){
+  const parts=[p.nom,p.notes,p.clientNom,p.client_nom];
+  (p.clientNoms||p.client_noms||[]).forEach(n=>parts.push(n));
+  (p.jours||[]).forEach(j=>{parts.push(j.nom);(j.repas||[]).forEach(r=>{parts.push(r.nom);(r.alims||[]).forEach(a=>parts.push(a.nom));});});
+  return parts.filter(Boolean).join(' ').toLowerCase();
+}
 function renderPlansListPage(){
   const el=document.getElementById('plansPageList');if(!el)return;
   if(!plans.length){el.innerHTML=`<div class="empty"><div class="ei">🥗</div><div class="et">Aucun plan alimentaire</div><div class="es">Crée un plan macros ou un plan complet</div></div>`;return;}
-  el.innerHTML=plans.slice().reverse().map(p=>{const avg=_planDailyAvg(p);return`<div class="plan-card">
+  const q=(document.getElementById('planSearch')?.value||'').trim().toLowerCase();
+  const list=q?plans.filter(p=>_planSearchText(p).includes(q)):plans;
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="ei">🔍</div><div class="et">Aucun plan trouvé</div><div class="es">Aucun résultat pour « ${esc(q)} »</div></div>`;return;}
+  el.innerHTML=list.slice().reverse().map(p=>{const avg=_planDailyAvg(p);return`<div class="plan-card">
     <div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
       <div style="width:38px;height:38px;border-radius:10px;background:${p.type==='full'?'var(--dark)':'var(--gold-pale)'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${p.type==='full'?'🍽️':'📊'}</div>
       <div style="flex:1">
