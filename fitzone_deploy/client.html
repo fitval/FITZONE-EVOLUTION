@@ -977,7 +977,7 @@ async function loadData(){
     db.from('aliments').select('*').eq('coach_id',clientData.coach_id),
     db.from('exercises').select('*').eq('coach_id',clientData.coach_id),
     db.from('questionnaires').select('weight_kg,weight_goal,goal').eq('client_id',clientData.id).order('submitted_at',{ascending:false}).limit(1),
-    db.from('plans').select('kcal_target,protein_g,carb_g,fat_g,water_goal_ml,salt_goal_g,created_at').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(1)
+    db.from('plans').select('kcal_target,protein_g,carb_g,fat_g,water_goal_ml,water_meal_goal_ml,salt_goal_g,created_at').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(1)
   ]);
   programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   clientQuest=(p9.data&&p9.data[0])||null;
@@ -2685,6 +2685,7 @@ let waterLogs=[];
 const WATER_GOAL_DEFAULT=2000;         // objectif par défaut (2 L) si le coach n'en a pas fixé
 const WATER_QUICK=[200,330,500,750];   // ajouts rapides en mL
 function _waterGoal(){return(macroTarget&&parseInt(macroTarget.water_goal_ml)>0)?parseInt(macroTarget.water_goal_ml):WATER_GOAL_DEFAULT;}
+function _waterMealGoal(){return(macroTarget&&parseInt(macroTarget.water_meal_goal_ml)>0)?parseInt(macroTarget.water_meal_goal_ml):0;}
 async function loadWaterLogs(){
   if(!clientData)return;
   try{
@@ -2696,19 +2697,34 @@ function _waterRerender(){
   if(nutriView==='tracker')renderFoodTracker();
   else if(nutriView==='plan')renderPlanDetail();
 }
+function _isCooking(l){return l.kind==='cooking';}
 function renderWaterCard(iso){
-  const logs=waterLogs.filter(l=>l.date===iso).sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||''));
-  const total=logs.reduce((s,l)=>s+(parseFloat(l.ml)||0),0);
+  const dayLogs=waterLogs.filter(l=>l.date===iso).sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||''));
+  const drinkLogs=dayLogs.filter(l=>!_isCooking(l));
+  const cookLogs=dayLogs.filter(_isCooking);
+  const drinkTotal=drinkLogs.reduce((s,l)=>s+(parseFloat(l.ml)||0),0);
+  const cookTotal=cookLogs.reduce((s,l)=>s+(parseFloat(l.ml)||0),0);
+  const total=drinkTotal+cookTotal;
   const goal=_waterGoal();
   const pct=Math.min(100,Math.round(total/goal*100));
+  const drinkPct=Math.min(100,Math.round(drinkTotal/goal*100));
   const litres=(total/1000).toFixed(total%1000===0?0:2).replace('.',',');
   const goalL=(goal/1000).toFixed(goal%1000===0?0:1).replace('.',',');
+  const fmtMl=n=>{const v=parseFloat(n)||0;return v%1===0?v:Math.round(v);};
   let h=`<div class="card" style="padding:16px;margin-top:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:15px;font-weight:800;color:var(--dark)">💧 Hydratation</div>
       <div style="font-size:13px;color:var(--text3);font-weight:700">${litres} L / ${goalL} L</div>
     </div>
-    <div style="height:12px;border-radius:8px;background:var(--bg2);overflow:hidden;margin-bottom:14px"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#4aa3e8,#7cc4ff);border-radius:8px;transition:width .3s"></div></div>
+    <div style="height:12px;border-radius:8px;background:var(--bg2);overflow:hidden;margin-bottom:6px;display:flex">
+      <div style="height:100%;width:${drinkPct}%;background:linear-gradient(90deg,#4aa3e8,#7cc4ff);transition:width .3s"></div>
+      <div style="height:100%;width:${Math.max(0,pct-drinkPct)}%;background:linear-gradient(90deg,#89c997,#a9dcae);transition:width .3s"></div>
+    </div>
+    <div style="display:flex;gap:14px;margin-bottom:14px;font-size:11px;color:var(--text3);font-weight:600">
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#5cb0ee;margin-right:4px"></span>Boissons ${fmtMl(drinkTotal)} ml</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#89c997;margin-right:4px"></span>Plats ${fmtMl(cookTotal)} ml</span>
+    </div>
+    <div style="font-size:12px;font-weight:800;color:var(--text2);margin-bottom:8px">Boissons</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${WATER_QUICK.map(ml=>`<button onclick="addWater(${ml},'${iso}')" style="flex:1;min-width:62px;padding:12px 4px;border:1.5px solid var(--gold-border);border-radius:12px;background:var(--white);font-size:15px;font-weight:800;color:#2b7bc4;cursor:pointer;font-family:var(--font)">+${ml}<span style="font-size:10px;font-weight:600;color:var(--text3)"> ml</span></button>`).join('')}
     </div>
@@ -2716,13 +2732,41 @@ function renderWaterCard(iso){
       <input id="waterCustom" type="number" inputmode="numeric" min="1" placeholder="Autre quantité (ml)" style="flex:1;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--dark)">
       <button onclick="addWaterCustom('${iso}')" style="padding:12px 18px;border:none;border-radius:12px;background:var(--gold);color:white;font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">Ajouter</button>
     </div>`;
-  if(logs.length){
+  if(drinkLogs.length){
     h+=`<div style="display:flex;flex-direction:column;gap:6px;margin-top:14px">`;
-    logs.forEach(l=>{
+    drinkLogs.forEach(l=>{
       const t=l.created_at?new Date(l.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
       h+=`<div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 12px;background:var(--bg2);border-radius:10px">
         <span style="font-size:15px">💧</span>
-        <span style="font-weight:800;color:var(--dark)">${l.ml} ml</span>
+        <span style="font-weight:800;color:var(--dark)">${fmtMl(l.ml)} ml</span>
+        ${t?`<span style="color:var(--text3);font-size:12px">${t}</span>`:''}
+        <button onclick="delWater('${l.id}')" style="margin-left:auto;background:none;border:none;color:var(--text3);font-size:15px;cursor:pointer;padding:2px 6px">🗑️</button>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  // ----- Sous-section : liquides utilisés dans les plats -----
+  const mealGoal=_waterMealGoal();
+  const mealPct=mealGoal>0?Math.min(100,Math.round(cookTotal/mealGoal*100)):0;
+  h+=`<div style="height:1px;background:var(--border);margin:16px 0"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:800;color:var(--text2)">🍲 Liquides dans les plats</div>
+      <div style="font-size:12px;color:var(--text3);font-weight:700">${fmtMl(cookTotal)} ml${mealGoal>0?` / ${fmtMl(mealGoal)} ml`:''}</div>
+    </div>
+    ${mealGoal>0?`<div style="height:8px;border-radius:6px;background:var(--bg2);overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${mealPct}%;background:linear-gradient(90deg,#89c997,#a9dcae);border-radius:6px;transition:width .3s"></div></div>`:''}
+    <div style="display:flex;gap:8px">
+      <input id="waterCookLabel" type="text" placeholder="Ex. Avoine, crème de riz…" style="flex:1.4;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--dark)">
+      <input id="waterCookMl" type="number" inputmode="numeric" min="1" placeholder="ml" style="flex:1;min-width:0;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--dark)">
+    </div>
+    <button onclick="addCookingWater('${iso}')" style="width:100%;margin-top:8px;padding:12px;border:none;border-radius:12px;background:#5f9c6e;color:white;font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">Ajouter aux plats</button>`;
+  if(cookLogs.length){
+    h+=`<div style="display:flex;flex-direction:column;gap:6px;margin-top:12px">`;
+    cookLogs.forEach(l=>{
+      const t=l.created_at?new Date(l.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
+      h+=`<div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 12px;background:var(--bg2);border-radius:10px">
+        <span style="font-size:15px">🍲</span>
+        <span style="font-weight:800;color:var(--dark)">${fmtMl(l.ml)} ml</span>
+        ${l.label?`<span style="color:var(--text2)">${_escHtml(l.label)}</span>`:''}
         ${t?`<span style="color:var(--text3);font-size:12px">${t}</span>`:''}
         <button onclick="delWater('${l.id}')" style="margin-left:auto;background:none;border:none;color:var(--text3);font-size:15px;cursor:pointer;padding:2px 6px">🗑️</button>
       </div>`;
@@ -2732,10 +2776,11 @@ function renderWaterCard(iso){
   h+=`</div>`;
   return h;
 }
-async function addWater(ml,iso){
+async function addWater(ml,iso,kind,label){
   ml=Math.round(parseFloat(ml)||0);
   if(ml<=0)return;
-  const row={coach_id:clientData.coach_id,client_id:clientData.id,date:iso,ml};
+  const row={coach_id:clientData.coach_id,client_id:clientData.id,date:iso,ml,kind:kind||'drink'};
+  if(label)row.label=label;
   try{
     const{data,error}=await db.from('water_logs').insert(row).select().single();
     if(error)throw error;
@@ -2748,6 +2793,14 @@ function addWaterCustom(iso){
   const ml=el?Math.round(parseFloat(String(el.value).replace(',','.'))||0):0;
   if(ml<=0){toast&&toast('Saisis une quantité en ml');return;}
   addWater(ml,iso);
+}
+function addCookingWater(iso){
+  const lblEl=document.getElementById('waterCookLabel');
+  const mlEl=document.getElementById('waterCookMl');
+  const ml=mlEl?Math.round(parseFloat(String(mlEl.value).replace(',','.'))||0):0;
+  if(ml<=0){toast&&toast('Saisis une quantité en ml');return;}
+  const label=lblEl?String(lblEl.value).trim():'';
+  addWater(ml,iso,'cooking',label);
 }
 async function delWater(id){
   const prev=waterLogs;
