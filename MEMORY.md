@@ -239,6 +239,16 @@
 - **Règle à retenir** : tout flux client qui fait un UPDATE/DELETE doit avoir sa policy RLS correspondante — un update bloqué par RLS = 0 ligne, **aucune erreur**. Vérifier `data.length` après les updates critiques.
 - **Risque résiduel** : si le client ferme l'app avant la fin de l'upload en arrière-plan, les photos non uploadées sont perdues (cas de la photo n°5 d'Anthony).
 
+### Session 2026-07-21 — Thème sombre + couleur de marque (dashboard coach)
+- **Réglages → 🎨 Apparence du dashboard** : choix du thème (Clair / Sombre) + couleur de marque (11 pastilles prédéfinies, color-picker natif, champ hex, bouton Réinit.), avec aperçu live.
+- Ne concerne **que `dashboard.html`** — `client.html` et `questionnaire.html` sont inchangés.
+- **Stockage** : colonnes `settings.theme` + `settings.brand_color` (migration `20260721120000_settings_appearance.sql`), miroir dans `localStorage.fz_appearance` pour appliquer le thème **avant le rendu** (aucun flash).
+- **Moteur** : `window.FZ_THEME` (script en `<head>`) pose `data-theme` sur `<html>` et calcule les variantes de la couleur (`--gold-light/-dk/-deep/-deeper/-tint`, `--gold-rgb`, `--on-gold` selon la luminance).
+- **Refonte des tokens CSS** : tous les dorés en dur (`#c49a2a`, `#CC9942`, `#b8882a`, `#8a6010`…) → variables ; `background:#fff/white` → `var(--white)` ; `color:var(--dark)` → `var(--text)` (sauf sur fond doré → `var(--on-gold)`) ; `color:var(--white)` → `var(--on-dark)`.
+- **Pastilles pastel** : `background:#pastel` → `color-mix(... var(--tint))` et textes foncés → `color-mix(... var(--ink))` ; en sombre `--tint:16%` / `--ink:54%` les assombrit/éclaircit automatiquement.
+- Les couleurs "données" (avatars clients, palette de l'équipe, codes macros) restent en dur volontairement.
+- Vérifié au navigateur (Playwright) en clair/sombre + couleur alternative : Overview, Clients, Réglages OK.
+
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
 
