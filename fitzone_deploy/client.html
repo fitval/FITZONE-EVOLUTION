@@ -32,10 +32,20 @@
       s.setProperty('--gold-deep',hx(mix(rgb,B,.36)));
       s.setProperty('--gold-deeper',hx(mix(rgb,B,.42)));
     },
-    cache:function(color){try{localStorage.setItem('fz_client_brand',color);}catch(e){}},
-    get:function(){try{return localStorage.getItem('fz_client_brand');}catch(e){return null;}}
+    setTheme:function(theme){
+      document.documentElement.setAttribute('data-theme',theme==='dark'?'dark':'light');
+      var m=document.querySelector('meta[name=theme-color]');
+      if(m)m.setAttribute('content',theme==='dark'?'#0f0e0d':'#1a1916');
+    },
+    cache:function(color,theme){try{
+      if(color!=null)localStorage.setItem('fz_client_brand',color);
+      if(theme!=null)localStorage.setItem('fz_client_theme',theme);
+    }catch(e){}},
+    get:function(){try{return localStorage.getItem('fz_client_brand');}catch(e){return null;}},
+    getTheme:function(){try{return localStorage.getItem('fz_client_theme')||'light';}catch(e){return 'light';}}
   };
   window.FZ_BRAND.apply(window.FZ_BRAND.get());
+  window.FZ_BRAND.setTheme(window.FZ_BRAND.getTheme());
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -52,12 +62,27 @@ html, body { overflow-x:hidden; overscroll-behavior-x:none; touch-action:pan-y; 
   --gold-pale: rgba(var(--gold-rgb),0.10); --gold-border: rgba(var(--gold-rgb),0.25);
   --green: #22c55e; --red: #ef4444;
   --text: #1a1916; --text2: #6b6456; --text3: #9e9488;
+  --on-gold: #1a1916; /* texte lisible posé sur un aplat de couleur de marque */
   --border: rgba(0,0,0,0.06); --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --tint: 100%; --ink: 100%; /* dosage des pastilles pastel / textes foncés selon le thème */
   --r: 20px; --r-sm: 14px; --r-xs: 10px;
   --tab-h: 64px;
   --font: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
+/* ===== THÈME SOMBRE APP CLIENT (piloté par le coach) ===== */
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f0e0d; --bg2: #1c1a18; --white: #1a1815;
+  --dark: #26241f; --dark2: #302d27; --dark3: #3a3832;
+  --gold-deep: var(--gold-light); --gold-deeper: var(--gold-dk);
+  --gold-pale: rgba(var(--gold-rgb),0.16); --gold-border: rgba(var(--gold-rgb),0.34);
+  --text: #efece6; --text2: #a9a190; --text3: #7e776a;
+  --border: rgba(255,255,255,0.09);
+  --shadow: 0 2px 12px rgba(0,0,0,0.45);
+  --tint: 18%; --ink: 56%;
+}
+html[data-theme="dark"] input[type=date],html[data-theme="dark"] input[type=time],html[data-theme="dark"] input[type=number],html[data-theme="dark"] input[type=datetime-local]{color-scheme:dark;}
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html { height:100%; }
 body { background:var(--bg); color:var(--text); font-family:var(--font); height:100dvh; margin:0; overflow:hidden; -webkit-font-smoothing:antialiased; }
@@ -75,7 +100,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .tab-bar { position:fixed; bottom:0; left:0; right:0; background:var(--white); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-around; height:calc(var(--tab-h) + var(--safe-b)); padding-bottom:var(--safe-b); z-index:100; transform:translate3d(0,0,0); -webkit-backface-visibility:hidden; backface-visibility:hidden; }
 .tab-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; height:100%; border:none; background:none; color:var(--text3); font-size:10px; font-weight:500; cursor:pointer; transition:color .2s; gap:3px; }
 .tab-btn svg { width:24px; height:24px; transition:all .2s; }
-.tab-btn.active { color:var(--dark); }
+.tab-btn.active { color:var(--text); }
 .tab-btn.active svg { color:var(--gold); }
 .tab-section { display:none; }
 .tab-section.active { display:block; }
@@ -86,7 +111,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .home-avatar { width:40px; height:40px; border-radius:50%; background:var(--gold); color:white; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; }
 .home-phase { font-size:11px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--text3); margin-top:20px; }
 .home-greet { margin-top:6px; margin-bottom:24px; }
-.home-greet-line1 { font-size:32px; font-weight:800; color:var(--dark); line-height:1.15; }
+.home-greet-line1 { font-size:32px; font-weight:800; color:var(--text); line-height:1.15; }
 .home-greet-line2 { font-size:32px; font-weight:800; color:var(--gold); font-style:italic; line-height:1.15; }
 
 /* === CARDS === */
@@ -125,7 +150,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .steps-bar { width:100%; border-radius:6px; background:var(--bg2); min-height:8px; transition:height .4s; }
 .steps-bar.today { background:var(--gold); }
 .steps-bar-label { font-size:10px; color:var(--text3); font-weight:500; }
-.workout-go { background:var(--gold); color:var(--dark); border:none; border-radius:var(--r-sm); padding:10px 20px; font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap; }
+.workout-go { background:var(--gold); color:var(--on-gold); border:none; border-radius:var(--r-sm); padding:10px 20px; font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap; }
 
 /* === DETAIL OVERLAY (weight/steps) === */
 .detail-overlay { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease }
@@ -134,10 +159,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 @keyframes fadeIn { from{opacity:0} to{opacity:1} }
 .detail-period-btns { display:flex;gap:6px;margin-bottom:16px }
 .detail-period-btn { flex:1;padding:8px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;text-align:center }
-.detail-period-btn.active { background:var(--dark);color:white;border-color:var(--dark) }
+.detail-period-btn.active { background:var(--dark);color:white;border-color:var(--text) }
 .detail-stat { display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border) }
 .detail-stat-label { font-size:12px;color:var(--text3);font-weight:600 }
-.detail-stat-val { font-size:14px;font-weight:700;color:var(--dark) }
+.detail-stat-val { font-size:14px;font-weight:700;color:var(--text) }
 
 /* === PARTNER BANNER === */
 .partner-banner { border-radius:var(--r);overflow:hidden;margin-bottom:14px;background:var(--white);box-shadow:var(--shadow) }
@@ -354,31 +379,31 @@ textarea.form-input { min-height:100px; resize:vertical; }
 
 /* === PWA INSTALL BANNER === */
 .pwa-banner { position:fixed; bottom:calc(var(--tab-h) + var(--safe-b) + 8px); left:12px; right:12px; background:var(--dark); color:white; border-radius:16px; padding:14px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 8px 30px rgba(0,0,0,.25); z-index:200; animation:slideUp .4s ease; }
-.pwa-banner-icon { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,var(--gold-deeper),var(--gold)); display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:900; color:var(--dark); flex-shrink:0; }
+.pwa-banner-icon { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,var(--gold-deeper),var(--gold)); display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:900; color:var(--on-gold); flex-shrink:0; }
 .pwa-banner-text { flex:1; }
 .pwa-banner-title { font-size:14px; font-weight:700; margin-bottom:2px; }
 .pwa-banner-sub { font-size:11px; color:rgba(255,255,255,.6); }
-.pwa-banner-btn { padding:8px 16px; border-radius:10px; border:none; background:linear-gradient(135deg,var(--gold-dk),var(--gold-light)); color:var(--dark); font-weight:700; font-size:12px; cursor:pointer; font-family:var(--font); white-space:nowrap; }
+.pwa-banner-btn { padding:8px 16px; border-radius:10px; border:none; background:linear-gradient(135deg,var(--gold-dk),var(--gold-light)); color:var(--on-gold); font-weight:700; font-size:12px; cursor:pointer; font-family:var(--font); white-space:nowrap; }
 .pwa-banner-close { position:absolute; top:6px; right:10px; background:none; border:none; color:rgba(255,255,255,.4); font-size:18px; cursor:pointer; padding:4px; }
 @keyframes slideUp { from{transform:translateY(100px);opacity:0} to{transform:translateY(0);opacity:1} }
 
 /* === PWA INSTALL TUTORIAL OVERLAY === */
 .pwa-overlay { position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:300; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; animation:fadeIn .3s ease; }
 @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-.pwa-tuto { background:white; border-radius:24px; max-width:380px; width:100%; padding:28px 24px; text-align:center; max-height:90vh; overflow-y:auto; }
-.pwa-tuto-logo { width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg,var(--gold-deeper),var(--gold)); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:900; color:#1a1916; margin:0 auto 16px; }
-.pwa-tuto h2 { font-size:20px; font-weight:800; color:var(--dark); margin-bottom:4px; }
+.pwa-tuto { background:var(--white); border-radius:24px; max-width:380px; width:100%; padding:28px 24px; text-align:center; max-height:90vh; overflow-y:auto; }
+.pwa-tuto-logo { width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg,var(--gold-deeper),var(--gold)); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:900; color:color-mix(in srgb,#1a1916 var(--ink,100%),var(--text)); margin:0 auto 16px; }
+.pwa-tuto h2 { font-size:20px; font-weight:800; color:var(--text); margin-bottom:4px; }
 .pwa-tuto .sub { font-size:13px; color:var(--text3); margin-bottom:20px; }
 .pwa-step { display:flex; align-items:flex-start; gap:12px; text-align:left; padding:12px 0; border-bottom:1px solid var(--border); }
 .pwa-step:last-child { border:none; }
 .pwa-step-num { width:28px; height:28px; border-radius:50%; background:var(--gold-pale); color:var(--gold); font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .pwa-step-text { font-size:13px; color:var(--text); line-height:1.5; }
-.pwa-step-text strong { color:var(--dark); }
+.pwa-step-text strong { color:var(--text); }
 .pwa-step-icon { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px; background:var(--bg); font-size:12px; vertical-align:middle; margin:0 2px; }
-.pwa-tuto-btn { margin-top:18px; width:100%; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg,var(--gold-dk),var(--gold-light)); color:var(--dark); font-weight:700; font-size:15px; cursor:pointer; font-family:var(--font); }
-.pwa-chrome-warn { background:#fff3e0; border:1px solid #ffe0b2; border-radius:14px; padding:16px; margin-bottom:16px; text-align:center; }
-.pwa-chrome-warn-title { font-size:14px; font-weight:700; color:#e65100; margin-bottom:6px; }
-.pwa-chrome-warn-text { font-size:12px; color:#bf360c; line-height:1.5; margin-bottom:10px; }
+.pwa-tuto-btn { margin-top:18px; width:100%; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg,var(--gold-dk),var(--gold-light)); color:var(--on-gold); font-weight:700; font-size:15px; cursor:pointer; font-family:var(--font); }
+.pwa-chrome-warn { background:color-mix(in srgb,#fff3e0 var(--tint,100%),var(--white)); border:1px solid #ffe0b2; border-radius:14px; padding:16px; margin-bottom:16px; text-align:center; }
+.pwa-chrome-warn-title { font-size:14px; font-weight:700; color:color-mix(in srgb,#e65100 var(--ink,100%),var(--text)); margin-bottom:6px; }
+.pwa-chrome-warn-text { font-size:12px; color:color-mix(in srgb,#bf360c var(--ink,100%),var(--text)); line-height:1.5; margin-bottom:10px; }
 .pwa-chrome-btn { display:inline-block; padding:10px 20px; border-radius:10px; border:none; background:#e65100; color:white; font-weight:700; font-size:13px; cursor:pointer; font-family:var(--font); text-decoration:none; }
 
 /* === VISUAL ROADMAP === */
@@ -389,7 +414,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .roadmap-path { position:relative; height:60px; margin:20px 0 12px; }
 .roadmap-track { position:absolute; top:50%; left:0; right:0; height:6px; border-radius:3px; background:var(--bg2); transform:translateY(-50%); }
 .roadmap-fill { position:absolute; top:50%; left:0; height:6px; border-radius:3px; background:linear-gradient(90deg,var(--gold),var(--gold-light)); transform:translateY(-50%); transition:width 1s ease; }
-.roadmap-avatar { position:absolute; top:50%; transform:translate(-50%,-50%); width:36px; height:36px; border-radius:50%; background:var(--gold); border:3px solid var(--white); box-shadow:0 2px 8px rgba(0,0,0,.15); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:var(--dark); transition:left 1s ease; z-index:2; }
+.roadmap-avatar { position:absolute; top:50%; transform:translate(-50%,-50%); width:36px; height:36px; border-radius:50%; background:var(--gold); border:3px solid var(--white); box-shadow:0 2px 8px rgba(0,0,0,.15); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:var(--text); transition:left 1s ease; z-index:2; }
 .roadmap-start,.roadmap-end { position:absolute; top:50%; transform:translateY(-50%); width:14px; height:14px; border-radius:50%; border:2px solid var(--border); background:var(--white); z-index:1; }
 .roadmap-start { left:0; }
 .roadmap-end { right:0; background:var(--gold); border-color:var(--gold); }
@@ -397,7 +422,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .roadmap-milestones { display:flex; justify-content:space-between; margin-top:16px; gap:6px; }
 .roadmap-ms { flex:1; text-align:center; padding:8px 4px; border-radius:var(--r-xs); background:var(--bg); font-size:10px; color:var(--text3); }
 .roadmap-ms.done { background:var(--gold-pale); color:var(--gold); font-weight:700; }
-.roadmap-ms-val { font-size:16px; font-weight:800; color:var(--dark); margin-bottom:2px; }
+.roadmap-ms-val { font-size:16px; font-weight:800; color:var(--on-gold); margin-bottom:2px; }
 .roadmap-ms.done .roadmap-ms-val { color:var(--gold); }
 
 /* === GAMIFICATION === */
@@ -412,7 +437,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .levelup-emoji { font-size:72px; margin-bottom:12px; animation:levelBounce .6s ease; }
 @keyframes levelBounce { 0%{transform:scale(0)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
 .levelup-title { font-size:12px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
-.levelup-name { font-size:28px; font-weight:900; color:var(--dark); margin-bottom:6px; }
+.levelup-name { font-size:28px; font-weight:900; color:var(--on-gold); margin-bottom:6px; }
 .levelup-sub { font-size:14px; color:var(--text2); }
 .levelup-confetti { position:absolute; width:8px; height:8px; border-radius:2px; animation:confettiFall 2.5s ease-out forwards; }
 @keyframes confettiFall { 0%{transform:translateY(-100px) rotate(0deg);opacity:1} 100%{transform:translateY(400px) rotate(720deg);opacity:0} }
@@ -422,7 +447,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .badge-card { text-align:center; padding:36px 28px; background:var(--white); border-radius:24px; max-width:320px; width:90%; }
 .badge-card-emoji { font-size:64px; margin-bottom:8px; animation:levelBounce .6s ease; }
 .badge-card-label { font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
-.badge-card-name { font-size:22px; font-weight:800; color:var(--dark); margin-bottom:6px; }
+.badge-card-name { font-size:22px; font-weight:800; color:var(--on-gold); margin-bottom:6px; }
 .badge-card-desc { font-size:13px; color:var(--text2); line-height:1.4; margin-bottom:8px; }
 .badge-card-bonus { font-size:14px; font-weight:700; color:var(--gold); }
 .badge-card-btn { margin-top:16px; padding:12px 32px; border:none; border-radius:12px; background:var(--gold); color:white; font-size:15px; font-weight:700; cursor:pointer; font-family:var(--font); }
@@ -443,14 +468,14 @@ textarea.form-input { min-height:100px; resize:vertical; }
 
 .pts-summary { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px; }
 .pts-box { background:var(--white); border-radius:var(--r-sm); padding:14px 10px; text-align:center; border:1px solid var(--border); }
-.pts-box-val { font-size:22px; font-weight:800; color:var(--dark); }
+.pts-box-val { font-size:22px; font-weight:800; color:var(--text); }
 .pts-box-label { font-size:10px; color:var(--text3); margin-top:2px; font-weight:600; letter-spacing:.5px; }
 
 .badge-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
 .badge-item { background:var(--white); border-radius:var(--r-sm); padding:14px 8px; text-align:center; border:1px solid var(--border); transition:all .2s; }
 .badge-item.locked { opacity:.35; filter:grayscale(1); }
 .badge-item-emoji { font-size:32px; margin-bottom:4px; }
-.badge-item-name { font-size:11px; font-weight:700; color:var(--dark); }
+.badge-item-name { font-size:11px; font-weight:700; color:var(--text); }
 .badge-item-desc { font-size:9px; color:var(--text3); margin-top:2px; }
 
 .lb-row { display:flex; align-items:center; gap:12px; padding:12px 14px; border-bottom:1px solid var(--border); }
@@ -472,9 +497,9 @@ textarea.form-input { min-height:100px; resize:vertical; }
 
 .req-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; }
 .req-status { padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
-.req-status.pending { background:#fff3e0; color:#e65100; }
-.req-status.approved { background:#e8f5e9; color:#2e7d32; }
-.req-status.denied { background:#ffebee; color:#c62828; }
+.req-status.pending { background:color-mix(in srgb,#fff3e0 var(--tint,100%),var(--white)); color:color-mix(in srgb,#e65100 var(--ink,100%),var(--text)); }
+.req-status.approved { background:color-mix(in srgb,#e8f5e9 var(--tint,100%),var(--white)); color:color-mix(in srgb,#2e7d32 var(--ink,100%),var(--text)); }
+.req-status.denied { background:color-mix(in srgb,#ffebee var(--tint,100%),var(--white)); color:color-mix(in srgb,#c62828 var(--ink,100%),var(--text)); }
 
 /* Notification modal */
 .notif-page { display:none; position:fixed; inset:0; background:var(--bg); z-index:200; overflow-y:auto; -webkit-overflow-scrolling:touch; }
@@ -508,7 +533,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
 @keyframes actCardOut{0%{opacity:1;transform:translateX(0);max-height:160px}100%{opacity:0;transform:translateX(50px);max-height:0;margin-bottom:0;padding-top:0;padding-bottom:0;border-width:0}}
 .act-removing{animation:actCardOut .32s ease forwards;overflow:hidden;pointer-events:none}
 .act-del-btn{background:none;border:none;color:var(--text3);font-size:15px;cursor:pointer;padding:6px;flex-shrink:0;align-self:center;border-radius:8px;transition:background .15s,color .15s;font-family:var(--font);line-height:1}
-.act-del-btn:hover,.act-del-btn:active{background:#fef2f2;color:#ef4444}
+.act-del-btn:hover,.act-del-btn:active{background:color-mix(in srgb,#fef2f2 var(--tint,100%),var(--white));color:color-mix(in srgb,#ef4444 var(--ink,100%),var(--text))}
 /* Calendar */
 .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .cal-nav{display:flex;align-items:center;gap:10px}
@@ -548,13 +573,13 @@ textarea.form-input { min-height:100px; resize:vertical; }
 <div id="stateBlocked" class="fs" style="display:none"><div class="fs-icon">🔒</div><div class="fs-title">Accès refusé</div><div class="fs-sub">Ce lien n'est pas valide ou a expiré.<br>Contacte ton coach pour obtenir un nouveau lien.</div></div>
 <div id="stateWaiting" class="fs" style="display:none"><div class="fs-icon">⏳</div><div class="fs-title">En attente d'activation</div><div class="fs-sub">Ton coach n'a pas encore activé ton compte.<br>Tu recevras un accès bientôt !</div></div>
 <div id="statePaused" class="fs" style="display:none">
-  <div style="width:64px;height:64px;background:linear-gradient(135deg,var(--gold-deeper),var(--gold));border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#1a1916;margin:0 auto 20px">F</div>
+  <div style="width:64px;height:64px;background:linear-gradient(135deg,var(--gold-deeper),var(--gold));border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:color-mix(in srgb,#1a1916 var(--ink,100%),var(--text));margin:0 auto 20px">F</div>
   <div class="fs-icon" style="font-size:40px">⏸️</div>
   <div class="fs-title" style="font-size:20px;margin:12px 0 8px">Accès en pause</div>
   <div class="fs-sub" style="max-width:320px;margin:0 auto;line-height:1.6">Nous t'invitons à contacter ton coach référent ou l'équipe pour débloquer ton accès.</div>
   <div style="margin-top:24px;padding:16px;background:rgba(var(--gold-rgb),0.08);border-radius:12px;border:1px solid rgba(var(--gold-rgb),0.15)">
-    <div style="font-size:11px;color:#9e9488;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Fitzone Evolution</div>
-    <div style="font-size:13px;color:#6b6456">Ton programme et tes données sont conservés</div>
+    <div style="font-size:11px;color:color-mix(in srgb,#9e9488 var(--ink,100%),var(--text));text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Fitzone Evolution</div>
+    <div style="font-size:13px;color:color-mix(in srgb,#6b6456 var(--ink,100%),var(--text))">Ton programme et tes données sont conservés</div>
   </div>
 </div>
 
@@ -679,7 +704,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
     <div class="form-group"><label class="form-label">Nom</label><input type="text" class="form-input" id="profLastName"></div>
     <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="profEmail"></div>
     <button class="btn-gold" onclick="saveProfile()" style="width:100%;margin-top:12px" id="profSaveBtn">Enregistrer</button>
-    <button id="logoutBtn" onclick="clientLogout()" style="width:100%;margin-top:12px;padding:12px;border:1.5px solid #c03030;border-radius:var(--r-sm);background:none;color:#c03030;font-weight:700;font-size:14px;cursor:pointer;display:none">Se déconnecter</button>
+    <button id="logoutBtn" onclick="clientLogout()" style="width:100%;margin-top:12px;padding:12px;border:1.5px solid #c03030;border-radius:var(--r-sm);background:none;color:color-mix(in srgb,#c03030 var(--ink,100%),var(--text));font-weight:700;font-size:14px;cursor:pointer;display:none">Se déconnecter</button>
   </div>
 </div>
 <div class="modal-overlay" id="mClGrocery" onclick="closeClientGrocery()">
@@ -968,17 +993,17 @@ function showRecoveryMessage({title,body,email,canResend,sent}){
   }
   el.style.display='flex';
   const emailLine=email?`<div style="font-size:13px;color:var(--text2,#475569);margin:8px 0 4px">Adresse utilisée : <strong>${email}</strong></div>`:'';
-  const resendBtn=canResend?`<button id="resendBtn" onclick="resendRecoveryAndToast('${email||''}')" style="margin-top:14px;padding:10px 18px;border-radius:10px;border:1.5px solid var(--gold);background:white;color:var(--gold);font-weight:600;cursor:pointer">Renvoyer le mail</button>`:'';
-  const sentLine=sent===false?'<div style="font-size:12px;color:#dc2626;margin-top:8px">⚠️ Échec d\'envoi du mail. Réessaie ou contacte ton coach.</div>':'';
+  const resendBtn=canResend?`<button id="resendBtn" onclick="resendRecoveryAndToast('${email||''}')" style="margin-top:14px;padding:10px 18px;border-radius:10px;border:1.5px solid var(--gold);background:var(--white);color:var(--gold);font-weight:600;cursor:pointer">Renvoyer le mail</button>`:'';
+  const sentLine=sent===false?'<div style="font-size:12px;color:color-mix(in srgb,#dc2626 var(--ink,100%),var(--text));margin-top:8px">⚠️ Échec d\'envoi du mail. Réessaie ou contacte ton coach.</div>':'';
   el.innerHTML=`
-    <div style="max-width:420px;width:100%;background:white;border-radius:18px;padding:28px 24px;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center">
+    <div style="max-width:420px;width:100%;background:var(--white);border-radius:18px;padding:28px 24px;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center">
       <div style="font-size:42px;margin-bottom:10px">📩</div>
-      <div style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:8px">${title}</div>
-      <div style="font-size:14px;color:#475569;line-height:1.5">${body}</div>
+      <div style="font-size:18px;font-weight:700;color:color-mix(in srgb,#0f172a var(--ink,100%),var(--text));margin-bottom:8px">${title}</div>
+      <div style="font-size:14px;color:color-mix(in srgb,#475569 var(--ink,100%),var(--text));line-height:1.5">${body}</div>
       ${emailLine}
       ${sentLine}
       ${resendBtn}
-      <div style="margin-top:18px"><a href="client-login.html" style="font-size:13px;color:#64748b;text-decoration:underline">Aller à la page de connexion</a></div>
+      <div style="margin-top:18px"><a href="client-login.html" style="font-size:13px;color:color-mix(in srgb,#64748b var(--ink,100%),var(--text));text-decoration:underline">Aller à la page de connexion</a></div>
     </div>`;
 }
 
@@ -1023,10 +1048,11 @@ async function loadData(){
   }catch(e){console.error('[PLAN SWAPS]',e);planSwaps=[];}
   // Load coach settings (levels + activity types)
   try{
-    const{data:sData}=await db.from('settings').select('gamif_levels,activity_types,muscle_group_images,client_brand_color').eq('coach_id',clientData.coach_id).limit(1);
+    const{data:sData}=await db.from('settings').select('gamif_levels,activity_types,muscle_group_images,client_brand_color,client_theme').eq('coach_id',clientData.coach_id).limit(1);
     if(sData&&sData[0]){
       if(FZ_BRAND.valid(sData[0].client_brand_color)){FZ_BRAND.apply(sData[0].client_brand_color);FZ_BRAND.cache(sData[0].client_brand_color);}
       else{FZ_BRAND.apply(FZ_BRAND.DEFAULT);FZ_BRAND.cache(FZ_BRAND.DEFAULT);}
+      {const th=sData[0].client_theme==='dark'?'dark':'light';FZ_BRAND.setTheme(th);FZ_BRAND.cache(null,th);}
       if(sData[0].gamif_levels&&sData[0].gamif_levels.length)LEVELS=sData[0].gamif_levels;
       if(sData[0].muscle_group_images&&typeof sData[0].muscle_group_images==='object')coachMuscleImages=sData[0].muscle_group_images;
       if(Array.isArray(sData[0].activity_types)&&sData[0].activity_types.length)coachActivityTypes=sData[0].activity_types;
@@ -1203,7 +1229,7 @@ function renderHome(){
   const bilanDone=bc.bilanDoneThisWeek;
   html+=`<div class="card${bilanActive?' bilan-bubble-active':''} fade-up" onclick="switchTab('Bilan')" style="animation-delay:.08s;margin-bottom:14px;cursor:pointer;${bilanActive?'border:2px solid var(--gold);background:linear-gradient(135deg,rgba(var(--gold-rgb),.08),rgba(232,184,74,.05))':bilanDone?'opacity:.65':'opacity:.6'}">
     <div style="display:flex;align-items:center;gap:14px">
-      <div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;${bilanActive?'background:var(--gold);color:white':bilanDone?'background:rgba(72,187,120,.12);color:#38a169':'background:var(--bg2);color:var(--text3)'}">
+      <div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;${bilanActive?'background:var(--gold);color:white':bilanDone?'background:rgba(72,187,120,.12);color:color-mix(in srgb,#38a169 var(--ink,100%),var(--text))':'background:var(--bg2);color:var(--text3)'}">
         ${bilanDone?'✓':'📋'}
       </div>
       <div style="flex:1">
@@ -1337,7 +1363,7 @@ function renderDetailWidget(metric,unit){
   overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
   overlay.innerHTML=`<div class="detail-sheet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:18px;font-weight:800;color:var(--dark)">${title}</div>
+      <div style="font-size:18px;font-weight:800;color:var(--text)">${title}</div>
       <span onclick="document.getElementById('detailOverlay').remove()" style="font-size:22px;cursor:pointer;color:var(--text3);padding:4px">✕</span>
     </div>
     <div class="detail-period-btns">
@@ -1381,7 +1407,7 @@ function _cliRunBlockSummary(b,vmaKmh){
 function _cliRunBlockCard(b,sectionEmoji){
   const vma=parseFloat(clientData?.vma_kmh)||0;
   const sum=_cliRunBlockSummary(b,vma);
-  const labelHtml=b.label?`<div style="font-size:14px;font-weight:800;color:var(--dark)">${(b.label||'').replace(/</g,'&lt;')}</div>`:'';
+  const labelHtml=b.label?`<div style="font-size:14px;font-weight:800;color:var(--text)">${(b.label||'').replace(/</g,'&lt;')}</div>`:'';
   const sumHtml=sum?`<div style="font-size:13px;color:var(--text2);margin-top:4px;line-height:1.45">${sum.replace(/</g,'&lt;')}</div>`:'';
   const notesHtml=b.notes?`<div style="font-size:12px;color:var(--text2);margin-top:8px;padding:8px 10px;background:var(--bg);border-radius:8px;line-height:1.5">💬 ${b.notes.replace(/</g,'&lt;')}</div>`:'';
   return`<div class="card" style="padding:14px;margin-bottom:10px;border-left:4px solid var(--gold)">
@@ -1401,7 +1427,7 @@ function renderTrainLanding(){
   // Bouton activité libre (équivalent du "Tracking alimentaire" côté nutrition)
   h+=`<div style="display:flex;gap:8px;margin-bottom:16px">
     <button class="btn-gold" style="flex:1;padding:14px 12px;font-size:14px" onclick="trainSubTab='activites';renderTrainPreview()">🏃 Activité libre</button>
-    <button class="btn-gold" style="flex:1;padding:14px 12px;font-size:14px;background:var(--white);color:var(--dark);border:1.5px solid var(--gold-border)" onclick="histMode='sessions';trainSubTab='historique';renderTrainPreview()">📈 Historique</button>
+    <button class="btn-gold" style="flex:1;padding:14px 12px;font-size:14px;background:var(--white);color:var(--on-gold);border:1.5px solid var(--gold-border)" onclick="histMode='sessions';trainSubTab='historique';renderTrainPreview()">📈 Historique</button>
   </div>`;
   // Programme assigné par le coach
   if(!programs.length){
@@ -1460,7 +1486,7 @@ function renderTrainPreview(){
         const groupLetter=String.fromCharCode(65+letterIdx);
         h+=`<div style="background:var(--gold-pale);border:1.5px solid var(--gold-border);border-radius:12px;padding:10px;margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <div style="background:var(--gold);color:var(--dark);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px">${groupLetter}</div>
+            <div style="background:var(--gold);color:var(--on-gold);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px">${groupLetter}</div>
             <div style="font-size:12px;font-weight:800;color:var(--gold-deep);letter-spacing:1px">⚡ SUPERSET</div>
             <div style="font-size:11px;color:var(--text2);margin-left:auto">Alterne entre les exercices</div>
           </div>`;
@@ -1585,7 +1611,7 @@ function renderHistoryExos(logs){
   if(!names.length)return`<div class="empty"><div class="empty-icon">📈</div><div class="empty-text">Pas encore de charges enregistrées.<br>Note tes poids pendant tes séances pour suivre ta progression.</div></div>`;
   if(!histExo||!map[histExo])histExo=names[0];
   const series=map[histExo];
-  let h=`<select style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--white);font-size:14px;font-weight:700;font-family:var(--font);color:var(--dark);margin-bottom:16px" onchange="histExo=this.value;renderTrainPreview()">`;
+  let h=`<select style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--white);font-size:14px;font-weight:700;font-family:var(--font);color:var(--text);margin-bottom:16px" onchange="histExo=this.value;renderTrainPreview()">`;
   names.forEach(n=>{h+=`<option value="${n.replace(/"/g,'&quot;')}"${n===histExo?' selected':''}>${n} (${map[n].length})</option>`;});
   h+=`</select>`;
   const maxPR=Math.max(...series.map(s=>s.maxKg));
@@ -1597,7 +1623,7 @@ function renderHistoryExos(logs){
   h+=`<div style="display:flex;gap:8px;margin-bottom:16px">
     <div style="flex:1;background:var(--white);border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)"><div style="font-size:11px;color:var(--text3);font-weight:700">🏆 Record</div><div style="font-size:22px;font-weight:800;color:var(--gold);margin-top:2px">${maxPR} kg</div></div>
     <div style="flex:1;background:var(--white);border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)"><div style="font-size:11px;color:var(--text3);font-weight:700">Évolution</div><div style="font-size:18px;font-weight:800;color:${deltaColor};margin-top:4px">${deltaTxt}</div></div>
-    <div style="flex:1;background:var(--white);border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)"><div style="font-size:11px;color:var(--text3);font-weight:700">Séances</div><div style="font-size:22px;font-weight:800;color:var(--dark);margin-top:2px">${series.length}</div></div>
+    <div style="flex:1;background:var(--white);border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06)"><div style="font-size:11px;color:var(--text3);font-weight:700">Séances</div><div style="font-size:22px;font-weight:800;color:var(--text);margin-top:2px">${series.length}</div></div>
   </div>`;
   if(series.length>1){
     h+=`<div class="card" style="padding:14px;margin-bottom:16px"><div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px">Charge max par séance (kg)</div>${renderChart(series.map(s=>({date:s.date,v:s.maxKg})))}</div>`;
@@ -1850,7 +1876,7 @@ function openCalendarDay(dateStr){
         <div style="font-size:14px;font-weight:700">${e.name}</div>
         <div style="display:flex;align-items:center;gap:6px;margin-top:4px"><div class="cal-dot ${calEntryColor(e.type)}"></div><span style="font-size:11px;color:var(--text3)">${e.source==='event'?'Événement planifié':e.type==='running'?'Running':e.type==='activity'?'Activité':'Musculation'}</span></div>
         ${detail.length?`<div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.5">${detail.join(' · ')}</div>`:''}
-        ${canEdit?`<div style="display:flex;gap:6px;margin-top:8px"><button class="btn-gold" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px" onclick="closeModal();editActivity('${e.data.id}')">Modifier</button><button style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:var(--bg2);border:1px solid var(--border);color:#ef4444;cursor:pointer;font-family:var(--font)" onclick="deleteActivity('${e.data.id}','${dateStr}')">Supprimer</button></div>`:''}
+        ${canEdit?`<div style="display:flex;gap:6px;margin-top:8px"><button class="btn-gold" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px" onclick="closeModal();editActivity('${e.data.id}')">Modifier</button><button style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;background:var(--bg2);border:1px solid var(--border);color:color-mix(in srgb,#ef4444 var(--ink,100%),var(--text));cursor:pointer;font-family:var(--font)" onclick="deleteActivity('${e.data.id}','${dateStr}')">Supprimer</button></div>`:''}
       </div>
     </div>`;
   });
@@ -2043,7 +2069,7 @@ function openRunDoneModal(prefilledDurMin){
   }
   const dur=prefilledDurMin||'';
   const html=`<div style="background:var(--white);border-radius:18px;width:100%;max-width:460px;max-height:88vh;overflow-y:auto;padding:0">
-    <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><div style="font-size:16px;font-weight:800;color:var(--dark)">Séance running terminée</div></div>
+    <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><div style="font-size:16px;font-weight:800;color:var(--text)">Séance running terminée</div></div>
     <div style="padding:18px 20px">
       <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.5">Bravo pour cette séance ! Note rapidement comment ça s'est passé.</div>
       ${recap}
@@ -2122,7 +2148,7 @@ function renderExoPreview(ex,idx,explicitLetter){
   if(rirStr!=='')chips+=`<span class="exo-chip">RIR: ${rirStr}</span>`;
 
   const pool=exoPool(ex);
-  const swapBtn=pool.length>1?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" title="Choisir un exercice alternatif" style="display:flex;align-items:center;justify-content:center;gap:3px;width:100%;background:var(--gold);border:none;border-radius:7px;padding:5px 6px;font-size:10px;font-weight:800;color:#1a1a1a;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.15);white-space:nowrap">⇄ Autre</button>`:'';
+  const swapBtn=pool.length>1?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" title="Choisir un exercice alternatif" style="display:flex;align-items:center;justify-content:center;gap:3px;width:100%;background:var(--gold);border:none;border-radius:7px;padding:5px 6px;font-size:10px;font-weight:800;color:color-mix(in srgb,#1a1a1a var(--ink,100%),var(--text));cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.15);white-space:nowrap">⇄ Autre</button>`:'';
   // Groupe musculaire ciblé + image (configurés par le coach) — affichée à côté de la vidéo
   const muscle=ex.muscle||'';
   const mSrc=muscleImgSrc(muscle);
@@ -2253,7 +2279,7 @@ function _renderWoExoCard(ex,ei,opts){
   if(restStr)chips+=`<span class="exo-chip">Rest: ${restStr}</span>`;
   const pool=ex._pool||exoPool(ex);
   const canSwap=pool.length>1;
-  const swapBtn=canSwap?`<button onclick="toggleSwap(${ei})" title="Choisir un exercice alternatif" style="display:flex;align-items:center;justify-content:center;gap:3px;width:100%;background:var(--gold);border:none;border-radius:7px;padding:5px 6px;font-size:10px;font-weight:800;color:#1a1a1a;cursor:pointer;white-space:nowrap">⇄ Changer</button>`:'';
+  const swapBtn=canSwap?`<button onclick="toggleSwap(${ei})" title="Choisir un exercice alternatif" style="display:flex;align-items:center;justify-content:center;gap:3px;width:100%;background:var(--gold);border:none;border-radius:7px;padding:5px 6px;font-size:10px;font-weight:800;color:color-mix(in srgb,#1a1a1a var(--ink,100%),var(--text));cursor:pointer;white-space:nowrap">⇄ Changer</button>`:'';
   // Groupe musculaire ciblé + image — affichée à côté de la vidéo
   const muscle=ex.muscle||'';
   const mSrc=muscleImgSrc(muscle);
@@ -2317,10 +2343,10 @@ function _renderWoExoFooter(ex,ei){
   const hasVid=!!ex.videoFile;
   const uploaded=!!ex.videoUrl;
   let h=`<div style="display:flex;gap:8px;align-items:center">`;
-  h+=`<button class="cam-btn" onclick="filmExo(${ei})" style="${hasVid?'background:#e8f5e9;border-color:#4caf50;color:#2e7d32':''}"><svg viewBox="0 0 24 24" fill="none" stroke="${hasVid?'#2e7d32':'currentColor'}" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> ${hasVid?'✓ Vidéo ajoutée':'Filmer'}</button>`;
+  h+=`<button class="cam-btn" onclick="filmExo(${ei})" style="${hasVid?'background:color-mix(in srgb,#e8f5e9 var(--tint,100%),var(--white));border-color:#4caf50;color:color-mix(in srgb,#2e7d32 var(--ink,100%),var(--text))':''}"><svg viewBox="0 0 24 24" fill="none" stroke="${hasVid?'#2e7d32':'currentColor'}" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> ${hasVid?'✓ Vidéo ajoutée':'Filmer'}</button>`;
   if(uploaded)h+=`<svg viewBox="0 0 24 24" fill="#2e7d32" width="22" height="22"><circle cx="12" cy="12" r="12" fill="#2e7d32"/><polyline points="7 13 10 16 17 9" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   h+=`</div>`;
-  if(ex.prevVideoUrl)h+=`<a href="${ex.prevVideoUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:#e8f5e9;border:1px solid #4caf50;border-radius:var(--r-xs);font-size:12px;font-weight:700;color:#2e7d32;text-decoration:none">▶ Voir ma vidéo précédente</a>`;
+  if(ex.prevVideoUrl)h+=`<a href="${ex.prevVideoUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:color-mix(in srgb,#e8f5e9 var(--tint,100%),var(--white));border:1px solid #4caf50;border-radius:var(--r-xs);font-size:12px;font-weight:700;color:color-mix(in srgb,#2e7d32 var(--ink,100%),var(--text));text-decoration:none">▶ Voir ma vidéo précédente</a>`;
   h+=`<textarea placeholder="Notes, réglages, feedback..." style="width:100%;margin-top:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-xs);font-size:13px;font-family:var(--font);background:var(--white);color:var(--text);min-height:44px;resize:vertical;outline:none" oninput="workoutData[${ei}].note=this.value">${ex.note||''}</textarea>`;
   return h;
 }
@@ -2340,7 +2366,7 @@ function _renderWoSingle(ei){
 function _renderWoSuperset(b){
   let h=`<div style="background:var(--gold-pale);border:1.5px solid var(--gold-border);border-radius:14px;padding:10px;margin-bottom:14px">`;
   h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:0 4px">
-    <div style="background:var(--gold);color:var(--dark);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px">${b.ssLetter}</div>
+    <div style="background:var(--gold);color:var(--on-gold);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px">${b.ssLetter}</div>
     <div style="font-size:12px;font-weight:800;color:var(--gold-deep);letter-spacing:1px">⚡ SUPERSET — ${b.eis.length} EXOS</div>
     <div style="font-size:11px;color:var(--text2);margin-left:auto;font-style:italic">Une série = tous les exos enchaînés</div>
   </div>`;
@@ -2348,21 +2374,21 @@ function _renderWoSuperset(b){
   b.eis.forEach((ei,pos)=>{
     const ex=workoutData[ei];
     const letter=b.ssLetter+(pos+1);
-    h+=`<div class="exo-active" style="background:white;margin-bottom:8px">`;
+    h+=`<div class="exo-active" style="background:var(--white);margin-bottom:8px">`;
     h+=_renderWoExoCard(ex,ei,{letter,hideRest:true});
     h+=_renderWoExoFooter(ex,ei);
     h+=`</div>`;
   });
   // Tableau séries du superset
   const nSets=Math.max(...b.eis.map(ei=>workoutData[ei].sets.length),1);
-  h+=`<div style="background:white;border-radius:10px;padding:10px;margin-top:8px">`;
+  h+=`<div style="background:var(--white);border-radius:10px;padding:10px;margin-top:8px">`;
   h+=`<div style="font-size:11px;font-weight:800;color:var(--gold-deep);letter-spacing:1px;margin-bottom:8px;padding:0 4px">📋 PERFORMANCES PAR TOUR</div>`;
   for(let si=0;si<nSets;si++){
     const allDone=b.eis.every(ei=>workoutData[ei].sets[si]?.done);
     h+=`<div style="background:${allDone?'#e8f5e9':'var(--bg)'};border-radius:8px;padding:8px;margin-bottom:8px;border:1.5px solid ${allDone?'#4caf50':'var(--border)'}">`;
     h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <div style="font-size:12px;font-weight:800;color:var(--dark);letter-spacing:.5px">TOUR ${si+1}/${nSets}</div>
-      ${allDone?'<div style="font-size:11px;font-weight:700;color:#2e7d32">✓ validé</div>':''}
+      <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">TOUR ${si+1}/${nSets}</div>
+      ${allDone?'<div style="font-size:11px;font-weight:700;color:color-mix(in srgb,#2e7d32 var(--ink,100%),var(--text))">✓ validé</div>':''}
     </div>`;
     b.eis.forEach((ei,pos)=>{
       const ex=workoutData[ei];
@@ -2746,7 +2772,7 @@ function renderWaterCard(iso){
   const fmtMl=n=>{const v=parseFloat(n)||0;return v%1===0?v:Math.round(v);};
   let h=`<div class="card" style="padding:16px;margin-top:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div style="font-size:15px;font-weight:800;color:var(--dark)">💧 Hydratation</div>
+      <div style="font-size:15px;font-weight:800;color:var(--text)">💧 Hydratation</div>
       <div style="font-size:13px;color:var(--text3);font-weight:700">${litres} L / ${goalL} L</div>
     </div>
     <div style="height:12px;border-radius:8px;background:var(--bg2);overflow:hidden;margin-bottom:6px;display:flex">
@@ -2759,10 +2785,10 @@ function renderWaterCard(iso){
     </div>
     <div style="font-size:12px;font-weight:800;color:var(--text2);margin-bottom:8px">Boissons</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      ${WATER_QUICK.map(ml=>`<button onclick="addWater(${ml},'${iso}')" style="flex:1;min-width:62px;padding:12px 4px;border:1.5px solid var(--gold-border);border-radius:12px;background:var(--white);font-size:15px;font-weight:800;color:#2b7bc4;cursor:pointer;font-family:var(--font)">+${ml}<span style="font-size:10px;font-weight:600;color:var(--text3)"> ml</span></button>`).join('')}
+      ${WATER_QUICK.map(ml=>`<button onclick="addWater(${ml},'${iso}')" style="flex:1;min-width:62px;padding:12px 4px;border:1.5px solid var(--gold-border);border-radius:12px;background:var(--white);font-size:15px;font-weight:800;color:color-mix(in srgb,#2b7bc4 var(--ink,100%),var(--text));cursor:pointer;font-family:var(--font)">+${ml}<span style="font-size:10px;font-weight:600;color:var(--text3)"> ml</span></button>`).join('')}
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <input id="waterCustom" type="number" inputmode="numeric" min="1" placeholder="Autre quantité (ml)" style="flex:1;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--dark)">
+      <input id="waterCustom" type="number" inputmode="numeric" min="1" placeholder="Autre quantité (ml)" style="flex:1;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--text)">
       <button onclick="addWaterCustom('${iso}')" style="padding:12px 18px;border:none;border-radius:12px;background:var(--gold);color:white;font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">Ajouter</button>
     </div>`;
   if(drinkLogs.length){
@@ -2771,7 +2797,7 @@ function renderWaterCard(iso){
       const t=l.created_at?new Date(l.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
       h+=`<div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 12px;background:var(--bg2);border-radius:10px">
         <span style="font-size:15px">💧</span>
-        <span style="font-weight:800;color:var(--dark)">${fmtMl(l.ml)} ml</span>
+        <span style="font-weight:800;color:var(--text)">${fmtMl(l.ml)} ml</span>
         ${t?`<span style="color:var(--text3);font-size:12px">${t}</span>`:''}
         <button onclick="delWater('${l.id}')" style="margin-left:auto;background:none;border:none;color:var(--text3);font-size:15px;cursor:pointer;padding:2px 6px">🗑️</button>
       </div>`;
@@ -2788,8 +2814,8 @@ function renderWaterCard(iso){
     </div>
     ${mealGoal>0?`<div style="height:8px;border-radius:6px;background:var(--bg2);overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${mealPct}%;background:linear-gradient(90deg,#89c997,#a9dcae);border-radius:6px;transition:width .3s"></div></div>`:''}
     <div style="display:flex;gap:8px">
-      <input id="waterCookLabel" type="text" placeholder="Ex. Avoine, crème de riz…" style="flex:1.4;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--dark)">
-      <input id="waterCookMl" type="number" inputmode="numeric" min="1" placeholder="ml" style="flex:1;min-width:0;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--dark)">
+      <input id="waterCookLabel" type="text" placeholder="Ex. Avoine, crème de riz…" style="flex:1.4;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--text)">
+      <input id="waterCookMl" type="number" inputmode="numeric" min="1" placeholder="ml" style="flex:1;min-width:0;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--text)">
     </div>
     <button onclick="addCookingWater('${iso}')" style="width:100%;margin-top:8px;padding:12px;border:none;border-radius:12px;background:#5f9c6e;color:white;font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">Ajouter aux plats</button>`;
   if(cookLogs.length){
@@ -2798,7 +2824,7 @@ function renderWaterCard(iso){
       const t=l.created_at?new Date(l.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
       h+=`<div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 12px;background:var(--bg2);border-radius:10px">
         <span style="font-size:15px">🍲</span>
-        <span style="font-weight:800;color:var(--dark)">${fmtMl(l.ml)} ml</span>
+        <span style="font-weight:800;color:var(--text)">${fmtMl(l.ml)} ml</span>
         ${l.label?`<span style="color:var(--text2)">${_escHtml(l.label)}</span>`:''}
         ${t?`<span style="color:var(--text3);font-size:12px">${t}</span>`:''}
         <button onclick="delWater('${l.id}')" style="margin-left:auto;background:none;border:none;color:var(--text3);font-size:15px;cursor:pointer;padding:2px 6px">🗑️</button>
@@ -2875,15 +2901,15 @@ function renderSaltCard(iso){
   else if(ratio>0.8)grad='linear-gradient(90deg,#e8a94a,#f4c46a)';   // proche de la limite
   let h=`<div class="card" style="padding:16px;margin-top:16px;margin-bottom:100px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div style="font-size:15px;font-weight:800;color:var(--dark)">🧂 Sel</div>
+      <div style="font-size:15px;font-weight:800;color:var(--text)">🧂 Sel</div>
       <div style="font-size:13px;color:${over?'#e8595b':'var(--text3)'};font-weight:700">${_gFmt(total)} g / ${_gFmt(goal)} g${over?' ⚠️':''}</div>
     </div>
     <div style="height:12px;border-radius:8px;background:var(--bg2);overflow:hidden;margin-bottom:14px"><div style="height:100%;width:${pct}%;background:${grad};border-radius:8px;transition:width .3s"></div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      ${SALT_QUICK.map(g=>`<button onclick="addSalt(${g},'${iso}')" style="flex:1;min-width:62px;padding:12px 4px;border:1.5px solid var(--gold-border);border-radius:12px;background:var(--white);font-size:15px;font-weight:800;color:#c98a2a;cursor:pointer;font-family:var(--font)">+${_gFmt(g)}<span style="font-size:10px;font-weight:600;color:var(--text3)"> g</span></button>`).join('')}
+      ${SALT_QUICK.map(g=>`<button onclick="addSalt(${g},'${iso}')" style="flex:1;min-width:62px;padding:12px 4px;border:1.5px solid var(--gold-border);border-radius:12px;background:var(--white);font-size:15px;font-weight:800;color:color-mix(in srgb,#c98a2a var(--ink,100%),var(--text));cursor:pointer;font-family:var(--font)">+${_gFmt(g)}<span style="font-size:10px;font-weight:600;color:var(--text3)"> g</span></button>`).join('')}
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <input id="saltCustom" type="number" inputmode="decimal" step="0.1" min="0.1" placeholder="Autre quantité (g)" style="flex:1;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--dark)">
+      <input id="saltCustom" type="number" inputmode="decimal" step="0.1" min="0.1" placeholder="Autre quantité (g)" style="flex:1;padding:12px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-family:var(--font);background:var(--white);color:var(--text)">
       <button onclick="addSaltCustom('${iso}')" style="padding:12px 18px;border:none;border-radius:12px;background:var(--gold);color:white;font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font)">Ajouter</button>
     </div>`;
   if(logs.length){
@@ -2892,7 +2918,7 @@ function renderSaltCard(iso){
       const t=l.created_at?new Date(l.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
       h+=`<div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 12px;background:var(--bg2);border-radius:10px">
         <span style="font-size:15px">🧂</span>
-        <span style="font-weight:800;color:var(--dark)">${_gFmt(l.grams)} g</span>
+        <span style="font-weight:800;color:var(--text)">${_gFmt(l.grams)} g</span>
         ${t?`<span style="color:var(--text3);font-size:12px">${t}</span>`:''}
         <button onclick="delSalt('${l.id}')" style="margin-left:auto;background:none;border:none;color:var(--text3);font-size:15px;cursor:pointer;padding:2px 6px">🗑️</button>
       </div>`;
@@ -2985,7 +3011,7 @@ function renderFoodTracker(){
   // Scan button
   h+=`<button class="btn-gold" style="width:100%;margin-bottom:14px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px" onclick="openBarcodeScanner(true)"><span style="font-size:18px">📷</span> Scanner un code-barres</button>`;
   // Big total card with circular ring + macro bars
-  const restMsg=tgtK?(tK<=tgtK?`Reste <strong style="color:var(--dark)">${Math.round(tgtK-tK)} kcal</strong>`:`Dépassé de <strong style="color:var(--red)">${Math.round(tK-tgtK)} kcal</strong>`):'';
+  const restMsg=tgtK?(tK<=tgtK?`Reste <strong style="color:var(--text)">${Math.round(tgtK-tK)} kcal</strong>`:`Dépassé de <strong style="color:var(--red)">${Math.round(tK-tgtK)} kcal</strong>`):'';
   h+=`<div class="card" style="padding:18px;margin-bottom:16px;display:flex;align-items:center;gap:16px">
     <div style="position:relative;width:140px;height:140px;flex-shrink:0">
       <svg width="140" height="140" viewBox="0 0 160 160" style="transform:rotate(-90deg)">
@@ -2993,7 +3019,7 @@ function renderFoodTracker(){
         ${tgtK?`<circle cx="80" cy="80" r="${radius}" fill="none" stroke="${pctK>110?'var(--red)':'var(--gold)'}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}" style="transition:stroke-dashoffset .35s"></circle>`:''}
       </svg>
       <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
-        <div style="font-size:30px;font-weight:900;color:var(--dark);line-height:1">${Math.round(tK)}</div>
+        <div style="font-size:30px;font-weight:900;color:var(--text);line-height:1">${Math.round(tK)}</div>
         <div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;margin-top:2px">KCAL</div>
         ${tgtK?`<div style="font-size:11px;color:var(--gold);font-weight:800;margin-top:5px">${Math.round(pctK)}%</div>`:''}
       </div>
@@ -3048,12 +3074,12 @@ function renderFoodTracker(){
               <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.aliment_nom}</div>
               <div style="font-size:11px;color:var(--text3);margin-top:1px">${_ftG(it.qte_g)}g · ${Math.round(k)} kcal</div>
               <div style="display:flex;gap:8px;margin-top:3px;font-size:10px;font-weight:700">
-                <span style="color:#4a90d9">P ${Math.round(p)}g</span>
+                <span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P ${Math.round(p)}g</span>
                 <span style="color:var(--gold)">G ${Math.round(cg)}g</span>
-                <span style="color:#e07c5a">L ${Math.round(fg)}g</span>
+                <span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L ${Math.round(fg)}g</span>
               </div>
             </div>
-            <button type="button" onclick="event.stopPropagation();deleteFoodLog('${it.id}')" aria-label="Supprimer" title="Supprimer" style="width:42px;height:42px;border-radius:11px;flex-shrink:0;background:rgba(224,92,74,.12);border:1.5px solid rgba(224,92,74,.4);color:#e05c4a;font-size:20px;font-weight:900;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);padding:0;touch-action:manipulation;-webkit-tap-highlight-color:rgba(224,92,74,.25)">✕</button>
+            <button type="button" onclick="event.stopPropagation();deleteFoodLog('${it.id}')" aria-label="Supprimer" title="Supprimer" style="width:42px;height:42px;border-radius:11px;flex-shrink:0;background:rgba(224,92,74,.12);border:1.5px solid rgba(224,92,74,.4);color:color-mix(in srgb,#e05c4a var(--ink,100%),var(--text));font-size:20px;font-weight:900;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);padding:0;touch-action:manipulation;-webkit-tap-highlight-color:rgba(224,92,74,.25)">✕</button>
           </div>`;
         });
         h+=`<div style="display:flex;border-top:1px solid var(--border)">
@@ -3091,7 +3117,7 @@ function openDuplicateMeal(meal){
   const escMeal=meal.replace(/'/g,"\\'");
   overlay.innerHTML=`<div class="detail-sheet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-size:18px;font-weight:800;color:var(--dark)">Dupliquer le repas</div>
+      <div style="font-size:18px;font-weight:800;color:var(--text)">Dupliquer le repas</div>
       <span onclick="document.getElementById('dupOverlay').remove()" style="font-size:22px;cursor:pointer;color:var(--text3);padding:4px">✕</span>
     </div>
     <div style="font-size:13px;color:var(--text3);margin-bottom:18px">${items.length} aliment${items.length>1?'s':''} de <strong style="color:var(--text2)">${meal}</strong> seront copiés.</div>
@@ -3156,7 +3182,7 @@ function openSaveRecipe(meal){
   const list=items.map(it=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.aliment_nom}</span><span style="color:var(--text3);font-weight:700;flex-shrink:0">${_ftG(it.qte_g)}g</span></div>`).join('');
   overlay.innerHTML=`<div class="detail-sheet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-size:18px;font-weight:800;color:var(--dark)">Enregistrer le repas</div>
+      <div style="font-size:18px;font-weight:800;color:var(--text)">Enregistrer le repas</div>
       <span onclick="document.getElementById('recOverlay').remove()" style="font-size:22px;cursor:pointer;color:var(--text3);padding:4px">✕</span>
     </div>
     <div style="font-size:13px;color:var(--text3);margin-bottom:14px">Retrouve-le dans « Mes recettes » pour l'ajouter à n'importe quel jour.</div>
@@ -3292,12 +3318,12 @@ function _ftRenderResults(){
             <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nomHtml}</div>
             <div style="font-size:10px;color:var(--text3);margin-top:2px">${n} aliment${n>1?'s':''} · ${Math.round(t.k)} kcal</div>
             <div style="display:flex;gap:8px;margin-top:3px;font-size:10px;font-weight:700">
-              <span style="color:#4a90d9">P ${Math.round(t.p)}g</span>
+              <span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P ${Math.round(t.p)}g</span>
               <span style="color:var(--gold)">G ${Math.round(t.c)}g</span>
-              <span style="color:#e07c5a">L ${Math.round(t.f)}g</span>
+              <span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L ${Math.round(t.f)}g</span>
             </div>
           </div>
-          <button type="button" onclick="event.stopPropagation();deleteRecipe('${rec.id}')" aria-label="Supprimer" title="Supprimer" style="width:42px;height:42px;border-radius:11px;flex-shrink:0;background:rgba(224,92,74,.12);border:1.5px solid rgba(224,92,74,.4);color:#e05c4a;font-size:20px;font-weight:900;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);padding:0;touch-action:manipulation;-webkit-tap-highlight-color:rgba(224,92,74,.25)">✕</button>
+          <button type="button" onclick="event.stopPropagation();deleteRecipe('${rec.id}')" aria-label="Supprimer" title="Supprimer" style="width:42px;height:42px;border-radius:11px;flex-shrink:0;background:rgba(224,92,74,.12);border:1.5px solid rgba(224,92,74,.4);color:color-mix(in srgb,#e05c4a var(--ink,100%),var(--text));font-size:20px;font-weight:900;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);padding:0;touch-action:manipulation;-webkit-tap-highlight-color:rgba(224,92,74,.25)">✕</button>
         </div>`;
       }).join('');
     }
@@ -3360,9 +3386,9 @@ function renderPickFoodQty(defaultQty){
     <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px">VALEURS POUR 100g</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
       <div><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(k)}</div><div style="font-size:10px;color:var(--text3);font-weight:600">Kcal</div></div>
-      <div><div style="font-size:18px;font-weight:800;color:#4a90d9">${p.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Prot</div></div>
+      <div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${p.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Prot</div></div>
       <div><div style="font-size:18px;font-weight:800;color:var(--gold)">${c.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Gluc</div></div>
-      <div><div style="font-size:18px;font-weight:800;color:#e07c5a">${f.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Lip</div></div>
+      <div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${f.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Lip</div></div>
     </div>
   </div>`;
   h+=`<div class="card" style="padding:16px;margin-bottom:12px">
@@ -3393,9 +3419,9 @@ function _pfaUpdateTotals(){
   el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">POUR ${_ftG(q)}g</div>
     <div style="display:flex;justify-content:space-around;font-size:13px;font-weight:700">
       <span style="color:var(--gold)">${Math.round((parseFloat(a.kcal)||0)*r)} kcal</span>
-      <span style="color:#4a90d9">P${((parseFloat(a.prot)||0)*r).toFixed(1)}</span>
+      <span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P${((parseFloat(a.prot)||0)*r).toFixed(1)}</span>
       <span style="color:var(--gold)">G${((parseFloat(a.carb)||0)*r).toFixed(1)}</span>
-      <span style="color:#e07c5a">L${((parseFloat(a.fat)||0)*r).toFixed(1)}</span>
+      <span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L${((parseFloat(a.fat)||0)*r).toFixed(1)}</span>
     </div>`;
 }
 function _pfaStep(delta){
@@ -3527,9 +3553,9 @@ function _mfUpdateTotals(){
   el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">CE QUE TU AJOUTES</div>
     <div style="display:flex;justify-content:space-around;font-size:13px;font-weight:700">
       <span style="color:var(--gold)">${Math.round(k)} kcal</span>
-      <span style="color:#4a90d9">P${p.toFixed(1)}</span>
+      <span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P${p.toFixed(1)}</span>
       <span style="color:var(--gold)">G${c.toFixed(1)}</span>
-      <span style="color:#e07c5a">L${f.toFixed(1)}</span>
+      <span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L${f.toFixed(1)}</span>
     </div>`;
 }
 async function saveManualFood(){
@@ -3887,9 +3913,9 @@ function renderBarcodeProduct(barcode,product){
     <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px">VALEURS POUR 100g</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
       <div><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(kcal)}</div><div style="font-size:10px;color:var(--text3);font-weight:600">Kcal</div></div>
-      <div><div style="font-size:18px;font-weight:800;color:#4a90d9">${prot.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Prot</div></div>
+      <div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${prot.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Prot</div></div>
       <div><div style="font-size:18px;font-weight:800;color:var(--gold)">${carb.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Gluc</div></div>
-      <div><div style="font-size:18px;font-weight:800;color:#e07c5a">${fat.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Lip</div></div>
+      <div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${fat.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Lip</div></div>
     </div>
     ${(sucre||fibres||satFat||sel)?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text2);display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
       ${sucre?`<span>🍯 Sucres ${sucre.toFixed(1)}g</span>`:''}
@@ -3923,9 +3949,9 @@ function _bcUpdateTotals(){
   el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">POUR ${_ftG(q)}g</div>
     <div style="display:flex;justify-content:space-around;font-size:13px;font-weight:700">
       <span style="color:var(--gold)">${Math.round(_bcCurrent.kcal*r)} kcal</span>
-      <span style="color:#4a90d9">P${(_bcCurrent.prot*r).toFixed(1)}</span>
+      <span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P${(_bcCurrent.prot*r).toFixed(1)}</span>
       <span style="color:var(--gold)">G${(_bcCurrent.carb*r).toFixed(1)}</span>
-      <span style="color:#e07c5a">L${(_bcCurrent.fat*r).toFixed(1)}</span>
+      <span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L${(_bcCurrent.fat*r).toFixed(1)}</span>
     </div>`;
 }
 function saveBarcodeFood(){
@@ -4059,9 +4085,9 @@ function renderPlanDetail(){
         <div style="flex:${fPct};background:#e07c5a;border-radius:0 4px 4px 0"></div>
       </div>
       <div style="display:flex;justify-content:space-around">
-        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#4a90d9">${Math.round(objP)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Protéines</div></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${Math.round(objP)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Protéines</div></div>
         <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(objC)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Glucides</div></div>
-        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#e07c5a">${Math.round(objF)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Lipides</div></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${Math.round(objF)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Lipides</div></div>
       </div>
     </div>`;
   }
@@ -4074,9 +4100,9 @@ function renderPlanDetail(){
   // Day summary bar
   h+=`<div style="display:flex;align-items:center;gap:8px;padding:14px 0;flex-wrap:wrap">
     ${hideMacros?'':`<div style="background:var(--gold);color:white;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700">${Math.round(dayM.kcal)} kcal</div>
-    <div style="background:rgba(74,144,217,.12);color:#4a90d9;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">P ${Math.round(dayM.prot)}g</div>
-    <div style="background:rgba(var(--gold-rgb),.12);color:#a07820;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">G ${Math.round(dayM.carb)}g</div>
-    <div style="background:rgba(224,124,90,.12);color:#c05a30;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">L ${Math.round(dayM.fat)}g</div>`}
+    <div style="background:rgba(74,144,217,.12);color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text));padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">P ${Math.round(dayM.prot)}g</div>
+    <div style="background:rgba(var(--gold-rgb),.12);color:color-mix(in srgb,#a07820 var(--ink,100%),var(--text));padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">G ${Math.round(dayM.carb)}g</div>
+    <div style="background:rgba(224,124,90,.12);color:color-mix(in srgb,#c05a30 var(--ink,100%),var(--text));padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">L ${Math.round(dayM.fat)}g</div>`}
     ${totalMeals?`<div style="${hideMacros?'':'margin-left:auto;'}display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:1px solid ${doneMeals===totalMeals?'var(--gold)':'var(--border)'};background:${doneMeals===totalMeals?'var(--gold-pale)':'transparent'};font-size:12px;font-weight:700;color:${doneMeals===totalMeals?'var(--gold-deep)':'var(--text2)'}"><span>✓ ${doneMeals}/${totalMeals}</span><span style="font-size:10px;font-weight:600;color:var(--text3)">repas</span></div>`:''}
   </div>`;
   // Meals
@@ -4324,7 +4350,7 @@ function showFoodSwap(planIdx,dayIdx,ri,ai){
   const pop=document.createElement('div');
   pop.id='foodSwapPopup';
   pop.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
-  let inner=`<div style="background:#fff;border-radius:14px;width:100%;max-width:380px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden" onclick="event.stopPropagation()">
+  let inner=`<div style="background:var(--white);border-radius:14px;width:100%;max-width:380px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden" onclick="event.stopPropagation()">
     <div style="padding:14px 16px;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div style="font-size:14px;font-weight:800">Remplacer ${alim.nom}</div>
@@ -4444,7 +4470,7 @@ function renderBilanList(){
     h+=`</div></div>`;
     // Status + arrow
     h+=validated
-      ?`<div style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(72,187,120,.12);color:#38a169;flex-shrink:0">Validé</div>`
+      ?`<div style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(72,187,120,.12);color:color-mix(in srgb,#38a169 var(--ink,100%),var(--text));flex-shrink:0">Validé</div>`
       :`<div style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;background:rgba(var(--gold-rgb),.1);color:var(--gold);flex-shrink:0">En attente</div>`;
     h+=`<svg class="bilan-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:var(--text3);flex-shrink:0;transition:transform .2s"><path d="M9 18l6-6-6-6"/></svg>`;
     h+=`</div>`;
@@ -4593,7 +4619,7 @@ function showBilanForm(editBilanId){
 
   // Questions dynamiques (bilan)
   bilanQuestions.forEach(q=>{
-    const req=q.required?'<span style="color:#dc2626;font-weight:800" title="Obligatoire">*</span>':'';
+    const req=q.required?'<span style="color:color-mix(in srgb,#dc2626 var(--ink,100%),var(--text));font-weight:800" title="Obligatoire">*</span>':'';
     h+=`<div class="bilan-section-title"><i class="fas ${q.icon||'fa-circle'}"></i> ${q.section||''} ${req}</div>`;
     h+=`<div class="form-group"><div class="bilan-q-label">${q.label||''}</div>`;
     h+=_renderDynQuestionInput(q,'bilan_'+q.id,rep[q.id]);
@@ -4807,7 +4833,7 @@ function renderSuivi(){
   // Questions dynamiques
   dailyQuestions.forEach(q=>{
     const subLabel=q.sub?`<span>${q.sub}</span>`:'';
-    const req=q.required?' <span style="color:#dc2626;font-weight:800" title="Obligatoire">*</span>':'';
+    const req=q.required?' <span style="color:color-mix(in srgb,#dc2626 var(--ink,100%),var(--text));font-weight:800" title="Obligatoire">*</span>':'';
     if(q.type==='rating'){
       h+=rateDotsField('dq_'+_slug(q.id),q.label+req,q.scale||5,d[q.id]);
     } else if(q.type==='percent'){
@@ -5076,9 +5102,9 @@ function renderEstResult(est,plan_macros){
   let h=`<div class="card-gold" style="text-align:center;padding:24px"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">ESTIMATION</div><div style="font-size:22px;font-weight:800;color:white;margin-bottom:12px">${est.nom||'Repas'}</div>`;
   h+=`<div style="font-size:36px;font-weight:900;color:var(--gold)">${est.kcal_min}-${est.kcal_max}</div><div style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:16px">kilocalories</div>`;
   h+=`<div style="display:flex;justify-content:space-around">`;
-  h+=`<div><div style="font-size:18px;font-weight:800;color:#4a90d9">${est.prot_min}-${est.prot_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Protéines</div></div>`;
+  h+=`<div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${est.prot_min}-${est.prot_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Protéines</div></div>`;
   h+=`<div><div style="font-size:18px;font-weight:800;color:var(--gold)">${est.carb_min}-${est.carb_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Glucides</div></div>`;
-  h+=`<div><div style="font-size:18px;font-weight:800;color:#e07c5a">${est.fat_min}-${est.fat_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Lipides</div></div>`;
+  h+=`<div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${est.fat_min}-${est.fat_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Lipides</div></div>`;
   h+=`</div></div>`;
 
   // Items detected
@@ -5096,9 +5122,9 @@ function renderEstResult(est,plan_macros){
     h+=`<div class="card" style="margin-top:14px;border:1.5px solid var(--gold-border)"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:12px">CE QU'IL TE RESTE AUJOURD'HUI</div>`;
     h+=`<div style="display:flex;justify-content:space-around;text-align:center">`;
     h+=`<div><div style="font-size:22px;font-weight:800;color:var(--gold)">${r.kcal||0}</div><div style="font-size:10px;color:var(--text3)">kcal</div></div>`;
-    h+=`<div><div style="font-size:22px;font-weight:800;color:#4a90d9">${r.prot||0}g</div><div style="font-size:10px;color:var(--text3)">Prot</div></div>`;
+    h+=`<div><div style="font-size:22px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${r.prot||0}g</div><div style="font-size:10px;color:var(--text3)">Prot</div></div>`;
     h+=`<div><div style="font-size:22px;font-weight:800;color:var(--gold)">${r.carb||0}g</div><div style="font-size:10px;color:var(--text3)">Gluc</div></div>`;
-    h+=`<div><div style="font-size:22px;font-weight:800;color:#e07c5a">${r.fat||0}g</div><div style="font-size:10px;color:var(--text3)">Lip</div></div>`;
+    h+=`<div><div style="font-size:22px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${r.fat||0}g</div><div style="font-size:10px;color:var(--text3)">Lip</div></div>`;
     h+=`</div></div>`;
   }
 
@@ -5612,7 +5638,7 @@ function openBonusCourse(modIdx,chapIdx){
       if(v.desc||v.pdf){
         h+=`<div style="padding:14px;border-top:1px solid var(--border)">`;
         if(v.desc) h+=`<div style="font-size:13px;color:var(--text2);line-height:1.6;white-space:pre-line">${v.desc}</div>`;
-        if(v.pdf) h+=`<a href="${v.pdf}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-xs);font-size:13px;font-weight:600;color:var(--dark);text-decoration:none;margin-top:10px"><span style="font-size:18px">📄</span> Document joint</a>`;
+        if(v.pdf) h+=`<a href="${v.pdf}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-xs);font-size:13px;font-weight:600;color:var(--text);text-decoration:none;margin-top:10px"><span style="font-size:18px">📄</span> Document joint</a>`;
         h+=`</div>`;
       }
 
