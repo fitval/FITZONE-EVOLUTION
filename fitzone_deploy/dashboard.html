@@ -3447,6 +3447,22 @@ let roadSelectMode=false;
 // scrollTop=0 de la table fraîchement reconstruite.
 let _roadScroll=0,_roadScrollLock=false;
 
+// Nombre de semaines affichées = max entre 52, la dernière semaine présente dans
+// les données, le total mémorisé (_total, persisté en localStorage ET dans le jsonb
+// Supabase pour survivre au refresh) et l'override de session.
+// _total est indispensable : les semaines ajoutées mais laissées VIERGES ne créent
+// aucune donnée, elles disparaissaient donc au rechargement de la page.
+function _roadTotalWeeks(saved){
+  const maxWeek=Math.max(0,...Object.keys(saved||{}).map(Number).filter(n=>!isNaN(n)));
+  const stored=parseInt(saved&&saved._total)||0;
+  const override=curClient?(window['_roadWeeks_'+curClient.id]||0):0;
+  return Math.max(52,maxWeek,stored,override);
+}
+// Une semaine est "vierge" si aucun de ses champs n'est renseigné.
+function _roadWeekEmpty(r){
+  if(!r||typeof r!=='object')return true;
+  return !Object.keys(r).some(f=>String(r[f]==null?'':r[f]).trim()!=='');
+}
 function renderRoadTab(){
   const el=document.getElementById('tc-roadmap');
   // Capture positions de scroll AVANT le rebuild pour éviter le "retour en haut"
@@ -3465,8 +3481,7 @@ function renderRoadTab(){
   // présente dans les données et l'override "+ semaines". Sans ce recalcul, les
   // semaines >52 chargées depuis Supabase APRÈS le 1er rendu (override figé à 52)
   // n'étaient jamais affichées même si les données existaient bien en base.
-  const savedMaxWeek=Math.max(0,...Object.keys(saved).map(Number).filter(n=>!isNaN(n)));
-  const totalWeeks=Math.max(52,savedMaxWeek,window['_roadWeeks_'+curClient.id]||0);
+  const totalWeeks=_roadTotalWeeks(saved);
   if(currentCoach&&!window['_roadLoaded_'+curClient.id]){
     window['_roadLoaded_'+curClient.id]=true;
     db.from('roadmaps').select('weeks').eq('coach_id',currentCoach.id).eq('client_id',curClient.id).limit(1).then(({data})=>{
@@ -3543,7 +3558,7 @@ function renderRoadTab(){
   // Toolbar
   let toolbar=`<div class="road-toolbar">
     <div style="display:flex;align-items:center;gap:10px"><label class="fl" style="margin:0">Date de départ :</label><input type="date" class="fi" style="width:175px" value="${sd}" onchange="updateRoadStartDate(this.value)"></div>
-    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3)">${totalWeeks} sem.</span><button class="rbtn" onclick="addRoadWeeks()">+ Ajouter semaines</button><button class="rbtn" onclick="roadScrollToToday()" title="Aller à la semaine en cours">📍 Aujourd'hui</button></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3)">${totalWeeks} sem.</span><button class="rbtn" onclick="addRoadWeeks()">+ Ajouter semaines</button><button class="rbtn" onclick="roadTrimEmpty()" title="Retire les semaines vierges après la dernière semaine renseignée (min. 52)">🧹 Nettoyer les vides</button><button class="rbtn" onclick="roadScrollToToday()" title="Aller à la semaine en cours">📍 Aujourd'hui</button></div>
     <div style="flex:1"></div>`;
   if(roadCopy){
     toolbar+=`<span class="rcopy-info">Copié : <b>${roadCopy.value||'(vide)'}</b> (${roadCopy.field})</span>`;
@@ -3807,10 +3822,16 @@ function addRoadWeeks(){
   const num=parseInt(n);
   if(isNaN(num)||num<1||num>100){toast('Nombre invalide');return;}
   // On part du nombre de semaines RÉELLEMENT affiché (max entre 52, données et override)
-  const saved=lsGet('road_'+curClient.id,{});
-  const savedMaxWeek=Math.max(0,...Object.keys(saved).map(Number).filter(x=>!isNaN(x)));
-  const cur=Math.max(52,savedMaxWeek,window['_roadWeeks_'+curClient.id]||0);
-  window['_roadWeeks_'+curClient.id]=cur+num;
+  const key='road_'+curClient.id;
+  const saved=lsGet(key,{});
+  const cur=_roadTotalWeeks(saved);
+  const total=cur+num;
+  window['_roadWeeks_'+curClient.id]=total;
+  // Persisté tout de suite : sans ça, des semaines ajoutées puis laissées vierges
+  // disparaissaient au rafraîchissement de la page.
+  saved._total=total;
+  lsSave(key,saved);
+  _roadPersistWeeks(saved);
   renderRoadTab();
   toast(num+' semaine'+(num>1?'s':'')+' ajoutée'+(num>1?'s':''));
   // Scroll jusqu'à la 1re nouvelle semaine pour montrer qu'elles sont bien là
@@ -3818,6 +3839,31 @@ function addRoadWeeks(){
     const wrap=document.querySelector('#tc-roadmap .road-wrap');
     if(wrap)wrap.scrollTo({top:wrap.scrollHeight,behavior:'smooth'});
   },60);
+}
+function _roadPersistWeeks(d){
+  if(!currentCoach||!curClient)return;
+  db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'}).catch(e=>console.warn('road save:',e));
+}
+// Supprime les semaines VIERGES situées après la dernière semaine renseignée.
+// Les semaines vierges intercalées entre deux semaines remplies sont conservées
+// (elles font partie de la chronologie : on ne peut pas décaler les numéros).
+function roadTrimEmpty(){
+  if(!curClient)return;
+  const key='road_'+curClient.id,d=lsGet(key,{});
+  const weeks=Object.keys(d).map(Number).filter(n=>!isNaN(n));
+  const lastFilled=Math.max(0,...weeks.filter(w=>!_roadWeekEmpty(d[w])));
+  const cur=_roadTotalWeeks(d);
+  const target=Math.max(52,lastFilled);
+  if(target>=cur){toast('Aucune semaine vierge à la fin');return;}
+  const removed=cur-target;
+  if(!confirm('Supprimer les '+removed+' dernière'+(removed>1?'s':'')+' semaine'+(removed>1?'s':'')+' vierge'+(removed>1?'s':'')+' (S'+(target+1)+' → S'+cur+') ?\n\nLa roadmap repassera à '+target+' semaines.'))return;
+  weeks.filter(w=>w>target).forEach(w=>{delete d[w];});
+  d._total=target;
+  window['_roadWeeks_'+curClient.id]=target;
+  lsSave(key,d);
+  _roadPersistWeeks(d);
+  renderRoadTab();
+  toast(removed+' semaine'+(removed>1?'s':'')+' vierge'+(removed>1?'s':'')+' supprimée'+(removed>1?'s':''));
 }
 function roadScrollToToday(){
   const el=document.getElementById('tc-roadmap');if(!el)return;
