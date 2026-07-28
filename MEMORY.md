@@ -249,6 +249,12 @@
 - Les couleurs "données" (avatars clients, palette de l'équipe, codes macros) restent en dur volontairement.
 - Vérifié au navigateur (Playwright) en clair/sombre + couleur alternative : Overview, Clients, Réglages OK.
 
+### Session 2026-07-28 — Roadmap : phase « Peak Week », scroll, semaines vierges
+- **Nouvelle phase « Peak Week »** (mauve fluo `rgba(168,60,255,.22)`) dans `roadPhaseColors` + liste `phases` de `renderRoadTab()`. Le menu déroulant, la couleur de ligne et la légende se génèrent depuis ces deux tableaux : ajouter une phase = 2 lignes à modifier.
+- **Fix « retour en haut » au changement de phase** : le `<select>` PHASE appelait `sRoad()` **puis** `renderRoadTab()`, alors que `sRoad` re-rendait déjà pour la phase → 2 rebuilds enchaînés ; le 2e mémorisait le `scrollTop=0` de la table fraîchement reconstruite. Désormais le changement de phase ne reconstruit plus rien (`roadPhaseVisual()` met à jour la couleur de la ligne + la carte résumé `#roadSumPhase`), et la position de scroll est conservée entre rendus via `_roadScroll` + verrou `_roadScrollLock` (repositionnement avec `scroll-behavior:auto`).
+- **Fix semaines vierges supprimées au refresh** : le nombre de semaines n'existait que dans `window['_roadWeeks_<id>']`, perdu au rechargement ; des semaines ajoutées mais laissées vides ne créant aucune donnée, elles disparaissaient. Total désormais persisté dans `road_<id>._total` (localStorage **et** jsonb `roadmaps.weeks`, pas de migration SQL — la clé `_total` est ignorée par `Number()` dans les calculs de max semaine), écrit dès l'ajout.
+- **Bouton « 🧹 Nettoyer les vides »** (`roadTrimEmpty()`) : retire les semaines vierges situées **après** la dernière semaine renseignée, minimum 52, avec confirmation. Les semaines vides intercalées sont conservées (numérotation chronologique non décalable).
+
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
 
