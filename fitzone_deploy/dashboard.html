@@ -3394,7 +3394,7 @@ const roadPhaseColors={
   'Diet Break':'rgba(30,58,138,.20)',              // bleu foncé
   'Priming':'rgba(204,153,66,.22)',                // orange #CC9942
   'Reverse Diet':'rgba(31,41,55,.22)',             // gris très foncé
-  'Pick Quick':'rgba(168,60,255,.22)'              // mauve fluo
+  'Peak Week':'rgba(168,60,255,.22)'               // mauve fluo
 };
 // Colonne NUT : suggestions de base. Le champ reste libre (texte au choix), le
 // menu ne fait que proposer ces valeurs + celles déjà saisies pour ce client.
@@ -3451,7 +3451,7 @@ function renderRoadTab(){
   const prevPageScrollY=window.scrollY;
   const isFirstRender=!window['_roadRendered_'+curClient.id];
   window['_roadRendered_'+curClient.id]=true;
-  const phases=['','Improvement Season','Photoshoot Prep','Competition Prep','Dieting Phase','Gaining Phase','Maintenance','Health-Focus','Diet Break','Priming','Reverse Diet','Pick Quick'];
+  const phases=['','Improvement Season','Photoshoot Prep','Competition Prep','Dieting Phase','Gaining Phase','Maintenance','Health-Focus','Diet Break','Priming','Reverse Diet','Peak Week'];
   const cardios=['Step','LISS','HIIT','Vélo','Course'];
   const sd=curClient.start_date||todayStrLocal();
   let saved=lsGet('road_'+curClient.id,{});
