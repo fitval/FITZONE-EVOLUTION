@@ -2051,6 +2051,19 @@ async function uploadPhotosToDrive(photos){
 }
 const{createClient}=supabase;
 const db=createClient(SUPA,KEY);
+// supabase-js v2 : une requête (db.from(...).upsert(...) etc.) est "thenable" mais
+// n'expose NI .catch NI .finally. Un `req.catch(...)` lève donc un TypeError
+// SYNCHRONE qui interrompt la fonction appelante (c'est ce qui cassait l'ajout de
+// semaines à la roadmap). On ajoute les deux méthodes une fois pour toutes sur le
+// prototype de base, ce qui répare tous les appels existants du fichier.
+(function(){
+  try{
+    let p=Object.getPrototypeOf(db.from('coaches').select('id'));
+    while(p&&!Object.prototype.hasOwnProperty.call(p,'then'))p=Object.getPrototypeOf(p);
+    if(p&&typeof p.catch!=='function')p.catch=function(fn){return Promise.resolve(this).catch(fn);};
+    if(p&&typeof p.finally!=='function')p.finally=function(fn){return Promise.resolve(this).finally(fn);};
+  }catch(e){console.warn('[db patch]',e);}
+})();
 
 /* AUTH STATE */
 let currentUser=null;
@@ -3831,8 +3844,8 @@ function addRoadWeeks(){
   // disparaissaient au rafraîchissement de la page.
   saved._total=total;
   lsSave(key,saved);
-  _roadPersistWeeks(saved);
   renderRoadTab();
+  _roadPersistWeeks(saved);
   toast(num+' semaine'+(num>1?'s':'')+' ajoutée'+(num>1?'s':''));
   // Scroll jusqu'à la 1re nouvelle semaine pour montrer qu'elles sont bien là
   setTimeout(()=>{
@@ -3840,9 +3853,12 @@ function addRoadWeeks(){
     if(wrap)wrap.scrollTo({top:wrap.scrollHeight,behavior:'smooth'});
   },60);
 }
+// Sauvegarde Supabase "au fil de l'eau" : ne doit JAMAIS bloquer l'affichage.
 function _roadPersistWeeks(d){
   if(!currentCoach||!curClient)return;
-  db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'}).catch(e=>console.warn('road save:',e));
+  try{
+    db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'}).catch(e=>console.warn('road save:',e));
+  }catch(e){console.warn('road save:',e);}
 }
 // Supprime les semaines VIERGES situées après la dernière semaine renseignée.
 // Les semaines vierges intercalées entre deux semaines remplies sont conservées
@@ -3861,8 +3877,8 @@ function roadTrimEmpty(){
   d._total=target;
   window['_roadWeeks_'+curClient.id]=target;
   lsSave(key,d);
-  _roadPersistWeeks(d);
   renderRoadTab();
+  _roadPersistWeeks(d);
   toast(removed+' semaine'+(removed>1?'s':'')+' vierge'+(removed>1?'s':'')+' supprimée'+(removed>1?'s':''));
 }
 function roadScrollToToday(){
