@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-06-07 (fix photos bilan invisibles : policy RLS UPDATE manquante sur bilans + récupération des photos perdues depuis Drive)
+**Dernière mise à jour** : 2026-07-30 (fiche client façon Google Sheet : onglets en bas + roadmap densifiée)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -255,6 +255,16 @@
 - **Fix semaines vierges supprimées au refresh** : le nombre de semaines n'existait que dans `window['_roadWeeks_<id>']`, perdu au rechargement ; des semaines ajoutées mais laissées vides ne créant aucune donnée, elles disparaissaient. Total désormais persisté dans `road_<id>._total` (localStorage **et** jsonb `roadmaps.weeks`, pas de migration SQL — la clé `_total` est ignorée par `Number()` dans les calculs de max semaine), écrit dès l'ajout.
 - **⚠️ Piège supabase-js v2 (`.catch`)** : une requête `db.from(...).upsert(...)` est *thenable* mais n'expose **ni `.catch` ni `.finally`** → `req.catch(...)` lève un **TypeError synchrone** qui interrompt la fonction appelante (symptôme : « le bouton ne fait plus rien », sans message). 14 appels du dashboard étaient concernés (roadPaste, sauvegarde profil, bilans lus, migration localStorage→Supabase…). Correctif : patch du prototype de base juste après `createClient` (`p.catch = fn => Promise.resolve(this).catch(fn)`), commit `9fefc06`. Préférer malgré tout `.then(({error})=>…)` pour les nouveaux appels.
 - **Bouton « 🧹 Nettoyer les vides »** (`roadTrimEmpty()`) : retire les semaines vierges situées **après** la dernière semaine renseignée, minimum 52, avec confirmation. Les semaines vides intercalées sont conservées (numérotation chronologique non décalable).
+
+### Session 2026-07-30 — Fiche client « façon Google Sheet » (onglets en bas + roadmap dense)
+Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de coaching, sans casser l'interface existante.
+- **Onglets de la fiche client déplacés en bas** (style onglets de feuilles Sheets) : barre fixe `.sh-tabs` (`#detSheetTabs`) **générée** depuis `#detTabs` par `buildSheetTabs()` — un clic en bas déclenche le clic de l'onglet d'origine, donc tous les `render*()` existants tournent sans modification. `syncSheetTabs()` (appelé dans `swDet`) synchronise l'état actif. La barre du haut est masquée via `body.sheet-nav #detTabs{display:none}`.
+- Affichage piloté en CSS par `body:has(#detPage.show)` (pas de hook JS sur les ~8 endroits qui ferment la fiche) → nécessite `:has()`, OK Safari 15.4+ / Chrome 105+.
+- **Roadmap densifiée** : lignes de 28 px, quadrillage `--border2`, colonnes **SEM + DATE figées** (`thead tr:first-child th:nth-child(1|2)` — attention : la 2e ligne d'en-tête ne contient plus que CARDIO/PAS, les autres `<th>` utilisent `rowspan="2"`, donc ne jamais cibler `.road-table th:nth-child(n)` sans scoper).
+- **Cellule PHASE colorée** (comme dans le Sheet) via `roadPhaseStrong` (mêmes teintes, alpha ~2×) + `td.rc-ph{background:var(--ph)}` ; la ligne garde la teinte claire `roadPhaseColors`. Ajouter une phase = 3 tableaux à compléter (`roadPhaseColors`, `roadPhaseStrong`, `phases`).
+- **APPORTS sur une seule ligne** (`textarea.rin.rap`, 22 px, centré) qui se déplie à 80 px au focus → plus de lignes hautes.
+- **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
+- Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
 
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
