@@ -4296,6 +4296,29 @@ function showChartTip(evt,val,date){
   tip.innerHTML=`<span style="color:var(--gold)">${val}</span> <span style="font-weight:400;opacity:.7">· ${date}</span>`;
 }
 function hideChartTip(){const tip=document.getElementById('chartTip');if(tip)tip.style.display='none';}
+// Saut direct à la dernière semaine renseignée de la vue hebdomadaire (onglet
+// Progression) : évite de scroller 40 semaines. Fonctionne aussi dans la popup,
+// en cherchant le conteneur scrollable le plus proche.
+function progScrollToLastFilled(){
+  const weeks=document.querySelectorAll('.dl-week[data-filled="1"]');
+  if(!weeks.length){toast('Aucune semaine renseignée');return;}
+  const target=weeks[weeks.length-1];
+  let sc=target.parentElement;
+  while(sc&&sc!==document.body){
+    const st=getComputedStyle(sc);
+    if(/(auto|scroll)/.test(st.overflowY)&&sc.scrollHeight>sc.clientHeight+4)break;
+    sc=sc.parentElement;
+  }
+  if(sc&&sc!==document.body){
+    const tr=target.getBoundingClientRect(),cr=sc.getBoundingClientRect();
+    sc.scrollTo({top:Math.max(0,sc.scrollTop+(tr.top-cr.top)-14),behavior:'smooth'});
+  } else {
+    window.scrollTo({top:Math.max(0,target.getBoundingClientRect().top+window.scrollY-72),behavior:'smooth'});
+  }
+  target.style.transition='box-shadow .25s';
+  target.style.boxShadow='0 0 0 3px var(--gold)';
+  setTimeout(()=>{target.style.boxShadow='0 1px 4px rgba(0,0,0,.08)';},1200);
+}
 function _renderProgressionContent(el,reRenderFn){
   if(!el||!curClient)return;
   const reRender=reRenderFn||'renderProgressionTab()';
@@ -4412,6 +4435,7 @@ function _renderProgressionContent(el,reRenderFn){
         ${['week','month','year','all'].map(p=>`<button class="btn btn-${p===period?'dark':'ghost'} btn-xs" onclick="window._progPeriod='${p}';window._progWeek=null;window._progMonth=null;${reRender}">${p==='week'?'Semaine':p==='month'?'Mois':p==='year'?'Année':'Tout'}</button>`).join('')}
       </div>
       ${subPeriodHtml}
+      <button class="btn btn-ghost btn-xs" style="margin-left:auto" onclick="progScrollToLastFilled()" title="Aller à la dernière semaine renseignée de la vue hebdomadaire">⤓ Dernière remplie</button>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       <div style="display:grid;grid-template-columns:1fr 280px">
@@ -4509,7 +4533,9 @@ function _renderWeeklyDailyGrid(logs, qDaily){
     const avgRow=`<tr><td style="background:#1a1916;color:#f5edcf;padding:6px 10px;border:1px solid #2a2a2a;font-size:10px;font-weight:800;letter-spacing:1.5px">MOYENNES</td>${avgCells}</tr>`;
     const startFr=w.wStart.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
     const endFr=w.wEnd.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
-    html+=`<div style="margin-bottom:20px;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+    // data-filled : au moins un jour renseigné → cible du bouton « Dernière remplie »
+    const wFilled=w.days.some(d=>d.log&&Object.keys(d.log).some(k=>k!=='date'&&d.log[k]!==''&&d.log[k]!=null));
+    html+=`<div class="dl-week" data-filled="${wFilled?1:0}" style="margin-bottom:20px;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)">
       <div style="display:flex;align-items:center;gap:14px;background:var(--gold);color:#fff;padding:12px 16px">
         <div style="font-size:20px;font-weight:900;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:2px 12px;min-width:34px;text-align:center">${w.n}</div>
         <div style="font-size:13px;font-weight:700">Semaine du ${startFr} au ${endFr}</div>

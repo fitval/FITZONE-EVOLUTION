@@ -281,6 +281,7 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 #### Retours du coach (même jour)
 - Grille nutrition : **colonne SOURCE supprimée** (inutile) ; la cellule TOTAUX affiche désormais les **kcal en gros + 3 pastilles P/G/L** (`.gs-tot-cell`, `.gs-chip`) au lieu d'une liste ; largeurs rééquilibrées (ALIMENTS 60 % / NOTES 40 %, flèches des `input[type=number]` masquées dans les grilles).
 - Roadmap : **zebra supprimé** (`tbody tr:nth-child(even)`) — seules les couleurs de phase restent.
+- Onglet **Progression** : même bouton **« ⤓ Dernière remplie »** (`progScrollToLastFilled()`) qui saute à la dernière semaine renseignée de la vue hebdomadaire (chaque bloc semaine porte `class="dl-week" data-filled="0|1"`). Cherche le conteneur scrollable le plus proche → marche aussi dans la popup Progression.
 - Roadmap : bouton **« ⤓ Dernière remplie »** (`roadScrollToLastFilled()`) qui saute à la dernière semaine renseignée (calcul du décalage via `getBoundingClientRect`, ligne placée au tiers haut + flash doré). Évite de scroller 40 semaines.
 - Page **Plans alimentaires** : boutons de création ajoutés **dans la page** (`+ Nouveau plan complet` / `+ Nouveau plan macros`) car ceux de la barre du haut passaient inaperçus ; rappel que le client s'attribue dans le champ « Client(s) » du builder.
 
