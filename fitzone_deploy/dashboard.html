@@ -361,6 +361,56 @@ body.sheet-nav #detTabs{display:none}
 .sh-tab:hover{background:var(--hover);color:var(--text)}
 .sh-tab.active{background:var(--white);color:var(--text);font-weight:800;border-color:var(--border2);box-shadow:inset 0 3px 0 var(--gold)}
 body:has(#detPage.show) .toast{bottom:54px}
+
+/* ===== GRILLES « TABLEUR » (builders nutrition & training, look Google Sheet) ===== */
+.gs-blk{margin-bottom:16px}
+.gs-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--dark);color:var(--on-dark);padding:6px 10px;border-radius:8px 8px 0 0;font-size:12px;font-weight:800;letter-spacing:.4px}
+.gs-title .gs-t-nm{background:transparent;border:1.5px solid transparent;border-radius:6px;color:var(--on-dark);font-size:12px;font-weight:800;font-family:var(--font);padding:3px 6px;outline:none;min-width:120px}
+.gs-title .gs-t-nm:hover{border-color:rgba(255,255,255,.2)}
+.gs-title .gs-t-nm:focus{border-color:var(--gold);background:rgba(255,255,255,.08)}
+.gs-title .gs-tot{margin-left:auto;display:flex;align-items:center;gap:1px}
+.gs-title .gs-tot span{background:var(--gold);color:var(--on-gold);font-size:11px;font-weight:800;padding:3px 9px;min-width:46px;text-align:center}
+.gs-title .gs-tot span:first-child{background:rgba(255,255,255,.1);color:rgba(255,255,255,.6);font-size:9px;letter-spacing:1px}
+.gs-wrap{overflow-x:auto;border:1.5px solid var(--border2);border-top:none;border-radius:0 0 8px 8px;background:var(--white)}
+.gs{width:100%;border-collapse:collapse}
+.gs thead th{background:var(--gold);color:var(--on-gold);font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;padding:6px 5px;border:1px solid rgba(0,0,0,.14);white-space:nowrap;text-align:center;position:sticky;top:0;z-index:2}
+.gs thead th.gs-h-dark{background:var(--dark);color:rgba(255,255,255,.72)}
+.gs td{border:1px solid var(--border2);padding:0 3px;height:26px;font-size:11px;text-align:center;vertical-align:middle;background:var(--gs-cell,rgba(var(--gold-rgb),.05))}
+.gs td.gs-lbl{background:rgba(var(--gold-rgb),.20);font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.4px;line-height:1.25;padding:3px 6px}
+.gs td.gs-num{background:var(--gold);color:var(--on-gold);font-weight:800;font-size:12px;width:34px}
+.gs td.gs-num.gs-ss{background:#d946ef;color:#fff}
+.gs td.gs-plain{background:var(--white)}
+.gs td.gs-calc{font-weight:700;color:var(--text2)}
+.gs tbody tr.gs-sep td{height:7px;padding:0;background:transparent;border-left:none;border-right:none}
+/* champs dans la grille : invisibles au repos, comme dans un tableur */
+.gs .gi{background:transparent;border:1.5px solid transparent;border-radius:4px;padding:2px 4px;font-size:11px;font-family:var(--font);color:var(--text);width:100%;text-align:center;outline:none;box-sizing:border-box}
+.gs .gi:hover{border-color:var(--border2)}
+.gs .gi:focus{border-color:var(--gold);background:var(--white);box-shadow:0 0 0 2px var(--gold-pale)}
+.gs textarea.gi{text-align:left;resize:vertical;min-height:24px;line-height:1.35}
+.gs select.gi{cursor:pointer;appearance:none;-webkit-appearance:none;padding-right:14px;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='M0 2l4 4 4-4' fill='%23999'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 3px center}
+.gs .gi-nm{font-weight:700;text-align:left}
+.gs .gs-x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 3px;line-height:1}
+.gs .gs-x:hover{color:color-mix(in srgb,#dc2626 var(--ink,100%),var(--text))}
+/* barre d'outils au-dessus d'une grille */
+.gs-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.gs-bar .gs-btn{font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;border:1.5px solid var(--border2);background:var(--white);cursor:pointer;font-family:var(--font);color:var(--text);transition:all .15s}
+.gs-bar .gs-btn:hover{border-color:var(--gold);color:var(--gold)}
+.gs-bar .gs-btn.active{background:var(--dark);color:var(--on-dark);border-color:var(--dark)}
+.gs-bar .gs-btn-gold{background:var(--gold);color:var(--on-gold);border-color:var(--gold)}
+.gs-step{display:inline-flex;align-items:center;gap:0;border:1.5px solid var(--border2);border-radius:6px;overflow:hidden;background:var(--white)}
+.gs-step button{width:24px;height:24px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:800;color:var(--text2);font-family:var(--font)}
+.gs-step button:hover{background:var(--gold-pale);color:var(--gold)}
+.gs-step span{font-size:11px;font-weight:800;padding:0 8px;min-width:20px;text-align:center}
+.gs-step em{font-size:10px;font-weight:700;color:var(--text3);font-style:normal;padding:0 7px;border-right:1.5px solid var(--border2);text-transform:uppercase;letter-spacing:.5px}
+/* recherche d'aliment dans une cellule vide */
+.gs-find{position:relative}
+.gs-menu{position:fixed;z-index:9999;background:var(--white);border:1.5px solid var(--gold);border-radius:8px;box-shadow:var(--shadow-md);overflow-y:auto;max-height:260px;font-size:12px;min-width:230px}
+.gs-menu div{padding:6px 10px;cursor:pointer;text-align:left;white-space:nowrap;display:flex;gap:8px;align-items:center}
+.gs-menu div:hover{background:var(--gold-pale)}
+.gs-menu div small{color:var(--text3);margin-left:auto;font-size:10px}
+/* builder monté dans la fiche client */
+.bld-inline{position:static !important;inset:auto !important;z-index:auto !important;padding:0 !important;background:transparent !important;overflow:visible !important;display:block !important;margin-top:12px}
+.bld-inline .pf-builder,.bld-inline .prog-builder{min-height:0}
 /* === MARKETING & FINANCES === */
 .mk-tabs{display:flex;gap:6px;margin-bottom:16px}
 .mk-tab{font-size:13px;font-weight:700;padding:8px 18px;border-radius:8px;border:1.5px solid var(--border2);background:var(--white);cursor:pointer;font-family:var(--font);color:var(--text3);transition:all .15s}
@@ -440,7 +490,7 @@ body:has(#detPage.show) .toast{bottom:54px}
 .prog-day-tab{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border2);background:var(--white);color:var(--text2);transition:all .12s;white-space:nowrap}
 .prog-day-tab.active{background:var(--dark);color:white;border-color:var(--dark)}
 .prog-day-tab:hover:not(.active){border-color:var(--gold-border)}
-.add-day-btn{width:28px;height:28px;border-radius:7px;border:1.5px dashed var(--border2);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text3);transition:all .12s;flex-shrink:0}
+.add-day-btn{width:auto;min-width:28px;padding:0 7px;height:28px;border-radius:7px;border:1.5px dashed var(--border2);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text3);transition:all .12s;flex-shrink:0}
 .add-day-btn:hover{border-color:var(--gold);color:var(--gold)}
 .sec-label{font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin:14px 0 8px;padding-top:8px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px}
 .sec-label:first-child{border-top:none;margin-top:0}
@@ -2516,6 +2566,7 @@ function showPage(name,el){
   if(name==='notifications')renderNotifications();
 }
 function goBack(){
+  bldCloseAll();
   document.getElementById('detPage').classList.remove('show');
   sessionStorage.removeItem('fz_current_client');
   showPage('clients',document.getElementById('nav-cl'));openSub('sub-clients','arr-cl');
@@ -2632,6 +2683,7 @@ async function valCl(id){await db.from('clients').update({status:'active'}).eq('
 /* ===== DETAIL CLIENT ===== */
 let canEditClient=true;
 async function openDet(id){
+  bldCloseAll();
   curClient=allClients.find(c=>c.id===id);if(!curClient)return;
   canEditClient=isAdmin||curClient.coach_id===currentCoach.id;
   sessionStorage.setItem('fz_current_client',id);
@@ -2662,8 +2714,14 @@ async function openDet(id){
   buildSheetTabs();
   document.getElementById('backBtn').style.display='flex';
   document.getElementById('tbTitle').textContent=(curClient.first_name||'')+' '+(curClient.last_name||'');
-  document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="copyT('${QBASE}?token=${curClient.token}')">🔗 Lien</button>${curClient.status==='active'?`<button class="btn btn-ghost btn-sm" onclick="copyT('${CBASE}?token=${curClient.token}')">📱 App</button>`:''}${curClient.status!=='active'?`<button class="btn btn-gold btn-sm" onclick="valCl('${curClient.id}')">✅ Valider</button>`:''}`;
+  setClientTopActions();
   window.scrollTo(0,0);
+}
+// Boutons de la barre du haut pour la fiche client (les builders écrasent #tbActs
+// quand ils s'ouvrent : on les restaure quand ils sont montés dans la fiche)
+function setClientTopActions(){
+  const el=document.getElementById('tbActs');if(!el||!curClient)return;
+  el.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="copyT('${QBASE}?token=${curClient.token}')">🔗 Lien</button>${curClient.status==='active'?`<button class="btn btn-ghost btn-sm" onclick="copyT('${CBASE}?token=${curClient.token}')">📱 App</button>`:''}${curClient.status!=='active'?`<button class="btn btn-gold btn-sm" onclick="valCl('${curClient.id}')">✅ Valider</button>`:''}`;
 }
 function renderDetHero(){
   const c=curClient,q=curQ,ini=((c.first_name||'?')[0]+(c.last_name||'?')[0]).toUpperCase(),col=c.avatar_color||'#c49a2a';
@@ -2757,6 +2815,46 @@ function syncSheetTabs(){
     const o=src[+b.dataset.idx];
     b.classList.toggle('active',!!o&&o.classList.contains('active'));
   });
+}
+/* ===== BUILDERS MONTÉS DANS LA FICHE CLIENT =====
+   Le builder nutrition et le builder programme sont des blocs UNIQUES dans le DOM.
+   Plutôt que de les dupliquer, on DÉPLACE le nœud dans l'onglet du client (slot),
+   puis on le remet à sa place d'origine à la fermeture. Tous les handlers inline
+   (onclick=…) continuent de fonctionner, le nœud est le même.
+   ⚠️ Toujours démonter AVANT de reconstruire l'onglet (innerHTML=…) sinon le nœud
+   du builder serait détruit et le bouton « Créer un plan » ne ferait plus rien. */
+let _bldHome={};
+function bldMount(wrapId,slotId){
+  const w=document.getElementById(wrapId),slot=document.getElementById(slotId);
+  if(!w||!slot)return false;
+  if(!_bldHome[wrapId])_bldHome[wrapId]={parent:w.parentNode,next:w.nextSibling};
+  w.classList.add('bld-inline');
+  slot.appendChild(w);
+  w.style.display='block';
+  setTimeout(()=>{try{slot.scrollIntoView({behavior:'smooth',block:'start'});}catch(_){}},60);
+  return true;
+}
+function bldUnmount(wrapId){
+  const w=document.getElementById(wrapId);if(!w)return;
+  const home=_bldHome[wrapId];
+  if(!home||!home.parent)return;             // jamais monté → rien à faire
+  if(w.parentNode===home.parent)return;      // déjà chez lui
+  w.classList.remove('bld-inline');
+  w.style.display='none';
+  home.parent.insertBefore(w,home.next&&home.next.parentNode===home.parent?home.next:null);
+}
+function bldIsInline(wrapId){
+  const w=document.getElementById(wrapId);
+  return !!(w&&w.classList.contains('bld-inline')&&w.style.display!=='none');
+}
+// Ferme les builders montés dans une fiche (changement de client, retour liste…)
+function bldCloseAll(){
+  ['planBuilderWrap','progBuilderWrap'].forEach(id=>{
+    const w=document.getElementById(id);
+    if(w&&w.classList.contains('bld-inline')){w.style.display='none';bldUnmount(id);}
+  });
+  if(typeof pfFromClient!=='undefined')pfFromClient=false;
+  if(typeof progFromClientId!=='undefined')progFromClientId=null;
 }
 
 /* QUESTIONNAIRE TAB */
@@ -3055,6 +3153,11 @@ async function resetQuestionnaire(){
 
 /* NUTRITION TAB */
 async function renderNutTab(){
+  // Builder ouvert dans l'onglet : ne pas reconstruire par-dessus (on perdrait la saisie)
+  if(bldIsInline('planBuilderWrap'))return;
+  // Le builder est un nœud unique déplacé dans #pfSlot : le remettre chez lui AVANT
+  // de reconstruire l'onglet, sinon innerHTML le détruirait définitivement.
+  bldUnmount('planBuilderWrap');
   const q=curQ,el=document.getElementById('tc-nutrition');
   if(!q){el.innerHTML=`<div class="empty"><div class="ei">🥗</div><div class="et">Questionnaire requis</div><div class="es">Le questionnaire doit être rempli d'abord</div></div>`;return;}
   const bmrRaw=q.sex==='male'?88.362+13.397*q.weight_kg+4.799*q.height_cm-5.677*q.age:447.593+9.247*q.weight_kg+3.098*q.height_cm-4.330*q.age;
@@ -3120,6 +3223,7 @@ async function renderNutTab(){
     <button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700;cursor:pointer" onclick="openGenPlanModal()">🤖 Générer plan IA</button>
     <button class="btn btn-gold btn-sm" onclick="openPlanBuilderForClient()">🍽️ Créer un plan complet</button>
   </div>
+  <div id="pfSlot"></div>
   <div id="planDisp" style="margin-top:12px"></div>
   <div id="aiPlanResult" style="margin-top:12px"></div>`;
   nManual();loadPlanDisp();
@@ -3253,12 +3357,17 @@ async function loadPlanDisp(){
   el.innerHTML=html;
 }
 let cpEditPlan=null; // plan being edited inline in client detail
+// Modifier un plan depuis la fiche client = le VRAI builder (vue tableur), monté
+// dans l'onglet Nutrition. L'ancien mini-éditeur (renderClientPlanEditor) ne
+// permettait que des retouches partielles.
 async function editClientPlan(id){
-  // Load plan from Supabase
-  const{data}=await db.from('plans_full').select('*').eq('id',id).maybeSingle();
-  if(!data){toast('Plan introuvable');return;}
-  cpEditPlan=JSON.parse(JSON.stringify(data));
-  renderClientPlanEditor();
+  let p=plans.find(x=>String(x.id)===String(id));
+  if(!p){
+    const{data}=await db.from('plans_full').select('*').eq('id',id).maybeSingle();
+    if(!data){toast('Plan introuvable');return;}
+    p=data;plans.push(p);
+  }
+  openPlanBuilderForClient(p.id);
 }
 function renderClientPlanEditor(){
   const el=document.getElementById('planDisp');if(!el||!cpEditPlan)return;
@@ -4497,6 +4606,9 @@ function renderTrainingTab(){
 }
 function _renderTrainingContent(el,logs){
   if(!el||!curClient)return;
+  if(bldIsInline('progBuilderWrap'))return; // builder ouvert : on ne réécrit pas l'onglet
+  // Idem nutrition : démonter le builder avant de réécrire l'onglet
+  bldUnmount('progBuilderWrap');
   if(!logs)logs=[];
   const colors={1:'#8b5cf6',2:'#ef4444',3:'#f59e0b',4:'#22c55e'};
 
@@ -4560,6 +4672,7 @@ function _renderTrainingContent(el,logs){
       <button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700" onclick="openGenTrainPlanModal()">🤖 Programme IA</button>
       <button class="btn btn-ghost btn-sm" onclick="swDet('calendar',document.querySelector('#detTabs .tab:last-child'));renderCalendarTab()">📅 Calendrier</button>
     </div>
+    <div id="progSlot"></div>
     <div id="trainContent"></div>
 `;
   const contentEl=document.getElementById('trainContent');
@@ -5158,6 +5271,7 @@ function startFullPlan(){
 }
 function closePlanBuilder(){
   document.getElementById('planBuilderWrap').style.display='none';
+  bldUnmount('planBuilderWrap');
   if(pfFromClient&&curClient){
     pfFromClient=false;
     loadPlanDisp();
@@ -5165,12 +5279,15 @@ function closePlanBuilder(){
     renderPlansListPage();
   }
 }
-function openPlanBuilderForClient(){
+// Ouvre le builder DANS l'onglet Nutrition du client (plus de plein écran)
+function openPlanBuilderForClient(planId){
   if(!curClient)return;
   const cl=curClient;
-  startFullPlan();
-  pfClients=[cl];pfFromClient=true;
+  if(planId)editFullPlan(planId);else startFullPlan();
+  if(!pfClients.find(x=>x.id===cl.id))pfClients.unshift(cl);
+  pfFromClient=true;
   pfUpdateClientBadge();
+  bldMount('planBuilderWrap','pfSlot');
 }
 
 /* plan macros state */
@@ -5203,10 +5320,153 @@ function pfCalcDay(i){const t={k:0,p:0,g:0,l:0};pfDays[i]?.repas.forEach(r=>r.al
 function pfCalcMeal(r){const t={k:0,p:0,g:0,l:0};r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;});return t;}
 function pfCalcTotal(){const t={k:0,p:0,g:0,l:0};pfDays.forEach(d=>d.repas.forEach(r=>r.alims.forEach(a=>{t.k+=a.kcal*a.qte/100;t.p+=a.prot*a.qte/100;t.g+=a.carb*a.qte/100;t.l+=a.fat*a.qte/100;})));return t;}
 function pfRenderTotals(){const t=pfCalcDay(pfDayIdx);document.getElementById('pfDayTotals').innerHTML=`<div class="dtot"><div class="dtot-val">${Math.round(t.k)}</div><div class="dtot-lbl">Kcal</div></div><div class="dtot" style="background:color-mix(in srgb,#eff6ff var(--tint,100%),var(--white))"><div class="dtot-val" style="color:var(--gold)">${Math.round(t.p)}g</div><div class="dtot-lbl" style="color:#93c5fd">Prot.</div></div><div class="dtot" style="background:color-mix(in srgb,#fffbeb var(--tint,100%),var(--white))"><div class="dtot-val" style="color:#f59e0b">${Math.round(t.g)}g</div><div class="dtot-lbl" style="color:#fcd34d">Gluc.</div></div><div class="dtot" style="background:var(--gold-pale)"><div class="dtot-val" style="color:var(--gold)">${Math.round(t.l)}g</div><div class="dtot-lbl" style="color:var(--gold-border)">Lip.</div></div>`;}
+/* ===== VUE TABLEUR DU PLAN (look Google Sheet) =====
+   Même modèle de données que la vue fiches (pfDays[].repas[].alims[]) : rien ne
+   change côté client.html. Seule clé ajoutée : repas.slots = nombre de lignes
+   affichées pour ce repas (cosmétique, ignorée partout ailleurs). */
+let pfView=lsGet('fz_pf_view','sheet');
+const PF_CATS=['','VIANDES','POISSONS','ŒUFS & LAITIERS','LÉGUMINEUSES','CÉRÉALES','FÉCULENTS','LÉGUMES','FRUITS','OLÉAGINEUX','HUILES','COMPLÉMENTS','AUTRES'];
+function pfSetView(v){pfView=v;lsSave('fz_pf_view',v);pfRenderMeals();}
+function pfMealRows(r){return Math.max(parseInt(r&&r.slots)||4,((r&&r.alims)||[]).length+1);}
+function pfSetSlots(ri,delta){
+  const r=pfDays[pfDayIdx]&&pfDays[pfDayIdx].repas[ri];if(!r)return;
+  r.slots=Math.max((r.alims||[]).length+1,pfMealRows(r)+delta);
+  pfRenderMeals();
+}
+function pfDelLastMeal(){
+  const rep=pfDays[pfDayIdx]&&pfDays[pfDayIdx].repas;if(!rep)return;
+  if(rep.length<=1){toast('Il faut au moins 1 repas');return;}
+  const last=rep[rep.length-1];
+  if((last.alims||[]).length&&!confirm('Supprimer « '+(last.nom||'le dernier repas')+' » et ses '+last.alims.length+' aliment(s) ?'))return;
+  pfDelMeal(rep.length-1);
+}
+function pfSheetMealName(ri,v){const r=pfDays[pfDayIdx]&&pfDays[pfDayIdx].repas[ri];if(r)r.nom=v;}
+function pfSheetCat(ri,ai,v){const a=pfDays[pfDayIdx]&&pfDays[pfDayIdx].repas[ri]&&pfDays[pfDayIdx].repas[ri].alims[ai];if(a)a.cat=v;}
+function pfSheetName(ri,ai,v){const a=pfDays[pfDayIdx]&&pfDays[pfDayIdx].repas[ri]&&pfDays[pfDayIdx].repas[ri].alims[ai];if(a)a.nom=v;}
+function pfSheetTotCell(mt){
+  const line=(l,v)=>`<div style="display:flex;border-bottom:1px solid rgba(0,0,0,.07)"><span style="flex:0 0 32px;font-size:9px;padding:2px 0;opacity:.65">${l}</span><span style="flex:1;padding:2px 3px;font-weight:800">${Math.round(v)} g</span></div>`;
+  return`<div style="display:flex;flex-direction:column">${line('PRO',mt.p)}${line('GLU',mt.g)}${line('LIP',mt.l)}<div style="padding:3px;font-weight:800;color:var(--gold-deep)">${Math.round(mt.k)} kcal</div></div>`;
+}
+function pfSheetDayTot(){
+  const t=pfCalcDay(pfDayIdx);
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  set('pfsTotK',Math.round(t.k));set('pfsTotP',Math.round(t.p)+' P');set('pfsTotG',Math.round(t.g)+' G');set('pfsTotL',Math.round(t.l)+' L');
+}
+function pfSheetQte(ri,ai,v){
+  const a=pfDays[pfDayIdx]&&pfDays[pfDayIdx].repas[ri]&&pfDays[pfDayIdx].repas[ri].alims[ai];if(!a)return;
+  a.qte=parseFloat(v)||0;
+  const set=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val;};
+  set('pfs_k_'+ri+'_'+ai,Math.round(a.kcal*a.qte/100));
+  set('pfs_p_'+ri+'_'+ai,Math.round(a.prot*a.qte/100));
+  set('pfs_g_'+ri+'_'+ai,Math.round(a.carb*a.qte/100));
+  set('pfs_l_'+ri+'_'+ai,Math.round(a.fat*a.qte/100));
+  const tc=document.getElementById('pfs_tot_'+ri);
+  if(tc)tc.innerHTML=pfSheetTotCell(pfCalcMeal(pfDays[pfDayIdx].repas[ri]));
+  pfSheetDayTot();pfRenderTotals();
+}
+// Menu de recherche d'aliment ouvert depuis une cellule ALIMENTS
+let _pfMenu=null;
+function pfMenuClose(){if(_pfMenu){_pfMenu.remove();_pfMenu=null;}}
+document.addEventListener('scroll',pfMenuClose,true);
+window.addEventListener('resize',pfMenuClose);
+function pfSheetFind(inp,ri,ai){
+  pfMenuClose();
+  const q=(inp.value||'').trim().toLowerCase();
+  const list=(q?alims.filter(a=>(a.nom||'').toLowerCase().includes(q)):alims.slice()).slice(0,40);
+  const m=document.createElement('div');m.className='gs-menu';
+  if(!list.length){
+    const d=document.createElement('div');
+    d.innerHTML=`Aucun aliment — <strong style="color:var(--gold)">créer « ${esc(inp.value||'')} »</strong>`;
+    d.addEventListener('mousedown',ev=>{ev.preventDefault();pfMenuClose();pfMealIdx=ri;pfCreateAlimInline();const f=document.getElementById('pfAlNom');if(f)f.value=inp.value||'';});
+    m.appendChild(d);
+  }
+  list.forEach(a=>{
+    const d=document.createElement('div');
+    d.innerHTML=`<span>${esc(a.nom||'')}</span><small>${a.kcal} kcal · P${a.prot} G${a.carb} L${a.fat}</small>`;
+    d.addEventListener('mousedown',ev=>{ev.preventDefault();pfMenuClose();pfSheetPick(ri,ai,a.id);});
+    m.appendChild(d);
+  });
+  document.body.appendChild(m);
+  const r=inp.getBoundingClientRect();
+  m.style.minWidth=Math.max(r.width,250)+'px';
+  m.style.left=Math.max(6,Math.min(r.left,window.innerWidth-m.offsetWidth-10))+'px';
+  m.style.top=(r.bottom+m.offsetHeight>window.innerHeight-10?Math.max(6,r.top-m.offsetHeight-2):r.bottom+2)+'px';
+  _pfMenu=m;
+}
+function pfSheetPick(ri,ai,id){
+  const a=alims.find(x=>String(x.id)===String(id));if(!a)return;
+  const r=pfDays[pfDayIdx]&&pfDays[pfDayIdx].repas[ri];if(!r)return;
+  if(!r.alims)r.alims=[];
+  const row={nom:a.nom,source:a.source||'',cat:a.cat||'',kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat,qte:(ai>=0&&r.alims[ai]?r.alims[ai].qte:100)};
+  if(ai>=0&&r.alims[ai])r.alims[ai]=row;else r.alims.push(row);
+  pfMealIdx=ri;
+  const key='pfRecent';let rec=lsGet(key,[]);rec=rec.filter(x=>x.nom!==a.nom);rec.unshift(a);if(rec.length>6)rec.pop();lsSave(key,rec);
+  pfRenderMeals();pfRenderTotals();pfRenderRecent();
+}
+function pfRenderSheet(){
+  const w=document.getElementById('pfMeals');if(!w)return;
+  const dt=document.getElementById('pfDayTotals');if(dt)dt.style.display='none';
+  const day=pfDays[pfDayIdx]||{repas:[]};
+  const repas=day.repas||[];
+  const t=pfCalcDay(pfDayIdx);
+  const planNom=(document.getElementById('pfNom')||{}).value||'Plan';
+  let rows='';
+  repas.forEach((r,ri)=>{
+    const n=pfMealRows(r),mt=pfCalcMeal(r);
+    for(let i=0;i<n;i++){
+      const a=(r.alims||[])[i];
+      rows+='<tr>';
+      if(i===0)rows+=`<td class="gs-lbl" rowspan="${n}" style="min-width:118px">
+        <input class="gi gi-nm" style="text-align:center;font-size:10px;text-transform:uppercase" value="${esc(r.nom||'')}" oninput="pfSheetMealName(${ri},this.value)" title="Nom du repas">
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:2px">
+          <span class="gs-step" style="transform:scale(.8)"><button onclick="pfSetSlots(${ri},-1)" title="Retirer une ligne">−</button><span>${n}</span><button onclick="pfSetSlots(${ri},1)" title="Ajouter une ligne">+</button></span>
+          <button class="gs-x" onclick="pfDelMeal(${ri})" title="Supprimer ce repas">🗑</button>
+        </div></td>`;
+      if(a){
+        const cat=(a.cat||'').toUpperCase();
+        rows+=`<td><select class="gi" style="font-size:9.5px" onchange="pfSheetCat(${ri},${i},this.value)">${PF_CATS.map(c=>`<option${cat===c?' selected':''}>${c}</option>`).join('')}${PF_CATS.indexOf(cat)<0&&cat?`<option selected>${esc(cat)}</option>`:''}</select></td>
+        <td><input class="gi gi-nm" value="${esc(a.nom||'')}" oninput="pfSheetName(${ri},${i},this.value);pfSheetFind(this,${ri},${i})" onfocus="pfSheetFind(this,${ri},${i})" onblur="setTimeout(pfMenuClose,180)" title="Clique pour remplacer l'aliment"></td>
+        <td><input class="gi" type="number" step="5" min="0" value="${a.qte}" oninput="pfSheetQte(${ri},${i},this.value)"></td>
+        <td style="color:var(--text3);font-size:10px">g</td>
+        <td class="gs-calc" id="pfs_k_${ri}_${i}">${Math.round(a.kcal*a.qte/100)}</td>
+        <td class="gs-calc" id="pfs_p_${ri}_${i}">${Math.round(a.prot*a.qte/100)}</td>
+        <td class="gs-calc" id="pfs_g_${ri}_${i}">${Math.round(a.carb*a.qte/100)}</td>
+        <td class="gs-calc" id="pfs_l_${ri}_${i}">${Math.round(a.fat*a.qte/100)}</td>
+        <td style="width:26px"><button class="gs-x" onclick="pfDelFood(${ri},${i})" title="Retirer">✕</button></td>`;
+      } else {
+        rows+=`<td class="gs-plain"></td>
+        <td class="gs-plain"><input class="gi" style="text-align:left;color:var(--text2)" placeholder="+ aliment…" oninput="pfSheetFind(this,${ri},-1)" onfocus="pfSheetFind(this,${ri},-1)" onblur="setTimeout(pfMenuClose,180)"></td>
+        ${'<td class="gs-plain"></td>'.repeat(7)}`;
+      }
+      if(i===0)rows+=`<td class="gs-lbl" rowspan="${n}" style="padding:0;min-width:100px" id="pfs_tot_${ri}">${pfSheetTotCell(mt)}</td>
+        <td rowspan="${n}" style="min-width:150px;padding:2px"><textarea class="gi" style="min-height:${Math.max(26,n*22)}px" placeholder="Notes / préparation…" oninput="pfUpdInstr(${ri},this.value)">${esc(r.instructions||'')}</textarea></td>`;
+      rows+='</tr>';
+    }
+    if(ri<repas.length-1)rows+='<tr class="gs-sep"><td colspan="12"></td></tr>';
+  });
+  w.innerHTML=`<div class="gs-bar">
+      <span class="gs-step"><em>Repas</em><button onclick="pfDelLastMeal()" title="Retirer le dernier repas">−</button><span>${repas.length}</span><button onclick="pfAddMeal()" title="Ajouter un repas">+</button></span>
+      <button class="gs-btn active" onclick="pfSetView('sheet')">▦ Tableur</button>
+      <button class="gs-btn" onclick="pfSetView('cards')">☰ Fiches</button>
+      <button class="gs-btn" onclick="pfRoundAll()" title="Arrondir toutes les quantités à 10 g">⊙ Arrondir</button>
+    </div>
+    <div class="gs-blk">
+      <div class="gs-title"><span style="font-size:11px;opacity:.55">🍽️</span><span>${esc(planNom||'Plan')} — ${esc(day.nom||'Jour')}</span>
+        <div class="gs-tot"><span>TOTAL</span><span id="pfsTotK">${Math.round(t.k)}</span><span id="pfsTotP">${Math.round(t.p)} P</span><span id="pfsTotG">${Math.round(t.g)} G</span><span id="pfsTotL">${Math.round(t.l)} L</span></div>
+      </div>
+      <div class="gs-wrap"><table class="gs"><thead><tr>
+        <th style="min-width:118px">Repas</th><th style="min-width:86px">Source</th><th style="min-width:150px">Aliments</th><th style="min-width:62px">Qté</th><th style="width:22px">Un.</th>
+        <th class="gs-h-dark">Kcal</th><th class="gs-h-dark">Prot.</th><th class="gs-h-dark">Gluc.</th><th class="gs-h-dark">Lip.</th><th style="width:24px"></th>
+        <th style="min-width:100px">Totaux</th><th style="min-width:150px">Notes</th>
+      </tr></thead><tbody>${rows||`<tr><td colspan="12" style="padding:14px;color:var(--text3)">Aucun repas — clique sur « + » pour en ajouter un.</td></tr>`}</tbody></table></div>
+    </div>`;
+}
 function pfRenderMeals(){
+  if(pfView==='sheet')return pfRenderSheet();
+  const dt=document.getElementById('pfDayTotals');if(dt)dt.style.display='';
   const w=document.getElementById('pfMeals');if(!w)return;
   const repas=pfDays[pfDayIdx]?.repas||[];
-  w.innerHTML=repas.map((r,ri)=>{const mt=pfCalcMeal(r);return`<div class="meal-block${pfMealIdx===ri?' sel':''}" data-ri="${ri}" ondragover="pfMealOver(event,this)" ondragleave="pfMealLeave(this)" ondrop="pfMealDrop(event,${ri})">
+  w.innerHTML=`<div class="gs-bar"><button class="gs-btn" onclick="pfSetView('sheet')">▦ Tableur</button><button class="gs-btn active" onclick="pfSetView('cards')">☰ Fiches</button></div>`+repas.map((r,ri)=>{const mt=pfCalcMeal(r);return`<div class="meal-block${pfMealIdx===ri?' sel':''}" data-ri="${ri}" ondragover="pfMealOver(event,this)" ondragleave="pfMealLeave(this)" ondrop="pfMealDrop(event,${ri})">
     <div class="meal-hdr" onclick="pfSelMeal(${ri})">
       <div class="meal-drag" draggable="true" ondragstart="pfMealDragStart(event,${ri})" ondragend="pfDragEnd()" title="Glisser pour déplacer ce repas" style="width:22px;height:22px;border-radius:6px;background:${pfMealIdx===ri?'var(--gold)':'var(--dark)'};color:${pfMealIdx===ri?'var(--dark)':'white'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0">${ri+1}</div>
       <div class="meal-nm" ondblclick="pfRenameMeal(${ri},this)" title="Clique sur ✎ ou double-clic pour renommer">${r.nom}</div>
@@ -6331,19 +6591,18 @@ function closeProgBuilder(){
   }
 }
 let progFromClientId=null;
-function openProgBuilderForClient(){
+// Ouvre le builder de programme DANS l'onglet Training du client (plus de navigation)
+function openProgBuilderForClient(progId){
   if(!curClient)return;
-  const cl=curClient,clId=cl.id;
-  document.getElementById('detPage').classList.remove('show');
-  showPage('tr-progs',document.getElementById('nav-tr-progs'));
-  openSub('sub-train','arr-tr');
-  setTimeout(()=>{
-    openProgBuilder();
-    progClients=[cl];
-    document.getElementById('progClIn').value='';
-    renderClientBadges(progClients,'progClBadges','progRemoveClient');
-    progFromClientId=clId;// Set APRÈS l'ouverture pour ne pas être consommé par closeProgBuilder de showPage()
-  },220);
+  const cl=curClient;
+  openProgBuilder(progId);
+  if(!progClients.find(x=>x.id===cl.id)){
+    progClients.unshift(cl);
+    try{renderClientBadges(progClients,'progClBadges','progRemoveClient');}catch(e){}
+  }
+  progFromClientId=cl.id;
+  bldMount('progBuilderWrap','progSlot');
+  setClientTopActions();
 }
 async function deleteClientProgram(progId){
   if(!confirm('Supprimer ce programme ?'))return;
@@ -6354,25 +6613,21 @@ async function deleteClientProgram(progId){
   toast('Programme supprimé');
   renderTrainingTab();
 }
-function editClientProgram(progId){
-  if(!curClient)return;
-  const cl=curClient,clId=cl.id;
-  document.getElementById('detPage').classList.remove('show');
-  showPage('tr-progs',document.getElementById('nav-tr-progs'));
-  openSub('sub-train','arr-tr');
-  setTimeout(()=>{
-    openProgBuilder(progId);
-    // Sécurité : si le lookup clientIds → progClients a raté (client absent de allClients,
-    // race, etc.), on injecte explicitement curClient pour éviter que saveProg ne perde
-    // le rattachement au client en mettant clientId:null.
-    if(!progClients.find(x=>x.id===clId)){
-      progClients.unshift(cl);
-      try{renderClientBadges(progClients,'progClBadges','progRemoveClient');}catch(e){}
-    }
-    progFromClientId=clId;
-  },220);
-}
+// Modifier un programme depuis la fiche client = même builder, monté dans l'onglet.
+// (openProgBuilderForClient réinjecte curClient dans progClients si le lookup
+// clientIds a raté, sinon saveProg perdrait le rattachement au client.)
+function editClientProgram(progId){openProgBuilderForClient(progId);}
 function _maybeReturnToClientFromProg(){
+  // Builder monté dans la fiche client : on démonte sur place, aucune navigation
+  if(bldIsInline('progBuilderWrap')){
+    progFromClientId=null;
+    document.getElementById('progBuilderWrap').style.display='none';
+    bldUnmount('progBuilderWrap');
+    document.getElementById('progListWrap').style.display='block';
+    setClientTopActions();
+    if(typeof renderTrainingTab==='function')renderTrainingTab();
+    return true;
+  }
   if(!progFromClientId)return false;
   const c=allClients.find(x=>x.id===progFromClientId);
   progFromClientId=null;
@@ -6438,6 +6693,136 @@ function progAddRunBlockTo(sec){if(!progDays[progDayIdx])return;if(!progDays[pro
 function progEditRunBlock(sec,idx){const a=progDays[progDayIdx]?.[sec];if(!a||!a[idx])return;openRunBlockModal(a,sec,idx,progRenderDay);}
 function progDelRunBlock(sec,idx){if(!confirm('Supprimer ce bloc ?'))return;progDays[progDayIdx][sec].splice(idx,1);progRenderDay();}
 function progMoveRunBlock(sec,idx,delta){const arr=progDays[progDayIdx]?.[sec];if(!arr)return;const j=idx+delta;if(j<0||j>=arr.length)return;[arr[idx],arr[j]]=[arr[j],arr[idx]];progRenderDay();}
+/* ===== VUE TABLEUR DE LA SÉANCE (look Google Sheet) =====
+   Rend exactement le même modèle (progDays[].warmup/workout/cooldown) que la vue
+   fiches : aucune donnée nouvelle, donc rien ne change côté client. */
+let progView=lsGet('fz_prog_view','sheet');
+function progSetView(v){progView=v;lsSave('fz_prog_view',v);progRenderDay();}
+function progDelLastDay(){
+  if(progDays.length<=1){toast('Il faut au moins 1 séance');return;}
+  progDelDay(progDays.length-1);
+}
+function progSheetSets(sec,i,delta){
+  const e=progDays[progDayIdx]&&progDays[progDayIdx][sec]&&progDays[progDayIdx][sec][i];if(!e)return;
+  if(e.superset){
+    const cur=Math.max(1,...(e.exercises||[]).map(x=>(x.setsData||[]).length));
+    progChangeSupersetNbSets(sec,i,Math.max(1,cur+delta));
+  } else {
+    progChangeNbSets(sec,i,Math.max(1,((e.setsData||[]).length||1)+delta));
+  }
+}
+// REST : une seule valeur par exercice (comme dans le Google Sheet) appliquée à toutes les séries
+function progSheetRest(sec,i,v){
+  const e=progDays[progDayIdx]&&progDays[progDayIdx][sec]&&progDays[progDayIdx][sec][i];if(!e)return;
+  if(e.superset){
+    if(!Array.isArray(e.setsRest))e.setsRest=[];
+    for(let k=0;k<e.setsRest.length;k++)e.setsRest[k]=v;
+    (e.exercises||[]).forEach(x=>(x.setsData||[]).forEach(s=>s.rest=v));
+  } else (e.setsData||[]).forEach(s=>s.rest=v);
+}
+// VARIANT : bascule l'exercice avec l'une de ses alternatives (l'ancien devient l'alternative)
+function progSheetVariant(sec,i,si,ri){
+  const arr=progDays[progDayIdx]&&progDays[progDayIdx][sec];if(!arr||!arr[i])return;
+  const e=si>=0?(arr[i].exercises||[])[si]:arr[i];if(!e)return;
+  const list=(e.replacements||[]).slice();
+  const r=list[ri];if(!r)return;
+  list[ri]={nom:e.nom,muscle:e.muscle||'',equip:e.equip||'',video:e.video||''};
+  e.nom=r.nom;e.muscle=r.muscle||'';e.equip=r.equip||'';e.video=r.video||'';
+  e.replacements=list;
+  progRenderDay();toast(e.nom+' ✓');
+}
+function progSheetNotes(sec,i,si,v){
+  const arr=progDays[progDayIdx]&&progDays[progDayIdx][sec];if(!arr||!arr[i])return;
+  const e=si>=0?(arr[i].exercises||[])[si]:arr[i];if(e)e.notes=v;
+}
+function _progNormSets(e){
+  if(!e.setsData&&(e.sets||e.reps)){
+    const n=parseInt(e.sets)||1;
+    e.setsData=Array.from({length:n},()=>({reps:e.reps||'',rest:e.rest||'',rir:e.rir||'',tempo:e.tempo||''}));
+  }
+  if(!e.setsData||!e.setsData.length)e.setsData=[{reps:'8-12',rest:'90s',rir:'',tempo:''}];
+  return e.setsData;
+}
+function progRenderSheet(el,d){
+  const SECS=[['warmup','🔥 Échauffement'],['workout',null],['cooldown','❄️ Retour au calme']];
+  // Lignes d'un exercice (ou d'un exo de superset) : 1 ligne par série, le reste fusionné
+  const exRows=(ex,key,i,si,numLabel,ssColor,restVal,nbRows)=>{
+    const sets=_progNormSets(ex);
+    const S=sets.length;
+    const repls=ex.replacements||[];
+    const nm=(ex.nom||'').replace(/'/g,"\\'");
+    let out='';
+    sets.forEach((s,k)=>{
+      out+='<tr>';
+      if(k===0){
+        out+=`<td class="gs-num${ssColor?' gs-ss':''}" rowspan="${S}">${si>=0?numLabel:`<input class="gi" style="color:var(--on-gold);font-weight:800;padding:0" value="${numLabel}" onchange="progMoveExo('${key}',${i},parseInt(this.value)-1)" title="Changer la position">`}</td>
+        <td class="gs-lbl" rowspan="${S}" style="min-width:150px">${esc(ex.nom||'')}</td>
+        <td rowspan="${S}" style="min-width:92px">${repls.length?`<select class="gi" style="font-size:10px" onchange="if(this.value!=='')progSheetVariant('${key}',${i},${si},parseInt(this.value))"><option value="">— actuel —</option>${repls.map((r,ri)=>`<option value="${ri}">${esc(r.nom||'')}</option>`).join('')}</select>`:''}<button class="gs-x" onclick="progEditReplacements('${key}',${i}${si>=0?','+si:''})" title="Gérer les alternatives">⇄</button></td>`;
+      }
+      out+=`<td style="width:26px;font-weight:700;color:var(--text3)">${k+1}</td>
+        <td style="min-width:74px"><input class="gi" value="${esc(s.reps||'')}" placeholder="8-12" onchange="${si>=0?`progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${k}].reps=this.value`:`progUpdSet('${key}',${i},${k},'reps',this.value)`}"></td>
+        <td style="min-width:48px"><input class="gi" value="${esc(s.rir||'')}" placeholder="—" onchange="${si>=0?`progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${k}].rir=this.value`:`progUpdSet('${key}',${i},${k},'rir',this.value)`}"></td>`;
+      if(k===0){
+        out+=`<td rowspan="${S}" style="min-width:92px">${si>0?'':`<input class="gi" value="${esc(restVal||'')}" placeholder="90s" onchange="progSheetRest('${key}',${i},this.value)">`}</td>
+        <td rowspan="${S}" style="min-width:118px">${muscleSelectHtml(ex.muscle,si>=0?`progUpdSupExoMuscle('${key}',${i},${si},this.value)`:`progUpdExoMuscle('${key}',${i},this.value)`)}</td>
+        <td rowspan="${S}" style="min-width:130px"><input class="gi" style="text-align:left" value="${esc(ex.notes||'')}" placeholder="—" onchange="progSheetNotes('${key}',${i},${si},this.value)"></td>
+        <td rowspan="${S}" style="width:38px">${ex.video&&ytId(ex.video)?`<button class="gs-x" style="color:var(--gold);font-size:13px" onclick="watchVid('${nm}','${ex.video}','')" title="Voir la vidéo">▶</button>`:'<span style="color:var(--text3);font-size:10px">—</span>'}</td>`;
+        if(si<=0)out+=`<td rowspan="${nbRows}" style="width:46px;padding:2px">
+          <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:1px">
+            <button class="gs-x" onclick="progSheetSets('${key}',${i},1)" title="Ajouter une série">＋</button>
+            <button class="gs-x" onclick="progSheetSets('${key}',${i},-1)" title="Retirer une série">－</button>
+            ${si<0?`<button class="gs-x" onclick="progMkSuperset('${key}',${i})" title="Convertir en superset">⚡</button>`:''}
+            <button class="gs-x" onclick="progDelExo('${key}',${i})" title="Supprimer l'exercice">🗑</button>
+          </div></td>`;
+      }
+      out+='</tr>';
+    });
+    return out;
+  };
+  let blocks='';
+  SECS.forEach(([key,label])=>{
+    const arr=d[key]||[];
+    if(key!=='workout'&&!arr.length)return;
+    let rows='',sets=0;
+    arr.forEach((e,i)=>{
+      if(e.superset){
+        const subs=e.exercises||[];
+        subs.forEach(x=>_progNormSets(x));
+        const nbRows=subs.reduce((n,x)=>n+x.setsData.length,0);
+        const rest=(Array.isArray(e.setsRest)&&e.setsRest[0])||(subs[0]&&subs[0].setsData[0]&&subs[0].setsData[0].rest)||'';
+        subs.forEach((x,si)=>{
+          sets+=x.setsData.length;
+          rows+=exRows(x,key,i,si,(i+1)+String.fromCharCode(65+si),true,rest,nbRows);
+        });
+      } else {
+        const S=_progNormSets(e).length;sets+=S;
+        rows+=exRows(e,key,i,-1,String(i+1),false,(e.setsData[0]||{}).rest||'',S);
+      }
+      if(i<arr.length-1)rows+='<tr class="gs-sep"><td colspan="12"></td></tr>';
+    });
+    const isMain=key==='workout';
+    blocks+=`<div class="gs-blk">
+      <div class="gs-title" style="background:var(--gold);color:var(--on-gold)">
+        ${isMain?`<input class="gs-t-nm" style="color:var(--on-gold);text-transform:uppercase" value="${esc(d.nom||'')}" oninput="progDays[progDayIdx].nom=this.value" onchange="progRenderDays()" title="Nom de la séance">`:`<span style="text-transform:uppercase">${label}</span>`}
+        <button class="gs-btn" style="padding:3px 10px;font-size:10px" onclick="progSetTarget('${key}')" title="Choisis ensuite un exercice dans la bibliothèque à droite">+ Exercice</button>
+        <div class="gs-tot"><span style="background:rgba(0,0,0,.14);color:rgba(0,0,0,.5)">SÉRIES</span><span style="background:var(--dark);color:var(--on-dark)">${sets}</span></div>
+      </div>
+      <div class="gs-wrap"><table class="gs"><thead><tr>
+        <th style="width:34px">#</th><th style="min-width:150px">Exercice</th><th style="min-width:92px">Variant</th>
+        <th style="width:26px">Set</th><th style="min-width:74px">Reps</th><th style="min-width:48px">RIR</th>
+        <th style="min-width:92px">Rest</th><th style="min-width:118px">Muscles</th><th style="min-width:130px">Notes</th><th style="width:38px">Vid</th><th style="width:46px"></th>
+      </tr></thead><tbody>${rows||`<tr><td colspan="11" style="padding:12px;color:var(--text3)">Aucun exercice — clique sur « + Exercice » puis choisis-en un dans la bibliothèque à droite.</td></tr>`}
+      ${isMain?`<tr><td class="gs-lbl" colspan="3">Notes clients</td><td class="gs-plain" colspan="8"><input class="gi" style="text-align:left" value="${esc(d.instr||'')}" placeholder="Notes visibles par le client…" onchange="progDays[progDayIdx].instr=this.value"></td></tr>`:''}
+      </tbody></table></div>
+    </div>`;
+  });
+  el.innerHTML=`<div class="gs-bar">
+      <span class="gs-step"><em>Séances</em><button onclick="progDelLastDay()" title="Retirer la dernière séance">−</button><span>${progDays.length}</span><button onclick="progAddDay()" title="Ajouter une séance">+</button></span>
+      <button class="gs-btn active" onclick="progSetView('sheet')">▦ Tableur</button>
+      <button class="gs-btn" onclick="progSetView('cards')">☰ Fiches</button>
+      <button class="gs-btn" onclick="progSetDayType('running')" title="Basculer cette séance en course à pied">🏃 Running</button>
+    </div>${blocks}`;
+}
 function progRenderDay(){
   const el=document.getElementById('progDayContent');if(!el)return;
   const d=progDays[progDayIdx];if(!d)return;
@@ -6466,6 +6851,9 @@ function progRenderDay(){
     ${renderRunSec('cooldown','Retour au calme','❄️')}`;
     return;
   }
+
+  // Vue tableur (par défaut) — séances muscu uniquement
+  if(progView==='sheet')return progRenderSheet(el,d);
 
   // Récap volume total programme (toutes séances)
   const totalVolMap={};
@@ -6630,6 +7018,7 @@ function progRenderDay(){
     <button class="add-exo-zone" id="addBtn_${key}" onclick="progSetTarget('${key}')">+ Ajouter dans ${label.replace(/^[^ ]+ /,'')}</button>`;
 
   el.innerHTML=`
+    <div class="gs-bar"><button class="gs-btn" onclick="progSetView('sheet')">▦ Tableur</button><button class="gs-btn active" onclick="progSetView('cards')">☰ Fiches</button></div>
     <div class="fg" style="margin-bottom:10px">
       <label class="fl">Nom de la séance *</label>
       <input class="fi" id="dayNom" value="${d.nom}" onchange="progDays[progDayIdx].nom=this.value;progRenderDays()">

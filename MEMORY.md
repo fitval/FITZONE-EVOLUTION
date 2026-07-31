@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-07-30 (fiche client façon Google Sheet : onglets en bas + roadmap densifiée)
+**Dernière mise à jour** : 2026-07-31 (builders nutrition & training intégrés dans la fiche client + vues tableur façon Google Sheet)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -265,6 +265,18 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **APPORTS sur une seule ligne** (`textarea.rin.rap`, 22 px, centré) qui se déplie à 80 px au focus → plus de lignes hautes.
 - **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
 - Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
+
+### Session 2026-07-31 — Builders nutrition & training dans la fiche client + vues tableur
+- **Les deux builders s'ouvrent maintenant DANS l'onglet du client** (Nutrition / Training), plus de navigation ni de plein écran. Technique : le nœud unique (`#planBuilderWrap`, `#progBuilderWrap`) est **déplacé** dans un slot de l'onglet (`#pfSlot`, `#progSlot`) par `bldMount()` puis remis à sa place par `bldUnmount()` — les handlers inline continuent de marcher, aucun code dupliqué. Classe `.bld-inline` (position:static !important).
+  - ⚠️ Règle : **toujours `bldUnmount()` avant un `innerHTML=` sur l'onglet**, sinon le nœud du builder est détruit et les boutons « Créer un plan/programme » ne font plus rien. `renderNutTab()` et `_renderTrainingContent()` sortent d'ailleurs immédiatement si le builder est monté (`bldIsInline`), et `openDet()`/`goBack()` appellent `bldCloseAll()`.
+  - `editClientPlan()` n'ouvre plus le mini-éditeur `renderClientPlanEditor()` (retouches partielles) mais le vrai builder ; `editClientProgram()`/`openProgBuilderForClient()` ne changent plus de page.
+  - `setClientTopActions()` restaure les boutons de la barre du haut (les builders écrasent `#tbActs` à l'ouverture).
+- **Vue « tableur » (look Google Sheet) par défaut pour les deux builders**, bouton `▦ Tableur / ☰ Fiches` (préférences `fz_pf_view` / `fz_prog_view`) — l'ancienne vue fiches reste disponible et gère seule le running, le drag & drop et les blocs de course.
+  - Nutrition `pfRenderSheet()` : REPAS / SOURCE / ALIMENTS / QTÉ / UN. / KCAL / PROT. / GLUC. / LIP. / TOTAUX / NOTES, cellules REPAS+TOTAUX+NOTES fusionnées (`rowspan`), sélecteur du **nombre de repas** et du **nombre de lignes par repas** (clé cosmétique `repas.slots`), recherche d'aliment directement dans la cellule (menu `.gs-menu`), recalcul live sans re-render.
+  - Training `progRenderSheet()` : # / EXERCICE / VARIANT / SET / REPS / RIR / REST / MUSCLES / NOTES / VID, une ligne par série, supersets en `1A/1B` sur fond magenta, REST unique par exercice (écrit sur toutes les séries), ligne « NOTES CLIENTS » = `instr`, sélecteur du **nombre de séances**, nom de séance éditable dans la barre dorée.
+  - **Aucun changement du modèle de données** → `client.html` est inchangé (pas de bump de `version.json`).
+- Styles communs `.gs-*` (barre titre noire, en-têtes dorés, cellules pêche, champs invisibles au repos).
+- Vérifié au navigateur avec un **faux client Supabase** (copie instrumentée de `dashboard.html`) : création plan + ajout d'aliment + quantité live + enregistrement, création programme + ajout d'exercice depuis la bibliothèque + enregistrement + réouverture par « Modifier », bascule Tableur/Fiches, et non-régression des pages globales Plans / Programmes.
 
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
