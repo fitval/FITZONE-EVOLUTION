@@ -298,8 +298,7 @@ tr.crow:hover td{background:var(--hover)}
 .road-table thead tr:first-child th:nth-child(1),.road-table tbody td:nth-child(1){min-width:38px;width:38px;position:sticky;left:0;z-index:1;border-right:1px solid var(--border2)}
 .road-table thead tr:first-child th:nth-child(2),.road-table tbody td:nth-child(2){min-width:92px;width:92px;position:sticky;left:38px;z-index:1;border-right:2px solid var(--border2)}
 .road-table thead tr:first-child th:nth-child(1),.road-table thead tr:first-child th:nth-child(2){z-index:4}
-.road-table tbody td:nth-child(1),.road-table tbody tr:nth-child(even) td:nth-child(1),
-.road-table tbody td:nth-child(2),.road-table tbody tr:nth-child(even) td:nth-child(2){background:var(--white)}
+.road-table tbody td:nth-child(1),.road-table tbody td:nth-child(2){background:var(--white)}
 .road-table tbody tr.rw-cur td:nth-child(1),.road-table tbody tr.rw-cur td:nth-child(2){background:color-mix(in srgb,#f9f5ea var(--tint,100%),var(--white))}
 .road-table table{width:100%;border-collapse:collapse;min-width:1400px}
 .road-table thead th{background:var(--dark);color:rgba(255,255,255,.55);font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:8px 8px;text-align:center;border-right:1px solid rgba(255,255,255,.06);white-space:nowrap;position:sticky;top:0;z-index:2}
@@ -307,7 +306,6 @@ tr.crow:hover td{background:var(--hover)}
 .road-table thead th.th-gold2{background:var(--gold-dk);color:rgba(255,255,255,.75)}
 .road-table tbody td{padding:1px 4px;height:28px;border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);font-size:11px;vertical-align:middle;text-align:center;background:var(--row-phase-bg,transparent)}
 .road-table tr:last-child td{border-bottom:none}
-.road-table tbody tr:nth-child(even) td{background:var(--row-phase-bg,rgba(0,0,0,.018))}
 /* Cellule PHASE colorée comme dans le Google Sheet (teinte plus soutenue que la ligne) */
 .road-table tbody td.rc-ph{background:var(--ph,transparent);box-shadow:inset 0 0 0 1px rgba(0,0,0,.03)}
 .road-table tbody td.rc-ph .rsel{font-weight:700}
@@ -380,6 +378,17 @@ body:has(#detPage.show) .toast{bottom:54px}
 .gs td.gs-num{background:var(--gold);color:var(--on-gold);font-weight:800;font-size:12px;width:34px}
 .gs td.gs-num.gs-ss{background:#d946ef;color:#fff}
 .gs td.gs-plain{background:var(--white)}
+/* cellule TOTAUX d'un repas : kcal en gros + pastilles macros */
+.gs td.gs-tot-td{background:rgba(var(--gold-rgb),.10);padding:4px 3px}
+.gs-tot-cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+.gs-tot-k{font-size:15px;font-weight:900;color:var(--gold-deep);line-height:1;white-space:nowrap}
+.gs-tot-k small{font-size:8.5px;font-weight:700;opacity:.65;margin-left:2px}
+.gs-tot-m{display:flex;gap:3px;flex-wrap:wrap;justify-content:center}
+.gs-chip{display:inline-flex;align-items:baseline;gap:1px;padding:1px 5px;border-radius:20px;font-size:10px;font-weight:800;line-height:1.6}
+.gs-chip i{font-style:normal;font-size:8px;font-weight:700;opacity:.7}
+.gs-chip.p{background:color-mix(in srgb,#dbeafe var(--tint,100%),var(--white));color:color-mix(in srgb,#2563eb var(--ink,100%),var(--text))}
+.gs-chip.g{background:color-mix(in srgb,#fef3c7 var(--tint,100%),var(--white));color:color-mix(in srgb,#b45309 var(--ink,100%),var(--text))}
+.gs-chip.l{background:var(--gold-pale);color:var(--gold-deep)}
 .gs td.gs-calc{font-weight:700;color:var(--text2)}
 .gs tbody tr.gs-sep td{height:7px;padding:0;background:transparent;border-left:none;border-right:none}
 /* champs dans la grille : invisibles au repos, comme dans un tableur */
@@ -389,6 +398,8 @@ body:has(#detPage.show) .toast{bottom:54px}
 .gs textarea.gi{text-align:left;resize:vertical;min-height:24px;line-height:1.35}
 .gs select.gi{cursor:pointer;appearance:none;-webkit-appearance:none;padding-right:14px;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='M0 2l4 4 4-4' fill='%23999'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 3px center}
 .gs .gi-nm{font-weight:700;text-align:left}
+.gs input[type=number].gi{-moz-appearance:textfield}
+.gs input[type=number].gi::-webkit-outer-spin-button,.gs input[type=number].gi::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .gs .gs-x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 3px;line-height:1}
 .gs .gs-x:hover{color:color-mix(in srgb,#dc2626 var(--ink,100%),var(--text))}
 /* barre d'outils au-dessus d'une grille */
@@ -3752,7 +3763,7 @@ function renderRoadTab(){
   // Toolbar
   let toolbar=`<div class="road-toolbar">
     <div style="display:flex;align-items:center;gap:10px"><label class="fl" style="margin:0">Date de départ :</label><input type="date" class="fi" style="width:175px" value="${sd}" onchange="updateRoadStartDate(this.value)"></div>
-    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3)">${totalWeeks} sem.</span><button class="rbtn" onclick="addRoadWeeks()">+ Ajouter semaines</button><button class="rbtn" onclick="roadTrimEmpty()" title="Retire les semaines vierges après la dernière semaine renseignée (min. 52)">🧹 Nettoyer les vides</button><button class="rbtn" onclick="roadScrollToToday()" title="Aller à la semaine en cours">📍 Aujourd'hui</button></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3)">${totalWeeks} sem.</span><button class="rbtn" onclick="addRoadWeeks()">+ Ajouter semaines</button><button class="rbtn" onclick="roadTrimEmpty()" title="Retire les semaines vierges après la dernière semaine renseignée (min. 52)">🧹 Nettoyer les vides</button><button class="rbtn" onclick="roadScrollToToday()" title="Aller à la semaine en cours">📍 Aujourd'hui</button><button class="rbtn" onclick="roadScrollToLastFilled()" title="Aller à la dernière semaine renseignée">⤓ Dernière remplie</button></div>
     <div style="flex:1"></div>`;
   if(roadCopy){
     toolbar+=`<span class="rcopy-info">Copié : <b>${roadCopy.value||'(vide)'}</b> (${roadCopy.field})</span>`;
@@ -4080,6 +4091,27 @@ function roadScrollToToday(){
   const cur=el.querySelector('tr.rw-cur');
   const wrap=el.querySelector('.road-wrap');
   if(cur&&wrap)wrap.scrollTo({top:Math.max(0,cur.offsetTop-wrap.offsetTop-60),behavior:'smooth'});
+}
+// Saut direct à la dernière semaine renseignée (évite de scroller 40 semaines)
+function roadScrollToLastFilled(){
+  const el=document.getElementById('tc-roadmap');if(!el||!curClient)return;
+  const wrap=el.querySelector('.road-wrap');if(!wrap)return;
+  const saved=lsGet('road_'+curClient.id,{});
+  let last=0;
+  Object.keys(saved).forEach(k=>{
+    const n=parseInt(k);
+    if(!isNaN(n)&&!_roadWeekEmpty(saved[k])&&n>last)last=n;
+  });
+  if(!last){toast('Aucune semaine renseignée');return;}
+  const row=wrap.querySelectorAll('.road-table tbody tr')[last-1];
+  if(!row){wrap.scrollTo({top:wrap.scrollHeight,behavior:'smooth'});return;}
+  // Décalage calculé en coordonnées écran (fiable quel que soit l'offsetParent),
+  // la ligne visée se retrouve au tiers haut de la zone visible.
+  const rr=row.getBoundingClientRect(),wr=wrap.getBoundingClientRect();
+  wrap.scrollTo({top:Math.max(0,wrap.scrollTop+(rr.top-wr.top)-Math.max(60,wr.height*0.3)),behavior:'smooth'});
+  // flash doré sur la ligne visée
+  row.style.transition='box-shadow .25s';row.querySelectorAll('td').forEach(td=>td.style.boxShadow='inset 0 0 0 99px rgba(var(--gold-rgb),.18)');
+  setTimeout(()=>row.querySelectorAll('td').forEach(td=>td.style.boxShadow=''),900);
 }
 async function saveRoadmap(){
   if(!curClient)return;
@@ -5325,7 +5357,6 @@ function pfRenderTotals(){const t=pfCalcDay(pfDayIdx);document.getElementById('p
    change côté client.html. Seule clé ajoutée : repas.slots = nombre de lignes
    affichées pour ce repas (cosmétique, ignorée partout ailleurs). */
 let pfView=lsGet('fz_pf_view','sheet');
-const PF_CATS=['','VIANDES','POISSONS','ŒUFS & LAITIERS','LÉGUMINEUSES','CÉRÉALES','FÉCULENTS','LÉGUMES','FRUITS','OLÉAGINEUX','HUILES','COMPLÉMENTS','AUTRES'];
 function pfSetView(v){pfView=v;lsSave('fz_pf_view',v);pfRenderMeals();}
 function pfMealRows(r){return Math.max(parseInt(r&&r.slots)||4,((r&&r.alims)||[]).length+1);}
 function pfSetSlots(ri,delta){
@@ -5341,11 +5372,13 @@ function pfDelLastMeal(){
   pfDelMeal(rep.length-1);
 }
 function pfSheetMealName(ri,v){const r=pfDays[pfDayIdx]&&pfDays[pfDayIdx].repas[ri];if(r)r.nom=v;}
-function pfSheetCat(ri,ai,v){const a=pfDays[pfDayIdx]&&pfDays[pfDayIdx].repas[ri]&&pfDays[pfDayIdx].repas[ri].alims[ai];if(a)a.cat=v;}
 function pfSheetName(ri,ai,v){const a=pfDays[pfDayIdx]&&pfDays[pfDayIdx].repas[ri]&&pfDays[pfDayIdx].repas[ri].alims[ai];if(a)a.nom=v;}
 function pfSheetTotCell(mt){
-  const line=(l,v)=>`<div style="display:flex;border-bottom:1px solid rgba(0,0,0,.07)"><span style="flex:0 0 32px;font-size:9px;padding:2px 0;opacity:.65">${l}</span><span style="flex:1;padding:2px 3px;font-weight:800">${Math.round(v)} g</span></div>`;
-  return`<div style="display:flex;flex-direction:column">${line('PRO',mt.p)}${line('GLU',mt.g)}${line('LIP',mt.l)}<div style="padding:3px;font-weight:800;color:var(--gold-deep)">${Math.round(mt.k)} kcal</div></div>`;
+  const chip=(cls,l,v)=>`<span class="gs-chip ${cls}">${Math.round(v)}<i>${l}</i></span>`;
+  return`<div class="gs-tot-cell">
+    <div class="gs-tot-k">${Math.round(mt.k)}<small>kcal</small></div>
+    <div class="gs-tot-m">${chip('p','P',mt.p)}${chip('g','G',mt.g)}${chip('l','L',mt.l)}</div>
+  </div>`;
 }
 function pfSheetDayTot(){
   const t=pfCalcDay(pfDayIdx);
@@ -5423,9 +5456,7 @@ function pfRenderSheet(){
           <button class="gs-x" onclick="pfDelMeal(${ri})" title="Supprimer ce repas">🗑</button>
         </div></td>`;
       if(a){
-        const cat=(a.cat||'').toUpperCase();
-        rows+=`<td><select class="gi" style="font-size:9.5px" onchange="pfSheetCat(${ri},${i},this.value)">${PF_CATS.map(c=>`<option${cat===c?' selected':''}>${c}</option>`).join('')}${PF_CATS.indexOf(cat)<0&&cat?`<option selected>${esc(cat)}</option>`:''}</select></td>
-        <td><input class="gi gi-nm" value="${esc(a.nom||'')}" oninput="pfSheetName(${ri},${i},this.value);pfSheetFind(this,${ri},${i})" onfocus="pfSheetFind(this,${ri},${i})" onblur="setTimeout(pfMenuClose,180)" title="Clique pour remplacer l'aliment"></td>
+        rows+=`<td><input class="gi gi-nm" value="${esc(a.nom||'')}" oninput="pfSheetName(${ri},${i},this.value);pfSheetFind(this,${ri},${i})" onfocus="pfSheetFind(this,${ri},${i})" onblur="setTimeout(pfMenuClose,180)" title="Clique pour remplacer l'aliment"></td>
         <td><input class="gi" type="number" step="5" min="0" value="${a.qte}" oninput="pfSheetQte(${ri},${i},this.value)"></td>
         <td style="color:var(--text3);font-size:10px">g</td>
         <td class="gs-calc" id="pfs_k_${ri}_${i}">${Math.round(a.kcal*a.qte/100)}</td>
@@ -5434,15 +5465,14 @@ function pfRenderSheet(){
         <td class="gs-calc" id="pfs_l_${ri}_${i}">${Math.round(a.fat*a.qte/100)}</td>
         <td style="width:26px"><button class="gs-x" onclick="pfDelFood(${ri},${i})" title="Retirer">✕</button></td>`;
       } else {
-        rows+=`<td class="gs-plain"></td>
-        <td class="gs-plain"><input class="gi" style="text-align:left;color:var(--text2)" placeholder="+ aliment…" oninput="pfSheetFind(this,${ri},-1)" onfocus="pfSheetFind(this,${ri},-1)" onblur="setTimeout(pfMenuClose,180)"></td>
+        rows+=`<td class="gs-plain"><input class="gi" style="text-align:left;color:var(--text2)" placeholder="+ aliment…" oninput="pfSheetFind(this,${ri},-1)" onfocus="pfSheetFind(this,${ri},-1)" onblur="setTimeout(pfMenuClose,180)"></td>
         ${'<td class="gs-plain"></td>'.repeat(7)}`;
       }
-      if(i===0)rows+=`<td class="gs-lbl" rowspan="${n}" style="padding:0;min-width:100px" id="pfs_tot_${ri}">${pfSheetTotCell(mt)}</td>
-        <td rowspan="${n}" style="min-width:150px;padding:2px"><textarea class="gi" style="min-height:${Math.max(26,n*22)}px" placeholder="Notes / préparation…" oninput="pfUpdInstr(${ri},this.value)">${esc(r.instructions||'')}</textarea></td>`;
+      if(i===0)rows+=`<td class="gs-tot-td" rowspan="${n}" style="min-width:112px" id="pfs_tot_${ri}">${pfSheetTotCell(mt)}</td>
+        <td rowspan="${n}" style="min-width:170px;padding:2px"><textarea class="gi" style="min-height:${Math.max(26,n*22)}px" placeholder="Notes / préparation…" oninput="pfUpdInstr(${ri},this.value)">${esc(r.instructions||'')}</textarea></td>`;
       rows+='</tr>';
     }
-    if(ri<repas.length-1)rows+='<tr class="gs-sep"><td colspan="12"></td></tr>';
+    if(ri<repas.length-1)rows+='<tr class="gs-sep"><td colspan="11"></td></tr>';
   });
   w.innerHTML=`<div class="gs-bar">
       <span class="gs-step"><em>Repas</em><button onclick="pfDelLastMeal()" title="Retirer le dernier repas">−</button><span>${repas.length}</span><button onclick="pfAddMeal()" title="Ajouter un repas">+</button></span>
@@ -5455,10 +5485,10 @@ function pfRenderSheet(){
         <div class="gs-tot"><span>TOTAL</span><span id="pfsTotK">${Math.round(t.k)}</span><span id="pfsTotP">${Math.round(t.p)} P</span><span id="pfsTotG">${Math.round(t.g)} G</span><span id="pfsTotL">${Math.round(t.l)} L</span></div>
       </div>
       <div class="gs-wrap"><table class="gs"><thead><tr>
-        <th style="min-width:118px">Repas</th><th style="min-width:86px">Source</th><th style="min-width:150px">Aliments</th><th style="min-width:62px">Qté</th><th style="width:22px">Un.</th>
+        <th style="min-width:118px">Repas</th><th style="min-width:230px;width:60%">Aliments</th><th style="min-width:76px">Qté</th><th style="width:22px">Un.</th>
         <th class="gs-h-dark">Kcal</th><th class="gs-h-dark">Prot.</th><th class="gs-h-dark">Gluc.</th><th class="gs-h-dark">Lip.</th><th style="width:24px"></th>
-        <th style="min-width:100px">Totaux</th><th style="min-width:150px">Notes</th>
-      </tr></thead><tbody>${rows||`<tr><td colspan="12" style="padding:14px;color:var(--text3)">Aucun repas — clique sur « + » pour en ajouter un.</td></tr>`}</tbody></table></div>
+        <th style="min-width:112px">Totaux</th><th style="min-width:170px;width:40%">Notes</th>
+      </tr></thead><tbody>${rows||`<tr><td colspan="11" style="padding:14px;color:var(--text3)">Aucun repas — clique sur « + » pour en ajouter un.</td></tr>`}</tbody></table></div>
     </div>`;
 }
 function pfRenderMeals(){
@@ -5746,11 +5776,18 @@ function _planSearchText(p){
 }
 function renderPlansListPage(){
   const el=document.getElementById('plansPageList');if(!el)return;
-  if(!plans.length){el.innerHTML=`<div class="empty"><div class="ei">🥗</div><div class="et">Aucun plan alimentaire</div><div class="es">Crée un plan macros ou un plan complet</div></div>`;return;}
+  // Barre de création visible DANS la page (les boutons de la barre du haut
+  // passaient inaperçus) — le client s'assigne ensuite dans le builder.
+  const newBar=`<div class="gs-bar" style="margin-bottom:12px">
+    <button class="gs-btn gs-btn-gold" onclick="startFullPlan()">🍽️ + Nouveau plan complet</button>
+    <button class="gs-btn" onclick="startMacrosPlan()">📊 + Nouveau plan macros</button>
+    <span style="font-size:11px;color:var(--text3)">Le client s'attribue dans le champ « Client(s) » du plan.</span>
+  </div>`;
+  if(!plans.length){el.innerHTML=newBar+`<div class="empty"><div class="ei">🥗</div><div class="et">Aucun plan alimentaire</div><div class="es">Crée un plan macros ou un plan complet</div></div>`;return;}
   const q=(document.getElementById('planSearch')?.value||'').trim().toLowerCase();
   const list=q?plans.filter(p=>_planSearchText(p).includes(q)):plans;
-  if(!list.length){el.innerHTML=`<div class="empty"><div class="ei">🔍</div><div class="et">Aucun plan trouvé</div><div class="es">Aucun résultat pour « ${esc(q)} »</div></div>`;return;}
-  el.innerHTML=list.slice().reverse().map(p=>{const avg=_planDailyAvg(p);return`<div class="plan-card">
+  if(!list.length){el.innerHTML=newBar+`<div class="empty"><div class="ei">🔍</div><div class="et">Aucun plan trouvé</div><div class="es">Aucun résultat pour « ${esc(q)} »</div></div>`;return;}
+  el.innerHTML=newBar+list.slice().reverse().map(p=>{const avg=_planDailyAvg(p);return`<div class="plan-card">
     <div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
       <div style="width:38px;height:38px;border-radius:10px;background:${p.type==='full'?'var(--dark)':'var(--gold-pale)'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${p.type==='full'?'🍽️':'📊'}</div>
       <div style="flex:1">
@@ -6798,7 +6835,7 @@ function progRenderSheet(el,d){
         const S=_progNormSets(e).length;sets+=S;
         rows+=exRows(e,key,i,-1,String(i+1),false,(e.setsData[0]||{}).rest||'',S);
       }
-      if(i<arr.length-1)rows+='<tr class="gs-sep"><td colspan="12"></td></tr>';
+      if(i<arr.length-1)rows+='<tr class="gs-sep"><td colspan="11"></td></tr>';
     });
     const isMain=key==='workout';
     blocks+=`<div class="gs-blk">
