@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-08-02 (galerie : visionneuse plein écran + montage avant/après téléchargeable)
+**Dernière mise à jour** : 2026-08-02 (app client : onglet Roadmap en lecture seule + montage avant/après épuré)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -265,6 +265,15 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **APPORTS sur une seule ligne** (`textarea.rin.rap`, 22 px, centré) qui se déplie à 80 px au focus → plus de lignes hautes.
 - **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
 - Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
+
+### Session 2026-08-02 (bis) — App client : onglet Roadmap + montage avant/après épuré
+- **Navbar client** : les onglets *Bonus* et *Calendrier* sont **échangés** ; le 4e onglet garde l'icône calendrier mais s'appelle désormais **« Roadmap »** (nom interne inchangé : `switchTab('Calendar')`, `#btnCalendar`, `#tabCalendar` — ne pas renommer, plusieurs écrans y reviennent).
+- L'onglet affiche **la roadmap du coach en lecture seule** (`renderClientRoadmap()`) **au-dessus** du calendrier : table `roadmaps.weeks` avec colonne SEM figée, pastilles de phase colorées (`RM_PHASE_BG` / `RM_PHASE_STRONG`, mêmes teintes que le dashboard), semaine en cours surlignée + auto-scroll. Tout est du texte, aucun champ éditable.
+  - Colonnes jamais renseignées par le coach = **masquées** (écran mobile), lignes affichées jusqu'à `max(dernière semaine remplie, semaine en cours)`.
+  - Lecture autorisée par la policy existante `auth_roadmaps_client_select` (migration 20260521170000) → **aucune migration nécessaire**, on ajoute juste `weeks` au `select` déjà présent.
+  - ⚠️ La colonne figée (`td.wk`) doit avoir un fond **opaque** (`color-mix`) sinon les cellules qui défilent dessous transparaissent.
+- **Montage avant/après** (dashboard) : à la demande du coach, plus aucun texte — ni prénom, ni écart en semaines, ni dates, ni « FITZONE ÉVOLUTION ». Juste les deux photos côte à côte séparées par un trait doré.
+- `version.json` bumpé (obligatoire dès qu'on touche `client.html`).
 
 ### Session 2026-08-02 — Galerie : visionneuse plein écran + montage avant/après
 - **Visionneuse** (`galOpen/galNav/galClose`) : clic sur une photo → overlay `.gal-lb` dans la page (plus d'ouverture d'onglet Chrome), flèches ‹ › + touches ←/→, Échap pour fermer, compteur « 3 / 12 », titre + date. Les vidéos continuent de s'ouvrir dans un onglet.

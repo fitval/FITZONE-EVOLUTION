@@ -5365,50 +5365,17 @@ async function galDrawCompare(){
   const cs=getComputedStyle(document.documentElement);
   const gold=(cs.getPropertyValue('--gold')||'#c49a2a').trim();
   const S=F.w/1080; // échelle
-  const headH=Math.round(118*S),footH=Math.round(96*S);
   ctx.fillStyle='#12110f';ctx.fillRect(0,0,F.w,F.h);
   if(msg){msg.textContent='Chargement des photos…';msg.style.color='var(--text3)';}
   let imgs;
   try{imgs=await Promise.all([_galLoadImg(a.url),_galLoadImg(b.url)]);}
   catch(e){if(msg){msg.textContent='Impossible de charger une des photos.';msg.style.color='color-mix(in srgb,#dc2626 var(--ink,100%),var(--text))';}return;}
-  const bodyY=headH,bodyH=F.h-headH-footH,half=(F.w-Math.round(8*S))/2;
+  // Montage volontairement nu : deux photos côte à côte, ni nom, ni date, ni marque
+  const bodyY=0,bodyH=F.h,half=(F.w-Math.round(8*S))/2;
   _galDrawCover(ctx,imgs[0],0,bodyY,half,bodyH);
   _galDrawCover(ctx,imgs[1],F.w-half,bodyY,half,bodyH);
   // séparateur doré
   ctx.fillStyle=gold;ctx.fillRect(half,bodyY,Math.round(8*S),bodyH);
-  // bandeaux AVANT / APRÈS
-  const fmtD=d=>new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
-  const band=(x,w,txt,sub)=>{
-    const bh=Math.round(86*S);
-    const g=ctx.createLinearGradient(0,bodyY+bodyH-bh,0,bodyY+bodyH);
-    g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.72)');
-    ctx.fillStyle=g;ctx.fillRect(x,bodyY+bodyH-bh,w,bh);
-    ctx.textAlign='center';
-    ctx.fillStyle=gold;ctx.font='800 '+Math.round(30*S)+'px -apple-system,Helvetica,Arial,sans-serif';
-    ctx.fillText(txt,x+w/2,bodyY+bodyH-Math.round(40*S));
-    ctx.fillStyle='rgba(255,255,255,.88)';ctx.font='600 '+Math.round(23*S)+'px -apple-system,Helvetica,Arial,sans-serif';
-    ctx.fillText(sub,x+w/2,bodyY+bodyH-Math.round(14*S));
-  };
-  band(0,half,'AVANT',fmtD(a.date));
-  band(F.w-half,half,'APRÈS',fmtD(b.date));
-  // en-tête : prénom du client + écart en semaines
-  const nom=((curClient&&curClient.first_name)||'').toUpperCase();
-  const weeks=Math.max(0,Math.round((new Date(b.date)-new Date(a.date))/(7*864e5)));
-  ctx.textAlign='center';
-  ctx.fillStyle='#fff';ctx.font='900 '+Math.round(46*S)+'px -apple-system,Helvetica,Arial,sans-serif';
-  ctx.fillText(nom||'TRANSFORMATION',F.w/2,headH-Math.round(46*S));
-  ctx.fillStyle=gold;ctx.font='700 '+Math.round(24*S)+'px -apple-system,Helvetica,Arial,sans-serif';
-  ctx.fillText(weeks?weeks+' SEMAINES':'AVANT / APRÈS',F.w/2,headH-Math.round(16*S));
-  // pied : marque
-  ctx.fillStyle='#0c0b0a';ctx.fillRect(0,F.h-footH,F.w,footH);
-  ctx.font='900 '+Math.round(28*S)+'px -apple-system,Helvetica,Arial,sans-serif';
-  const t1='FITZONE ',t2='ÉVOLUTION';
-  const w1=ctx.measureText(t1).width,w2=ctx.measureText(t2).width;
-  const bx=(F.w-(w1+w2))/2,by=F.h-footH/2+Math.round(10*S);
-  ctx.textAlign='left';
-  ctx.fillStyle='#fff';ctx.fillText(t1,bx,by);
-  ctx.fillStyle=gold;ctx.fillText(t2,bx+w1,by);
-  ctx.textAlign='center';
   if(msg){msg.textContent=F.w+' × '+F.h+' px — prêt pour Instagram';msg.style.color='var(--text3)';}
 }
 function galDownload(){

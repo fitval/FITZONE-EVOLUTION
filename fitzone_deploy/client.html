@@ -457,6 +457,24 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .notif-bell svg { width:18px; height:18px; color:var(--text2); }
 .notif-badge { position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; border-radius:8px; background:var(--red); color:white; font-size:9px; font-weight:800; display:flex; align-items:center; justify-content:center; padding:0 4px; }
 
+/* Roadmap client (lecture seule) */
+.rm-legend { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); margin-bottom:8px; }
+.rm-cur-dot { width:9px; height:9px; border-radius:50%; background:var(--gold); display:inline-block; flex-shrink:0; }
+.rm-wrap { overflow:auto; -webkit-overflow-scrolling:touch; max-height:58vh; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--white); box-shadow:var(--shadow); }
+.rm-tbl { border-collapse:collapse; width:100%; font-size:11.5px; }
+.rm-tbl th { position:sticky; top:0; z-index:3; background:var(--dark); color:rgba(255,255,255,.7); font-size:9px; font-weight:800; letter-spacing:.7px; text-transform:uppercase; padding:8px 7px; white-space:nowrap; border-right:1px solid rgba(255,255,255,.07); }
+.rm-tbl th.g { background:var(--gold); color:var(--on-gold); }
+.rm-tbl th.wk { left:0; z-index:4; min-width:34px; }
+.rm-tbl td { border-bottom:1px solid var(--border); border-right:1px solid var(--border); padding:7px 8px; text-align:center; white-space:nowrap; color:var(--text); }
+.rm-tbl td.wk { position:sticky; left:0; z-index:2; background:var(--white); font-weight:800; min-width:34px; border-right:2px solid var(--border); }
+.rm-tbl td.dt { color:var(--text3); font-size:10.5px; }
+.rm-tbl td.txt { white-space:normal; text-align:left; min-width:130px; max-width:210px; line-height:1.35; }
+.rm-tbl td .mut { color:var(--text3); opacity:.6; }
+.rm-tbl tr.cur td { background:var(--gold-pale); font-weight:600; }
+/* la colonne figée doit rester OPAQUE, sinon les cellules qui défilent dessous transparaissent */
+.rm-tbl tr.cur td.wk { background:color-mix(in srgb, var(--gold) 10%, var(--white)); box-shadow:inset 3px 0 0 var(--gold); }
+.rm-ph { display:inline-block; padding:2px 9px; border-radius:20px; font-weight:800; font-size:10px; white-space:nowrap; }
+
 /* Bonus tab */
 .level-card { background:linear-gradient(135deg,var(--dark2),var(--dark)); border-radius:var(--r); padding:24px; color:white; margin-bottom:14px; text-align:center; }
 .level-emoji { font-size:48px; margin-bottom:8px; }
@@ -630,7 +648,9 @@ textarea.form-input { min-height:100px; resize:vertical; }
       <div id="bonusContent"></div>
     </div>
     <div id="tabCalendar" class="tab-section">
-      <div style="padding-top:20px"><div style="font-size:24px;font-weight:800;margin-bottom:4px">Calendrier</div><div style="font-size:13px;color:var(--text3);margin-bottom:16px">Toutes tes séances et événements</div></div>
+      <div style="padding-top:20px"><div style="font-size:24px;font-weight:800;margin-bottom:4px">Roadmap</div><div style="font-size:13px;color:var(--text3);margin-bottom:16px">Ton plan semaine par semaine, préparé par ton coach</div></div>
+      <div id="roadmapContent"></div>
+      <div style="margin-top:26px"><div style="font-size:19px;font-weight:800;margin-bottom:4px">Calendrier</div><div style="font-size:13px;color:var(--text3);margin-bottom:14px">Toutes tes séances et événements</div></div>
       <div id="calendarContent"></div>
     </div>
   </div>
@@ -666,11 +686,11 @@ textarea.form-input { min-height:100px; resize:vertical; }
     <button class="tab-btn" onclick="switchTab('Nutri')" id="btnNutri">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg><span>Nutrition</span>
     </button>
+    <button class="tab-btn" onclick="switchTab('Calendar')" id="btnCalendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Roadmap</span>
+    </button>
     <button class="tab-btn" onclick="switchTab('Bonus')" id="btnBonus">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Bonus</span>
-    </button>
-    <button class="tab-btn" onclick="switchTab('Calendar')" id="btnCalendar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>Calendrier</span>
     </button>
   </div>
 </div>
@@ -855,6 +875,7 @@ let suiviPeriod='month';
 
 let coachPartners=[]; // [{image, description, button_text, button_url}, ...]
 let clientRoadmap=[]; // Array d'objectifs [{text, start_date, end_date|null}] depuis roadmaps.objectifs
+let clientRoadWeeks={}; // roadmaps.weeks : { "1":{phase,nut,poids,apports,cardio,pas,...}, ... } — lecture seule
 
 /* ===== GAMIFICATION STATE ===== */
 let clientPoints=null; // {total_points, monthly_points, usable_balance, level, leaderboard_opt_in}
@@ -1072,9 +1093,10 @@ async function loadData(){
   }catch(e){console.error('[PARTNER]',e);}
   // Load roadmap (objectifs rédigés par le coach, avec dates de validité)
   try{
-    const{data:rmData}=await db.from('roadmaps').select('objectifs').eq('client_id',clientData.id).maybeSingle();
+    const{data:rmData}=await db.from('roadmaps').select('objectifs,weeks').eq('client_id',clientData.id).maybeSingle();
     clientRoadmap=(rmData&&Array.isArray(rmData.objectifs))?rmData.objectifs:[];
-  }catch(e){console.error('[ROADMAP]',e);clientRoadmap=[];}
+    clientRoadWeeks=(rmData&&rmData.weeks&&typeof rmData.weeks==='object')?rmData.weeks:{};
+  }catch(e){console.error('[ROADMAP]',e);clientRoadmap=[];clientRoadWeeks={};}
   // Load questionnaire templates (bilan, daily)
   try{
     const{data:qData}=await db.from('settings').select('q_bilan,q_daily').eq('coach_id',clientData.coach_id).limit(1);
@@ -1109,7 +1131,7 @@ function switchTab(name){
   else if(name==='Suivi')renderSuivi();
   else if(name==='Learn')renderLearn();
   else if(name==='Bonus')renderBonus();
-  else if(name==='Calendar')renderCalendar();
+  else if(name==='Calendar'){renderClientRoadmap();renderCalendar();}
   toggleFab();
 }
 
@@ -1774,6 +1796,87 @@ function calEntryIcon(entry){
   if(entry.type==='running')return'🏃';
   if(entry.type==='activity'){const ex=entry.data.exercises&&entry.data.exercises[0];return ACTIVITY_ICONS[ex&&ex.activity_type]||'🏅';}
   return'💪';
+}
+/* ===== ROADMAP (lecture seule) =====
+   Même contenu que l'onglet Roadmap du dashboard coach (table roadmaps.weeks).
+   Le client ne peut rien modifier : tout est rendu en texte. */
+const RM_PHASE_BG={
+  'Improvement Season':'rgba(239,68,68,.14)','Photoshoot Prep':'rgba(234,179,8,.18)','Competition Prep':'rgba(234,179,8,.18)',
+  'Dieting Phase':'rgba(59,130,246,.14)','Gaining Phase':'rgba(159,18,57,.18)','Maintenance':'rgba(107,100,86,.10)',
+  'Health-Focus':'rgba(34,197,94,.18)','Diet Break':'rgba(30,58,138,.20)','Priming':'rgba(204,153,66,.22)',
+  'Reverse Diet':'rgba(31,41,55,.22)','Peak Week':'rgba(168,60,255,.22)'
+};
+const RM_PHASE_STRONG={
+  'Improvement Season':'rgba(239,68,68,.32)','Photoshoot Prep':'rgba(234,179,8,.42)','Competition Prep':'rgba(234,179,8,.42)',
+  'Dieting Phase':'rgba(59,130,246,.32)','Gaining Phase':'rgba(159,18,57,.36)','Maintenance':'rgba(107,100,86,.24)',
+  'Health-Focus':'rgba(34,197,94,.36)','Diet Break':'rgba(30,58,138,.38)','Priming':'rgba(204,153,66,.45)',
+  'Reverse Diet':'rgba(31,41,55,.36)','Peak Week':'rgba(168,60,255,.40)'
+};
+function rmEsc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// Semaine N à partir du lundi de la semaine contenant start_date (identique au coach)
+function rmWeekRange(startDate,idx){
+  const sd=new Date(startDate);
+  const day=sd.getDay(),diff=day===0?-6:1-day;
+  const mon=new Date(sd);mon.setDate(mon.getDate()+diff);mon.setHours(0,0,0,0);
+  mon.setDate(mon.getDate()+(idx-1)*7);
+  const sun=new Date(mon);sun.setDate(sun.getDate()+6);sun.setHours(23,59,59,999);
+  return{monday:mon,sunday:sun};
+}
+function rmCurrentWeekIdx(startDate){
+  const base=rmWeekRange(startDate,1).monday;
+  const todayMon=rmWeekRange(new Date(),1).monday;
+  return Math.max(1,Math.floor((todayMon-base)/(7*86400000))+1);
+}
+function renderClientRoadmap(){
+  const el=document.getElementById('roadmapContent');if(!el)return;
+  const W=clientRoadWeeks||{};
+  const sd=clientData&&clientData.start_date;
+  const nums=Object.keys(W).map(Number).filter(n=>!isNaN(n)&&n>0);
+  const filled=n=>{const r=W[n];return r&&typeof r==='object'&&Object.keys(r).some(k=>String(r[k]==null?'':r[k]).trim()!=='');};
+  const lastFilled=nums.filter(filled).sort((a,b)=>b-a)[0]||0;
+  if(!sd||!lastFilled){
+    el.innerHTML=`<div style="background:var(--white);border:1px dashed var(--border);border-radius:var(--r-sm);padding:22px 18px;text-align:center;color:var(--text3);font-size:13px;line-height:1.5">🗺️ Ta roadmap apparaîtra ici<br><span style="font-size:12px">dès que ton coach l'aura remplie.</span></div>`;
+    return;
+  }
+  const cur=rmCurrentWeekIdx(sd);
+  const last=Math.max(lastFilled,Math.min(cur,lastFilled+1));
+  const rows=[];for(let i=1;i<=last;i++)rows.push(i);
+  // On masque les colonnes que le coach n'a jamais renseignées (écran mobile)
+  const COLS=[
+    {k:'nut',l:'Nutrition'},{k:'poids',l:'Poids',suf:' kg'},{k:'apports',l:'Apports',txt:1},
+    {k:'cardio',l:'Cardio'},{k:'pas',l:'Pas'},{k:'depense',l:'Dépense',txt:1},
+    {k:'training',l:'Training',txt:1},{k:'events',l:'Événements',txt:1},{k:'notes',l:'Notes coach',txt:1}
+  ].filter(c=>rows.some(i=>String((W[i]||{})[c.k]==null?'':(W[i]||{})[c.k]).trim()!==''));
+  const fmtD=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
+  const val=(i,k)=>{const v=(W[i]||{})[k];return v==null?'':String(v).trim();};
+  let body='';
+  rows.forEach(i=>{
+    const{monday}=rmWeekRange(sd,i);
+    const ph=val(i,'phase');
+    const isCur=i===cur;
+    const bg=isCur?'':(ph&&RM_PHASE_BG[ph]?RM_PHASE_BG[ph]:'');
+    body+=`<tr class="${isCur?'cur':''}" ${bg?`style="background:${bg}"`:''}>
+      <td class="wk">${i}</td>
+      <td class="dt">${fmtD(monday)}</td>
+      <td>${ph?`<span class="rm-ph" style="background:${RM_PHASE_STRONG[ph]||'var(--gold-pale)'}">${rmEsc(ph)}</span>`:'—'}</td>
+      ${COLS.map(c=>{
+        const v=val(i,c.k);
+        return`<td class="${c.txt?'txt':''}">${v?rmEsc(v)+(c.suf&&!isNaN(parseFloat(v))?c.suf:''):'<span class="mut">—</span>'}</td>`;
+      }).join('')}
+    </tr>`;
+  });
+  el.innerHTML=`<div class="rm-legend">
+      <span class="rm-cur-dot"></span> Semaine en cours : <b>S${cur}</b>
+      <span style="margin-left:auto;font-size:11px;color:var(--text3)">${rows.length} semaine${rows.length>1?'s':''} · glisse ➜ pour voir la suite</span>
+    </div>
+    <div class="rm-wrap" id="rmWrap"><table class="rm-tbl">
+      <thead><tr><th class="wk">Sem</th><th>Date</th><th class="g">Phase</th>${COLS.map(c=>`<th class="g">${c.l}</th>`).join('')}</tr></thead>
+      <tbody>${body}</tbody>
+    </table></div>`;
+  // Se positionner sur la semaine en cours
+  const wrap=document.getElementById('rmWrap');
+  const curRow=wrap&&wrap.querySelector('tr.cur');
+  if(wrap&&curRow)setTimeout(()=>{wrap.scrollTop=Math.max(0,curRow.offsetTop-wrap.offsetTop-70);},60);
 }
 function renderCalendar(){
   if(calendarView==='month')renderCalendarMonth();
