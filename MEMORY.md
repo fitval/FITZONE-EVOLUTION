@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-07-31 (builders nutrition & training intégrés dans la fiche client + vues tableur façon Google Sheet)
+**Dernière mise à jour** : 2026-08-02 (galerie : visionneuse plein écran + montage avant/après téléchargeable)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -265,6 +265,14 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **APPORTS sur une seule ligne** (`textarea.rin.rap`, 22 px, centré) qui se déplie à 80 px au focus → plus de lignes hautes.
 - **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
 - Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
+
+### Session 2026-08-02 — Galerie : visionneuse plein écran + montage avant/après
+- **Visionneuse** (`galOpen/galNav/galClose`) : clic sur une photo → overlay `.gal-lb` dans la page (plus d'ouverture d'onglet Chrome), flèches ‹ › + touches ←/→, Échap pour fermer, compteur « 3 / 12 », titre + date. Les vidéos continuent de s'ouvrir dans un onglet.
+- **Comparateur** : bouton « ⇄ Comparer 2 photos » → mode sélection (badges 1/2 sur les vignettes) → « ✓ Valider » → modale de montage **avant/après** au format **Carré 1:1 / Portrait 4:5 / Story 9:16**, bouton « ⇄ Inverser », puis **téléchargement JPEG** prêt pour Instagram. La photo la plus ancienne est placée à gauche automatiquement.
+- Montage dessiné sur `<canvas>` (1080 px de large) : en-tête prénom + écart en semaines, deux photos en `cover` séparées par un trait doré, bandeaux AVANT/APRÈS + dates, pied de marque. Couleur dorée reprise de `--gold` (thème du coach).
+- **Point clé CORS** : l'export d'un canvas est impossible si une image le « teinte ». `lh3.googleusercontent.com` renvoie `access-control-allow-origin: *` → les photos Drive sont chargées avec `crossOrigin='anonymous'` sur `lh3.../d/<id>=w1600`, avec repli sur les autres formes d'URL. Si l'export échoue quand même, message explicite au lieu d'un échec silencieux.
+- `.gs-btn` est désormais une classe autonome (n'était stylée que dans `.gs-bar`, donc invisible dans les modales).
+- Vérifié au navigateur (photos factices en data-URL) : navigation clavier/souris, sélection 2 photos, bascule de format, et **téléchargement réel du fichier** `avant-apres-<prénom>-<format>.jpg`.
 
 ### Session 2026-07-31 — Builders nutrition & training dans la fiche client + vues tableur
 - **Les deux builders s'ouvrent maintenant DANS l'onglet du client** (Nutrition / Training), plus de navigation ni de plein écran. Technique : le nœud unique (`#planBuilderWrap`, `#progBuilderWrap`) est **déplacé** dans un slot de l'onglet (`#pfSlot`, `#progSlot`) par `bldMount()` puis remis à sa place par `bldUnmount()` — les handlers inline continuent de marcher, aucun code dupliqué. Classe `.bld-inline` (position:static !important).

@@ -360,6 +360,30 @@ body.sheet-nav #detTabs{display:none}
 .sh-tab.active{background:var(--white);color:var(--text);font-weight:800;border-color:var(--border2);box-shadow:inset 0 3px 0 var(--gold)}
 body:has(#detPage.show) .toast{bottom:54px}
 
+/* ===== GALERIE : visionneuse plein écran + comparateur avant/après ===== */
+.gal-lb{position:fixed;inset:0;z-index:400;background:rgba(10,9,8,.95);display:none;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.gal-lb.show{display:flex}
+.gal-lb-img{max-width:86vw;max-height:80vh;object-fit:contain;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);background:#000}
+.gal-lb-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:14px 18px;color:#fff;background:linear-gradient(rgba(0,0,0,.6),transparent)}
+.gal-lb-ttl{font-size:14px;font-weight:800}
+.gal-lb-sub{font-size:12px;opacity:.6}
+.gal-lb-count{margin-left:auto;font-size:12px;font-weight:800;opacity:.75;letter-spacing:1.5px}
+.gal-lb-x{width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:15px;cursor:pointer;flex-shrink:0}
+.gal-lb-x:hover{background:rgba(255,255,255,.28)}
+.gal-nav{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s}
+.gal-nav:hover{background:var(--gold);color:var(--on-gold)}
+.gal-nav.prev{left:16px}.gal-nav.next{right:16px}
+.gal-lb-hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,.45)}
+/* vignettes de la grille + sélection pour comparaison */
+.gal-cell{position:relative;cursor:pointer;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);aspect-ratio:1;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:28px}
+.gal-cell:hover{border-color:var(--gold-border)}
+.gal-cell.sel{outline:3px solid var(--gold);outline-offset:-3px}
+.gal-pick{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.5);border:1.5px solid rgba(255,255,255,.65);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:2}
+.gal-cell.sel .gal-pick{background:var(--gold);color:var(--on-gold);border-color:var(--gold)}
+.gal-cap{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.75));padding:6px 8px;color:#fff;font-size:9px;font-weight:600;z-index:1}
+/* comparateur */
+.gal-cmp-canvas{max-width:100%;max-height:56vh;border-radius:10px;box-shadow:var(--shadow-md);background:#12110f}
+
 /* ===== GRILLES « TABLEUR » (builders nutrition & training, look Google Sheet) ===== */
 .gs-blk{margin-bottom:16px}
 .gs-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--dark);color:var(--on-dark);padding:6px 10px;border-radius:8px 8px 0 0;font-size:12px;font-weight:800;letter-spacing:.4px}
@@ -404,10 +428,12 @@ body:has(#detPage.show) .toast{bottom:54px}
 .gs .gs-x:hover{color:color-mix(in srgb,#dc2626 var(--ink,100%),var(--text))}
 /* barre d'outils au-dessus d'une grille */
 .gs-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-.gs-bar .gs-btn{font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;border:1.5px solid var(--border2);background:var(--white);cursor:pointer;font-family:var(--font);color:var(--text);transition:all .15s}
-.gs-bar .gs-btn:hover{border-color:var(--gold);color:var(--gold)}
-.gs-bar .gs-btn.active{background:var(--dark);color:var(--on-dark);border-color:var(--dark)}
-.gs-bar .gs-btn-gold{background:var(--gold);color:var(--on-gold);border-color:var(--gold)}
+.gs-btn{font-size:11px;font-weight:700;padding:6px 13px;border-radius:6px;border:1.5px solid var(--border2);background:var(--white);cursor:pointer;font-family:var(--font);color:var(--text);transition:all .15s}
+.gs-btn:hover{border-color:var(--gold);color:var(--gold)}
+.gs-btn.active{background:var(--dark);color:var(--on-dark);border-color:var(--dark)}
+.gs-btn.active:hover{color:var(--on-dark)}
+.gs-btn-gold,.gs-btn.gs-btn-gold{background:var(--gold);color:var(--on-gold);border-color:var(--gold)}
+.gs-btn-gold:hover{background:var(--gold-dk);color:var(--on-gold)}
 .gs-step{display:inline-flex;align-items:center;gap:0;border:1.5px solid var(--border2);border-radius:6px;overflow:hidden;background:var(--white)}
 .gs-step button{width:24px;height:24px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:800;color:var(--text2);font-family:var(--font)}
 .gs-step button:hover{background:var(--gold-pale);color:var(--gold)}
@@ -5197,6 +5223,214 @@ async function finalizeBilanSave(b){
 }
 
 /* ===== GALERIE TAB ===== */
+/* ===== GALERIE — VISIONNEUSE & COMPARATEUR AVANT/APRÈS ===== */
+let _galPhotos=[];      // photos affichées, dans l'ordre de la grille
+let _galIdx=0;          // photo courante dans la visionneuse
+let _galCmpMode=false;  // mode « choisir 2 photos »
+let _galSel=[];         // indices sélectionnés (max 2, ordre = avant → après)
+let _galFmt='carre';    // format du montage
+const GAL_FMT={carre:{w:1080,h:1080,lbl:'Carré 1:1'},portrait:{w:1080,h:1350,lbl:'Portrait 4:5'},story:{w:1080,h:1920,lbl:'Story 9:16'}};
+// URLs candidates pour une photo : lh3 accepte le CORS (indispensable pour
+// exporter le montage en image), le lien Drive brut sert de dernier recours.
+function _galUrls(url){
+  const id=_qDriveId(url);
+  return id?['https://lh3.googleusercontent.com/d/'+id+'=w1600','https://lh3.googleusercontent.com/d/'+id,'https://drive.google.com/thumbnail?id='+id+'&sz=w1600',url]:[url];
+}
+function _galLoadImg(url){
+  const cands=_galUrls(url);
+  return new Promise((res,rej)=>{
+    let k=0;
+    const next=()=>{
+      if(k>=cands.length){rej(new Error('image inaccessible'));return;}
+      const im=new Image();
+      im.crossOrigin='anonymous';
+      im.onload=()=>res(im);
+      im.onerror=()=>{k++;next();};
+      im.src=cands[k];
+    };
+    next();
+  });
+}
+/* --- Visionneuse --- */
+function galOpen(i){
+  if(!_galPhotos.length)return;
+  _galIdx=Math.max(0,Math.min(_galPhotos.length-1,i));
+  let lb=document.getElementById('galLightbox');
+  if(!lb){
+    lb=document.createElement('div');lb.id='galLightbox';lb.className='gal-lb';
+    lb.addEventListener('click',e=>{if(e.target===lb)galClose();});
+    document.body.appendChild(lb);
+    document.addEventListener('keydown',galKey);
+  }
+  galRenderLb();
+  lb.classList.add('show');
+}
+function galRenderLb(){
+  const lb=document.getElementById('galLightbox');if(!lb)return;
+  const it=_galPhotos[_galIdx];if(!it)return;
+  const dt=new Date(it.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const multi=_galPhotos.length>1;
+  lb.innerHTML=`
+    <div class="gal-lb-top">
+      <div><div class="gal-lb-ttl">${esc(it.label||'Photo')}</div><div class="gal-lb-sub">${dt}</div></div>
+      <div class="gal-lb-count">${_galIdx+1} / ${_galPhotos.length}</div>
+      <button class="gal-lb-x" onclick="galClose()" title="Fermer (Échap)">✕</button>
+    </div>
+    ${multi?`<button class="gal-nav prev" onclick="galNav(-1)" title="Précédente (←)">‹</button>
+    <button class="gal-nav next" onclick="galNav(1)" title="Suivante (→)">›</button>`:''}
+    <img class="gal-lb-img" src="${_galUrls(it.url)[0]}" referrerpolicy="no-referrer" data-s="0"
+      onerror="galImgFallback(this,${_galIdx})">
+    <div class="gal-lb-hint">${multi?'← → pour naviguer · ':''}Échap pour fermer</div>`;
+}
+// Bascule sur l'URL suivante si la première ne charge pas (Drive a plusieurs formes)
+function galImgFallback(img,i){
+  const cands=_galUrls((_galPhotos[i]||{}).url||'');
+  let s=parseInt(img.dataset.s||'0')+1;
+  if(s>=cands.length){img.style.display='none';return;}
+  img.dataset.s=s;img.src=cands[s];
+}
+function galNav(d){
+  if(!_galPhotos.length)return;
+  _galIdx=(_galIdx+d+_galPhotos.length)%_galPhotos.length;
+  galRenderLb();
+}
+function galClose(){const lb=document.getElementById('galLightbox');if(lb){lb.classList.remove('show');lb.innerHTML='';}}
+function galKey(e){
+  const lb=document.getElementById('galLightbox');
+  if(!lb||!lb.classList.contains('show'))return;
+  if(e.key==='Escape'){e.preventDefault();galClose();}
+  else if(e.key==='ArrowLeft'){e.preventDefault();galNav(-1);}
+  else if(e.key==='ArrowRight'){e.preventDefault();galNav(1);}
+}
+/* --- Sélection de 2 photos --- */
+function galToggleCmp(){
+  _galCmpMode=!_galCmpMode;_galSel=[];
+  if(_galCmpMode&&_galPhotos.length<2){toast('Il faut au moins 2 photos');_galCmpMode=false;return;}
+  renderGalerieTab();
+}
+function galPick(i){
+  const k=_galSel.indexOf(i);
+  if(k>=0)_galSel.splice(k,1);
+  else{
+    if(_galSel.length>=2){toast('2 photos maximum — désélectionne-en une');return;}
+    _galSel.push(i);
+  }
+  renderGalerieTab();
+}
+/* --- Montage avant/après --- */
+function galCompare(){
+  if(_galSel.length!==2){toast('Sélectionne 2 photos');return;}
+  // la plus ancienne à gauche par défaut
+  const a=_galPhotos[_galSel[0]],b=_galPhotos[_galSel[1]];
+  window._galPair=new Date(a.date)<=new Date(b.date)?[a,b]:[b,a];
+  openModal(`<div class="modal" style="max-width:760px" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt">🖼️ Avant / Après</div><button class="mc" onclick="closeModal()">✕</button></div>
+    <div class="mb" style="text-align:center">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:14px">
+        ${Object.entries(GAL_FMT).map(([k,f])=>`<button class="gs-btn${k===_galFmt?' active':''}" onclick="galSetFmt('${k}')">${f.lbl}</button>`).join('')}
+        <button class="gs-btn" onclick="galSwapPair()" title="Intervertir les deux photos">⇄ Inverser</button>
+      </div>
+      <canvas id="galCmpCanvas" class="gal-cmp-canvas"></canvas>
+      <div id="galCmpMsg" style="font-size:12px;color:var(--text3);margin-top:10px">Génération…</div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="closeModal()">Fermer</button>
+      <button class="btn btn-gold" id="galDlBtn" onclick="galDownload()">⬇️ Télécharger l'image</button>
+    </div>
+  </div>`);
+  galDrawCompare();
+}
+function galSetFmt(k){_galFmt=k;galCompare_refreshButtons();galDrawCompare();}
+function galCompare_refreshButtons(){
+  document.querySelectorAll('#mAdHoc .gs-btn').forEach(b=>{
+    const on=b.textContent.trim()===GAL_FMT[_galFmt].lbl;
+    b.classList.toggle('active',on);
+  });
+}
+function galSwapPair(){if(window._galPair){window._galPair=[window._galPair[1],window._galPair[0]];galDrawCompare();}}
+function _galDrawCover(ctx,img,x,y,w,h){
+  const ir=img.width/img.height,r=w/h;
+  let sx,sy,sw,sh;
+  if(ir>r){sh=img.height;sw=sh*r;sx=(img.width-sw)/2;sy=0;}   // image plus large → on rogne les côtés
+  else{sw=img.width;sh=sw/r;sx=0;sy=(img.height-sh)/2;}       // image plus haute → on rogne haut/bas
+  ctx.drawImage(img,sx,sy,sw,sh,x,y,w,h);
+}
+async function galDrawCompare(){
+  const cv=document.getElementById('galCmpCanvas'),msg=document.getElementById('galCmpMsg');
+  if(!cv||!window._galPair)return;
+  const[a,b]=window._galPair;
+  const F=GAL_FMT[_galFmt]||GAL_FMT.carre;
+  cv.width=F.w;cv.height=F.h;
+  const ctx=cv.getContext('2d');
+  const cs=getComputedStyle(document.documentElement);
+  const gold=(cs.getPropertyValue('--gold')||'#c49a2a').trim();
+  const S=F.w/1080; // échelle
+  const headH=Math.round(118*S),footH=Math.round(96*S);
+  ctx.fillStyle='#12110f';ctx.fillRect(0,0,F.w,F.h);
+  if(msg){msg.textContent='Chargement des photos…';msg.style.color='var(--text3)';}
+  let imgs;
+  try{imgs=await Promise.all([_galLoadImg(a.url),_galLoadImg(b.url)]);}
+  catch(e){if(msg){msg.textContent='Impossible de charger une des photos.';msg.style.color='color-mix(in srgb,#dc2626 var(--ink,100%),var(--text))';}return;}
+  const bodyY=headH,bodyH=F.h-headH-footH,half=(F.w-Math.round(8*S))/2;
+  _galDrawCover(ctx,imgs[0],0,bodyY,half,bodyH);
+  _galDrawCover(ctx,imgs[1],F.w-half,bodyY,half,bodyH);
+  // séparateur doré
+  ctx.fillStyle=gold;ctx.fillRect(half,bodyY,Math.round(8*S),bodyH);
+  // bandeaux AVANT / APRÈS
+  const fmtD=d=>new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
+  const band=(x,w,txt,sub)=>{
+    const bh=Math.round(86*S);
+    const g=ctx.createLinearGradient(0,bodyY+bodyH-bh,0,bodyY+bodyH);
+    g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.72)');
+    ctx.fillStyle=g;ctx.fillRect(x,bodyY+bodyH-bh,w,bh);
+    ctx.textAlign='center';
+    ctx.fillStyle=gold;ctx.font='800 '+Math.round(30*S)+'px -apple-system,Helvetica,Arial,sans-serif';
+    ctx.fillText(txt,x+w/2,bodyY+bodyH-Math.round(40*S));
+    ctx.fillStyle='rgba(255,255,255,.88)';ctx.font='600 '+Math.round(23*S)+'px -apple-system,Helvetica,Arial,sans-serif';
+    ctx.fillText(sub,x+w/2,bodyY+bodyH-Math.round(14*S));
+  };
+  band(0,half,'AVANT',fmtD(a.date));
+  band(F.w-half,half,'APRÈS',fmtD(b.date));
+  // en-tête : prénom du client + écart en semaines
+  const nom=((curClient&&curClient.first_name)||'').toUpperCase();
+  const weeks=Math.max(0,Math.round((new Date(b.date)-new Date(a.date))/(7*864e5)));
+  ctx.textAlign='center';
+  ctx.fillStyle='#fff';ctx.font='900 '+Math.round(46*S)+'px -apple-system,Helvetica,Arial,sans-serif';
+  ctx.fillText(nom||'TRANSFORMATION',F.w/2,headH-Math.round(46*S));
+  ctx.fillStyle=gold;ctx.font='700 '+Math.round(24*S)+'px -apple-system,Helvetica,Arial,sans-serif';
+  ctx.fillText(weeks?weeks+' SEMAINES':'AVANT / APRÈS',F.w/2,headH-Math.round(16*S));
+  // pied : marque
+  ctx.fillStyle='#0c0b0a';ctx.fillRect(0,F.h-footH,F.w,footH);
+  ctx.font='900 '+Math.round(28*S)+'px -apple-system,Helvetica,Arial,sans-serif';
+  const t1='FITZONE ',t2='ÉVOLUTION';
+  const w1=ctx.measureText(t1).width,w2=ctx.measureText(t2).width;
+  const bx=(F.w-(w1+w2))/2,by=F.h-footH/2+Math.round(10*S);
+  ctx.textAlign='left';
+  ctx.fillStyle='#fff';ctx.fillText(t1,bx,by);
+  ctx.fillStyle=gold;ctx.fillText(t2,bx+w1,by);
+  ctx.textAlign='center';
+  if(msg){msg.textContent=F.w+' × '+F.h+' px — prêt pour Instagram';msg.style.color='var(--text3)';}
+}
+function galDownload(){
+  const cv=document.getElementById('galCmpCanvas');if(!cv)return;
+  const nom=((curClient&&curClient.first_name)||'client').toLowerCase().replace(/[^a-z0-9]+/g,'-');
+  try{
+    cv.toBlob(bl=>{
+      if(!bl){toast('Export impossible');return;}
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(bl);
+      a.download='avant-apres-'+nom+'-'+_galFmt+'.jpg';
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+      toast('Image téléchargée ✓');
+    },'image/jpeg',.92);
+  }catch(e){
+    // canvas « taint » : une photo n'autorise pas le CORS
+    const msg=document.getElementById('galCmpMsg');
+    if(msg){msg.textContent="Téléchargement bloqué : une des photos n'autorise pas l'export. Ouvre-la dans la visionneuse et enregistre-la à la main.";msg.style.color='color-mix(in srgb,#dc2626 var(--ink,100%),var(--text))';}
+    toast('Export bloqué (photo protégée)');
+  }
+}
 function renderGalerieTab(){
   const el=document.getElementById('tc-galerie');if(!el||!curClient)return;
   const bilans=lsGet('bilans_'+curClient.id,[]);
@@ -5215,8 +5449,27 @@ function renderGalerieTab(){
     h+=`<button onclick="window._galSubTab='${k}';renderGalerieTab()" style="padding:6px 12px;font-size:12px;font-weight:700;border-radius:8px;border:1.5px solid ${active?'var(--dark)':'var(--border)'};background:${active?'var(--dark)':'var(--white)'};color:${active?'white':'var(--text2)'};cursor:pointer;font-family:var(--font)">${l} <span style="opacity:.7;margin-left:3px">${n}</span></button>`;
   });
   h+=`</div>`;
+  // Photos visibles dans l'ordre de la grille : sert à la visionneuse et au comparateur
+  _galPhotos=filtered.filter(i=>i.type==='photo');
+  if(_galSel.some(i=>i>=_galPhotos.length))_galSel=[];
+  // Barre d'outils comparaison
+  if(_galPhotos.length>=2){
+    h+=`<div class="gs-bar" style="margin-bottom:12px">`;
+    if(!_galCmpMode){
+      h+=`<button class="gs-btn" onclick="galToggleCmp()" title="Créer un avant/après pour les réseaux">⇄ Comparer 2 photos</button>
+        <span style="font-size:11px;color:var(--text3)">Clique sur une photo pour l'agrandir.</span>`;
+    } else {
+      h+=`<button class="gs-btn active" onclick="galToggleCmp()">✕ Annuler la comparaison</button>
+        <span style="font-size:11.5px;font-weight:700;color:var(--text)">${_galSel.length}/2 photo${_galSel.length>1?'s':''} sélectionnée${_galSel.length>1?'s':''}</span>
+        <span style="font-size:11px;color:var(--text3)">La plus ancienne sera placée à gauche.</span>
+        <div style="flex:1"></div>
+        <button class="gs-btn gs-btn-gold" ${_galSel.length!==2?'disabled style="opacity:.45;cursor:not-allowed"':''} onclick="galCompare()">✓ Valider</button>`;
+    }
+    h+=`</div>`;
+  }
   if(!filtered.length){h+=`<div class="empty"><div class="ei">${subTab==='videos'?'🎥':'📸'}</div><div class="et">Aucun${subTab==='videos'?'e vidéo':subTab==='photos'?'e photo':' média'}</div><div class="es">${subTab==='videos'?'Les vidéos des séances apparaîtront ici':'Les photos des bilans apparaîtront ici'}</div></div>`;}
   else {
+    let pi=-1;
     h+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">`+filtered.map(it=>{
       const dt=new Date(it.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
       if(it.type==='video'){
@@ -5226,10 +5479,14 @@ function renderGalerieTab(){
           <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.85));padding:8px;color:white;font-size:9px;font-weight:600;line-height:1.3"><div style="font-weight:800">${dt}</div><div style="opacity:.8">${it.label}</div></div>
         </div>`;
       }
+      pi++;
+      const idx=pi;
       const pid=_qDriveId(it.url);const plh3=pid?'https://lh3.googleusercontent.com/d/'+pid:it.url;const pthumb=pid?'https://drive.google.com/thumbnail?id='+pid+'&sz=w600':it.url;
-      return`<div style="position:relative;cursor:pointer;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);aspect-ratio:1;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:28px" onclick="window.open('${it.url}','_blank')">📷
+      const selPos=_galSel.indexOf(idx);
+      return`<div class="gal-cell${selPos>=0?' sel':''}" onclick="${_galCmpMode?`galPick(${idx})`:`galOpen(${idx})`}" title="${_galCmpMode?'Sélectionner cette photo':'Agrandir'}">📷
+        ${_galCmpMode?`<div class="gal-pick">${selPos>=0?(selPos===0?'1':'2'):''}</div>`:''}
         <img src="${plh3}" referrerpolicy="no-referrer" loading="lazy" onerror="if(this.dataset.s){this.style.display='none'}else{this.dataset.s=1;this.src='${pthumb}'}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
-        <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.7));padding:6px 8px;color:white;font-size:9px;font-weight:600"><div style="font-weight:800">${dt}</div><div style="opacity:.8">${it.label}</div></div>
+        <div class="gal-cap"><div style="font-weight:800">${dt}</div><div style="opacity:.8">${it.label}</div></div>
       </div>`;
     }).join('')+`</div>`;
   }
