@@ -271,7 +271,9 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - L'onglet affiche **la roadmap du coach en lecture seule** (`renderClientRoadmap()`) **au-dessus** du calendrier : table `roadmaps.weeks` avec colonne SEM figée, pastilles de phase colorées (`RM_PHASE_BG` / `RM_PHASE_STRONG`, mêmes teintes que le dashboard), semaine en cours surlignée + auto-scroll. Tout est du texte, aucun champ éditable.
   - Colonnes jamais renseignées par le coach = **masquées** (écran mobile), lignes affichées jusqu'à `max(dernière semaine remplie, semaine en cours)`.
   - Lecture autorisée par la policy existante `auth_roadmaps_client_select` (migration 20260521170000) → **aucune migration nécessaire**, on ajoute juste `weeks` au `select` déjà présent.
-  - ⚠️ La colonne figée (`td.wk`) doit avoir un fond **opaque** (`color-mix`) sinon les cellules qui défilent dessous transparaissent.
+  - **MAJ le jour même — plus aucun scroll horizontal** : la table est en `table-layout:fixed` avec des largeurs en **%** (`<colgroup>`), donc les 8 colonnes chiffrées (Sem/Date/Phase/Nutri/Poids/Kcal/Cardio/Pas) tiennent dans la largeur de l'écran (vérifié 360 px et 390 px, `scrollWidth === clientWidth`). Le scroll est **vertical uniquement** (`overflow-x:hidden`).
+  - Les champs de **texte libre** du coach (dépense, training, événements, notes) ne peuvent pas tenir en colonne : ils s'affichent en **ligne dépliée sous la semaine** (`tr.rm-sub`, chips `.rm-tag`), et seulement quand ils sont renseignés.
+  - Astuces d'ajustement : `word-break:normal; overflow-wrap:break-word` (sinon « Mainten/ance » cassé en plein mot), pastille de phase à 7,2 px + `letter-spacing:-.2px` (« IMPROVEMENT SEASON » casse alors uniquement à l'espace), abréviations pour Nutrition/Cardio (`Maintenance` → `Maint.`), et `pas`/`kcal` abrégés (≥10000 → « 12k »).
 - **Montage avant/après** (dashboard) : à la demande du coach, plus aucun texte — ni prénom, ni écart en semaines, ni dates, ni « FITZONE ÉVOLUTION ». Juste les deux photos côte à côte séparées par un trait doré.
 - `version.json` bumpé (obligatoire dès qu'on touche `client.html`).
 

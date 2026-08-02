@@ -457,23 +457,30 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .notif-bell svg { width:18px; height:18px; color:var(--text2); }
 .notif-badge { position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; border-radius:8px; background:var(--red); color:white; font-size:9px; font-weight:800; display:flex; align-items:center; justify-content:center; padding:0 4px; }
 
-/* Roadmap client (lecture seule) */
+/* Roadmap client (lecture seule) — tout tient dans la largeur de l'écran :
+   table-layout:fixed + largeurs en %, aucun scroll horizontal. Les champs de
+   texte libre du coach passent sur une ligne dépliée sous la semaine. */
 .rm-legend { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); margin-bottom:8px; }
 .rm-cur-dot { width:9px; height:9px; border-radius:50%; background:var(--gold); display:inline-block; flex-shrink:0; }
-.rm-wrap { overflow:auto; -webkit-overflow-scrolling:touch; max-height:58vh; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--white); box-shadow:var(--shadow); }
-.rm-tbl { border-collapse:collapse; width:100%; font-size:11.5px; }
-.rm-tbl th { position:sticky; top:0; z-index:3; background:var(--dark); color:rgba(255,255,255,.7); font-size:9px; font-weight:800; letter-spacing:.7px; text-transform:uppercase; padding:8px 7px; white-space:nowrap; border-right:1px solid rgba(255,255,255,.07); }
+.rm-wrap { overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; max-height:62vh; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--white); box-shadow:var(--shadow); }
+.rm-tbl { border-collapse:collapse; width:100%; table-layout:fixed; font-size:10px; }
+.rm-tbl th { position:sticky; top:0; z-index:2; background:var(--dark); color:rgba(255,255,255,.7); font-size:7px; font-weight:800; letter-spacing:0; text-transform:uppercase; padding:6px 1px; white-space:nowrap; text-align:center; border-right:1px solid rgba(255,255,255,.07); }
 .rm-tbl th.g { background:var(--gold); color:var(--on-gold); }
-.rm-tbl th.wk { left:0; z-index:4; min-width:34px; }
-.rm-tbl td { border-bottom:1px solid var(--border); border-right:1px solid var(--border); padding:7px 8px; text-align:center; white-space:nowrap; color:var(--text); }
-.rm-tbl td.wk { position:sticky; left:0; z-index:2; background:var(--white); font-weight:800; min-width:34px; border-right:2px solid var(--border); }
-.rm-tbl td.dt { color:var(--text3); font-size:10.5px; }
-.rm-tbl td.txt { white-space:normal; text-align:left; min-width:130px; max-width:210px; line-height:1.35; }
-.rm-tbl td .mut { color:var(--text3); opacity:.6; }
-.rm-tbl tr.cur td { background:var(--gold-pale); font-weight:600; }
-/* la colonne figée doit rester OPAQUE, sinon les cellules qui défilent dessous transparaissent */
-.rm-tbl tr.cur td.wk { background:color-mix(in srgb, var(--gold) 10%, var(--white)); box-shadow:inset 3px 0 0 var(--gold); }
-.rm-ph { display:inline-block; padding:2px 9px; border-radius:20px; font-weight:800; font-size:10px; white-space:nowrap; }
+.rm-tbl td { border-bottom:1px solid var(--border); border-right:1px solid var(--border); padding:5px 3px; text-align:center; color:var(--text); word-break:normal; overflow-wrap:break-word; hyphens:none; line-height:1.25; font-size:9.5px; }
+.rm-tbl td.wk { font-weight:800; font-size:11px; }
+.rm-tbl td.dt { color:var(--text3); font-size:9px; white-space:nowrap; }
+.rm-tbl td.num { font-variant-numeric:tabular-nums; font-weight:600; white-space:nowrap; }
+.rm-tbl td.ph-cell { padding:3px 2px; }
+.rm-tbl td .mut { color:var(--text3); opacity:.55; }
+.rm-tbl tr.cur td { background:var(--gold-pale); font-weight:700; }
+.rm-tbl tr.cur td.wk { box-shadow:inset 3px 0 0 var(--gold); }
+.rm-tbl tr.has-sub td { border-bottom:none; }
+.rm-ph { display:block; padding:3px 3px; border-radius:8px; font-weight:800; font-size:7.2px; line-height:1.3; text-transform:uppercase; letter-spacing:-.2px; word-break:normal; overflow-wrap:break-word; }
+/* ligne dépliée : dépense / training / événements / notes du coach */
+.rm-sub td { padding:0 5px 6px; text-align:left; border-right:none; }
+.rm-tag { display:inline-flex; align-items:baseline; gap:4px; background:rgba(0,0,0,.045); border-radius:8px; padding:3px 7px; margin:2px 3px 0 0; font-size:9.5px; color:var(--text2); line-height:1.35; }
+.rm-tag b { font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--gold-deep); }
+html[data-theme="dark"] .rm-tag { background:rgba(255,255,255,.07); }
 
 /* Bonus tab */
 .level-card { background:linear-gradient(135deg,var(--dark2),var(--dark)); border-radius:var(--r); padding:24px; color:white; margin-bottom:14px; text-align:center; }
@@ -1841,36 +1848,63 @@ function renderClientRoadmap(){
   const cur=rmCurrentWeekIdx(sd);
   const last=Math.max(lastFilled,Math.min(cur,lastFilled+1));
   const rows=[];for(let i=1;i<=last;i++)rows.push(i);
-  // On masque les colonnes que le coach n'a jamais renseignées (écran mobile)
-  const COLS=[
-    {k:'nut',l:'Nutrition'},{k:'poids',l:'Poids',suf:' kg'},{k:'apports',l:'Apports',txt:1},
-    {k:'cardio',l:'Cardio'},{k:'pas',l:'Pas'},{k:'depense',l:'Dépense',txt:1},
-    {k:'training',l:'Training',txt:1},{k:'events',l:'Événements',txt:1},{k:'notes',l:'Notes coach',txt:1}
-  ].filter(c=>rows.some(i=>String((W[i]||{})[c.k]==null?'':(W[i]||{})[c.k]).trim()!==''));
-  const fmtD=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'});
   const val=(i,k)=>{const v=(W[i]||{})[k];return v==null?'':String(v).trim();};
+  const used=k=>rows.some(i=>val(i,k)!=='');
+  // Colonnes chiffrées : tiennent TOUTES dans la largeur de l'écran (table-layout:fixed,
+  // largeurs en %). Les colonnes jamais renseignées sont retirées et leur place
+  // redistribuée aux autres.
+  const NUM=[
+    {k:'_wk',l:'Sem',w:8,always:1},
+    {k:'_dt',l:'Date',w:13,always:1},
+    {k:'phase',l:'Phase',w:23},
+    {k:'nut',l:'Nutri',w:17},
+    {k:'poids',l:'Poids',w:12},
+    {k:'apports',l:'Kcal',w:13},
+    {k:'cardio',l:'Cardio',w:11},
+    {k:'pas',l:'Pas',w:11}
+  ].filter(c=>c.always||used(c.k));
+  const totW=NUM.reduce((a,c)=>a+c.w,0);
+  // Champs de texte libre : affichés sur une ligne dépliée SOUS la semaine (sinon
+  // impossible de tout faire tenir en largeur sur un téléphone).
+  const TXT=[{k:'depense',l:'Dépense'},{k:'training',l:'Training'},{k:'events',l:'Événement'},{k:'notes',l:'Coach'}].filter(c=>used(c.k));
+  const fmtD=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
+  // Abrège les valeurs numériques longues pour ne jamais déborder
+  const ABBR={'maintenance':'Maint.','maintien':'Maint.','déficit':'Déficit','deficit':'Déficit','surplus':'Surplus','reverse diet':'Reverse','recomposition':'Recomp.'};
+  const abbr=(v,max)=>{
+    const k=String(v).toLowerCase().trim();
+    if(ABBR[k])return ABBR[k];
+    return v.length>max?v.slice(0,max-1).trim()+'.':v;
+  };
+  const shortNum=v=>{const n=parseFloat(String(v).replace(/[^\d.,-]/g,'').replace(',','.'));if(isNaN(n))return v;return n>=10000?Math.round(n/1000)+'k':String(Math.round(n*10)/10);};
   let body='';
   rows.forEach(i=>{
     const{monday}=rmWeekRange(sd,i);
     const ph=val(i,'phase');
     const isCur=i===cur;
     const bg=isCur?'':(ph&&RM_PHASE_BG[ph]?RM_PHASE_BG[ph]:'');
-    body+=`<tr class="${isCur?'cur':''}" ${bg?`style="background:${bg}"`:''}>
-      <td class="wk">${i}</td>
-      <td class="dt">${fmtD(monday)}</td>
-      <td>${ph?`<span class="rm-ph" style="background:${RM_PHASE_STRONG[ph]||'var(--gold-pale)'}">${rmEsc(ph)}</span>`:'—'}</td>
-      ${COLS.map(c=>{
-        const v=val(i,c.k);
-        return`<td class="${c.txt?'txt':''}">${v?rmEsc(v)+(c.suf&&!isNaN(parseFloat(v))?c.suf:''):'<span class="mut">—</span>'}</td>`;
-      }).join('')}
-    </tr>`;
+    const tags=TXT.map(c=>{const v=val(i,c.k);return v?`<span class="rm-tag"><b>${c.l}</b>${rmEsc(v)}</span>`:'';}).join('');
+    body+=`<tr class="${isCur?'cur':''}${tags?' has-sub':''}" ${bg?`style="background:${bg}"`:''}>`;
+    NUM.forEach(c=>{
+      if(c.k==='_wk'){body+=`<td class="wk">${i}</td>`;return;}
+      if(c.k==='_dt'){body+=`<td class="dt">${fmtD(monday)}</td>`;return;}
+      const v=val(i,c.k);
+      if(c.k==='phase'){body+=`<td class="ph-cell">${v?`<span class="rm-ph" style="background:${RM_PHASE_STRONG[v]||'var(--gold-pale)'}">${rmEsc(v)}</span>`:'<span class="mut">—</span>'}</td>`;return;}
+      if(!v){body+=`<td><span class="mut">—</span></td>`;return;}
+      if(c.k==='nut'||c.k==='cardio'){body+=`<td title="${rmEsc(v)}">${rmEsc(abbr(v,c.k==='nut'?8:7))}</td>`;return;}
+      if(c.k==='poids'){body+=`<td class="num">${rmEsc(v)}</td>`;return;}
+      if(c.k==='pas'||c.k==='apports'){body+=`<td class="num">${rmEsc(shortNum(v))}</td>`;return;}
+      body+=`<td>${rmEsc(v)}</td>`;
+    });
+    body+=`</tr>`;
+    if(tags)body+=`<tr class="rm-sub${isCur?' cur':''}" ${bg?`style="background:${bg}"`:''}><td colspan="${NUM.length}">${tags}</td></tr>`;
   });
   el.innerHTML=`<div class="rm-legend">
       <span class="rm-cur-dot"></span> Semaine en cours : <b>S${cur}</b>
-      <span style="margin-left:auto;font-size:11px;color:var(--text3)">${rows.length} semaine${rows.length>1?'s':''} · glisse ➜ pour voir la suite</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--text3)">${rows.length} semaine${rows.length>1?'s':''}</span>
     </div>
     <div class="rm-wrap" id="rmWrap"><table class="rm-tbl">
-      <thead><tr><th class="wk">Sem</th><th>Date</th><th class="g">Phase</th>${COLS.map(c=>`<th class="g">${c.l}</th>`).join('')}</tr></thead>
+      <colgroup>${NUM.map(c=>`<col style="width:${(c.w/totW*100).toFixed(2)}%">`).join('')}</colgroup>
+      <thead><tr>${NUM.map(c=>`<th class="${c.k==='_wk'?'wk':(c.k==='_dt'?'':'g')}">${c.l}</th>`).join('')}</tr></thead>
       <tbody>${body}</tbody>
     </table></div>`;
   // Se positionner sur la semaine en cours
