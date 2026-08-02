@@ -458,29 +458,29 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .notif-badge { position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; border-radius:8px; background:var(--red); color:white; font-size:9px; font-weight:800; display:flex; align-items:center; justify-content:center; padding:0 4px; }
 
 /* Roadmap client (lecture seule) — tout tient dans la largeur de l'écran :
-   table-layout:fixed + largeurs en %, aucun scroll horizontal. Les champs de
-   texte libre du coach passent sur une ligne dépliée sous la semaine. */
+   5 colonnes max en table-layout:fixed (largeurs en %), texte à taille normale,
+   une seule ligne par cellule. Le reste des infos passe sur la ligne du dessous. */
 .rm-legend { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); margin-bottom:8px; }
 .rm-cur-dot { width:9px; height:9px; border-radius:50%; background:var(--gold); display:inline-block; flex-shrink:0; }
-.rm-wrap { overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; max-height:62vh; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--white); box-shadow:var(--shadow); }
-.rm-tbl { border-collapse:collapse; width:100%; table-layout:fixed; font-size:10px; }
-.rm-tbl th { position:sticky; top:0; z-index:2; background:var(--dark); color:rgba(255,255,255,.7); font-size:7px; font-weight:800; letter-spacing:0; text-transform:uppercase; padding:6px 1px; white-space:nowrap; text-align:center; border-right:1px solid rgba(255,255,255,.07); }
+.rm-wrap { overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; max-height:64vh; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--white); box-shadow:var(--shadow); }
+.rm-tbl { border-collapse:collapse; width:100%; table-layout:fixed; }
+.rm-tbl th { position:sticky; top:0; z-index:2; background:var(--dark); color:rgba(255,255,255,.72); font-size:9px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; padding:8px 3px; text-align:center; white-space:nowrap; border-right:1px solid rgba(255,255,255,.07); }
 .rm-tbl th.g { background:var(--gold); color:var(--on-gold); }
-.rm-tbl td { border-bottom:1px solid var(--border); border-right:1px solid var(--border); padding:5px 3px; text-align:center; color:var(--text); word-break:normal; overflow-wrap:break-word; hyphens:none; line-height:1.25; font-size:9.5px; }
-.rm-tbl td.wk { font-weight:800; font-size:11px; }
-.rm-tbl td.dt { color:var(--text3); font-size:9px; white-space:nowrap; }
-.rm-tbl td.num { font-variant-numeric:tabular-nums; font-weight:600; white-space:nowrap; }
-.rm-tbl td.ph-cell { padding:3px 2px; }
+.rm-tbl td { border-bottom:1px solid var(--border); border-right:1px solid var(--border); padding:11px 4px; text-align:center; color:var(--text); font-size:13px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rm-tbl td.wk { font-weight:800; font-size:14px; }
+.rm-tbl td.dt { color:var(--text3); font-size:11.5px; }
+.rm-tbl td.num { font-variant-numeric:tabular-nums; font-weight:700; }
+.rm-tbl td.ph-cell { padding:7px 4px; }
 .rm-tbl td .mut { color:var(--text3); opacity:.55; }
-.rm-tbl tr.cur td { background:var(--gold-pale); font-weight:700; }
+.rm-tbl tr.cur td { background:var(--gold-pale); }
 .rm-tbl tr.cur td.wk { box-shadow:inset 3px 0 0 var(--gold); }
-.rm-tbl tr.has-sub td { border-bottom:none; }
-.rm-ph { display:block; padding:3px 3px; border-radius:8px; font-weight:800; font-size:7.2px; line-height:1.3; text-transform:uppercase; letter-spacing:-.2px; word-break:normal; overflow-wrap:break-word; }
-/* ligne dépliée : dépense / training / événements / notes du coach */
-.rm-sub td { padding:0 5px 6px; text-align:left; border-right:none; }
-.rm-tag { display:inline-flex; align-items:baseline; gap:4px; background:rgba(0,0,0,.045); border-radius:8px; padding:3px 7px; margin:2px 3px 0 0; font-size:9.5px; color:var(--text2); line-height:1.35; }
-.rm-tag b { font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--gold-deep); }
-html[data-theme="dark"] .rm-tag { background:rgba(255,255,255,.07); }
+.rm-tbl tr.has-sub td { border-bottom:none; padding-bottom:7px; }
+.rm-ph { display:block; padding:5px 4px; border-radius:9px; font-weight:800; font-size:10px; line-height:1.15; text-transform:uppercase; letter-spacing:-.1px; white-space:normal; word-break:normal; overflow-wrap:break-word; }
+/* ligne secondaire : nutrition, cardio, pas, dépense, training, événements, notes */
+.rm-sub td { padding:0 8px 10px; text-align:left; border-right:none; white-space:normal; border-bottom:2px solid var(--border); }
+.rm-tag { display:inline-flex; align-items:baseline; gap:5px; background:rgba(0,0,0,.05); border-radius:9px; padding:4px 9px; margin:3px 4px 0 0; font-size:11.5px; color:var(--text); line-height:1.3; }
+.rm-tag b { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--gold-deep); }
+html[data-theme="dark"] .rm-tag { background:rgba(255,255,255,.08); }
 
 /* Bonus tab */
 .level-card { background:linear-gradient(135deg,var(--dark2),var(--dark)); border-radius:var(--r); padding:24px; color:white; margin-bottom:14px; text-align:center; }
@@ -1850,53 +1850,45 @@ function renderClientRoadmap(){
   const rows=[];for(let i=1;i<=last;i++)rows.push(i);
   const val=(i,k)=>{const v=(W[i]||{})[k];return v==null?'':String(v).trim();};
   const used=k=>rows.some(i=>val(i,k)!=='');
-  // Colonnes chiffrées : tiennent TOUTES dans la largeur de l'écran (table-layout:fixed,
-  // largeurs en %). Les colonnes jamais renseignées sont retirées et leur place
-  // redistribuée aux autres.
+  // 5 colonnes MAXIMUM pour rester lisibles (texte à taille normale, une seule
+  // ligne par cellule). Tout le reste passe sur la ligne du dessous.
   const NUM=[
-    {k:'_wk',l:'Sem',w:8,always:1},
-    {k:'_dt',l:'Date',w:13,always:1},
-    {k:'phase',l:'Phase',w:23},
-    {k:'nut',l:'Nutri',w:17},
-    {k:'poids',l:'Poids',w:12},
-    {k:'apports',l:'Kcal',w:13},
-    {k:'cardio',l:'Cardio',w:11},
-    {k:'pas',l:'Pas',w:11}
+    {k:'_wk',l:'Sem',w:10,always:1},
+    {k:'_dt',l:'Date',w:15,always:1},
+    {k:'phase',l:'Phase',w:34},
+    {k:'poids',l:'Poids',w:20},
+    {k:'apports',l:'Kcal',w:21}
   ].filter(c=>c.always||used(c.k));
   const totW=NUM.reduce((a,c)=>a+c.w,0);
-  // Champs de texte libre : affichés sur une ligne dépliée SOUS la semaine (sinon
-  // impossible de tout faire tenir en largeur sur un téléphone).
-  const TXT=[{k:'depense',l:'Dépense'},{k:'training',l:'Training'},{k:'events',l:'Événement'},{k:'notes',l:'Coach'}].filter(c=>used(c.k));
+  // Ligne secondaire : le reste des infos, en pastilles lisibles
+  const CHIPS=[
+    {k:'nut',l:'Nutrition'},{k:'cardio',l:'Cardio'},{k:'pas',l:'Pas',num:1},
+    {k:'depense',l:'Dépense'},{k:'training',l:'Training'},{k:'events',l:'Événement'},{k:'notes',l:'Coach'}
+  ].filter(c=>used(c.k));
   const fmtD=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
-  // Abrège les valeurs numériques longues pour ne jamais déborder
-  const ABBR={'maintenance':'Maint.','maintien':'Maint.','déficit':'Déficit','deficit':'Déficit','surplus':'Surplus','reverse diet':'Reverse','recomposition':'Recomp.'};
-  const abbr=(v,max)=>{
-    const k=String(v).toLowerCase().trim();
-    if(ABBR[k])return ABBR[k];
-    return v.length>max?v.slice(0,max-1).trim()+'.':v;
-  };
-  const shortNum=v=>{const n=parseFloat(String(v).replace(/[^\d.,-]/g,'').replace(',','.'));if(isNaN(n))return v;return n>=10000?Math.round(n/1000)+'k':String(Math.round(n*10)/10);};
+  const fmtNum=v=>{const n=parseFloat(String(v).replace(/[^\d.,-]/g,'').replace(',','.'));return isNaN(n)?v:n.toLocaleString('fr-FR');};
+  const shortKcal=v=>{const n=parseFloat(String(v).replace(/[^\d.,-]/g,'').replace(',','.'));return isNaN(n)?v:String(Math.round(n));};
   let body='';
   rows.forEach(i=>{
     const{monday}=rmWeekRange(sd,i);
     const ph=val(i,'phase');
     const isCur=i===cur;
     const bg=isCur?'':(ph&&RM_PHASE_BG[ph]?RM_PHASE_BG[ph]:'');
-    const tags=TXT.map(c=>{const v=val(i,c.k);return v?`<span class="rm-tag"><b>${c.l}</b>${rmEsc(v)}</span>`:'';}).join('');
-    body+=`<tr class="${isCur?'cur':''}${tags?' has-sub':''}" ${bg?`style="background:${bg}"`:''}>`;
+    const chips=CHIPS.map(c=>{
+      const v=val(i,c.k);
+      return v?`<span class="rm-tag"><b>${c.l}</b>${rmEsc(c.num?fmtNum(v):v)}</span>`:'';
+    }).join('');
+    body+=`<tr class="${isCur?'cur':''}${chips?' has-sub':''}" ${bg?`style="background:${bg}"`:''}>`;
     NUM.forEach(c=>{
       if(c.k==='_wk'){body+=`<td class="wk">${i}</td>`;return;}
       if(c.k==='_dt'){body+=`<td class="dt">${fmtD(monday)}</td>`;return;}
       const v=val(i,c.k);
       if(c.k==='phase'){body+=`<td class="ph-cell">${v?`<span class="rm-ph" style="background:${RM_PHASE_STRONG[v]||'var(--gold-pale)'}">${rmEsc(v)}</span>`:'<span class="mut">—</span>'}</td>`;return;}
       if(!v){body+=`<td><span class="mut">—</span></td>`;return;}
-      if(c.k==='nut'||c.k==='cardio'){body+=`<td title="${rmEsc(v)}">${rmEsc(abbr(v,c.k==='nut'?8:7))}</td>`;return;}
-      if(c.k==='poids'){body+=`<td class="num">${rmEsc(v)}</td>`;return;}
-      if(c.k==='pas'||c.k==='apports'){body+=`<td class="num">${rmEsc(shortNum(v))}</td>`;return;}
-      body+=`<td>${rmEsc(v)}</td>`;
+      body+=`<td class="num">${rmEsc(c.k==='apports'?shortKcal(v):v)}</td>`;
     });
     body+=`</tr>`;
-    if(tags)body+=`<tr class="rm-sub${isCur?' cur':''}" ${bg?`style="background:${bg}"`:''}><td colspan="${NUM.length}">${tags}</td></tr>`;
+    if(chips)body+=`<tr class="rm-sub${isCur?' cur':''}" ${bg?`style="background:${bg}"`:''}><td colspan="${NUM.length}">${chips}</td></tr>`;
   });
   el.innerHTML=`<div class="rm-legend">
       <span class="rm-cur-dot"></span> Semaine en cours : <b>S${cur}</b>
