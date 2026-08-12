@@ -8386,7 +8386,8 @@ function saveClientAppearance(silent){
   _clientAppTimer=setTimeout(async()=>{
     if(!currentCoach)return;
     const{error}=await db.from('settings').upsert({coach_id:currentCoach.id,client_brand_color:_clientBrand,client_theme:_clientTheme},{onConflict:'coach_id'});
-    if(error)console.warn('client appearance save:',error);
+    // Ne jamais échouer en silence : sans ça le coach croit sa couleur enregistrée
+    if(error){console.warn('client appearance save:',error);toast('Apparence NON enregistrée : '+error.message);}
   },silent?600:0);
   if(!silent)toast('Apparence de l\'app client enregistrée ✓');
 }

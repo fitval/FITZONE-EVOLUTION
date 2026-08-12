@@ -266,6 +266,12 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
 - Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
 
+### Session 2026-08-12 (ter) — Couleur de marque de l'app client sans effet
+- Le coach change la couleur dans Réglages > Apparence, mais l'app client restait dorée. **Cause** : `client.html` lisait `settings.client_brand_color` en `select` direct, or la **RLS de `settings` bloque la lecture par un client authentifié** — exactement le problème déjà contourné pour `muscle_group_images` (cf. le commentaire à `client.html:1105` et `20260605180000_rpc_muscle_images.sql`). Le `select` renvoyait 0 ligne, sans erreur, donc silencieusement.
+- **Fix** : migration `20260812120000_rpc_client_appearance.sql` → RPC `get_coach_appearance(p_coach_id)` SECURITY DEFINER qui renvoie `{client_brand_color, client_theme}`, GRANT à `anon, authenticated`. `client.html` l'appelle après la RPC muscle images (autorité finale sur la couleur + le thème).
+- **Règle générale** : toute nouvelle colonne de `settings` que l'app client doit lire passe par une RPC SECURITY DEFINER, jamais par un `select` direct. Restent potentiellement concernés : `gamif_levels`, `activity_types`, `partner`.
+- `saveClientAppearance()` (dashboard) affichait l'erreur d'upsert uniquement dans la console → toast ajouté, sinon le coach croit sa couleur enregistrée.
+
 ### Session 2026-08-12 — App client : navigation Entraînement en 2 niveaux (liste de séances → aperçu)
 - Les **onglets fins de séances** (`.day-tabs` / `.day-tab`) ont d'abord été transformés en carrousel horizontal, puis — à la demande du coach, qui trouvait l'émoji 💪 moche — en **liste verticale** : `.sess-list` / `.sess-row` (pastille numérotée `.sess-num`, nom, « N exercices », chevron SVG). **Aucun émoji** dans cette liste.
 - Ouvrir un programme n'affiche plus directement les exercices : on voit **la liste des séances**, et on clique pour ouvrir **l'aperçu** (exercices + bouton « Lancer la séance »). État piloté par `seanceOpen` (bool, ligne ~845) + `currentDayIdx`.

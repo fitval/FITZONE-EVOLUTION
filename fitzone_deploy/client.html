@@ -1108,6 +1108,18 @@ async function loadData(){
     const{data:miData}=await db.rpc('get_coach_muscle_images',{p_coach_id:clientData.coach_id});
     if(miData&&typeof miData==='object'&&!Array.isArray(miData))coachMuscleImages=miData;
   }catch(e){console.warn('[MUSCLE IMG]',e);}
+  // Apparence (couleur de marque + thème choisis par le coach) : même problème que
+  // les images muscles — la RLS de settings empêche la lecture directe côté client,
+  // donc la couleur restait dorée quoi que choisisse le coach. Lecture via RPC.
+  try{
+    const{data:apData,error:apErr}=await db.rpc('get_coach_appearance',{p_coach_id:clientData.coach_id});
+    if(apErr)console.warn('[BRAND]',apErr.message);
+    if(apData&&typeof apData==='object'){
+      if(FZ_BRAND.valid(apData.client_brand_color)){FZ_BRAND.apply(apData.client_brand_color);FZ_BRAND.cache(apData.client_brand_color);}
+      const th=apData.client_theme==='dark'?'dark':'light';
+      FZ_BRAND.setTheme(th);FZ_BRAND.cache(null,th);
+    }
+  }catch(e){console.warn('[BRAND]',e);}
   // Load partner banners
   try{
     const{data:pData}=await db.from('settings').select('partner').eq('coach_id',clientData.coach_id).limit(1);
