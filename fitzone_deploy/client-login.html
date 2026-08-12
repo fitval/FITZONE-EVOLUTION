@@ -395,7 +395,7 @@ if (isRecovery) {
   // Only redirect if NOT in recovery mode
   db.auth.getSession().then(async ({ data: { session } }) => {
     if (!session) return;
-    const { data } = await db.from('clients').select('id,status').eq('user_id', session.user.id).maybeSingle();
+    const { row: data } = await findClientRow(session.user.id, 'id');
     if (data && data.status === 'active') {
       window.location.href = 'client.html';
     }
@@ -406,6 +406,22 @@ function showView(view) {
   document.querySelectorAll('#view-login,#view-reset,#view-newpw').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + view).classList.add('active');
   document.querySelectorAll('.error-msg,.success-msg').forEach(el => el.classList.remove('show'));
+}
+
+// Retrouve la fiche client liée à un compte auth.
+// maybeSingle() renvoyait null (donc "aucun compte client") aussi bien quand la
+// fiche n'existe pas que quand il y en a PLUSIEURS ou que RLS renvoie une erreur.
+// On distingue les trois cas : {row, count, error}.
+async function findClientRow(userId, cols) {
+  const { data, error } = await db.from('clients')
+    .select(cols + ',status,created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) return { row: null, count: 0, error };
+  const rows = data || [];
+  // Plusieurs fiches liées au même compte : on prend la plus récente non archivée
+  const row = rows.find(r => r.status && r.status !== 'archived') || rows[0] || null;
+  return { row, count: rows.length, error: null };
 }
 
 function showError(id, msg) {
@@ -440,12 +456,14 @@ async function doLogin() {
   }
 
   // Verify this user is a client
-  const { data: client } = await db.from('clients').select('id,status,token').eq('user_id', data.user.id).maybeSingle();
-  if (!client) {
+  const { row: client, error: cErr } = await findClientRow(data.user.id, 'id,token');
+  if (cErr || !client) {
     await db.auth.signOut();
     btn.disabled = false;
     btn.textContent = 'Se connecter';
-    showError('login-error', 'Aucun compte client associe a cet email. Contactez votre coach.');
+    showError('login-error', cErr
+      ? 'Impossible de verifier votre fiche client : ' + cErr.message
+      : 'Aucune fiche client n\'est reliee a ce compte. Contactez votre coach.');
     return;
   }
 
@@ -551,7 +569,7 @@ async function doNewPassword() {
   const { data: { session: newSession } } = await db.auth.getSession();
   let redirectUrl = 'client.html';
   if (newSession) {
-    const { data: cl } = await db.from('clients').select('status,token').eq('user_id', newSession.user.id).maybeSingle();
+    const { row: cl } = await findClientRow(newSession.user.id, 'token');
     if (cl && cl.token && (cl.status === 'contract_pending' || cl.status === 'questionnaire_pending')) {
       redirectUrl = 'questionnaire.html?token=' + cl.token;
     }
