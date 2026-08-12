@@ -266,6 +266,16 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
 - Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
 
+### Session 2026-08-12 (quater) — Masquer un plan/programme + précision du poids
+- **Masquage client** : colonne `visible_client boolean NOT NULL DEFAULT true` sur `programs` et `plans_full` (migration `20260812150000_visible_client.sql`, appliquée). Le coach garde tout dans son dashboard, le client ne voit que le visible.
+  - Le masquage est **réel**, pas cosmétique : policy **RESTRICTIVE** `*_hidden_from_client` (SELECT, authenticated) qui s'ajoute en AND aux policies existantes → coach/admin voient tout, le client ne reçoit pas la ligne. Une RESTRICTIVE évite de recréer les policies permissives existantes (aucun risque de régression).
+  - Dashboard : bouton 👁️/🙈 (`visibilityBtn` + `setClientVisibility`) dans les 2 listes globales (`renderProgList`, `renderPlansListPage`) ET dans la fiche client (`loadPlanDisp`, `renderTrainingTab`), avec badge « 🙈 MASQUÉ ».
+  - `saveProg()` / `savePlanFull()` reconstruisent l'objet complet : ils doivent **repasser `visible_client`** depuis `existing`, sinon le flag disparaît de l'objet en mémoire après édition.
+- **Précision du poids** : la base ne perdait rien (`daily_logs.data` = JSONB, `bilans.poids` = TEXT, `questionnaires.weight_kg` = NUMERIC). Deux vrais coupables :
+  1. les champs `<input type="number">` avec `step="0.1"` (et `step` absent = 1 dans le questionnaire) → 79.95 en *stepMismatch* ; passés à **0.01** (suivi quotidien client + coach, roadmap, bilan coach, questionnaire poids/poids cible).
+  2. les affichages en `toFixed(1)` / `Math.round(v*10)/10` → helper **`fmtMetric()`** (2 décimales max, sans zéro inutile) dans `client.html` ET `dashboard.html` : accueil client, widget détail (Actuel/Moyenne/Min/Max/Évolution), progression coach (moyennes hebdo, début/fin, badge d'écart, axes du graphique) et **poids moyen auto de la roadmap**.
+  - Ne pas remplacer les `toFixed(1)` des **macros** (prot/gluc/lip) : seuls le poids et les mesures sont concernés.
+
 ### Session 2026-08-12 (ter) — Couleur de marque de l'app client sans effet
 - Le coach change la couleur dans Réglages > Apparence, mais l'app client restait dorée. **Cause** : `client.html` lisait `settings.client_brand_color` en `select` direct, or la **RLS de `settings` bloque la lecture par un client authentifié** — exactement le problème déjà contourné pour `muscle_group_images` (cf. le commentaire à `client.html:1105` et `20260605180000_rpc_muscle_images.sql`). Le `select` renvoyait 0 ligne, sans erreur, donc silencieusement.
 - **Fix** : migration `20260812120000_rpc_client_appearance.sql` → RPC `get_coach_appearance(p_coach_id)` SECURITY DEFINER qui renvoie `{client_brand_color, client_theme}`, GRANT à `anon, authenticated`. `client.html` l'appelle après la RPC muscle images (autorité finale sur la couleur + le thème).

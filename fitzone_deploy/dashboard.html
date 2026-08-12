@@ -2245,6 +2245,13 @@ let coClients=[],coColor='#c49a2a';
 // à minuit local (UTC+2 l'été), il renvoie la veille à 22:00 → date décalée de -1 jour.
 function localDateStr(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;}
 function todayStrLocal(){return localDateStr(new Date());}
+// Poids & mesures : garder la précision saisie par le client (79.95 reste 79.95).
+// 2 décimales max, sans zéro inutile (80 → "80", 79.5 → "79.5", 79.95 → "79.95").
+function fmtMetric(v){
+  const n=parseFloat(v);
+  if(isNaN(n))return '—';
+  return String(Math.round(n*100)/100);
+}
 function lsGet(k,def){try{return JSON.parse(localStorage.getItem(k))||def;}catch{return def;}}
 function lsSave(k,v){localStorage.setItem(k,JSON.stringify(v));}
 const txt=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
@@ -3352,10 +3359,11 @@ async function loadPlanDisp(){
     html+=`<div class="card" style="margin-bottom:12px;padding:14px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
         <div>
-          <div style="font-size:14px;font-weight:800;color:var(--text)">${isAI?'🤖':'🍽️'} ${pf.nom||'Plan complet'}</div>
+          <div style="font-size:14px;font-weight:800;color:var(--text)">${isAI?'🤖':'🍽️'} ${pf.nom||'Plan complet'}${hiddenBadge(isVisibleToClient(pf))}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:2px">${nbJ} jour${nbJ>1?'s':''} · ${pf.kcal||0} kcal${isAI?' · Généré par IA':''}</div>
         </div>
         <div style="display:flex;gap:5px">
+          ${visibilityBtn('plans_full',pfId,isVisibleToClient(pf),'loadPlanDisp')}
           <button class="btn btn-ghost btn-xs" onclick="openGroceryListFromSupabase(${pfId})" title="Liste de courses">🛒</button>
           <button class="btn btn-gold btn-xs" onclick="editClientPlan(${pfId})" title="Modifier dans le plan builder">✏️</button>
           <button class="btn btn-danger btn-xs" onclick="deleteClientPlan(${pfId})" title="Supprimer">✕</button>
@@ -3754,7 +3762,7 @@ function renderRoadTab(){
   // Calculate averages and auto-fill weight into saved data where empty
   let autoFilled=false;
   Object.entries(weekAvgWeight).forEach(([w,d])=>{
-    d.avg=(d.sum/d.count).toFixed(1);
+    d.avg=fmtMetric(d.sum/d.count);
     const wn=parseInt(w);
     if(!saved[wn])saved[wn]={};
     if(!saved[wn].poids||saved[wn].poids===''){
@@ -3779,7 +3787,7 @@ function renderRoadTab(){
       <td style="font-size:11px;color:var(--text3);white-space:nowrap">${fmt(d)}</td>
       <td class="rc-ph ${roadCopy&&roadCopy.row===i&&roadCopy.field==='phase'?'rcopy-src':''} ${roadSelected.has(i+'-phase')?'rcopy-sel':''}" style="--ph:${(r.phase&&roadPhaseStrong[r.phase])||'transparent'}" onclick="roadCellClick(${i},'phase',event)"><select class="rsel" onchange="sRoad(${i},'phase',this.value);roadPhaseVisual(${i},this)">${phases.map(p=>`<option${r.phase===p?' selected':''}>${p}</option>`).join('')}</select></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='nut'?'rcopy-src':''} ${roadSelected.has(i+'-nut')?'rcopy-sel':''}" onclick="roadCellClick(${i},'nut',event)"><div class="rnut-wrap"><input class="rin rnut" data-row="${i}" autocomplete="off" style="min-width:90px" value="${(r.nut||'').replace(/"/g,'&quot;')}" placeholder="—" onfocus="roadNutOpen(this)" onclick="roadNutOpen(this)" oninput="sRoad(${i},'nut',this.value);roadNutOpen(this)" onblur="setTimeout(roadNutClose,150)" onkeydown="if(event.key==='Escape'||event.key==='Enter'){roadNutClose();this.blur()}"><span class="rnut-caret">▼</span></div></td>
-      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='poids'?'rcopy-src':''} ${roadSelected.has(i+'-poids')?'rcopy-sel':''}" onclick="roadCellClick(${i},'poids',event)"><input class="rin" type="number" step="0.1" style="width:80px${hasAutoWeight?';color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text));font-style:italic':''}" value="${r.poids||''}" placeholder="—" oninput="sRoad(${i},'poids',this.value)" title="${hasAutoWeight?'Poids moyen auto (daily logs)':''}"></td>
+      <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='poids'?'rcopy-src':''} ${roadSelected.has(i+'-poids')?'rcopy-sel':''}" onclick="roadCellClick(${i},'poids',event)"><input class="rin" type="number" step="0.01" style="width:80px${hasAutoWeight?';color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text));font-style:italic':''}" value="${r.poids||''}" placeholder="—" oninput="sRoad(${i},'poids',this.value)" title="${hasAutoWeight?'Poids moyen auto (daily logs)':''}"></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='apports'?'rcopy-src':''} ${roadSelected.has(i+'-apports')?'rcopy-sel':''}" onclick="roadCellClick(${i},'apports',event)"><textarea class="rin rap" style="min-width:150px;font-size:11.5px;line-height:1.5" placeholder="Kcal…" oninput="sRoad(${i},'apports',this.value)">${r.apports||(r.haut&&r.moy?'H:'+r.haut+' M:'+r.moy+(r.bas?' B:'+r.bas:''):'')}</textarea></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='cardio'?'rcopy-src':''} ${roadSelected.has(i+'-cardio')?'rcopy-sel':''}" onclick="roadCellClick(${i},'cardio',event)"><select class="rsel" onchange="sRoad(${i},'cardio',this.value)">${cardios.map(c=>`<option${r.cardio===c?' selected':''}>${c}</option>`).join('')}</select></td>
       <td class="${roadCopy&&roadCopy.row===i&&roadCopy.field==='pas'?'rcopy-src':''} ${roadSelected.has(i+'-pas')?'rcopy-sel':''}" onclick="roadCellClick(${i},'pas',event)"><input class="rin" type="number" style="width:66px" value="${r.pas||''}" placeholder="—" oninput="sRoad(${i},'pas',this.value)"></td>
@@ -4406,7 +4414,7 @@ function _renderProgressionContent(el,reRenderFn){
   }
   // Stats
   const vals=filtered.map(d=>parseFloat(d[selMetric])||0);
-  const start=vals[0]||0,end=vals[vals.length-1]||0,avg=vals.length?(vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(1):0;
+  const start=vals[0]||0,end=vals[vals.length-1]||0,avg=vals.length?fmtMetric(vals.reduce((s,v)=>s+v,0)/vals.length):0;
   const pctChange=start?((end-start)/start*100).toFixed(1):0;
   // SVG chart
   let chartSvg='<div style="font-size:12px;color:var(--text3);text-align:center;padding:40px">Aucune donnée pour cette période. Le client doit remplir son rapport quotidien.</div>';
@@ -4421,7 +4429,7 @@ function _renderProgressionContent(el,reRenderFn){
       <polyline points="${pts.join(' ')}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linejoin="round"/>
       ${vals.map((v,i)=>{const x=pad+i*(W-2*pad)/(vals.length-1);const y=H-pad-(v-minV)/range*(H-2*pad);const dt=filtered[i]?new Date(filtered[i].date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):'';return`<circle cx="${x}" cy="${y}" r="5" fill="var(--gold)" stroke="white" stroke-width="2" style="cursor:pointer" onmouseover="showChartTip(evt,${v},'${dt}')" onmouseout="hideChartTip()" ontouchstart="showChartTip(evt,${v},'${dt}')"/>`;}).join('')}
       <foreignObject x="0" y="0" width="${W}" height="${H}" style="pointer-events:none;overflow:visible"><div xmlns="http://www.w3.org/1999/xhtml" id="chartTip" style="display:none;position:absolute;background:#1a1916;color:white;padding:5px 10px;border-radius:8px;font-size:12px;font-weight:700;pointer-events:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.3);z-index:10"></div></foreignObject>
-      ${[minV,minV+(maxV-minV)/2,maxV].map((v,i)=>{const y=H-pad-i*.5*(H-2*pad);return`<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="var(--border)" stroke-dasharray="4"/><text x="${pad-4}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text3)">${Math.round(v*10)/10}</text>`;}).join('')}
+      ${[minV,minV+(maxV-minV)/2,maxV].map((v,i)=>{const y=H-pad-i*.5*(H-2*pad);return`<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="var(--border)" stroke-dasharray="4"/><text x="${pad-4}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text3)">${fmtMetric(v)}</text>`;}).join('')}
       ${filtered.length<=10?filtered.map((d,i)=>{const x=pad+i*(W-2*pad)/(vals.length-1);return`<text x="${x}" y="${H-5}" text-anchor="middle" font-size="8" fill="var(--text3)">${new Date(d.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</text>`;}).join(''):''}
     </svg>`;
   }
@@ -4430,7 +4438,7 @@ function _renderProgressionContent(el,reRenderFn){
   if(period==='week'){
     const ref=window._progWeek||(weekOptions.length?weekOptions[0].start:null);
     const avgOf=arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:null;
-    const r1=v=>v==null?'—':Math.round(v*10)/10;
+    const r1=v=>v==null?'—':fmtMetric(v);
     let curData=[],curVals=[],prevVals=[];
     if(ref){
       const cs=new Date(ref);const ce=new Date(cs);ce.setDate(ce.getDate()+6);
@@ -4444,7 +4452,7 @@ function _renderProgressionContent(el,reRenderFn){
     let avgBadge='';
     if(curAvg!=null&&prevAvg!=null){
       const d=curAvg-prevAvg,p=prevAvg?d/prevAvg*100:0,up=d>=0;
-      avgBadge=`<span style="font-size:13px;padding:3px 8px;border-radius:20px;background:${up?'#dcfce7':'#fef2f2'};color:${up?'#22c55e':'#ef4444'};margin-left:6px;white-space:nowrap">${up?'↑':'↓'} ${Math.abs(Math.round(d*10)/10)} (${Math.abs(Math.round(p*10)/10)}%)</span>`;
+      avgBadge=`<span style="font-size:13px;padding:3px 8px;border-radius:20px;background:${up?'#dcfce7':'#fef2f2'};color:${up?'#22c55e':'#ef4444'};margin-left:6px;white-space:nowrap">${up?'↑':'↓'} ${fmtMetric(Math.abs(d))} (${Math.abs(Math.round(p*10)/10)}%)</span>`;
     }
     statsHtml=`
           <div><div style="font-size:14px;font-weight:700">Début de semaine</div><div style="font-size:10px;color:var(--text3)">${curData[0]?new Date(curData[0].date).toLocaleDateString('fr-FR',{weekday:'long'}):'—'}</div><div style="font-size:26px;font-weight:800;color:var(--text)">${r1(wStart)}</div></div>
@@ -4716,13 +4724,14 @@ function _renderTrainingContent(el,logs){
       <div class="plan-hdr" style="background:var(--dark);color:white" onclick="window._clientProgOpen=!this.nextElementSibling.classList.contains('open');this.nextElementSibling.classList.toggle('open')">
         <div style="width:36px;height:36px;border-radius:10px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">🏋️</div>
         <div style="flex:1">
-          <div style="font-size:14px;font-weight:700">${latestProg.nom}</div>
+          <div style="font-size:14px;font-weight:700">${latestProg.nom}${hiddenBadge(isVisibleToClient(latestProg))}</div>
           <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;display:flex;flex-wrap:wrap;gap:6px">
             <span>${jours.length} séance${jours.length>1?'s':''} · ${tSets} séries</span>
             <span style="opacity:.3">·</span>
             ${Object.entries(tVol).map(([m,s])=>`<span>${m}: ${s}s</span>`).join('<span style="opacity:.3">·</span>')}
           </div>
         </div>
+        ${visibilityBtn('programs',latestProg.id,isVisibleToClient(latestProg),'renderTrainingTab')}
         <button class="btn btn-ghost btn-xs" style="color:var(--gold);border-color:rgba(255,255,255,.2)" onclick="event.stopPropagation();editClientProgram(${latestProg.id})">Modifier</button>
         <button class="btn btn-ghost btn-xs" style="color:color-mix(in srgb,#ef4444 var(--ink,100%),var(--text));border-color:rgba(255,255,255,.1)" onclick="event.stopPropagation();deleteClientProgram(${latestProg.id})">Supprimer</button>
       </div>
@@ -5203,7 +5212,7 @@ async function deleteBilanByKey(clientId,rawDate,supaId){
 }
 function addBilan(){
   let m=document.getElementById('mAddBilan');
-  if(!m){m=document.createElement('div');m.className='overlay';m.id='mAddBilan';m.innerHTML=`<div class="modal"><div class="mh"><div class="mt">Nouveau bilan</div><button class="mc" onclick="closeM('mAddBilan')">✕</button></div><div class="mb"><div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="biDate" value="${todayStrLocal()}"></div><div class="fg"><label class="fl">Titre</label><input class="fi" id="biTitre" placeholder="Bilan semaine 8"></div><div class="fg"><label class="fl">Poids (kg)</label><input class="fi" type="number" id="biPoids" step="0.1"></div><div class="fg"><label class="fl">Contenu / Notes</label><textarea class="fta" id="biContenu" style="min-height:100px" placeholder="Observations, retours du client…"></textarea></div><div class="fg"><label class="fl">Photos</label><input type="file" id="biPhotos" multiple accept="image/*"></div></div><div class="mf"><button class="btn btn-ghost" onclick="closeM('mAddBilan')">Annuler</button><button class="btn btn-dark" onclick="saveBilan()">Enregistrer</button></div></div>`;document.body.appendChild(m);}
+  if(!m){m=document.createElement('div');m.className='overlay';m.id='mAddBilan';m.innerHTML=`<div class="modal"><div class="mh"><div class="mt">Nouveau bilan</div><button class="mc" onclick="closeM('mAddBilan')">✕</button></div><div class="mb"><div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="biDate" value="${todayStrLocal()}"></div><div class="fg"><label class="fl">Titre</label><input class="fi" id="biTitre" placeholder="Bilan semaine 8"></div><div class="fg"><label class="fl">Poids (kg)</label><input class="fi" type="number" id="biPoids" step="0.01"></div><div class="fg"><label class="fl">Contenu / Notes</label><textarea class="fta" id="biContenu" style="min-height:100px" placeholder="Observations, retours du client…"></textarea></div><div class="fg"><label class="fl">Photos</label><input type="file" id="biPhotos" multiple accept="image/*"></div></div><div class="mf"><button class="btn btn-ghost" onclick="closeM('mAddBilan')">Annuler</button><button class="btn btn-dark" onclick="saveBilan()">Enregistrer</button></div></div>`;document.body.appendChild(m);}
   openM('mAddBilan');
 }
 function saveBilan(){
@@ -6125,7 +6134,7 @@ function savePlanFull(){
   const coachId=existing?.coach_id||currentCoach.id;
   const hideMacros=!!document.getElementById('pfHideMacros')?.checked;
   const allowSwaps=document.getElementById('pfAllowSwaps')?document.getElementById('pfAllowSwaps').checked:true;
-  const plan={id:pfEditId||Date.now(),coach_id:coachId,type:'full',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pfClients.map(c=>c.id),clientNoms:pfClients.map(c=>c.first_name+' '+c.last_name),kcal:Math.round(t.k/nDays),prot:Math.round(t.p/nDays),carb:Math.round(t.g/nDays),fat:Math.round(t.l/nDays),hide_macros:hideMacros,allow_swaps:allowSwaps,jours:JSON.parse(JSON.stringify(pfDays)),createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
+  const plan={id:pfEditId||Date.now(),coach_id:coachId,type:'full',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pfClients.map(c=>c.id),clientNoms:pfClients.map(c=>c.first_name+' '+c.last_name),kcal:Math.round(t.k/nDays),prot:Math.round(t.p/nDays),carb:Math.round(t.g/nDays),fat:Math.round(t.l/nDays),hide_macros:hideMacros,allow_swaps:allowSwaps,visible_client:existing?existing.visible_client!==false:true,jours:JSON.parse(JSON.stringify(pfDays)),createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
   const isNewPlan=!pfEditId;
   if(pfEditId){const i=plans.findIndex(p=>p.id===pfEditId);if(i>=0)plans[i]=plan;else plans.push(plan);}else plans.push(plan);
   lsSave('fz_plans',plans);dbSave('plans_full',plan);closePlanBuilder();renderPlansListPage();toast('Plan enregistré ✓');
@@ -6162,10 +6171,11 @@ function renderPlansListPage(){
     <div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
       <div style="width:38px;height:38px;border-radius:10px;background:${p.type==='full'?'var(--dark)':'var(--gold-pale)'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${p.type==='full'?'🍽️':'📊'}</div>
       <div style="flex:1">
-        <div style="font-size:14px;font-weight:700;color:var(--text)">${p.nom}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)">${p.nom}${hiddenBadge(isVisibleToClient(p))}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">${(p.clientNoms||p.client_noms||[]).length?(p.clientNoms||p.client_noms).join(', '):(p.clientNom||p.client_nom||'Sans client')} · ${avg.k||'?'} kcal/j · P:${avg.prot}g G:${avg.carb}g L:${avg.fat}g</div>
       </div>
       <div style="display:flex;gap:5px" onclick="event.stopPropagation()">
+        ${visibilityBtn('plans_full',p.id,isVisibleToClient(p),'renderPlansListPage')}
         ${p.type==='full'?`<button class="btn btn-ghost btn-xs" onclick="openGroceryList(${p.id})" title="Liste de courses">🛒</button>`:``}
         ${p.type==='full'?`<button class="btn btn-ghost btn-xs" onclick="editFullPlan(${p.id})">✏️</button>`:``}
         <button class="btn btn-danger btn-xs" onclick="delPlan(${p.id})">✕</button>
@@ -7697,7 +7707,7 @@ function saveProg(){
   // Préserve coach_id du programme existant (cas admin qui édite un prog d'un autre coach), sinon currentCoach
   const existing=progEditId?progs.find(p=>p.id===progEditId):null;
   const coachId=existing?.coach_id||currentCoach.id;
-  const prog={id:progEditId||Date.now(),coach_id:coachId,nom,tags,desc:document.getElementById('progDesc')?.value||'',jours:JSON.parse(JSON.stringify(progDays)),clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:progClients.map(c=>c.id),clientNoms:progClients.map(c=>c.first_name+' '+c.last_name),createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
+  const prog={id:progEditId||Date.now(),coach_id:coachId,nom,tags,desc:document.getElementById('progDesc')?.value||'',jours:JSON.parse(JSON.stringify(progDays)),clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:progClients.map(c=>c.id),clientNoms:progClients.map(c=>c.first_name+' '+c.last_name),visible_client:existing?existing.visible_client!==false:true,createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
   const isNewProg=!progEditId;
   if(progEditId){const i=progs.findIndex(p=>p.id===progEditId);if(i>=0)progs[i]=prog;else progs.push(prog);}else progs.push(prog);
   lsSave('fz_progs',progs);dbSave('programs',prog);closeProgBuilder();toast('Programme enregistré ✓');
@@ -7722,11 +7732,12 @@ function renderProgList(){
       <div class="plan-hdr" onclick="openProgBuilder(${p.id})">
         <div style="width:38px;height:38px;border-radius:10px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">💪</div>
         <div style="flex:1">
-          <div style="font-size:14px;font-weight:700;color:var(--text)">${p.nom}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${p.nom}${hiddenBadge(isVisibleToClient(p))}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:2px">${(p.clientNoms||p.client_noms||[]).length?(p.clientNoms||p.client_noms).join(', ')+' · ':''}${(p.jours||[]).length} jours · ${totalSets} séries/semaine · ${new Date(p.createdAt).toLocaleDateString('fr-FR')}</div>
           <div style="margin-top:5px">${(Array.isArray(p.tags)?p.tags:typeof p.tags==='string'?p.tags.split(',').map(s=>s.trim()).filter(Boolean):[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
         </div>
         <div style="display:flex;gap:5px" onclick="event.stopPropagation()">
+          ${visibilityBtn('programs',p.id,isVisibleToClient(p),'renderProgList')}
           <button class="btn btn-ghost btn-xs" onclick="openProgBuilder(${p.id})">✏️</button>
           <button class="btn btn-danger btn-xs" onclick="delProg(${p.id})">✕</button>
         </div>
@@ -7736,6 +7747,29 @@ function renderProgList(){
   }).join('');
 }
 function delProg(id){if(!window._perms?.canDelete){toast('Permission refusée');return;}if(!confirm('Supprimer ?'))return;dbDelete('programs',id);renderProgList();toast('Supprimé');}
+
+/* ===== VISIBILITÉ CLIENT (plans & programmes) =====
+   visible_client=false : le plan reste dans le dashboard mais disparaît de l'app
+   du client (policy RESTRICTIVE côté Supabase, pas seulement un filtre d'affichage). */
+function isVisibleToClient(p){return !p||p.visible_client!==false;}
+// after = NOM de la fonction de re-render (string), interpolé dans le onclick
+function visibilityBtn(table,id,visible,after){
+  return `<button class="btn btn-ghost btn-xs" style="${visible?'':'background:rgba(255,160,0,.15);border-color:rgba(255,160,0,.35)'}" title="${visible?'Visible par le client — cliquer pour masquer':'Masqué au client — cliquer pour afficher'}" onclick="event.stopPropagation();setClientVisibility('${table}',${id},${!visible},${after})">${visible?'👁️':'🙈'}</button>`;
+}
+function hiddenBadge(visible){
+  return visible?'':`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,160,0,.15);border:1px solid rgba(255,160,0,.35);color:color-mix(in srgb,#b06a00 var(--ink,100%),var(--text));font-size:9px;font-weight:800;letter-spacing:.5px;padding:1px 6px;border-radius:6px;margin-left:6px">🙈 MASQUÉ</span>`;
+}
+async function setClientVisibility(table,id,visible,after){
+  // .select() pour compter les lignes touchées : une RLS qui bloque renvoie 0 ligne sans erreur
+  const{data,error}=await db.from(table).update({visible_client:visible}).eq('id',id).select('id');
+  if(error){toast('Erreur: '+error.message);return;}
+  if(!data||!data.length){toast('Aucune ligne modifiée (droits insuffisants ?)');return;}
+  const arr=table==='programs'?progs:plans;
+  const it=arr.find(x=>String(x.id)===String(id));
+  if(it){it.visible_client=visible;lsSave(table==='programs'?'fz_progs':'fz_plans',arr);}
+  toast(visible?'Visible par le client ✓':'Masqué pour le client 🙈');
+  if(typeof after==='function')after();
+}
 
 /* ===== SEANCES ===== */
 var seances=lsGet('fz_seances',[]);
@@ -12187,7 +12221,7 @@ const DEFAULT_Q_BILAN=[
   {id:'q10',section:'COACHING',icon:'fa-clipboard-check',label:"Quelque chose qui pourrait t'aider à mieux adhérer au plan ?",type:'textarea',required:false}
 ];
 const DEFAULT_Q_DAILY=[
-  {id:'Poids',section:'MESURES',icon:'fa-weight',label:'Poids',type:'number',unit:'kg',step:0.1,required:false},
+  {id:'Poids',section:'MESURES',icon:'fa-weight',label:'Poids',type:'number',unit:'kg',step:0.01,required:false},
   {id:'Énergie',section:'BIEN-ÊTRE',icon:'fa-bolt',label:'Énergie',type:'rating',scale:5,required:false},
   {id:'Faim',section:'BIEN-ÊTRE',icon:'fa-utensils',label:'Faim',type:'rating',scale:5,required:false},
   {id:'Stress',section:'BIEN-ÊTRE',icon:'fa-brain',label:'Stress',type:'rating',scale:5,required:false},

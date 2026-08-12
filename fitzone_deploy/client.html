@@ -1067,8 +1067,9 @@ function showState(s){
 
 async function loadData(){
   const[p1,p2,p3,p4,p5,p6,p7,p8,p9,p10]=await Promise.all([
-    db.from('programs').select('*').eq('client_id',clientData.id),
-    db.from('plans_full').select('*').eq('client_id',clientData.id),
+    // .neq(visible_client,false) : le coach peut masquer un plan/programme le temps de le préparer
+    db.from('programs').select('*').eq('client_id',clientData.id).neq('visible_client',false),
+    db.from('plans_full').select('*').eq('client_id',clientData.id).neq('visible_client',false),
     db.from('bilans').select('*').eq('client_id',clientData.id).order('date',{ascending:false}),
     db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90),
     db.from('train_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(200),
@@ -1178,6 +1179,13 @@ function getWeekNumber(d){const dt=new Date(d);dt.setHours(0,0,0,0);dt.setDate(d
 function ytId(url){if(!url)return null;const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|.*&v=))([\w-]{11})/);return m?m[1]:null;}
 // Date locale au format YYYY-MM-DD (évite le décalage UTC de toISOString :
 // minuit local converti en UTC tombe la veille en France → -1 jour).
+// Poids & mesures : garder la précision saisie (79.95 reste 79.95, jamais arrondi à 80).
+// 2 décimales max, sans zéro inutile (80 → "80", 79.5 → "79.5").
+function fmtMetric(v){
+  const n=parseFloat(v);
+  if(isNaN(n))return '—';
+  return String(Math.round(n*100)/100);
+}
 function localDateStr(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;}
 function today(){return localDateStr(new Date());}
 function openModal(html){document.getElementById('modalContent').innerHTML=html;document.getElementById('modal').classList.add('show');document.body.style.overflow='hidden';}
@@ -1298,7 +1306,7 @@ function renderHome(){
   // Weight (clickable)
   const wd=getWeightData();
   html+=`<div class="grid-2 fade-up" style="animation-delay:.12s">
-    <div class="card" onclick="openDetailWidget('Poids','kg')" style="cursor:pointer"><div class="card-label">POIDS / SEM.</div><div class="weight-val">${wd.current}<span>kg</span></div><div class="weight-delta ${wd.delta<0?'down':'up'}">${wd.delta<0?'↓':'↑'} ${Math.abs(wd.delta).toFixed(1)} kg</div><div class="weight-chart">${renderMiniChart(wd.points)}</div></div>
+    <div class="card" onclick="openDetailWidget('Poids','kg')" style="cursor:pointer"><div class="card-label">POIDS / SEM.</div><div class="weight-val">${wd.current}<span>kg</span></div><div class="weight-delta ${wd.delta<0?'down':'up'}">${wd.delta<0?'↓':'↑'} ${fmtMetric(Math.abs(wd.delta))} kg</div><div class="weight-chart">${renderMiniChart(wd.points)}</div></div>
     <div class="card-dark"><div class="card-label">PROCHAIN BILAN</div><div class="bilan-val">${bc.days}<span>jours</span></div><div class="bilan-sub">${bc.label}</div></div>
   </div>`;
 
@@ -1343,7 +1351,7 @@ function getWeightData(){
   const logs=dailyLogs.filter(l=>l.data&&l.data['Poids']).slice(0,7).reverse();
   if(!logs.length)return{current:'—',delta:0,points:[]};
   const c=logs[logs.length-1].data['Poids'],f=logs[0].data['Poids'];
-  return{current:parseFloat(c).toFixed(1),delta:parseFloat(c)-parseFloat(f),points:logs.map(l=>parseFloat(l.data['Poids']))};
+  return{current:fmtMetric(c),delta:parseFloat(c)-parseFloat(f),points:logs.map(l=>parseFloat(l.data['Poids']))};
 }
 function renderMiniChart(pts){
   if(pts.length<2)return'';
@@ -1406,11 +1414,11 @@ function renderDetailWidget(metric,unit){
     const vals=pts.map(p=>p.v);
     const mn=Math.min(...vals),mx=Math.max(...vals),avg=(vals.reduce((a,b)=>a+b,0)/vals.length);
     const first=vals[0],last=vals[vals.length-1],delta=last-first;
-    stats=`<div class="detail-stat"><span class="detail-stat-label">Actuel</span><span class="detail-stat-val">${metric==='Pas'?last.toLocaleString('fr-FR'):last.toFixed(1)} ${unit}</span></div>
-      <div class="detail-stat"><span class="detail-stat-label">Moyenne</span><span class="detail-stat-val">${metric==='Pas'?Math.round(avg).toLocaleString('fr-FR'):avg.toFixed(1)} ${unit}</span></div>
-      <div class="detail-stat"><span class="detail-stat-label">Min</span><span class="detail-stat-val">${metric==='Pas'?mn.toLocaleString('fr-FR'):mn.toFixed(1)} ${unit}</span></div>
-      <div class="detail-stat"><span class="detail-stat-label">Max</span><span class="detail-stat-val">${metric==='Pas'?mx.toLocaleString('fr-FR'):mx.toFixed(1)} ${unit}</span></div>
-      <div class="detail-stat" style="border:none"><span class="detail-stat-label">Évolution</span><span class="detail-stat-val" style="color:${delta<0?'var(--green)':delta>0?'var(--red)':'var(--text)'}">${delta>0?'+':''}${metric==='Pas'?Math.round(delta).toLocaleString('fr-FR'):delta.toFixed(1)} ${unit}</span></div>`;
+    stats=`<div class="detail-stat"><span class="detail-stat-label">Actuel</span><span class="detail-stat-val">${metric==='Pas'?last.toLocaleString('fr-FR'):fmtMetric(last)} ${unit}</span></div>
+      <div class="detail-stat"><span class="detail-stat-label">Moyenne</span><span class="detail-stat-val">${metric==='Pas'?Math.round(avg).toLocaleString('fr-FR'):fmtMetric(avg)} ${unit}</span></div>
+      <div class="detail-stat"><span class="detail-stat-label">Min</span><span class="detail-stat-val">${metric==='Pas'?mn.toLocaleString('fr-FR'):fmtMetric(mn)} ${unit}</span></div>
+      <div class="detail-stat"><span class="detail-stat-label">Max</span><span class="detail-stat-val">${metric==='Pas'?mx.toLocaleString('fr-FR'):fmtMetric(mx)} ${unit}</span></div>
+      <div class="detail-stat" style="border:none"><span class="detail-stat-label">Évolution</span><span class="detail-stat-val" style="color:${delta<0?'var(--green)':delta>0?'var(--red)':'var(--text)'}">${delta>0?'+':''}${metric==='Pas'?Math.round(delta).toLocaleString('fr-FR'):fmtMetric(delta)} ${unit}</span></div>`;
   }
 
   const overlay=document.createElement('div');
@@ -4702,7 +4710,7 @@ let bilanQuestions=[
   {id:'q10',label:'Y a-t-il quelque chose qui pourrait t\'aider pour adhérer encore mieux au plan / modifications à apporter ?',section:'COACHING',icon:'fa-clipboard-check',type:'textarea',required:false}
 ];
 let dailyQuestions=[
-  {id:'Poids',section:'MESURES',icon:'fa-weight',label:'Poids',type:'number',unit:'kg',step:0.1,required:false,sub:'(kg à jeun après 🚾)'},
+  {id:'Poids',section:'MESURES',icon:'fa-weight',label:'Poids',type:'number',unit:'kg',step:0.01,required:false,sub:'(kg à jeun après 🚾)'},
   {id:'Énergie',section:'BIEN-ÊTRE',icon:'fa-bolt',label:'Énergie',type:'rating',scale:5,required:false},
   {id:'Faim',section:'BIEN-ÊTRE',icon:'fa-utensils',label:'Faim',type:'rating',scale:5,required:false},
   {id:'Stress',section:'BIEN-ÊTRE',icon:'fa-brain',label:'Stress',type:'rating',scale:5,required:false},
@@ -5916,7 +5924,7 @@ function renderRoadmapVisual(){
     {label:'Séances',val:totalWorkouts,icon:'🏋️',done:totalWorkouts>=1},
     {label:'Rapports',val:totalReports,icon:'📋',done:totalReports>=7},
     {label:'Bilans',val:totalBilans,icon:'📊',done:totalBilans>=1},
-    {label:'Poids',val:(losing?'↓':'↑')+Math.abs(currentWeight-startWeight).toFixed(1)+'kg',icon:'⚖️',done:weightPct>=25}
+    {label:'Poids',val:(losing?'↓':'↑')+fmtMetric(Math.abs(currentWeight-startWeight))+'kg',icon:'⚖️',done:weightPct>=25}
   ];
 
   const ini=(clientData.first_name||'?')[0].toUpperCase();
