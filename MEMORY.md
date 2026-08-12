@@ -266,9 +266,14 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
 - Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
 
-### Session 2026-08-12 — App client : sélecteur de séance en gros boutons horizontaux
-- Dans un programme, les **onglets fins de séances** (`.day-tabs` / `.day-tab`, texte doré sur ligne soulignée) devenaient illisibles et se collaient au bouton Retour. Remplacés par un **carrousel de cartes** (`.sess-picker` / `.sess-btn`) : icône (💪 ou 🏃), nom de la séance, sous-titre « N exercices » (ou « N blocs » pour le running). Même langage visuel que le choix de programme sur la page d'accueil Entraînement.
-- Séance **active** = carte pleine dorée (`.sess-btn.active`, texte `--on-gold`) ; `scrollSessActive()` la recentre après chaque rendu pour qu'elle reste visible même en 5e position.
+### Session 2026-08-12 — App client : navigation Entraînement en 2 niveaux (liste de séances → aperçu)
+- Les **onglets fins de séances** (`.day-tabs` / `.day-tab`) ont d'abord été transformés en carrousel horizontal, puis — à la demande du coach, qui trouvait l'émoji 💪 moche — en **liste verticale** : `.sess-list` / `.sess-row` (pastille numérotée `.sess-num`, nom, « N exercices », chevron SVG). **Aucun émoji** dans cette liste.
+- Ouvrir un programme n'affiche plus directement les exercices : on voit **la liste des séances**, et on clique pour ouvrir **l'aperçu** (exercices + bouton « Lancer la séance »). État piloté par `seanceOpen` (bool, ligne ~845) + `currentDayIdx`.
+  - `openSeance(i)` ouvre une séance ; `trainBackAction()` remonte d'un cran à la fois : séance → liste → accueil Entraînement → accueil app (et toujours vers l'accueil pendant une séance active, pour ne pas perdre le workout).
+  - En vue aperçu, le titre du header devient le **nom de la séance**, avec `.sess-head` (numéro + « Programme · N exercices ») en sous-titre.
+  - La carte « LANCER LA PROCHAINE SÉANCE » de l'accueil ouvre directement l'aperçu de la séance 1 (`currentDayIdx=0;seanceOpen=true`).
+  - Spacer de 78 px avant `#startWorkoutBtn` : le bouton flottant recouvrait la dernière carte d'exercice.
+- ⚠️ `currentDayIdx` est **partagé** avec le plan alimentaire (`setPlanDay()`) — ne pas s'en servir comme état « aucune séance ouverte », d'où la variable `seanceOpen` séparée.
 - `.day-tabs` **reste utilisée ailleurs** (historique séances/exercices, jours du plan alimentaire) — ne pas la supprimer.
 - **Doublon de bouton Retour supprimé** : le header Entraînement (`#trainBack`) appelle désormais `trainBackAction()` → retour à la page d'accueil de l'onglet si on est dans une sous-vue, sinon vers l'Accueil (et toujours vers l'Accueil pendant une séance active, pour ne pas perdre le workout en cours). Le `backBtn` injecté dans `renderTrainPreview()` est donc vidé.
 - `version.json` bumpé (obligatoire dès qu'on touche `client.html`).

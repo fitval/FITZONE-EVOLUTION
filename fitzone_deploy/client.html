@@ -179,16 +179,19 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .day-tab.active::after { content:''; position:absolute; bottom:-2px; left:0; right:0; height:2px; background:var(--gold); }
 .section-hdr { font-size:13px; font-weight:500; color:var(--text3); margin:18px 0 12px; }
 
-/* Sélecteur de séance : gros boutons horizontaux (comme le choix de programme) */
-.sess-picker { display:flex; gap:10px; overflow-x:auto; overflow-y:hidden; padding:2px 2px 12px; margin:0 -2px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
-.sess-picker::-webkit-scrollbar { display:none; }
-.sess-btn { flex:0 0 auto; min-width:140px; max-width:200px; padding:14px 16px; border-radius:var(--r); border:1.5px solid var(--gold-border); background:var(--white); color:var(--text); font-family:var(--font); text-align:left; cursor:pointer; box-shadow:var(--shadow); transition:transform .15s, opacity .2s; }
-.sess-btn:active { transform:scale(.97); }
-.sess-btn .sess-ico { font-size:20px; line-height:1; display:block; margin-bottom:7px; }
-.sess-btn .sess-name { font-size:15px; font-weight:800; line-height:1.2; }
-.sess-btn .sess-sub { font-size:12px; font-weight:600; color:var(--text3); margin-top:4px; }
-.sess-btn.active { background:var(--gold); border-color:var(--gold); color:var(--on-gold); box-shadow:0 3px 12px rgba(var(--gold-rgb),.28); }
-.sess-btn.active .sess-sub { color:var(--on-gold); opacity:.7; }
+/* Liste des séances d'un programme : une carte par séance, on clique pour l'ouvrir */
+.sess-list { display:flex; flex-direction:column; gap:10px; }
+.sess-row { display:flex; align-items:center; gap:13px; width:100%; padding:15px 16px; border-radius:var(--r); border:1.5px solid var(--gold-border); background:var(--white); color:var(--text); font-family:var(--font); text-align:left; cursor:pointer; box-shadow:var(--shadow); transition:transform .15s; }
+.sess-row:active { transform:scale(.985); }
+.sess-num { width:38px; height:38px; flex-shrink:0; border-radius:11px; background:var(--gold-pale); border:1px solid var(--gold-border); color:var(--gold-deep); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:900; }
+.sess-body { flex:1; min-width:0; }
+.sess-name { font-size:16px; font-weight:800; line-height:1.25; }
+.sess-sub { font-size:12.5px; font-weight:600; color:var(--text3); margin-top:3px; }
+.sess-chev { width:18px; height:18px; flex-shrink:0; color:var(--text3); }
+/* En-tête de la séance ouverte (au-dessus de la liste d'exercices) */
+.sess-head { display:flex; align-items:center; gap:10px; margin:2px 0 6px; }
+.sess-head .sess-num { width:32px; height:32px; border-radius:9px; font-size:13px; }
+.sess-head-sub { font-size:12.5px; font-weight:600; color:var(--text3); }
 
 /* Exercise preview card */
 .exo-preview { background:var(--white); border-radius:var(--r); padding:11px; margin-bottom:9px; box-shadow:var(--shadow); display:flex; gap:9px; align-items:flex-start; }
@@ -839,6 +842,7 @@ let clientData=null;
 let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAlims=[],coachExos=[],clientQuest=null,planSwaps=[];
 let macroTarget=null; // Objectif macro fixé par le coach (table plans, calcul macros de base) — sert d'objectif au tracking, indépendamment du plan repas
 let currentDayIdx=0,currentPlanIdx=null;
+let seanceOpen=false; // Entraînement > programme : false = liste des séances, true = aperçu de la séance courante
 let trainSubTab='list';
 let histMode='sessions',histExo=null;
 let coachActivityTypes=[];
@@ -1295,9 +1299,9 @@ function renderHome(){
     const p=programs[0],j=p.jours||[];
     if(j.length>0){
       const d=j[0],cnt=(d.warmup||[]).length+(d.workout||[]).length+(d.cooldown||[]).length;
-      html+=`<div class="card-gold fade-up" style="animation-delay:.2s;cursor:pointer" onclick="trainSubTab='programme';switchTab('Train')">
+      html+=`<div class="card-gold fade-up" style="animation-delay:.2s;cursor:pointer" onclick="trainSubTab='programme';currentDayIdx=0;seanceOpen=true;switchTab('Train')">
         <div class="card-label">LANCER LA PROCHAINE SÉANCE</div>
-        <div style="display:flex;align-items:center;gap:16px"><div style="flex:1"><div style="font-size:17px;font-weight:700;color:white;margin-bottom:3px">${d.nom||p.nom||'Séance'}</div><div style="font-size:12px;color:rgba(255,255,255,.5)">${cnt} exercices · Jour 1</div></div><button class="workout-go" onclick="event.stopPropagation();trainSubTab='programme';switchTab('Train')">Go →</button></div>
+        <div style="display:flex;align-items:center;gap:16px"><div style="flex:1"><div style="font-size:17px;font-weight:700;color:white;margin-bottom:3px">${d.nom||p.nom||'Séance'}</div><div style="font-size:12px;color:rgba(255,255,255,.5)">${cnt} exercices · Jour 1</div></div><button class="workout-go" onclick="event.stopPropagation();trainSubTab='programme';currentDayIdx=0;seanceOpen=true;switchTab('Train')">Go →</button></div>
       </div>`;
     }
   }
@@ -1458,15 +1462,22 @@ function _cliRunBlockCard(b,sectionEmoji){
   </div>`;
 }
 
-// Bouton Retour du header Entraînement : revient d'abord à la page d'accueil de l'onglet
+// Bouton Retour du header Entraînement : remonte d'un cran à la fois
+// (séance ouverte → liste des séances → accueil Entraînement → accueil de l'app)
 function trainBackAction(){
-  if(workoutActive||trainSubTab==='list'){switchTab('Home');return;}
+  if(workoutActive){switchTab('Home');return;}
+  if(trainSubTab==='programme'&&seanceOpen){seanceOpen=false;renderTrainPreview();return;}
+  if(trainSubTab==='list'){switchTab('Home');return;}
   trainSubTab='list';renderTrainPreview();
 }
-// Amène la séance sélectionnée dans le champ de vision du sélecteur horizontal
-function scrollSessActive(){
-  const b=document.querySelector('#sessPicker .sess-btn.active');
-  if(b&&b.scrollIntoView)b.scrollIntoView({block:'nearest',inline:'center'});
+// Ouvre l'aperçu d'une séance depuis la liste
+function openSeance(i){currentDayIdx=i;seanceOpen=true;document.getElementById('scrollArea').scrollTop=0;renderTrainPreview();}
+// Nombre d'exercices (ou de blocs pour le running) d'une séance
+function seanceCount(j){return (j.warmup||[]).length+(j.workout||[]).length+(j.cooldown||[]).length;}
+function seanceSub(j){
+  const n=seanceCount(j);
+  if(j.type==='running')return n?'Running · '+n+' bloc'+(n>1?'s':''):'Séance running';
+  return n?n+' exercice'+(n>1?'s':''):'Aucun exercice';
 }
 // Page d'accueil de l'onglet Entraînement (comme la nutrition) : choix programme / activité
 function renderTrainLanding(){
@@ -1485,7 +1496,7 @@ function renderTrainLanding(){
   } else {
     const p=programs[0];const nb=(p.jours||[]).length;
     h+=`<div class="card-label" style="color:var(--text3);margin-bottom:8px">MON PROGRAMME</div>`;
-    h+=`<div class="plan-card fade-up" onclick="trainSubTab='programme';renderTrainPreview()">
+    h+=`<div class="plan-card fade-up" onclick="trainSubTab='programme';seanceOpen=false;renderTrainPreview()">
       <div class="plan-name">${p.nom||'Programme'}</div>
       <div style="font-size:13px;color:var(--text3);margin-top:4px">${nb?nb+' séance'+(nb>1?'s':'')+' · touche pour voir':'Aucune séance'}</div>
     </div>`;
@@ -1500,23 +1511,28 @@ function renderTrainPreview(){
   if(trainSubTab==='historique'){document.getElementById('trainTitle').textContent='Historique';document.getElementById('trainContent').innerHTML=backBtn+renderHistoryView();return;}
   if(!programs.length){document.getElementById('trainTitle').textContent='Entraînement';document.getElementById('trainContent').innerHTML=backBtn+`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;return;}
   const p=programs[0],jours=p.jours||[];
-  document.getElementById('trainTitle').textContent=p.nom||'Entraînement';
-  if(!jours.length){document.getElementById('trainContent').innerHTML=backBtn+`<div class="empty"><div class="empty-text">Ce programme n'a pas encore de séances.</div></div>`;return;}
+  if(!jours.length){document.getElementById('trainTitle').textContent=p.nom||'Entraînement';document.getElementById('trainContent').innerHTML=backBtn+`<div class="empty"><div class="empty-text">Ce programme n'a pas encore de séances.</div></div>`;return;}
 
-  let h=backBtn+`<div class="sess-picker" id="sessPicker">${jours.map((j,i)=>{
-    const ico=j.type==='running'?'🏃':'💪';
-    const n=(j.warmup||[]).length+(j.workout||[]).length+(j.cooldown||[]).length;
-    const sub=j.type==='running'?(n?n+' bloc'+(n>1?'s':''):'Séance running'):(n?n+' exercice'+(n>1?'s':''):'À venir');
-    return`<button class="sess-btn${i===currentDayIdx?' active':''}" onclick="currentDayIdx=${i};renderTrainPreview()">
-      <span class="sess-ico">${ico}</span>
-      <div class="sess-name">${j.nom||'Séance '+(i+1)}</div>
-      <div class="sess-sub">${sub}</div>
-    </button>`;}).join('')}</div>`;
+  // Niveau 1 : la liste des séances du programme
+  if(!seanceOpen||currentDayIdx==null||!jours[currentDayIdx]){
+    document.getElementById('trainTitle').textContent=p.nom||'Entraînement';
+    const chev=`<svg class="sess-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
+    document.getElementById('trainContent').innerHTML=backBtn
+      +`<div style="font-size:13px;color:var(--text3);margin:0 0 14px">${jours.length} séance${jours.length>1?'s':''} · touche une séance pour la voir</div>`
+      +`<div class="sess-list">${jours.map((j,i)=>`<button class="sess-row fade-up" style="animation-delay:${Math.min(i*.04,.2)}s" onclick="openSeance(${i})">
+        <div class="sess-num">${i+1}</div>
+        <div class="sess-body"><div class="sess-name">${j.nom||'Séance '+(i+1)}</div><div class="sess-sub">${seanceSub(j)}</div></div>
+        ${chev}
+      </button>`).join('')}</div>`;
+    return;
+  }
 
+  // Niveau 2 : l'aperçu de la séance choisie
   const day=jours[currentDayIdx];
+  document.getElementById('trainTitle').textContent=day.nom||'Séance '+(currentDayIdx+1);
+  let h=backBtn+`<div class="sess-head"><div class="sess-num">${currentDayIdx+1}</div><div class="sess-head-sub">${p.nom||'Programme'} · ${seanceSub(day)}</div></div>`;
 
   if(day.type==='running'){
-    h+=`<div style="margin:10px 0 16px;padding:10px 12px;background:var(--gold-pale);border-radius:10px;display:flex;align-items:center;gap:10px"><span style="font-size:20px">🏃</span><span style="font-size:13px;font-weight:700;color:var(--gold-deep)">Séance running</span></div>`;
     const SEC_LABELS={warmup:['🔥 Échauffement','🔥'],workout:['🏃 Corps de séance','🏃'],cooldown:['❄️ Retour au calme','❄️']};
     let totalBlocks=0;
     ['warmup','workout','cooldown'].forEach(sec=>{
@@ -1527,10 +1543,9 @@ function renderTrainPreview(){
     });
     if(!totalBlocks){h+=`<div class="empty"><div class="empty-text">Aucun bloc défini pour cette séance.</div></div>`;}
     else{
-      h+=`<div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(var(--gold-rgb),.4);font-size:15px" onclick="startRunningWorkout()">▶ Lancer la séance</button></div>`;
+      h+=`<div style="height:78px"></div><div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(var(--gold-rgb),.4);font-size:15px" onclick="startRunningWorkout()">▶ Lancer la séance</button></div>`;
     }
     document.getElementById('trainContent').innerHTML=h;
-    scrollSessActive();
     return;
   }
 
@@ -1558,9 +1573,8 @@ function renderTrainPreview(){
     });
   });
 
-  h+=`<div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(var(--gold-rgb),.4);font-size:15px" onclick="startWorkout()">Lancer la séance</button></div>`;
+  h+=`<div style="height:78px"></div><div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(var(--gold-rgb),.4);font-size:15px" onclick="startWorkout()">Lancer la séance</button></div>`;
   document.getElementById('trainContent').innerHTML=h;
-  scrollSessActive();
 }
 
 /* ===== ACTIVITIES VIEW ===== */
