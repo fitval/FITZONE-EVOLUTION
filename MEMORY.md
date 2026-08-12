@@ -266,6 +266,13 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
 - Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
 
+### Session 2026-08-12 — App client : sélecteur de séance en gros boutons horizontaux
+- Dans un programme, les **onglets fins de séances** (`.day-tabs` / `.day-tab`, texte doré sur ligne soulignée) devenaient illisibles et se collaient au bouton Retour. Remplacés par un **carrousel de cartes** (`.sess-picker` / `.sess-btn`) : icône (💪 ou 🏃), nom de la séance, sous-titre « N exercices » (ou « N blocs » pour le running). Même langage visuel que le choix de programme sur la page d'accueil Entraînement.
+- Séance **active** = carte pleine dorée (`.sess-btn.active`, texte `--on-gold`) ; `scrollSessActive()` la recentre après chaque rendu pour qu'elle reste visible même en 5e position.
+- `.day-tabs` **reste utilisée ailleurs** (historique séances/exercices, jours du plan alimentaire) — ne pas la supprimer.
+- **Doublon de bouton Retour supprimé** : le header Entraînement (`#trainBack`) appelle désormais `trainBackAction()` → retour à la page d'accueil de l'onglet si on est dans une sous-vue, sinon vers l'Accueil (et toujours vers l'Accueil pendant une séance active, pour ne pas perdre le workout en cours). Le `backBtn` injecté dans `renderTrainPreview()` est donc vidé.
+- `version.json` bumpé (obligatoire dès qu'on touche `client.html`).
+
 ### Session 2026-08-02 (bis) — App client : onglet Roadmap + montage avant/après épuré
 - **Navbar client** : les onglets *Bonus* et *Calendrier* sont **échangés** ; le 4e onglet garde l'icône calendrier mais s'appelle désormais **« Roadmap »** (nom interne inchangé : `switchTab('Calendar')`, `#btnCalendar`, `#tabCalendar` — ne pas renommer, plusieurs écrans y reviennent).
 - L'onglet affiche **la roadmap du coach en lecture seule** (`renderClientRoadmap()`) **au-dessus** du calendrier : table `roadmaps.weeks` avec colonne SEM figée, pastilles de phase colorées (`RM_PHASE_BG` / `RM_PHASE_STRONG`, mêmes teintes que le dashboard), semaine en cours surlignée + auto-scroll. Tout est du texte, aucun champ éditable.
