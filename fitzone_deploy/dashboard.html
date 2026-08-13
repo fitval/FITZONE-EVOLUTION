@@ -10703,6 +10703,24 @@ function _recapWeekLabel(w){
 
 /* --- Rendu --- */
 const RECAP_JOURS=['L','M','M','J','V','S','D'];
+// Liste déroulante des semaines : depuis le début du suivi du client,
+// plafonnée à un an pour que le menu reste utilisable.
+function _recapWeekOptions(){
+  let nb=26;
+  const sd=curClient&&(curClient.start_date||curClient.created_at);
+  if(sd){
+    const debut=_recapMonday(new Date(sd)),now=_recapMonday(new Date());
+    const sem=Math.floor((now-debut)/(7*24*3600*1000))+1;
+    if(sem>0)nb=Math.min(52,Math.max(4,sem));
+  }
+  let out='';
+  for(let o=0;o>-nb;o--){
+    const w=_recapWeekDates(o);
+    const suffix=o===0?' — en cours':(o===-1?' — semaine dernière':'');
+    out+=`<option value="${o}"${o===_recapWeekOffset?' selected':''}>${_recapWeekLabel(w)}${suffix}</option>`;
+  }
+  return out;
+}
 function _recapColor(pct){
   if(pct==null)return'var(--text3)';
   if(pct>=80)return'#16a34a';
@@ -10755,10 +10773,8 @@ async function renderRecapTab(){
   catch(e){ el.innerHTML=`<div class="empty"><div class="ei">⚠️</div><div class="et">Récap indisponible</div><div class="es">${esc(e.message||String(e))}</div></div>`; return; }
   _recapCache=s;
   const nav=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-    <button class="btn btn-ghost btn-sm" onclick="_recapWeekOffset--;renderRecapTab()">← Semaine préc.</button>
-    <div style="font-size:14px;font-weight:800">${s.semaine.label}</div>
-    ${_recapWeekOffset<0?`<button class="btn btn-ghost btn-sm" onclick="_recapWeekOffset++;renderRecapTab()">Semaine suiv. →</button>`:''}
-    ${_recapWeekOffset!==0?`<button class="btn btn-ghost btn-sm" onclick="_recapWeekOffset=0;renderRecapTab()">Cette semaine</button>`:''}
+    <span style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text3);text-transform:uppercase">Semaine</span>
+    <select class="fs" style="min-width:250px;font-size:13px" onchange="_recapWeekOffset=+this.value;renderRecapTab()">${_recapWeekOptions()}</select>
   </div>`;
   const scoreCol=_recapColor(s.score);
   const hero=`<div class="card" style="padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
