@@ -1493,6 +1493,7 @@ body:has(#detPage.show) .toast{bottom:54px}
     <div class="det-hero" id="detHero"></div>
     <div class="tabs" id="detTabs" style="flex-wrap:wrap">
       <div class="tab active" onclick="swDet('questionnaire',this)">📋 Questionnaire</div>
+      <div class="tab" onclick="swDet('recap',this);renderRecapTab()">🤖 Récap</div>
       <div class="tab" onclick="swDet('nutrition',this)">🥗 Nutrition</div>
       <div class="tab" onclick="swDet('roadmap',this)">🗓️ Roadmap</div>
       <div class="tab" onclick="swDet('progression',this);renderProgressionTab()">📊 Progression</div>
@@ -1507,6 +1508,7 @@ body:has(#detPage.show) .toast{bottom:54px}
       <button class="btn btn-dark btn-sm" onclick="openProgressionPopup()">📊 Progression</button>
     </div>
     <div class="tc active" id="tc-questionnaire"></div>
+    <div class="tc" id="tc-recap"></div>
     <div class="tc" id="tc-nutrition"></div>
     <div class="tc" id="tc-roadmap"></div>
     <div class="tc" id="tc-progression"></div>
@@ -10604,7 +10606,244 @@ async function deleteRecResp(id){
   renderRecResponses();
 }
 
-/* ===== GAMIFICATION (DASHBOARD) ===== */
+/* ===== RÉCAP HEBDO (fiche client) =====
+   Objectif : en un coup d'œil, comment le client a utilisé l'app cette semaine.
+   Tous les chiffres sont calculés ici (fiables, gratuits, instantanés) ; l'IA ne
+   sert qu'à en tirer un commentaire rédigé, mis en cache dans ai_recaps. */
+let _recapWeekOffset=0;   // 0 = semaine en cours, -1 = semaine précédente…
+let _recapCache=null;     // dernier calcul (sert à la génération IA)
+
+// Lundi de la semaine contenant d, en heure locale (jamais toISOString : décalage UTC)
+function _recapMonday(d){
+  const x=new Date(d);
+  const dow=(x.getDay()+6)%7; // 0 = lundi
+  x.setDate(x.getDate()-dow);
+  x.setHours(0,0,0,0);
+  return x;
+}
+function _recapWeekDates(offset){
+  const mon=_recapMonday(new Date());
+  mon.setDate(mon.getDate()+offset*7);
+  const days=[];
+  for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push(localDateStr(d));}
+  return{monday:mon,days,start:days[0],end:days[6]};
+}
+function _recapPct(done,goal){if(!goal)return null;return Math.max(0,Math.min(100,Math.round(done/goal*100)));}
+
+// Récupère tout ce dont le récap a besoin pour une semaine donnée
+async function recapCollect(offset){
+  const w=_recapWeekDates(offset);
+  const c=curClient;
+  const prev=_recapWeekDates(offset-1);
+  const [dl,tl,fl,mc,bl,wl]=await Promise.all([
+    db.from('daily_logs').select('date,data').eq('client_id',c.id).gte('date',prev.start).lte('date',w.end),
+    db.from('train_logs').select('date,type,session_name,exercises').eq('client_id',c.id).gte('date',prev.start).lte('date',w.end),
+    db.from('food_logs').select('date').eq('client_id',c.id).gte('date',prev.start).lte('date',w.end),
+    db.from('meal_checks').select('date').eq('client_id',c.id).gte('date',prev.start).lte('date',w.end),
+    db.from('bilans').select('date').eq('client_id',c.id).gte('date',w.start).lte('date',w.end),
+    db.from('water_logs').select('date,ml').eq('client_id',c.id).gte('date',w.start).lte('date',w.end)
+  ]);
+  // Une requête en erreur renverrait data=null → des zéros trompeurs : on le signale
+  const err=[dl,tl,fl,mc,bl,wl].map(r=>r.error).find(Boolean);
+  if(err)throw new Error(err.message);
+  const inWeek=(rows,dates)=>(rows||[]).filter(r=>dates.includes(r.date));
+  const dlW=inWeek(dl.data,w.days),dlP=inWeek(dl.data,prev.days);
+  const tlW=inWeek(tl.data,w.days),tlP=inWeek(tl.data,prev.days);
+  const flW=inWeek(fl.data,w.days),flP=inWeek(fl.data,prev.days);
+  const mcW=inWeek(mc.data,w.days),mcP=inWeek(mc.data,prev.days);
+
+  // Séances prévues = nombre de jours du programme assigné
+  const prog=(progs||[]).filter(p=>p.clientId===c.id).slice(-1)[0];
+  const seancesPrevues=prog?(prog.jours||[]).length:0;
+  const isStrength=l=>l.type!=='activity'&&Array.isArray(l.exercises)&&l.exercises.length>0;
+  const seancesFaites=tlW.filter(isStrength).length;
+  const activites=tlW.filter(l=>l.type==='activity').length;
+
+  // Repas prévus = nombre de repas du plan alimentaire × 7 jours
+  const plan=(plans||[]).filter(p=>p.type==='full'&&(p.clientId===c.id||(p.clientIds||[]).includes(c.id))).slice(-1)[0];
+  const repasParJour=plan&&(plan.jours||[]).length?Math.round((plan.jours||[]).reduce((n,j)=>n+((j.repas||[]).length),0)/(plan.jours||[]).length):0;
+  const repasPrevus=repasParJour*7;
+
+  // Poids : première et dernière pesée de la semaine
+  const poids=w.days.map(d=>{const l=dlW.find(x=>x.date===d);const v=l&&l.data&&l.data['Poids'];return v?parseFloat(v):null;}).filter(v=>v!=null&&!isNaN(v));
+  const poidsDebut=poids.length?poids[0]:null,poidsFin=poids.length?poids[poids.length-1]:null;
+
+  const joursTrack=new Set(flW.map(r=>r.date)).size;
+  const eauMl=(wl.data||[]).reduce((n,r)=>n+(parseInt(r.ml)||0),0);
+
+  const stats={
+    semaine:{debut:w.start,fin:w.end,label:_recapWeekLabel(w)},
+    rapports:{faits:dlW.length,sur:7,precedent:dlP.length},
+    seances:{faites:seancesFaites,prevues:seancesPrevues,precedent:tlP.filter(isStrength).length,noms:tlW.filter(isStrength).map(l=>l.session_name||'Séance')},
+    activites:{nb:activites,precedent:tlP.filter(l=>l.type==='activity').length},
+    repas:{valides:mcW.length,prevus:repasPrevus,precedent:mcP.length},
+    tracking:{jours:joursTrack,sur:7,precedent:new Set(flP.map(r=>r.date)).size},
+    bilan:{envoye:(bl.data||[]).length>0},
+    eau:{litres:Math.round(eauMl/100)/10},
+    poids:{debut:poidsDebut,fin:poidsFin,delta:(poidsDebut!=null&&poidsFin!=null)?Math.round((poidsFin-poidsDebut)*100)/100:null},
+    // Détail jour par jour, pour la frise
+    jours:w.days.map(d=>({
+      date:d,
+      rapport:dlW.some(x=>x.date===d),
+      seance:tlW.some(x=>x.date===d&&isStrength(x)),
+      activite:tlW.some(x=>x.date===d&&x.type==='activity'),
+      track:flW.some(x=>x.date===d)
+    }))
+  };
+  // Score d'utilisation : moyenne des taux de remplissage disponibles
+  const parts=[_recapPct(stats.rapports.faits,7),_recapPct(stats.seances.faites,stats.seances.prevues),
+               _recapPct(stats.repas.valides,stats.repas.prevus),_recapPct(stats.tracking.jours,7)].filter(v=>v!=null);
+  stats.score=parts.length?Math.round(parts.reduce((a,b)=>a+b,0)/parts.length):null;
+  return stats;
+}
+function _recapWeekLabel(w){
+  const f=s=>{const[y,m,d]=s.split('-');return d+'/'+m;};
+  return`Semaine du ${f(w.start)} au ${f(w.end)}`;
+}
+
+/* --- Rendu --- */
+const RECAP_JOURS=['L','M','M','J','V','S','D'];
+function _recapColor(pct){
+  if(pct==null)return'var(--text3)';
+  if(pct>=80)return'#16a34a';
+  if(pct>=50)return'#d97706';
+  return'#dc2626';
+}
+// Carte métrique : gros chiffre + jauge + comparaison avec la semaine d'avant
+function _recapCard(icon,label,done,goal,unit,prev,hint){
+  const pct=_recapPct(done,goal),col=_recapColor(pct);
+  const delta=(prev!=null&&done!=null)?done-prev:null;
+  const deltaHtml=delta==null||delta===0?'':`<span style="font-size:11px;font-weight:700;color:${delta>0?'#16a34a':'#dc2626'}">${delta>0?'▲ +':'▼ '}${fmtMetric(Math.abs(delta))}</span>`;
+  return`<div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;align-items:center;gap:7px">
+      <span style="font-size:15px">${icon}</span>
+      <span style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text3);text-transform:uppercase">${label}</span>
+      <span style="margin-left:auto">${deltaHtml}</span>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:5px">
+      <span style="font-size:26px;font-weight:900;color:${col};line-height:1">${done==null?'—':fmtMetric(done)}</span>
+      ${goal?`<span style="font-size:13px;font-weight:700;color:var(--text3)">/ ${goal}</span>`:''}
+      ${unit?`<span style="font-size:11px;color:var(--text3)">${unit}</span>`:''}
+    </div>
+    ${goal?`<div style="height:6px;border-radius:4px;background:var(--bg2);overflow:hidden"><div style="height:100%;width:${pct||0}%;background:${col};border-radius:4px;transition:width .4s"></div></div>`:''}
+    <div style="font-size:10.5px;color:var(--text3);line-height:1.35">${hint||''}</div>
+  </div>`;
+}
+function _recapFrise(jours){
+  return`<div class="card" style="padding:14px">
+    <div style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text3);text-transform:uppercase;margin-bottom:10px">Jour par jour</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+      ${jours.map((j,i)=>{
+        const actif=j.rapport||j.seance||j.activite||j.track;
+        return`<div style="text-align:center">
+          <div style="font-size:11px;font-weight:800;color:var(--text3);margin-bottom:5px">${RECAP_JOURS[i]}</div>
+          <div title="${j.date}" style="border-radius:9px;padding:7px 2px;background:${actif?'var(--gold-pale)':'var(--bg2)'};border:1px solid ${actif?'var(--gold-border)':'var(--border)'};display:flex;flex-direction:column;gap:3px;align-items:center;min-height:58px;justify-content:center">
+            <span style="font-size:12px;opacity:${j.rapport?1:.15}" title="Rapport quotidien">📝</span>
+            <span style="font-size:12px;opacity:${(j.seance||j.activite)?1:.15}" title="Séance / activité">${j.activite&&!j.seance?'🏃':'💪'}</span>
+            <span style="font-size:12px;opacity:${j.track?1:.15}" title="Tracking alimentaire">🍽️</span>
+          </div>
+        </div>`;}).join('')}
+    </div>
+    <div style="font-size:10.5px;color:var(--text3);margin-top:9px">📝 rapport · 💪 séance (🏃 activité) · 🍽️ tracking — en pâle = rien ce jour-là</div>
+  </div>`;
+}
+async function renderRecapTab(){
+  const el=document.getElementById('tc-recap');if(!el||!curClient)return;
+  el.innerHTML=`<div style="padding:30px;text-align:center;color:var(--text3)">Calcul du récap…</div>`;
+  let s;
+  try{ s=await recapCollect(_recapWeekOffset); }
+  catch(e){ el.innerHTML=`<div class="empty"><div class="ei">⚠️</div><div class="et">Récap indisponible</div><div class="es">${esc(e.message||String(e))}</div></div>`; return; }
+  _recapCache=s;
+  const nav=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <button class="btn btn-ghost btn-sm" onclick="_recapWeekOffset--;renderRecapTab()">← Semaine préc.</button>
+    <div style="font-size:14px;font-weight:800">${s.semaine.label}</div>
+    ${_recapWeekOffset<0?`<button class="btn btn-ghost btn-sm" onclick="_recapWeekOffset++;renderRecapTab()">Semaine suiv. →</button>`:''}
+    ${_recapWeekOffset!==0?`<button class="btn btn-ghost btn-sm" onclick="_recapWeekOffset=0;renderRecapTab()">Cette semaine</button>`:''}
+  </div>`;
+  const scoreCol=_recapColor(s.score);
+  const hero=`<div class="card" style="padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="width:82px;height:82px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:conic-gradient(${scoreCol} ${(s.score||0)*3.6}deg, var(--bg2) 0deg)">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--white);display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <span style="font-size:20px;font-weight:900;color:${scoreCol};line-height:1">${s.score==null?'—':s.score+'%'}</span>
+        <span style="font-size:8.5px;font-weight:800;color:var(--text3);letter-spacing:.5px">SUIVI</span>
+      </div>
+    </div>
+    <div style="flex:1;min-width:210px">
+      <div style="font-size:15px;font-weight:800;margin-bottom:3px">${esc(curClient.first_name||'')} ${esc(curClient.last_name||'')}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.5">
+        ${s.rapports.faits}/7 rapports · ${s.seances.faites}${s.seances.prevues?'/'+s.seances.prevues:''} séance${s.seances.faites>1?'s':''}${s.activites.nb?' · '+s.activites.nb+' activité'+(s.activites.nb>1?'s':''):''}<br>
+        ${s.bilan.envoye?'✅ Bilan hebdo envoyé':'⚠️ Pas de bilan hebdo cette semaine'}
+        ${s.poids.delta!=null?` · Poids ${s.poids.delta>0?'+':''}${fmtMetric(s.poids.delta)} kg`:''}
+      </div>
+    </div>
+    <button class="btn btn-gold btn-sm" style="margin-left:auto" onclick="generateRecapAI()">🤖 Résumé IA</button>
+  </div>`;
+  const cards=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-bottom:12px">
+    ${_recapCard('📝','Rapports quotidiens',s.rapports.faits,7,'jours',s.rapports.precedent,"Formulaire de suivi rempli dans l'app")}
+    ${_recapCard('💪','Séances faites',s.seances.faites,s.seances.prevues||null,'',s.seances.precedent,s.seances.prevues?'Sur les '+s.seances.prevues+' du programme':'Aucun programme assigné')}
+    ${_recapCard('🍽️','Repas validés',s.repas.valides,s.repas.prevus||null,'',s.repas.precedent,s.repas.prevus?'Repas cochés dans le menu':'Aucun plan alimentaire complet')}
+    ${_recapCard('📊','Tracking alimentaire',s.tracking.jours,7,'jours',s.tracking.precedent,'Jours où il a saisi au moins un aliment')}
+    ${_recapCard('🏃','Activités libres',s.activites.nb,null,'',s.activites.precedent,'Cardio, marche, sport hors programme')}
+    ${_recapCard('💧','Eau bue',s.eau.litres,null,'L',null,'Total de la semaine')}
+  </div>`;
+  el.innerHTML=nav+hero+`<div id="recapAI"></div>`+cards+_recapFrise(s.jours);
+  loadRecapAI();
+}
+
+/* --- Résumé rédigé par l'IA (mis en cache une fois par semaine) --- */
+function _recapAIBox(txt,date){
+  return`<div class="card" style="padding:15px;margin-bottom:12px;border-left:4px solid var(--gold);background:var(--gold-pale)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--gold-deep);text-transform:uppercase">🤖 Lecture de la semaine${date?' · généré le '+new Date(date).toLocaleDateString('fr-FR'):''}</span>
+      <button class="btn btn-ghost btn-xs" style="margin-left:auto" title="Regénérer à partir des chiffres actuels" onclick="generateRecapAI()">↻</button>
+    </div>
+    <div style="font-size:13.5px;color:var(--text);line-height:1.65;white-space:pre-wrap">${esc(txt)}</div>
+  </div>`;
+}
+// Le résumé se génère tout seul la première fois qu'une semaine est consultée,
+// puis reste en cache. Le bouton ↻ le recalcule si la semaine a bougé depuis.
+async function loadRecapAI(){
+  const box=document.getElementById('recapAI');if(!box||!_recapCache)return;
+  const{data}=await db.from('ai_recaps').select('summary,created_at')
+    .eq('client_id',curClient.id).eq('week_start',_recapCache.semaine.debut).maybeSingle();
+  if(data&&data.summary){box.innerHTML=_recapAIBox(data.summary,data.created_at);return;}
+  const s=_recapCache;
+  const rienAResumer=!s.rapports.faits&&!s.seances.faites&&!s.activites.nb&&!s.repas.valides&&!s.tracking.jours;
+  if(rienAResumer){
+    box.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Aucune activité enregistrée cette semaine — rien à résumer pour l'instant.</div>`;
+    return;
+  }
+  generateRecapAI();
+}
+async function generateRecapAI(){
+  if(!_recapCache||!curClient){toast('Récap non chargé');return;}
+  const box=document.getElementById('recapAI');
+  if(box)box.innerHTML=`<div class="card" style="padding:15px;margin-bottom:12px;color:var(--text3);font-size:13px">🤖 Analyse de la semaine en cours…</div>`;
+  try{
+    const res=await fetch(SUPA+'/functions/v1/weekly-recap',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      body:JSON.stringify({
+        prenom:curClient.first_name||'Le client',
+        objectif:(curQ&&curQ.goal)||null,
+        stats:_recapCache
+      })
+    });
+    const out=await res.json();
+    if(out.error)throw new Error(out.error);
+    const summary=out.summary||'';
+    // Cache : une ligne par client et par semaine
+    const{error}=await db.from('ai_recaps').upsert({
+      coach_id:currentCoach?.id||null,client_id:curClient.id,
+      week_start:_recapCache.semaine.debut,stats:_recapCache,summary,
+      created_at:new Date().toISOString()
+    },{onConflict:'client_id,week_start'});
+    if(error)console.warn('ai_recaps save:',error.message);
+    if(box)box.innerHTML=_recapAIBox(summary,new Date().toISOString());
+  }catch(e){
+    if(box)box.innerHTML=`<div class="card" style="padding:15px;margin-bottom:12px;color:color-mix(in srgb,#c03030 var(--ink,100%),var(--text));font-size:13px">Résumé IA indisponible : ${esc(e.message||String(e))}</div>`;
+  }
+}
 let allClientPoints={};
 let allCoachRewards=[];
 let allRewardRequests=[];

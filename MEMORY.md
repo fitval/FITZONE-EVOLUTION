@@ -266,6 +266,15 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
 - Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
 
+### Session 2026-08-13 — Onglet « 🤖 Récap » (usage hebdo du client) dans la fiche client
+- Nouvel onglet **Récap** (1er après Questionnaire) : en un coup d'œil, comment le client a utilisé l'app cette semaine. `renderRecapTab()` + `recapCollect(offset)` dans `dashboard.html`.
+- **Les chiffres sont calculés en JS, pas par l'IA** (fiables, gratuits, instantanés) : rapports quotidiens n/7, séances faites/prévues (programme assigné), activités libres, repas validés/prévus, jours de tracking alimentaire, bilan hebdo envoyé, eau, delta de poids — chaque métrique comparée à la **semaine précédente**. Un score de suivi global (moyenne des taux) + une frise jour par jour (📝 rapport / 💪 séance / 🍽️ tracking).
+- **L'IA ne rédige que le commentaire** (Edge Function `weekly-recap`, `claude-opus-5`, déployée avec `--no-verify-jwt`). Le prompt lui interdit d'inventer un chiffre et lui fait produire : 1 phrase de synthèse + « Ce qui va » + « À surveiller » terminé par une action concrète. Testé de bout en bout (~0,02 $ par récap). `max_tokens: 6000` car sur Opus 5 le raisonnement est actif par défaut et partage ce budget.
+- **Cache** : table `ai_recaps` (1 ligne par client + semaine). Le résumé se génère **automatiquement** à la première consultation d'une semaine, puis reste figé ; bouton ↻ pour le recalculer. Rien n'est généré si la semaine est totalement vide.
+- ⚠️ **Nouveau : `meal_checks`.** La coche « repas mangé » du menu vivait **uniquement en localStorage** → le coach ne pouvait pas la voir. `toggleMealDone()` (client.html) la persiste maintenant en base (non bloquant, localStorage reste le cache optimiste). **L'historique d'avant le 2026-08-13 n'existe pas** : la carte « Repas validés » ne compte qu'à partir de là.
+- Migration `20260813120000_weekly_recap.sql` (meal_checks + ai_recaps + RLS), appliquée.
+- Piège évité : ne jamais sélectionner une colonne inexistante dans `recapCollect` — PostgREST renvoie une erreur et `data=null`, ce qui afficherait des zéros crédibles. Les erreurs des 6 requêtes sont donc levées explicitement.
+
 ### Session 2026-08-12 (quater) — Masquer un plan/programme + précision du poids
 - **Masquage client** : colonne `visible_client boolean NOT NULL DEFAULT true` sur `programs` et `plans_full` (migration `20260812150000_visible_client.sql`, appliquée). Le coach garde tout dans son dashboard, le client ne voit que le visible.
   - Le masquage est **réel**, pas cosmétique : policy **RESTRICTIVE** `*_hidden_from_client` (SELECT, authenticated) qui s'ajoute en AND aux policies existantes → coach/admin voient tout, le client ne reçoit pas la ligne. Une RESTRICTIVE évite de recréer les policies permissives existantes (aucun risque de régression).

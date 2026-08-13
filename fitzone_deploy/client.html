@@ -4234,8 +4234,27 @@ function mealCheckKey(planId,dayIdx,ri,date){return`mc:${date}:${planId}:${dayId
 function isMealDone(planId,dayIdx,ri){return localStorage.getItem(mealCheckKey(planId,dayIdx,ri,today()))==='1';}
 function toggleMealDone(planId,dayIdx,ri){
   const k=mealCheckKey(planId,dayIdx,ri,today());
-  if(localStorage.getItem(k)==='1')localStorage.removeItem(k);else localStorage.setItem(k,'1');
-  renderPlanDetail();
+  const wasDone=localStorage.getItem(k)==='1';
+  if(wasDone)localStorage.removeItem(k);else localStorage.setItem(k,'1');
+  renderPlanDetail(); // affichage immédiat, la DB suit derrière
+  syncMealCheck(planId,dayIdx,ri,today(),!wasDone);
+}
+// La coche vivait uniquement en localStorage : le coach ne pouvait pas savoir
+// si le client suivait son menu. On la persiste aussi (sans bloquer l'UI).
+async function syncMealCheck(planId,dayIdx,ri,date,done){
+  if(!clientData)return;
+  try{
+    if(done){
+      await db.from('meal_checks').upsert({
+        coach_id:clientData.coach_id,client_id:clientData.id,
+        date,plan_id:String(planId),day_idx:dayIdx,meal_idx:ri
+      },{onConflict:'client_id,date,plan_id,day_idx,meal_idx'});
+    } else {
+      await db.from('meal_checks').delete()
+        .eq('client_id',clientData.id).eq('date',date)
+        .eq('plan_id',String(planId)).eq('day_idx',dayIdx).eq('meal_idx',ri);
+    }
+  }catch(e){console.warn('[MEAL CHECK]',e);}
 }
 function calcDayMacros(day,planRefId,dayIdx){
   let dk=0,dp=0,dc=0,df=0;
