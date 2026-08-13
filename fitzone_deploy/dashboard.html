@@ -4709,41 +4709,22 @@ function _renderTrainingContent(el,logs){
   if(!logs)logs=[];
   const colors={1:'#8b5cf6',2:'#ef4444',3:'#f59e0b',4:'#22c55e'};
 
-  // Find assigned programme for this client
-  const clientProgs=progs.filter(p=>p.clientId===curClient.id);
-  let progHtml='';
-  if(clientProgs.length){
-    const latestProg=clientProgs[clientProgs.length-1];
-    const jours=latestProg.jours||[];
-    // Compute total volume
-    const tVol={};let tSets=0;
-    jours.forEach(day=>{['warmup','workout','cooldown'].forEach(sec=>(day[sec]||[]).forEach(e=>{
-      const exos=e.superset?(e.exercises||[]):[e];
-      exos.forEach(ex=>{const m=ex.muscle||'Autre';const s=ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0);tVol[m]=(tVol[m]||0)+s;tSets+=s;});
-    }));});
-    const selDay=window._clientProgDay||0;
-    progHtml=`<div class="plan-card" style="margin-bottom:20px;border:1.5px solid var(--dark)">
-      <div class="plan-hdr" style="background:var(--dark);color:white" onclick="window._clientProgOpen=!this.nextElementSibling.classList.contains('open');this.nextElementSibling.classList.toggle('open')">
-        <div style="width:36px;height:36px;border-radius:10px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">🏋️</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:700">${latestProg.nom}${hiddenBadge(isVisibleToClient(latestProg))}</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;display:flex;flex-wrap:wrap;gap:6px">
-            <span>${jours.length} séance${jours.length>1?'s':''} · ${tSets} séries</span>
-            <span style="opacity:.3">·</span>
-            ${Object.entries(tVol).map(([m,s])=>`<span>${m}: ${s}s</span>`).join('<span style="opacity:.3">·</span>')}
-          </div>
-        </div>
-        ${visibilityBtn('programs',latestProg.id,isVisibleToClient(latestProg),'renderTrainingTab')}
-        <button class="btn btn-ghost btn-xs" style="color:var(--gold);border-color:rgba(255,255,255,.2)" onclick="event.stopPropagation();editClientProgram(${latestProg.id})">Modifier</button>
-        <button class="btn btn-ghost btn-xs" style="color:color-mix(in srgb,#ef4444 var(--ink,100%),var(--text));border-color:rgba(255,255,255,.1)" onclick="event.stopPropagation();deleteClientProgram(${latestProg.id})">Supprimer</button>
-      </div>
-      <div class="plan-body${window._clientProgOpen?' open':''}">
-        <div style="display:flex;overflow-x:auto;border-bottom:1px solid var(--border);margin:-14px -16px 12px;padding:0 16px">
-          ${jours.map((j,ji)=>`<button onclick="event.stopPropagation();window._clientProgDay=${ji};window._clientProgOpen=true;renderTrainingTab()" style="padding:8px 14px;font-size:12px;font-weight:${ji===selDay?'700':'500'};color:${ji===selDay?'var(--gold)':'var(--text3)'};border:none;border-bottom:${ji===selDay?'2px solid var(--gold)':'2px solid transparent'};background:none;cursor:pointer;white-space:nowrap;font-family:var(--font)">${j.nom}</button>`).join('')}
-        </div>
-        ${_renderClientProgDay(jours[selDay])}
-      </div>
-    </div>`;
+  // Tous les programmes du client, du plus récent au plus ancien.
+  // Le plus récent est ouvert par défaut, les autres forment l'historique.
+  const clientProgs=progs.filter(p=>p.clientId===curClient.id||(p.clientIds||[]).includes(curClient.id))
+    .slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  window._cliProgOpen=window._cliProgOpen||{};
+  window._cliProgDay=window._cliProgDay||{};
+  const nbVisibles=clientProgs.filter(isVisibleToClient).length;
+  let progHtml=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <span style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text3);text-transform:uppercase">Programmes (${clientProgs.length})</span>
+    <span style="font-size:11px;color:var(--text3)">${clientProgs.length?nbVisibles+' visible'+(nbVisibles>1?'s':'')+' par le client':''}</span>
+    <button class="btn btn-gold btn-sm" style="margin-left:auto" onclick="openProgBuilderForClient(null)">+ Nouveau programme</button>
+  </div>`;
+  if(!clientProgs.length){
+    progHtml+=`<div class="empty" style="margin-bottom:20px"><div class="ei">💪</div><div class="et">Aucun programme</div><div class="es">Crée le premier programme d'entraînement de ce client</div></div>`;
+  } else {
+    progHtml+=clientProgs.map((p,pi)=>_renderClientProgCard(p,pi===0)).join('')+`<div style="margin-bottom:20px"></div>`;
   }
 
   // Group by session name
@@ -4804,6 +4785,59 @@ function _renderClientProgDay(day){
   });
   if(day.instr)h+=`<div style="margin-top:8px;padding:8px 10px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.5"><strong style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Instructions</strong><br>${day.instr}</div>`;
   return h||'<div style="font-size:12px;color:var(--text3)">Séance vide</div>';
+}
+// Une carte par programme du client : repliée par défaut sauf le plus récent.
+// L'oeil 👁️ décide lequel (ou lesquels) le client voit dans son app.
+function _renderClientProgCard(p,isLatest){
+  const jours=p.jours||[];
+  const tVol={};let tSets=0;
+  jours.forEach(day=>{['warmup','workout','cooldown'].forEach(sec=>(day[sec]||[]).forEach(e=>{
+    const exos=e.superset?(e.exercises||[]):[e];
+    exos.forEach(ex=>{const m=ex.muscle||'Autre';const s=ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0);tVol[m]=(tVol[m]||0)+s;tSets+=s;});
+  }));});
+  const open=window._cliProgOpen[p.id]!==undefined?window._cliProgOpen[p.id]:isLatest;
+  const selDay=window._cliProgDay[p.id]||0;
+  const visible=isVisibleToClient(p);
+  const cree=p.createdAt?new Date(p.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):'';
+  const statut=visible
+    ? `<span style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;background:rgba(22,163,74,.18);color:#4ade80;border:1px solid rgba(22,163,74,.35)">VISIBLE</span>`
+    : `<span style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;background:rgba(255,160,0,.18);color:#fbbf24;border:1px solid rgba(255,160,0,.35)">🙈 MASQUÉ</span>`;
+  return`<div class="plan-card" style="margin-bottom:10px;border:1.5px solid ${visible?'var(--dark)':'var(--border)'};${visible?'':'opacity:.82'}">
+    <div class="plan-hdr" style="background:var(--dark);color:white" onclick="window._cliProgOpen['${p.id}']=!this.nextElementSibling.classList.contains('open');this.nextElementSibling.classList.toggle('open')">
+      <div style="width:36px;height:36px;border-radius:10px;background:${visible?'var(--gold)':'rgba(255,255,255,.12)'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">🏋️</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px;flex-wrap:wrap">${esc(p.nom||'Programme')} ${statut}${isLatest?'<span style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;background:var(--gold-pale);color:var(--gold);border:1px solid var(--gold-border)">LE PLUS RÉCENT</span>':''}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;display:flex;flex-wrap:wrap;gap:6px">
+          <span>${jours.length} séance${jours.length>1?'s':''} · ${tSets} séries</span>
+          ${cree?`<span style="opacity:.3">·</span><span>créé le ${cree}</span>`:''}
+          ${Object.keys(tVol).length?`<span style="opacity:.3">·</span>`+Object.entries(tVol).map(([m,s])=>`<span>${m}: ${s}s</span>`).join('<span style="opacity:.3">·</span>'):''}
+        </div>
+      </div>
+      ${visibilityBtn('programs',p.id,visible,'renderTrainingTab')}
+      <button class="btn btn-ghost btn-xs" style="color:var(--gold);border-color:rgba(255,255,255,.2)" onclick="event.stopPropagation();editClientProgram(${p.id})">✏️ Ouvrir</button>
+      <button class="btn btn-ghost btn-xs" style="color:white;border-color:rgba(255,255,255,.15)" title="Dupliquer pour repartir de ce programme" onclick="event.stopPropagation();duplicateClientProgram(${p.id})">📋</button>
+      <button class="btn btn-ghost btn-xs" style="color:color-mix(in srgb,#ef4444 var(--ink,100%),var(--text));border-color:rgba(255,255,255,.1)" onclick="event.stopPropagation();deleteClientProgram(${p.id})">✕</button>
+    </div>
+    <div class="plan-body${open?' open':''}">
+      ${jours.length?`<div style="display:flex;overflow-x:auto;border-bottom:1px solid var(--border);margin:-14px -16px 12px;padding:0 16px">
+        ${jours.map((j,ji)=>`<button onclick="event.stopPropagation();window._cliProgDay['${p.id}']=${ji};window._cliProgOpen['${p.id}']=true;renderTrainingTab()" style="padding:8px 14px;font-size:12px;font-weight:${ji===selDay?'700':'500'};color:${ji===selDay?'var(--gold)':'var(--text3)'};border:none;border-bottom:${ji===selDay?'2px solid var(--gold)':'2px solid transparent'};background:none;cursor:pointer;white-space:nowrap;font-family:var(--font)">${esc(j.nom||'Jour '+(ji+1))}</button>`).join('')}
+      </div>${_renderClientProgDay(jours[selDay])}`:`<div style="font-size:12px;color:var(--text3)">Ce programme n'a pas encore de séance.</div>`}
+    </div>
+  </div>`;
+}
+// Repartir d'un programme existant sans écraser l'ancien (suivi long terme)
+async function duplicateClientProgram(progId){
+  const src=progs.find(p=>String(p.id)===String(progId));
+  if(!src||!curClient)return;
+  const copie={...JSON.parse(JSON.stringify(src)),id:Date.now(),
+    nom:(src.nom||'Programme')+' (copie)',
+    createdAt:new Date().toISOString(),
+    visible_client:false // la copie reste masquée le temps d'être retravaillée
+  };
+  progs.push(copie);lsSave('fz_progs',progs);
+  await dbSave('programs',copie);
+  toast('Programme dupliqué (masqué au client)');
+  renderTrainingTab();
 }
 function _renderClientExoBlock(e,letter){
   if(!e.setsData&&(e.sets||e.reps)){const n=parseInt(e.sets)||1;e.setsData=Array.from({length:n},()=>({reps:e.reps||'',rest:e.rest||'',rir:e.rir||'',tempo:e.tempo||''}));}

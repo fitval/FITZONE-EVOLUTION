@@ -843,6 +843,9 @@ let programs=[],plans=[],bilans=[],dailyLogs=[],trainLogs=[],modules=[],coachAli
 let macroTarget=null; // Objectif macro fixé par le coach (table plans, calcul macros de base) — sert d'objectif au tracking, indépendamment du plan repas
 let currentDayIdx=0,currentPlanIdx=null;
 let seanceOpen=false; // Entraînement > programme : false = liste des séances, true = aperçu de la séance courante
+let currentProgIdx=0; // le coach peut rendre plusieurs programmes visibles à la fois
+// Programme actuellement ouvert (jamais programs[0] en dur : il peut y en avoir plusieurs)
+function curProg(){return programs[currentProgIdx]||programs[0]||null;}
 let trainSubTab='list';
 let histMode='sessions',histExo=null;
 let coachActivityTypes=[];
@@ -1079,7 +1082,9 @@ async function loadData(){
     db.from('questionnaires').select('weight_kg,weight_goal,goal').eq('client_id',clientData.id).order('submitted_at',{ascending:false}).limit(1),
     db.from('plans').select('kcal_target,protein_g,carb_g,fat_g,water_goal_ml,water_meal_goal_ml,salt_goal_g,created_at').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(1)
   ]);
-  programs=p1.data||[];plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
+  // Plus récent en premier : programs[0] est le programme courant du client
+  programs=(p1.data||[]).slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  plans=p2.data||[];bilans=p3.data||[];dailyLogs=p4.data||[];trainLogs=p5.data||[];modules=p6.data||[];coachAlims=p7.data||[];coachExos=p8.data||[];
   clientQuest=(p9.data&&p9.data[0])||null;
   macroTarget=(p10.data&&p10.data[0])||null;
   loadWaterLogs(); // compteur d'eau (non bloquant)
@@ -1316,12 +1321,12 @@ function renderHome(){
 
   // Next workout
   if(programs.length>0){
-    const p=programs[0],j=p.jours||[];
+    const p=curProg(),j=p.jours||[];
     if(j.length>0){
       const d=j[0],cnt=(d.warmup||[]).length+(d.workout||[]).length+(d.cooldown||[]).length;
-      html+=`<div class="card-gold fade-up" style="animation-delay:.2s;cursor:pointer" onclick="trainSubTab='programme';currentDayIdx=0;seanceOpen=true;switchTab('Train')">
+      html+=`<div class="card-gold fade-up" style="animation-delay:.2s;cursor:pointer" onclick="trainSubTab='programme';currentProgIdx=0;currentDayIdx=0;seanceOpen=true;switchTab('Train')">
         <div class="card-label">LANCER LA PROCHAINE SÉANCE</div>
-        <div style="display:flex;align-items:center;gap:16px"><div style="flex:1"><div style="font-size:17px;font-weight:700;color:white;margin-bottom:3px">${d.nom||p.nom||'Séance'}</div><div style="font-size:12px;color:rgba(255,255,255,.5)">${cnt} exercices · Jour 1</div></div><button class="workout-go" onclick="event.stopPropagation();trainSubTab='programme';currentDayIdx=0;seanceOpen=true;switchTab('Train')">Go →</button></div>
+        <div style="display:flex;align-items:center;gap:16px"><div style="flex:1"><div style="font-size:17px;font-weight:700;color:white;margin-bottom:3px">${d.nom||p.nom||'Séance'}</div><div style="font-size:12px;color:rgba(255,255,255,.5)">${cnt} exercices · Jour 1</div></div><button class="workout-go" onclick="event.stopPropagation();trainSubTab='programme';currentProgIdx=0;currentDayIdx=0;seanceOpen=true;switchTab('Train')">Go →</button></div>
       </div>`;
     }
   }
@@ -1514,12 +1519,15 @@ function renderTrainLanding(){
   if(!programs.length){
     h+=`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;
   } else {
-    const p=programs[0];const nb=(p.jours||[]).length;
-    h+=`<div class="card-label" style="color:var(--text3);margin-bottom:8px">MON PROGRAMME</div>`;
-    h+=`<div class="plan-card fade-up" onclick="trainSubTab='programme';seanceOpen=false;renderTrainPreview()">
-      <div class="plan-name">${p.nom||'Programme'}</div>
-      <div style="font-size:13px;color:var(--text3);margin-top:4px">${nb?nb+' séance'+(nb>1?'s':'')+' · touche pour voir':'Aucune séance'}</div>
-    </div>`;
+    // Le coach peut rendre plusieurs programmes visibles : une carte par programme
+    h+=`<div class="card-label" style="color:var(--text3);margin-bottom:8px">${programs.length>1?'MES PROGRAMMES':'MON PROGRAMME'}</div>`;
+    h+=programs.map((p,i)=>{
+      const nb=(p.jours||[]).length;
+      return`<div class="plan-card fade-up" style="animation-delay:${Math.min(i*.05,.2)}s" onclick="currentProgIdx=${i};trainSubTab='programme';seanceOpen=false;renderTrainPreview()">
+        <div class="plan-name">${p.nom||'Programme'}</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:4px">${nb?nb+' séance'+(nb>1?'s':'')+' · touche pour voir':'Aucune séance'}</div>
+      </div>`;
+    }).join('');
   }
   document.getElementById('trainContent').innerHTML=h;
 }
@@ -1530,7 +1538,7 @@ function renderTrainPreview(){
   if(trainSubTab==='activites'){document.getElementById('trainTitle').textContent='Activité libre';document.getElementById('trainContent').innerHTML=backBtn+renderActivitiesView();return;}
   if(trainSubTab==='historique'){document.getElementById('trainTitle').textContent='Historique';document.getElementById('trainContent').innerHTML=backBtn+renderHistoryView();return;}
   if(!programs.length){document.getElementById('trainTitle').textContent='Entraînement';document.getElementById('trainContent').innerHTML=backBtn+`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;return;}
-  const p=programs[0],jours=p.jours||[];
+  const p=curProg(),jours=p.jours||[];
   if(!jours.length){document.getElementById('trainTitle').textContent=p.nom||'Entraînement';document.getElementById('trainContent').innerHTML=backBtn+`<div class="empty"><div class="empty-text">Ce programme n'a pas encore de séances.</div></div>`;return;}
 
   // Niveau 1 : la liste des séances du programme
@@ -2138,7 +2146,7 @@ async function saveEditActivity(logId){
 /* ===== ACTIVE RUNNING WORKOUT ===== */
 let runningActive=false, runningBlocks=[], runningStart=null, runningTimerInterval=null, runningRestInterval=null;
 function startRunningWorkout(){
-  const p=programs[0],day=(p.jours||[])[currentDayIdx];if(!day)return;
+  const p=curProg(),day=((p||{}).jours||[])[currentDayIdx];if(!day)return;
   workoutActive=true;runningActive=true;runningStart=Date.now();
   const swb=document.getElementById('startWorkoutBtn');if(swb)swb.remove();
   // Build flat block state
@@ -2163,7 +2171,7 @@ function updateRunningTimer(){
 }
 const _RUN_SEC_LBL={warmup:'🔥 Échauffement',workout:'🏃 Corps de séance',cooldown:'❄️ Retour au calme'};
 function renderActiveRunning(){
-  const p=programs[0],day=(p.jours||[])[currentDayIdx];
+  const p=curProg(),day=((p||{}).jours||[])[currentDayIdx];
   const dayName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
   const vma=parseFloat(clientData?.vma_kmh)||0;
   let h=`<div class="wo-header"><button class="wo-back" onclick="endRunningWorkout(false)">←</button><div class="wo-title">${dayName}</div><div class="wo-timer-wrap"><div class="wo-timer" id="woTimer">00:00</div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>`;
@@ -2246,7 +2254,7 @@ function finishRunningSession(){
 }
 
 function openRunDoneModal(prefilledDurMin){
-  const p=programs[0],day=(p.jours||[])[currentDayIdx];if(!day)return;
+  const p=curProg(),day=((p||{}).jours||[])[currentDayIdx];if(!day)return;
   const inputStyle='width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;font-family:var(--font);outline:none;background:var(--white);color:var(--text);box-sizing:border-box';
   const labelStyle='display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px';
   // Récap des reps validées en mode actif
@@ -2277,7 +2285,7 @@ function openRunDoneModal(prefilledDurMin){
   openModal(html);
 }
 async function saveRunDone(){
-  const p=programs[0],day=(p.jours||[])[currentDayIdx];if(!day)return;
+  const p=curProg(),day=((p||{}).jours||[])[currentDayIdx];if(!day)return;
   const dur=parseFloat(document.getElementById('rdDur')?.value)||0;
   const dist=parseFloat(document.getElementById('rdDist')?.value)||0;
   const rpe=parseInt(document.getElementById('rdRpe')?.value)||null;
@@ -2355,7 +2363,7 @@ function startWorkout(){
   const swb=document.getElementById('startWorkoutBtn');if(swb)swb.remove();
   workoutActive=true;
   workoutStart=Date.now();
-  const p=programs[0],day=(p.jours||[])[currentDayIdx];
+  const p=curProg(),day=((p||{}).jours||[])[currentDayIdx];
   if(!day)return;
 
   // Build workout data — préserve les supersets en marquant chaque exo avec un supersetId + position
@@ -2424,7 +2432,7 @@ function updateWorkoutTimer(){
 }
 
 function renderActiveWorkout(){
-  const day=(programs[0].jours||[])[currentDayIdx];
+  const day=((curProg()||{}).jours||[])[currentDayIdx];
   const dayName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
   let h=`<div class="wo-header"><button class="wo-back" onclick="endWorkout(false)">←</button><div class="wo-title">${dayName}</div><div class="wo-timer-wrap"><div class="wo-timer" id="woTimer">00:00</div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>`;
 
@@ -2640,7 +2648,7 @@ async function finalizeWorkout(){
   const comment=document.getElementById('wo_comment')?document.getElementById('wo_comment').value.trim():'';
   workoutActive=false;
   if(workoutData.length){
-    const day=(programs[0].jours||[])[currentDayIdx];
+    const day=((curProg()||{}).jours||[])[currentDayIdx];
     const sessionName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
     // Upload exercise videos to Drive
     const nom=(clientData&&(clientData.first_name||clientData.last_name))?((clientData.first_name||'')+'_'+(clientData.last_name||'')).replace(/\s+/g,'_').replace(/_+$/,''):'client';
@@ -4456,7 +4464,7 @@ function togglePreviewSwap(btn){
     div.className='swap-item';
     div.innerHTML=`<span style="color:var(--gold)">↔</span> ${o.nom}`;
     div.onclick=()=>{
-      const p=programs[0],day=(p.jours||[])[currentDayIdx];
+      const p=curProg(),day=((p||{}).jours||[])[currentDayIdx];
       if(!day)return;
       let found=false;
       ['warmup','workout','cooldown'].forEach(sec=>{

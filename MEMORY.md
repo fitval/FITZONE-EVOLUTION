@@ -266,6 +266,14 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
 - Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
 
+### Session 2026-08-13 (bis) — Onglet Training : plusieurs programmes par client + historique
+- L'onglet Training n'affichait que `clientProgs[clientProgs.length-1]` — **un seul programme**. Il liste maintenant **tous** les programmes du client, triés par `createdAt` décroissant (`_renderClientProgCard()`), le plus récent déplié, les anciens repliés = l'historique long terme.
+- Chaque carte : badge **VISIBLE** (vert) / **🙈 MASQUÉ**, badge « LE PLUS RÉCENT », nb séances/séries, date de création, volume par muscle. Actions : 👁️ (visible_client), **✏️ Ouvrir** (builder monté inline dans la fiche via `openProgBuilderForClient`), **📋 dupliquer**, ✕ supprimer.
+- `duplicateClientProgram()` : copie un programme sous un nouvel id, `visible_client:false` — pour construire le bloc suivant sans écraser l'ancien.
+- Bouton **+ Nouveau programme** (`openProgBuilderForClient(null)` → builder vide, client déjà assigné).
+- État par programme : `window._cliProgOpen[id]` / `_cliProgDay[id]` (avant : `_clientProgOpen` / `_clientProgDay` globaux, donc un seul programme possible).
+- **client.html suit** : plusieurs programmes visibles = plusieurs cartes sur la page d'accueil Entraînement. Nouvelle variable `currentProgIdx` + helper **`curProg()`** — les 10 `programs[0]` en dur ont été remplacés ; `programs` est trié par `created_at` décroissant au chargement. Ne plus jamais écrire `programs[0]` : utiliser `curProg()`.
+
 ### Session 2026-08-13 — Onglet « 🤖 Récap » (usage hebdo du client) dans la fiche client
 - Nouvel onglet **Récap** (1er après Questionnaire) : en un coup d'œil, comment le client a utilisé l'app cette semaine. `renderRecapTab()` + `recapCollect(offset)` dans `dashboard.html`.
 - **Les chiffres sont calculés en JS, pas par l'IA** (fiables, gratuits, instantanés) : rapports quotidiens n/7, séances faites/prévues (programme assigné), activités libres, repas validés/prévus, jours de tracking alimentaire, bilan hebdo envoyé, eau, delta de poids — chaque métrique comparée à la **semaine précédente**. Un score de suivi global (moyenne des taux) + une frise jour par jour (📝 rapport / 💪 séance / 🍽️ tracking).
