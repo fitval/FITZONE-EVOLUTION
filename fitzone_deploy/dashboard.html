@@ -2734,6 +2734,8 @@ let canEditClient=true;
 async function openDet(id){
   bldCloseAll();
   curClient=allClients.find(c=>c.id===id);if(!curClient)return;
+  // Chaque fiche client s'ouvre sur l'accueil de l'onglet Training, pas sur la vue perf du client précédent
+  window._trainMain='home';window._perfProgId=null;window._cliProgOpen={};window._cliProgDay={};
   canEditClient=isAdmin||curClient.coach_id===currentCoach.id;
   sessionStorage.setItem('fz_current_client',id);
   // Reset le flag de premier rendu de la roadmap pour que l'auto-scroll
@@ -4727,38 +4729,73 @@ function _renderTrainingContent(el,logs){
     progHtml+=clientProgs.map((p,pi)=>_renderClientProgCard(p,pi===0)).join('')+`<div style="margin-bottom:20px"></div>`;
   }
 
-  // Group by session name
-  const sessions={};logs.forEach(l=>{if(!sessions[l.session])sessions[l.session]=[];sessions[l.session].push(l);});
-  const sesNames=Object.keys(sessions);
-  const selSes=window._trainSes&&sessions[window._trainSes]?window._trainSes:sesNames[0]||'';
-  const viewMode=window._trainView||'progression';
-  // Session tabs (instead of select)
-  const sesTabs=sesNames.length?`<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:12px;-webkit-overflow-scrolling:touch">${sesNames.map(s=>{
-    const count=sessions[s].length;
-    const active=s===selSes;
-    return`<button onclick="window._trainSes='${s.replace(/'/g,"\\'")}';renderTrainingTab()" style="padding:10px 16px;font-size:13px;font-weight:700;border-radius:10px;border:1.5px solid ${active?'var(--dark)':'var(--border)'};background:${active?'var(--dark)':'var(--white)'};color:${active?'white':'var(--text)'};cursor:pointer;white-space:nowrap;font-family:var(--font);display:inline-flex;align-items:center;gap:8px;flex-shrink:0">${s}<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${active?'var(--gold)':'var(--bg2)'};color:${active?'var(--dark)':'var(--text3)'};font-weight:800">${count}</span></button>`;
-  }).join('')}</div>`:'';
+  const strengthLogs=logs.filter(l=>Array.isArray(l.exercises)&&l.exercises.length);
+  window._trainMain=window._trainMain||'home';
+
+  /* ---- Vue « Suivi des performances » (plein écran) ---- */
+  if(window._trainMain==='perf'){
+    el.innerHTML=`
+      <button class="btn btn-ghost btn-sm" style="margin-bottom:12px" onclick="window._trainMain='home';renderTrainingTab()">← Retour</button>
+      <div id="perfMatrix"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="window._trainMain='legacy';renderTrainingTab()">📊 Anciennes vues (comparaison / détail)</button>
+        <button class="btn btn-dark btn-sm" onclick="addTrainLog()">+ Ajouter une séance à la main</button>
+      </div>`;
+    _renderPerfMatrix(document.getElementById('perfMatrix'),clientProgs,strengthLogs);
+    return;
+  }
+
+  /* ---- Anciennes vues conservées (comparaison / détail séance) ---- */
+  if(window._trainMain==='legacy'){
+    const sessions={};logs.forEach(l=>{if(!sessions[l.session])sessions[l.session]=[];sessions[l.session].push(l);});
+    const sesNames=Object.keys(sessions);
+    const selSes=window._trainSes&&sessions[window._trainSes]?window._trainSes:sesNames[0]||'';
+    const viewMode=window._trainView||'progression';
+    const sesTabs=sesNames.length?`<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:12px;-webkit-overflow-scrolling:touch">${sesNames.map(s=>{
+      const count=sessions[s].length,active=s===selSes;
+      return`<button onclick="window._trainSes='${s.replace(/'/g,"\\'")}';renderTrainingTab()" style="padding:10px 16px;font-size:13px;font-weight:700;border-radius:10px;border:1.5px solid ${active?'var(--dark)':'var(--border)'};background:${active?'var(--dark)':'var(--white)'};color:${active?'white':'var(--text)'};cursor:pointer;white-space:nowrap;font-family:var(--font);display:inline-flex;align-items:center;gap:8px;flex-shrink:0">${s}<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${active?'var(--gold)':'var(--bg2)'};color:${active?'var(--dark)':'var(--text3)'};font-weight:800">${count}</span></button>`;
+    }).join('')}</div>`:'';
+    el.innerHTML=`
+      <button class="btn btn-ghost btn-sm" style="margin-bottom:12px" onclick="window._trainMain='home';renderTrainingTab()">← Retour</button>
+      ${sesTabs}
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+          <button class="btn btn-xs ${viewMode==='progression'?'btn-dark':'btn-ghost'}" style="border-radius:0;border:none" onclick="window._trainView='progression';renderTrainingTab()">📊 Comparaison</button>
+          <button class="btn btn-xs ${viewMode==='cycles'?'btn-dark':'btn-ghost'}" style="border-radius:0;border:none" onclick="window._trainView='cycles';renderTrainingTab()">🗓️ Détail séance</button>
+        </div>
+        <button class="btn btn-dark btn-sm" onclick="addTrainLog()">+ Ajouter une séance</button>
+      </div>
+      <div id="trainContent"></div>`;
+    const contentEl=document.getElementById('trainContent');
+    if(!selSes||!sessions[selSes]){contentEl.innerHTML='<div class="empty" style="padding:30px"><div class="ei">💪</div><div class="et">Aucune séance enregistrée</div></div>';return;}
+    const sorted=sessions[selSes].sort((a,b)=>new Date(a.date)-new Date(b.date));
+    if(viewMode==='progression')renderProgressionView(contentEl,sorted,colors);
+    else renderCyclesView(contentEl,sorted,colors);
+    return;
+  }
+
+  /* ---- Accueil de l'onglet : les programmes, puis le suivi, puis le volume ---- */
+  const nbSeances=strengthLogs.length;
+  const derniere=nbSeances?strengthLogs.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0].date:null;
+  const perfCard=`<div class="plan-card" style="margin:0 0 12px;border:1.5px solid var(--dark);cursor:pointer" onclick="window._trainMain='perf';renderTrainingTab()">
+    <div class="plan-hdr" style="background:var(--dark);color:white">
+      <div style="width:36px;height:36px;border-radius:10px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">📈</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700">Suivi des performances</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${nbSeances?nbSeances+' séance'+(nbSeances>1?'s':'')+' enregistrée'+(nbSeances>1?'s':'')+(derniere?' · dernière le '+new Date(derniere).toLocaleDateString('fr-FR'):''):'Aucune séance enregistrée pour le moment'} · reps, charges et RIR séance après séance</div>
+      </div>
+      <span style="font-size:18px;color:var(--gold)">→</span>
+    </div>
+  </div>`;
   el.innerHTML=`
     ${progHtml}
-    ${sesTabs}
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-      <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
-        <button class="btn btn-xs ${viewMode==='progression'?'btn-dark':'btn-ghost'}" style="border-radius:0;border:none" onclick="window._trainView='progression';renderTrainingTab()">📊 Comparaison</button>
-        <button class="btn btn-xs ${viewMode==='cycles'?'btn-dark':'btn-ghost'}" style="border-radius:0;border:none" onclick="window._trainView='cycles';renderTrainingTab()">🗓️ Détail séance</button>
-      </div>
-      <button class="btn btn-dark btn-sm" onclick="addTrainLog()">+ Ajouter une séance</button>
-      <button class="btn btn-gold btn-sm" onclick="openProgBuilderForClient()">🏋️ Créer un programme</button>
+    ${perfCard}
+    ${_renderVolumeChart(clientProgs[0])}
+    <div style="display:flex;align-items:center;gap:10px;margin:16px 0;flex-wrap:wrap">
       <button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700" onclick="openGenTrainPlanModal()">🤖 Programme IA</button>
       <button class="btn btn-ghost btn-sm" onclick="swDet('calendar',document.querySelector('#detTabs .tab:last-child'));renderCalendarTab()">📅 Calendrier</button>
     </div>
-    <div id="progSlot"></div>
-    <div id="trainContent"></div>
-`;
-  const contentEl=document.getElementById('trainContent');
-  if(!selSes||!sessions[selSes]){contentEl.innerHTML='<div class="empty" style="padding:30px"><div class="ei">💪</div><div class="et">Aucune séance enregistrée</div><div class="es">Ajoute la première séance de ce client</div></div>';return;}
-  const sorted=sessions[selSes].sort((a,b)=>new Date(a.date)-new Date(b.date));
-  if(viewMode==='progression'){renderProgressionView(contentEl,sorted,colors);}
-  else{renderCyclesView(contentEl,sorted,colors);}
+    <div id="progSlot"></div>`;
 }
 function _renderClientProgDay(day){
   if(!day)return'<div style="font-size:12px;color:var(--text3)">Aucune donnée</div>';
@@ -4795,36 +4832,234 @@ function _renderClientProgCard(p,isLatest){
     const exos=e.superset?(e.exercises||[]):[e];
     exos.forEach(ex=>{const m=ex.muscle||'Autre';const s=ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0);tVol[m]=(tVol[m]||0)+s;tSets+=s;});
   }));});
-  const open=window._cliProgOpen[p.id]!==undefined?window._cliProgOpen[p.id]:isLatest;
-  const selDay=window._cliProgDay[p.id]||0;
   const visible=isVisibleToClient(p);
   const cree=p.createdAt?new Date(p.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):'';
   const statut=visible
     ? `<span style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;background:rgba(22,163,74,.18);color:#4ade80;border:1px solid rgba(22,163,74,.35)">VISIBLE</span>`
-    : `<span style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;background:rgba(255,160,0,.18);color:#fbbf24;border:1px solid rgba(255,160,0,.35)">🙈 MASQUÉ</span>`;
-  return`<div class="plan-card" style="margin-bottom:10px;border:1.5px solid ${visible?'var(--dark)':'var(--border)'};${visible?'':'opacity:.82'}">
-    <div class="plan-hdr" style="background:var(--dark);color:white" onclick="window._cliProgOpen['${p.id}']=!this.nextElementSibling.classList.contains('open');this.nextElementSibling.classList.toggle('open')">
-      <div style="width:36px;height:36px;border-radius:10px;background:${visible?'var(--gold)':'rgba(255,255,255,.12)'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">🏋️</div>
+    : `<span style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;background:rgba(255,160,0,.18);color:#fbbf24;border:1px solid rgba(255,160,0,.35)">\u{1F648} MASQU\u00c9</span>`;
+  // Le rectangle entier ouvre le builder de CE programme
+  return`<div class="plan-card" style="margin-bottom:10px;border:1.5px solid ${visible?'var(--dark)':'var(--border)'};${visible?'':'opacity:.82'};cursor:pointer" onclick="editClientProgram(${p.id})">
+    <div class="plan-hdr" style="background:var(--dark);color:white">
+      <div style="width:36px;height:36px;border-radius:10px;background:${visible?'var(--gold)':'rgba(255,255,255,.12)'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">\u{1F3CB}\uFE0F</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px;flex-wrap:wrap">${esc(p.nom||'Programme')} ${statut}${isLatest?'<span style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;background:var(--gold-pale);color:var(--gold);border:1px solid var(--gold-border)">LE PLUS RÉCENT</span>':''}</div>
+        <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px;flex-wrap:wrap">${esc(p.nom||'Programme')} ${statut}${isLatest?'<span style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;background:var(--gold-pale);color:var(--gold);border:1px solid var(--gold-border)">PROGRAMME ACTUEL</span>':''}</div>
         <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;display:flex;flex-wrap:wrap;gap:6px">
-          <span>${jours.length} séance${jours.length>1?'s':''} · ${tSets} séries</span>
-          ${cree?`<span style="opacity:.3">·</span><span>créé le ${cree}</span>`:''}
-          ${Object.keys(tVol).length?`<span style="opacity:.3">·</span>`+Object.entries(tVol).map(([m,s])=>`<span>${m}: ${s}s</span>`).join('<span style="opacity:.3">·</span>'):''}
+          <span>${jours.length} s\u00e9ance${jours.length>1?'s':''} \u00b7 ${tSets} s\u00e9ries</span>
+          ${cree?`<span style="opacity:.3">\u00b7</span><span>cr\u00e9\u00e9 le ${cree}</span>`:''}
+          <span style="opacity:.3">\u00b7</span><span style="color:var(--gold)">toucher pour ouvrir le builder</span>
         </div>
       </div>
       ${visibilityBtn('programs',p.id,visible,'renderTrainingTab')}
-      <button class="btn btn-ghost btn-xs" style="color:var(--gold);border-color:rgba(255,255,255,.2)" onclick="event.stopPropagation();editClientProgram(${p.id})">✏️ Ouvrir</button>
-      <button class="btn btn-ghost btn-xs" style="color:white;border-color:rgba(255,255,255,.15)" title="Dupliquer pour repartir de ce programme" onclick="event.stopPropagation();duplicateClientProgram(${p.id})">📋</button>
-      <button class="btn btn-ghost btn-xs" style="color:color-mix(in srgb,#ef4444 var(--ink,100%),var(--text));border-color:rgba(255,255,255,.1)" onclick="event.stopPropagation();deleteClientProgram(${p.id})">✕</button>
-    </div>
-    <div class="plan-body${open?' open':''}">
-      ${jours.length?`<div style="display:flex;overflow-x:auto;border-bottom:1px solid var(--border);margin:-14px -16px 12px;padding:0 16px">
-        ${jours.map((j,ji)=>`<button onclick="event.stopPropagation();window._cliProgDay['${p.id}']=${ji};window._cliProgOpen['${p.id}']=true;renderTrainingTab()" style="padding:8px 14px;font-size:12px;font-weight:${ji===selDay?'700':'500'};color:${ji===selDay?'var(--gold)':'var(--text3)'};border:none;border-bottom:${ji===selDay?'2px solid var(--gold)':'2px solid transparent'};background:none;cursor:pointer;white-space:nowrap;font-family:var(--font)">${esc(j.nom||'Jour '+(ji+1))}</button>`).join('')}
-      </div>${_renderClientProgDay(jours[selDay])}`:`<div style="font-size:12px;color:var(--text3)">Ce programme n'a pas encore de séance.</div>`}
+      <button class="btn btn-ghost btn-xs" style="color:white;border-color:rgba(255,255,255,.15)" title="Dupliquer pour repartir de ce programme" onclick="event.stopPropagation();duplicateClientProgram(${p.id})">\u{1F4CB}</button>
+      <button class="btn btn-ghost btn-xs" style="color:color-mix(in srgb,#ef4444 var(--ink,100%),var(--text));border-color:rgba(255,255,255,.1)" onclick="event.stopPropagation();deleteClientProgram(${p.id})">\u2715</button>
     </div>
   </div>`;
 }
+/* ===== SUIVI DES PERFORMANCES (vue tableur) =====
+   À gauche la séance telle que prescrite (exos, séries, reps, RIR, repos).
+   À droite une colonne par séance réellement faite, la plus ancienne d'abord.
+   Chaque cellule reps/charge est comparée à la MÊME série de la séance
+   précédente : vert = progression, jaune = maintien, rouge = régression. */
+const PERF_UP='rgba(22,163,74,.22)',PERF_FLAT='rgba(234,179,8,.22)',PERF_DOWN='rgba(220,38,38,.20)';
+function _perfNorm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
+// Valeurs d'une série réalisée (gère les exercices unilatéraux)
+function _perfSetVals(s){
+  if(!s)return{kg:null,reps:null,rir:null};
+  const num=v=>{const n=parseFloat(v);return isNaN(n)?null:n;};
+  const kg=s.kgL!=null||s.kgR!=null?Math.max(num(s.kgL)||0,num(s.kgR)||0)||null:num(s.kg!==''&&s.kg!=null?s.kg:s.load);
+  const reps=s.repsL!=null||s.repsR!=null?Math.max(num(s.repsL)||0,num(s.repsR)||0)||null:num(s.reps);
+  const rir=num(s.rir!=null&&s.rir!==''?s.rir:(s.rirL!=null?s.rirL:null));
+  return{kg,reps,rir};
+}
+function _perfCellBg(cur,prev){
+  if(cur==null||prev==null)return'';
+  if(cur>prev)return`background:${PERF_UP}`;
+  if(cur===prev)return`background:${PERF_FLAT}`;
+  return`background:${PERF_DOWN}`;
+}
+// Liste à plat des exos prescrits d'une séance du programme
+function _perfPrescribedExos(day){
+  const out=[];
+  ['warmup','workout','cooldown'].forEach(sec=>(day[sec]||[]).forEach(e=>{
+    const grp=e.superset?(e.exercises||[]):[e];
+    grp.forEach(ex=>{
+      const sets=ex.setsData&&ex.setsData.length?ex.setsData:Array.from({length:parseInt(ex.sets)||1},()=>({reps:ex.reps||'',rest:ex.rest||'',rir:ex.rir||''}));
+      out.push({nom:ex.nom||'Exercice',muscle:ex.muscle||'',sets,superset:!!e.superset});
+    });
+  }));
+  return out;
+}
+function _renderPerfMatrix(el,clientProgs,logs){
+  if(!el)return;
+  if(!clientProgs.length){el.innerHTML=`<div class="empty"><div class="ei">💪</div><div class="et">Aucun programme</div><div class="es">Crée un programme pour suivre les performances séance par séance</div></div>`;return;}
+  const pid=window._perfProgId&&clientProgs.find(p=>String(p.id)===String(window._perfProgId))?window._perfProgId:clientProgs[0].id;
+  const prog=clientProgs.find(p=>String(p.id)===String(pid));
+  const jours=prog.jours||[];
+  const selector=clientProgs.length>1?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <span style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text3);text-transform:uppercase">Programme</span>
+    <select class="fs" style="min-width:230px;font-size:13px" onchange="window._perfProgId=this.value;renderTrainingTab()">
+      ${clientProgs.map(p=>`<option value="${p.id}"${String(p.id)===String(pid)?' selected':''}>${esc(p.nom||'Programme')}${p.createdAt?' — '+new Date(p.createdAt).toLocaleDateString('fr-FR'):''}</option>`).join('')}
+    </select>
+  </div>`:'';
+
+  // Séances réalisées, regroupées par nom de séance, plus ancienne d'abord
+  const parSeance={};
+  logs.forEach(l=>{const k=_perfNorm(l.session);(parSeance[k]=parSeance[k]||[]).push(l);});
+  Object.values(parSeance).forEach(a=>a.sort((x,y)=>String(x.date).localeCompare(String(y.date))));
+  const utilisees=new Set();
+
+  let html=selector+`<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;font-size:11px;color:var(--text3)">
+    <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${PERF_UP};vertical-align:-1px"></span> progresse</span>
+    <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${PERF_FLAT};vertical-align:-1px"></span> maintient</span>
+    <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${PERF_DOWN};vertical-align:-1px"></span> régresse</span>
+    <span style="margin-left:auto">Comparé à la séance précédente, série par série.</span>
+  </div>`;
+
+  jours.forEach((day,ji)=>{
+    const nom=day.nom||('Jour '+(ji+1));
+    const faites=parSeance[_perfNorm(nom)]||[];
+    utilisees.add(_perfNorm(nom));
+    html+=_perfTable(nom,_perfPrescribedExos(day),faites);
+  });
+
+  // Séances enregistrées qui ne correspondent à aucune séance de CE programme
+  const orphelines=Object.keys(parSeance).filter(k=>!utilisees.has(k));
+  if(orphelines.length){
+    html+=`<div style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text3);text-transform:uppercase;margin:22px 0 8px">Séances hors de ce programme</div>`;
+    orphelines.forEach(k=>{const a=parSeance[k];html+=_perfTable(a[0].session||'Séance',[],a);});
+  }
+  el.innerHTML=html;
+}
+function _perfTable(nom,prescrits,faites){
+  // Exos réalisés absents du programme (ajoutés ou remplacés par le client)
+  const noms=prescrits.map(e=>_perfNorm(e.nom));
+  const extras=[];
+  faites.forEach(l=>(l.exercises||[]).forEach(ex=>{
+    const n=_perfNorm(ex.nom);
+    if(!noms.includes(n)&&!extras.some(e=>_perfNorm(e.nom)===n))extras.push({nom:ex.nom,muscle:'',sets:[],hors:true});
+  }));
+  const exos=prescrits.concat(extras);
+  if(!exos.length)return'';
+
+  const th=(t,extra)=>`<th style="padding:5px 7px;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;${extra||''}">${t}</th>`;
+  // Colonnes figées à gauche : largeurs verrouillées, sinon les left: ne tombent plus juste au scroll
+  const W=[34,170,46],L=[0,34,204];
+  const stick=(i,bg)=>`position:sticky;left:${L[i]}px;z-index:3;background:${bg||'var(--white)'};width:${W[i]}px;min-width:${W[i]}px;max-width:${W[i]}px`
+    +(i===2?';box-shadow:2px 0 0 var(--border)':'');
+
+  // Volume total par séance réalisée
+  const volumes=faites.map(l=>{
+    let v=0;(l.exercises||[]).forEach(ex=>(ex.sets||[]).forEach(s=>{const{kg,reps}=_perfSetVals(s);if(kg&&reps)v+=kg*reps;}));
+    return Math.round(v);
+  });
+  const nbSets=faites.map(l=>{let n=0;(l.exercises||[]).forEach(ex=>(ex.sets||[]).forEach(s=>{const{kg,reps}=_perfSetVals(s);if(kg||reps)n++;}));return n;});
+
+  let h=`<div style="margin-bottom:22px">
+    <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:7px;flex-wrap:wrap">
+      <span style="font-size:14px;font-weight:800">${esc(nom)}</span>
+      <span style="font-size:11px;color:var(--text3)">${faites.length?faites.length+' séance'+(faites.length>1?'s':'')+' réalisée'+(faites.length>1?'s':''):'jamais réalisée'}</span>
+    </div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--white)">
+    <table style="border-collapse:separate;border-spacing:0;font-size:12px;min-width:100%">
+      <thead><tr>
+        ${th('#',stick(0))}
+        ${th('Exercice',stick(1)+';text-align:left')}
+        ${th('Série',stick(2))}
+        ${th('Reps',';min-width:52px')}${th('RIR',';min-width:40px')}${th('Repos',';min-width:52px;border-right:2px solid var(--border)')}
+        ${faites.map((l,i)=>{
+          const dt=l.date?new Date(l.date):null;
+          const d=dt&&!isNaN(dt)?dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):'—';
+          return`<th colspan="4" style="padding:5px 7px;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text2);border-bottom:1px solid var(--border);border-right:2px solid var(--border);white-space:nowrap;background:var(--bg2)">Séance ${i+1} · ${d}${l.cycle?' · RPE '+esc(String(l.cycle)):''}</th>`;
+        }).join('')}
+      </tr><tr>
+        ${th('',stick(0))}${th('',stick(1))}${th('',stick(2))}
+        ${th('prévu')}${th('')}${th('',';border-right:2px solid var(--border)')}
+        ${faites.map(()=>`${th('Reps')}${th('Charge')}${th('RIR')}${th('Note',';border-right:2px solid var(--border)')}`).join('')}
+      </tr></thead><tbody>`;
+
+  exos.forEach((exo,ei)=>{
+    // Nombre de lignes = max(séries prévues, séries réalisées toutes séances confondues)
+    const realises=faites.map(l=>(l.exercises||[]).find(x=>_perfNorm(x.nom)===_perfNorm(exo.nom))||null);
+    const nbLignes=Math.max(exo.sets.length||0,...realises.map(r=>r&&r.sets?r.sets.length:0),1);
+    const bgExo=ei%2?'var(--bg)':'var(--white)';
+    for(let si=0;si<nbLignes;si++){
+      const p=exo.sets[si]||{};
+      h+=`<tr>`;
+      if(si===0){
+        h+=`<td rowspan="${nbLignes}" style="${stick(0,bgExo)};padding:6px;text-align:center;font-weight:800;color:var(--text3);border-bottom:1px solid var(--border)">${ei+1}</td>`;
+        h+=`<td rowspan="${nbLignes}" style="${stick(1,bgExo)};padding:6px 8px;border-bottom:1px solid var(--border)">
+          <div style="font-weight:700;line-height:1.25">${esc(exo.nom)}${exo.hors?'<span style="font-size:9px;font-weight:800;color:var(--gold-deep);background:var(--gold-pale);border-radius:4px;padding:1px 5px;margin-left:5px">HORS PROG.</span>':''}</div>
+          ${exo.muscle?`<div style="font-size:10px;color:var(--text3);margin-top:1px">${esc(exo.muscle)}</div>`:''}
+        </td>`;
+      }
+      h+=`<td style="${stick(2,bgExo)};padding:5px;text-align:center;color:var(--text3);font-weight:700;border-bottom:1px solid var(--border)">${si+1}</td>`;
+      h+=`<td style="padding:5px;text-align:center;color:var(--text2);border-bottom:1px solid var(--border)">${esc(p.reps||'—')}</td>`;
+      h+=`<td style="padding:5px;text-align:center;color:var(--text3);border-bottom:1px solid var(--border)">${esc(p.rir||'—')}</td>`;
+      h+=`<td style="padding:5px;text-align:center;color:var(--text3);border-bottom:1px solid var(--border);border-right:2px solid var(--border)">${esc(p.rest||'—')}</td>`;
+      realises.forEach((r,li)=>{
+        const cur=_perfSetVals(r&&r.sets?r.sets[si]:null);
+        const rPrev=realises[li-1];
+        const prev=li>0?_perfSetVals(rPrev&&rPrev.sets?rPrev.sets[si]:null):{kg:null,reps:null};
+        h+=`<td style="padding:5px;text-align:center;font-weight:700;border-bottom:1px solid var(--border);${_perfCellBg(cur.reps,prev.reps)}">${cur.reps!=null?fmtMetric(cur.reps):''}</td>`;
+        h+=`<td style="padding:5px;text-align:center;font-weight:700;border-bottom:1px solid var(--border);${_perfCellBg(cur.kg,prev.kg)}">${cur.kg!=null?fmtMetric(cur.kg):''}</td>`;
+        h+=`<td style="padding:5px;text-align:center;color:var(--text3);border-bottom:1px solid var(--border)">${cur.rir!=null?fmtMetric(cur.rir):''}</td>`;
+        if(si===0){
+          const note=(r&&r.note)||'';
+          h+=`<td rowspan="${nbLignes}" style="padding:5px 7px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);border-right:2px solid var(--border);max-width:150px;line-height:1.35">${esc(note)}</td>`;
+        }
+      });
+      h+=`</tr>`;
+    }
+  });
+
+  // Pied : total séries + volume + ressenti du client
+  h+=`<tr style="background:var(--bg2)">
+    <td colspan="3" style="position:sticky;left:0;z-index:3;background:var(--bg2);box-shadow:2px 0 0 var(--border);padding:7px 8px;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text3)">Total</td>
+    <td colspan="3" style="border-right:2px solid var(--border)"></td>
+    ${faites.map((l,i)=>`<td colspan="4" style="padding:7px;text-align:center;font-size:11px;border-right:2px solid var(--border)">
+      <strong style="font-size:13px">${volumes[i].toLocaleString('fr-FR')}</strong> kg soulevés · ${nbSets[i]} séries${l.comment?`<div style="font-size:10.5px;color:var(--text2);margin-top:3px;font-style:italic">💬 ${esc(l.comment)}</div>`:''}
+    </td>`).join('')}
+  </tr>`;
+  h+=`</tbody></table></div></div>`;
+  return h;
+}
+
+/* ===== Volume du programme par groupe musculaire =====
+   Une seule mesure (nb de séries prévues) → barres horizontales triées, pas de
+   légende (le titre nomme la série), valeur écrite au bout de chaque barre.
+   Horizontal parce que les noms de groupes sont longs en français. */
+function _renderVolumeChart(prog){
+  if(!prog)return'';
+  const vol={};
+  (prog.jours||[]).forEach(day=>['warmup','workout','cooldown'].forEach(sec=>(day[sec]||[]).forEach(e=>{
+    const exos=e.superset?(e.exercises||[]):[e];
+    exos.forEach(ex=>{
+      const m=(ex.muscle||'Autre').trim()||'Autre';
+      const s=ex.setsData?ex.setsData.length:(parseInt(ex.sets)||0);
+      if(s>0)vol[m]=(vol[m]||0)+s;
+    });
+  })));
+  const rows=Object.entries(vol).sort((a,b)=>b[1]-a[1]);
+  if(!rows.length)return'';
+  const max=rows[0][1],total=rows.reduce((n,r)=>n+r[1],0);
+  return`<div class="card" style="padding:16px;margin-bottom:12px">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px;flex-wrap:wrap">
+      <span style="font-size:13px;font-weight:800">Séries par groupe musculaire</span>
+      <span style="font-size:11px;color:var(--text3)">${esc(prog.nom||'Programme')} · ${total} séries sur ${(prog.jours||[]).length} séance${(prog.jours||[]).length>1?'s':''}</span>
+    </div>
+    <div style="font-size:10.5px;color:var(--text3);margin-bottom:12px">Volume prévu par le programme, pas les séances réalisées.</div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      ${rows.map(([m,n])=>`<div style="display:flex;align-items:center;gap:10px" title="${esc(m)} : ${n} séries">
+        <div style="width:150px;flex-shrink:0;font-size:11.5px;font-weight:600;color:var(--text2);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m)}</div>
+        <div style="flex:1;min-width:60px;height:16px;background:var(--bg2);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${Math.max(2,Math.round(n/max*100))}%;background:var(--gold);border-radius:0 4px 4px 0"></div>
+        </div>
+        <div style="width:34px;flex-shrink:0;font-size:12px;font-weight:800;color:var(--text)">${n}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
 // Repartir d'un programme existant sans écraser l'ancien (suivi long terme)
 async function duplicateClientProgram(progId){
   const src=progs.find(p=>String(p.id)===String(progId));

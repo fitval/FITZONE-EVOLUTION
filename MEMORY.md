@@ -266,6 +266,19 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
 - Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
 
+### Session 2026-08-14 — Onglet Training refondu : accueil à 2 blocs + suivi des performances façon tableur
+- **Accueil de l'onglet** (`window._trainMain='home'`) : (1) un rectangle noir par programme — **le clic ouvre directement le builder** (`editClientProgram`), plus de dépliage ; (2) un rectangle noir **« Suivi des performances »** ; (3) le **graphique des séries par groupe musculaire** du programme courant. Les anciennes vues (Comparaison / Détail séance) restent accessibles depuis la vue perf (`_trainMain='legacy'`) — rien n'a été supprimé.
+- **`_renderPerfMatrix()` / `_perfTable()`** — la vue demandée, calquée sur l'ancien Google Sheet :
+  - à gauche la séance **prescrite** (# · exercice · série · reps · RIR · repos), colonnes **figées au scroll** (`position:sticky` avec largeurs verrouillées `W=[34,170,46]` / `L=[0,34,204]` — sans largeur fixe les `left:` ne tombent plus juste) ;
+  - à droite **une colonne-groupe par séance réalisée** (reps · charge · RIR · note), la plus ancienne d'abord, en-tête date + RPE ;
+  - **fond vert / jaune / rouge** par cellule reps et charge, comparé à **la même série de la séance précédente** (`_perfCellBg`) ;
+  - notes d'exercice du client, commentaire de séance, **total kg soulevés + nb de séries** par séance ;
+  - exos réalisés absents du programme affichés en fin de tableau avec le badge **HORS PROG.** ; séances sans correspondance regroupées sous « Séances hors de ce programme ».
+  - Sélecteur de programme quand le client en a plusieurs → suivi par programme (`window._perfProgId`).
+- Format lu dans `train_logs.exercises` : `[{nom, note?, unilateral?, sets:[{kg,reps,rir,load,kgL,kgR,repsL,repsR}]}]` — `_perfSetVals()` gère l'unilatéral (max des deux côtés).
+- `openDet()` remet `_trainMain='home'` + vide `_perfProgId`/`_cliProgOpen`/`_cliProgDay` : sinon la fiche suivante s'ouvrait sur la vue du client précédent.
+- Graphique volume : **barres horizontales triées** (et non verticales comme la maquette) — les noms de groupes musculaires français sont trop longs pour un axe vertical lisible. Une seule série → pas de légende, valeur écrite au bout de chaque barre.
+
 ### Session 2026-08-13 (bis) — Onglet Training : plusieurs programmes par client + historique
 - L'onglet Training n'affichait que `clientProgs[clientProgs.length-1]` — **un seul programme**. Il liste maintenant **tous** les programmes du client, triés par `createdAt` décroissant (`_renderClientProgCard()`), le plus récent déplié, les anciens repliés = l'historique long terme.
 - Chaque carte : badge **VISIBLE** (vert) / **🙈 MASQUÉ**, badge « LE PLUS RÉCENT », nb séances/séries, date de création, volume par muscle. Actions : 👁️ (visible_client), **✏️ Ouvrir** (builder monté inline dans la fiche via `openProgBuilderForClient`), **📋 dupliquer**, ✕ supprimer.
