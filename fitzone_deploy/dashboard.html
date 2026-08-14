@@ -1009,6 +1009,7 @@ body:has(#detPage.show) .toast{bottom:54px}
           <div class="fg" style="margin-bottom:12px"><label class="fl">Description</label><textarea class="fta" id="progDesc" placeholder="Vue d'ensemble du programme…" style="min-height:50px"></textarea></div>
           <div class="prog-days-row" id="progDaysTabs"></div>
           <div id="progDayContent"></div>
+          <div id="progVolChart" style="margin-top:14px"></div>
         </div>
         <div class="prog-side">
           <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:9px">Choisir un exercice</div>
@@ -4860,6 +4861,7 @@ function _renderClientProgCard(p,isLatest){
    À droite une colonne par séance réellement faite, la plus ancienne d'abord.
    Chaque cellule reps/charge est comparée à la MÊME série de la séance
    précédente : vert = progression, jaune = maintien, rouge = régression. */
+const PERF_FRAME='#e0362c';// encadré rouge : sépare visuellement chaque séance
 const PERF_UP='rgba(22,163,74,.22)',PERF_FLAT='rgba(234,179,8,.22)',PERF_DOWN='rgba(220,38,38,.20)';
 function _perfNorm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
 // Valeurs d'une série réalisée (gère les exercices unilatéraux)
@@ -4908,7 +4910,7 @@ function _renderPerfMatrix(el,clientProgs,logs){
   Object.values(parSeance).forEach(a=>a.sort((x,y)=>String(x.date).localeCompare(String(y.date))));
   const utilisees=new Set();
 
-  let html=selector+`<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;font-size:11px;color:var(--text3)">
+  let html=selector+_renderVolumeChart(prog)+`<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;font-size:11px;color:var(--text3)">
     <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${PERF_UP};vertical-align:-1px"></span> progresse</span>
     <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${PERF_FLAT};vertical-align:-1px"></span> maintient</span>
     <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${PERF_DOWN};vertical-align:-1px"></span> régresse</span>
@@ -4954,9 +4956,10 @@ function _perfTable(nom,prescrits,faites){
   });
   const nbSets=faites.map(l=>{let n=0;(l.exercises||[]).forEach(ex=>(ex.sets||[]).forEach(s=>{const{kg,reps}=_perfSetVals(s);if(kg||reps)n++;}));return n;});
 
-  let h=`<div style="margin-bottom:22px">
-    <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:7px;flex-wrap:wrap">
-      <span style="font-size:14px;font-weight:800">${esc(nom)}</span>
+  let h=`<div style="margin-bottom:28px;border:2px solid ${PERF_FRAME};border-radius:12px;padding:12px;background:var(--white)">
+    <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:9px;flex-wrap:wrap">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${PERF_FRAME}"></span>
+      <span style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">${esc(nom)}</span>
       <span style="font-size:11px;color:var(--text3)">${faites.length?faites.length+' séance'+(faites.length>1?'s':'')+' réalisée'+(faites.length>1?'s':''):'jamais réalisée'}</span>
     </div>
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--white)">
@@ -7327,7 +7330,13 @@ function _maybeReturnToClientFromProg(){
   setTimeout(()=>{if(typeof openDet==='function')openDet(c.id);},80);
   return true;
 }
+// Volume du programme en cours d'édition, recalculé à chaque modif des séances
+function _progRenderVolChart(){
+  const el=document.getElementById('progVolChart');if(!el)return;
+  el.innerHTML=_renderVolumeChart({nom:(document.getElementById('progNom')||{}).value||'Programme',jours:progDays});
+}
 function progRenderDays(){
+  _progRenderVolChart();
   const c=document.getElementById('progDaysTabs');if(!c)return;
   c.innerHTML=progDays.map((d,i)=>{
     const isRun=d.type==='running';
