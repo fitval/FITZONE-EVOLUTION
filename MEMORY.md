@@ -276,6 +276,11 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
   - Incrément de charge par paliers réalistes (`progLoadStep`) : +0,5 kg < 10 kg, +1 kg < 20, +2,5 kg < 60, +5 kg au-delà.
 - Les perfs précédentes étaient **déjà disponibles** : `startWorkout()` remplissait `prevKg`/`prevReps` par série. Rien à ajouter côté données.
 - Affichage : encart **« 📈 Ta progression du jour »** dans l'aperçu de séance (avec le disclaimer dicté par le coach, constante `PROG_DISCLAIMER`) + bloc **« À viser aujourd'hui »** sur chaque carte d'exercice pendant la séance (`_renderWoExoCard`).
+- **Correctif le même jour — « ça ne marchait pas sur tous les exos »**, deux causes réelles :
+  1. `startWorkout()` matchait la perf précédente par **égalité stricte** du nom (`pe.nom===ex.nom`) → toute différence de casse/accent/espace faisait perdre l'historique (et divergeait de l'aperçu, qui faisait déjà un `toLowerCase()`). Une seule fonction désormais : **`normExo()`** (minuscules, sans accents, ponctuation → espaces).
+  2. La perf était cherchée **uniquement dans la dernière séance portant le même nom** → aucun objectif pour un exo ajouté au programme depuis, sauté ce jour-là, ou fait dans une autre séance. Remplacé par **`lastPerfFor(nom)`** qui remonte tout l'historique (`trainLogs`, déjà trié du plus récent au plus ancien), ignore les logs `type='activity'` et exige au moins une série renseignée.
+  - `parseRepRange()` accepte aussi le **slash** et le `x` (« 9/12 », « 8x12 ») en plus de `-`, `–`, « à ».
+  - Quand il n'y a réellement aucun historique, la carte affiche « Première fois sur cet exercice… » — sinon l'absence de proposition passe pour un bug.
 - **L'IA ne rédige que la phrase d'intro** : Edge Function `progression-tip` (`claude-opus-5`), qui reçoit les objectifs déjà calculés et n'a pas le droit de citer un chiffre. Cache localStorage par séance + semaine (`progtip:<séance>:<lundi>`), et **repli silencieux** sur le disclaimer seul si l'API ne répond pas — la feature reste utilisable hors-ligne.
 
 ### Session 2026-08-14 — Onglet Training refondu : accueil à 2 blocs + suivi des performances façon tableur

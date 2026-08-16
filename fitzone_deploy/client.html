@@ -2410,10 +2410,25 @@ function renderExoPreview(ex,idx,explicitLetter){
    le haut de fourchette est atteint on monte la charge et on repart en bas.
    Le calcul est fait ici (hors-ligne, instantané, chiffres exacts) ; l'IA ne
    sert qu'à rédiger la phrase d'intro (voir loadProgressionIntro). */
+// Comparaison de noms d'exercices tolérante (casse, accents, ponctuation, espaces)
+function normExo(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();}
+// Dernière perf enregistrée pour CET exercice, toutes séances confondues.
+// Chercher seulement dans la dernière séance du même nom ratait tous les exos
+// ajoutés depuis, sautés ce jour-là, ou faits dans une autre séance.
+function lastPerfFor(nom){
+  const n=normExo(nom);
+  if(!n)return null;
+  for(const l of trainLogs){ // trainLogs est trié du plus récent au plus ancien
+    if(l.type==='activity'||!Array.isArray(l.exercises))continue;
+    const hit=l.exercises.find(e=>normExo(e.nom)===n);
+    if(hit&&(hit.sets||[]).some(x=>x&&(x.reps||x.kg||x.load||x.repsL||x.kgL)))return hit;
+  }
+  return null;
+}
 function parseRepRange(str){
   const s=String(str||'').replace(',','.').trim();
   if(!s)return null;
-  const m=s.match(/(\d+(?:\.\d+)?)\s*(?:[-–—]|à|a|to)\s*(\d+(?:\.\d+)?)/i);
+  const m=s.match(/(\d+(?:\.\d+)?)\s*(?:[-–—\/]|à|a|to|x)\s*(\d+(?:\.\d+)?)/i);
   if(m)return{min:parseFloat(m[1]),max:parseFloat(m[2])};
   const one=s.match(/(\d+(?:\.\d+)?)/);
   if(one)return{min:parseFloat(one[1]),max:parseFloat(one[1])};
@@ -2453,8 +2468,12 @@ function exoSuggestions(sets){
 }
 const PROG_DISCLAIMER="Valide toujours l'exécution de tes exercices avec ton coach : une technique propre améliore le stimulus musculaire, et donc tes gains. En attendant, voilà ce que tu peux viser cette semaine.";
 // Bloc affiché sur la carte d'un exercice pendant la séance
-function progBlock(sugg){
-  if(!sugg.length)return'';
+function progBlock(sugg,nom){
+  // Pas de proposition ET jamais fait : on le dit, sinon l'absence passe pour un bug
+  if(!sugg.length){
+    if(nom&&!lastPerfFor(nom))return`<div style="margin:8px 0 0;font-size:11px;color:var(--text3);line-height:1.45">📈 Première fois sur cet exercice — note bien tes charges, la progression te sera proposée la prochaine fois.</div>`;
+    return'';
+  }
   return`<div style="margin:8px 0 0;padding:8px 10px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:9px">
     <div style="font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--gold-deep);text-transform:uppercase;margin-bottom:5px">📈 À viser aujourd'hui</div>
     ${sugg.map(s=>`<div style="font-size:12px;color:var(--text);line-height:1.55">${progSetLabel(s.i,s)}</div>`).join('')}
@@ -2463,14 +2482,11 @@ function progBlock(sugg){
 // Reconstitue les séries d'une séance du programme + la dernière perf, pour l'aperçu
 function planProgression(day){
   if(!day)return[];
-  const nom=day.nom||'';
-  const prev=trainLogs.find(l=>l.type!=='activity'&&l.session_name===nom&&Array.isArray(l.exercises)&&l.exercises.length);
-  if(!prev)return[];
   const out=[];
   ['warmup','workout','cooldown'].forEach(sec=>(day[sec]||[]).forEach(e=>{
     const grp=e.superset&&e.exercises?e.exercises:[e];
     grp.forEach(ex=>{
-      const p=(prev.exercises||[]).find(pe=>(pe.nom||'').toLowerCase()===(ex.nom||'').toLowerCase());
+      const p=lastPerfFor(ex.nom);
       if(!p)return;
       const sets=(ex.setsData&&ex.setsData.length?ex.setsData:Array.from({length:parseInt(ex.sets)||1},()=>({reps:ex.reps||''})))
         .map((sd,i)=>{const ps=(p.sets||[])[i]||{};return{reps:sd.reps||ex.reps||'',prevReps:ps.reps||'',prevKg:ps.kg||ps.load||''};});
@@ -2508,13 +2524,13 @@ function startWorkout(){
 
   // Find previous log for same session
   const targetName=day.nom||'Jour '+(currentDayIdx+1);
-  const prevLog=trainLogs.find(l=>l.session_name===targetName);
+  const prevLog=trainLogs.find(l=>l.type!=='activity'&&l.session_name===targetName&&Array.isArray(l.exercises)&&l.exercises.length);
   const prevExos=prevLog?prevLog.exercises||[]:[];
 
   allExos.forEach((ex,i)=>{
     const sets=ex.setsData||ex.sets_data||[];
     const nSets=sets.length||parseInt(ex.sets)||3;
-    const prev=prevExos.find(pe=>pe.nom===ex.nom);
+    const prev=prevExos.find(pe=>normExo(pe.nom)===normExo(ex.nom))||lastPerfFor(ex.nom);
     const setsArr=[];
     for(let s=0;s<nSets;s++){
       const setDef=sets[s]||sets[0]||{};
@@ -2618,7 +2634,7 @@ function _renderWoExoCard(ex,ei,opts){
     pool.forEach((o,oi)=>{if((o.nom||'').toUpperCase()===active)return;h+=`<div class="swap-item" onclick="swapExo(${ei},${oi})"><span style="color:var(--gold)">↔</span> ${o.nom}</div>`;});
     h+=`</div>`;
   }
-  h+=progBlock(exoSuggestions(ex.sets));
+  h+=progBlock(exoSuggestions(ex.sets),ex.nom);
   h+=`<div class="bw-toggle" style="display:flex;gap:16px">
     <label><input type="checkbox" ${ex.bw?'checked':''} onchange="workoutData[${ei}].bw=this.checked;renderActiveWorkout()"> Poids du corps</label>
     <label><input type="checkbox" ${ex.unilateral?'checked':''} onchange="workoutData[${ei}].unilateral=this.checked;renderActiveWorkout()"> Unilatéral</label>
