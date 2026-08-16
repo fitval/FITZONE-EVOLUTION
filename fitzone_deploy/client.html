@@ -1531,6 +1531,51 @@ function renderTrainLanding(){
   }
   document.getElementById('trainContent').innerHTML=h;
 }
+/* Phrase d'intro rédigée par l'IA. Facultative par construction : les objectifs
+   chiffrés sont déjà affichés sans elle (salle sans réseau, API indisponible…).
+   Mise en cache par séance et par semaine pour ne pas rappeler à chaque ouverture. */
+function _progTipKey(day){
+  const lundi=new Date();lundi.setDate(lundi.getDate()-((lundi.getDay()+6)%7));
+  return'progtip:'+(day.nom||'')+':'+localDateStr(lundi);
+}
+async function loadProgressionIntro(day,plan){
+  const box=document.getElementById('progIntro');
+  if(!box||!plan.length)return;
+  const key=_progTipKey(day);
+  const cache=(()=>{try{return localStorage.getItem(key);}catch(e){return null;}})();
+  if(cache){box.innerHTML=`<b>${cache}</b><br>${PROG_DISCLAIMER}`;return;}
+  try{
+    const objectifs=[];
+    plan.forEach(e=>e.sugg.forEach(s=>objectifs.push({nom:e.nom,charge:s.type==='charge'?s.kg:0,reps:s.type==='reps'?1:0})));
+    const res=await fetch(SUPA+'/functions/v1/progression-tip',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      body:JSON.stringify({prenom:(clientData&&clientData.first_name)||'',seance:day.nom||'',objectifs})
+    });
+    const out=await res.json();
+    if(!out.tip)return; // on garde le disclaimer seul
+    try{localStorage.setItem(key,out.tip);}catch(e){}
+    const b=document.getElementById('progIntro');
+    if(b)b.innerHTML=`<b>${out.tip.replace(/[<>]/g,'')}</b><br>${PROG_DISCLAIMER}`;
+  }catch(e){console.warn('[PROG TIP]',e);}
+}
+// Aperçu avant de lancer : le disclaimer + ce qu'il y a à aller chercher aujourd'hui
+function progPreviewBlock(day){
+  const plan=planProgression(day);
+  if(!plan.length)return'';
+  const nb=plan.reduce((n,e)=>n+e.sugg.length,0);
+  setTimeout(()=>loadProgressionIntro(day,plan),0); // le bloc s'affiche sans attendre l'IA
+  return`<div class="card" style="padding:13px;margin-bottom:14px;border-left:4px solid var(--gold);background:var(--gold-pale)">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--gold-deep);text-transform:uppercase">📈 Ta progression du jour</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--text3)">${nb} objectif${nb>1?'s':''}</span>
+    </div>
+    <div id="progIntro" style="font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:8px">${PROG_DISCLAIMER}</div>
+    ${plan.map(e=>`<div style="margin-bottom:7px">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.2px">${e.nom}</div>
+      ${e.sugg.map(s=>`<div style="font-size:12px;color:var(--text);line-height:1.55">${progSetLabel(s.i,s)}</div>`).join('')}
+    </div>`).join('')}
+  </div>`;
+}
 function renderTrainPreview(){
   workoutActive=false;
   if(trainSubTab!=='programme'&&trainSubTab!=='activites'&&trainSubTab!=='historique'){renderTrainLanding();return;}
@@ -1559,6 +1604,7 @@ function renderTrainPreview(){
   const day=jours[currentDayIdx];
   document.getElementById('trainTitle').textContent=day.nom||'Séance '+(currentDayIdx+1);
   let h=backBtn+`<div class="sess-head"><div class="sess-num">${currentDayIdx+1}</div><div class="sess-head-sub">${p.nom||'Programme'} · ${seanceSub(day)}</div></div>`;
+  h+=progPreviewBlock(day);
 
   if(day.type==='running'){
     const SEC_LABELS={warmup:['🔥 Échauffement','🔥'],workout:['🏃 Corps de séance','🏃'],cooldown:['❄️ Retour au calme','❄️']};
@@ -2359,6 +2405,81 @@ function renderExoPreview(ex,idx,explicitLetter){
 }
 
 /* ===== ACTIVE WORKOUT ===== */
+/* ===== PROPOSITIONS DE PROGRESSION =====
+   Double progression : on monte les reps dans la fourchette prescrite, et quand
+   le haut de fourchette est atteint on monte la charge et on repart en bas.
+   Le calcul est fait ici (hors-ligne, instantané, chiffres exacts) ; l'IA ne
+   sert qu'à rédiger la phrase d'intro (voir loadProgressionIntro). */
+function parseRepRange(str){
+  const s=String(str||'').replace(',','.').trim();
+  if(!s)return null;
+  const m=s.match(/(\d+(?:\.\d+)?)\s*(?:[-–—]|à|a|to)\s*(\d+(?:\.\d+)?)/i);
+  if(m)return{min:parseFloat(m[1]),max:parseFloat(m[2])};
+  const one=s.match(/(\d+(?:\.\d+)?)/);
+  if(one)return{min:parseFloat(one[1]),max:parseFloat(one[1])};
+  return null; // AMRAP, "max"… : pas de fourchette exploitable
+}
+// Incrément de charge réaliste : plus fin sur les petites charges
+function progLoadStep(kg){
+  if(kg<10)return 0.5;
+  if(kg<20)return 1;
+  if(kg<60)return 2.5;
+  return 5;
+}
+function suggestForSet(set){
+  const range=parseRepRange(set.reps);
+  const prevReps=parseFloat(set.prevReps),prevKg=parseFloat(set.prevKg);
+  if(!range||isNaN(prevReps)||prevReps<=0)return null; // jamais fait : rien à proposer
+  // Haut de fourchette : les 2 dernières valeurs quand la fourchette est large (9-12 → 11 et 12)
+  const seuil=(range.max-range.min)>=3?range.max-1:range.max;
+  if(prevReps>=seuil){
+    if(isNaN(prevKg)||prevKg<=0)return{type:'reps',cible:range.max,prevReps,prevKg:null};
+    const kg=Math.round((prevKg+progLoadStep(prevKg))*2)/2;
+    return{type:'charge',kg,cible:range.min,prevReps,prevKg};
+  }
+  const cible=Math.min(range.max,prevReps+1);
+  if(cible<=prevReps)return null;
+  return{type:'reps',cible,prevReps,prevKg:isNaN(prevKg)?null:prevKg};
+}
+function progSetLabel(i,s){
+  if(s.type==='charge')return`<b>S${i+1}</b> · ${fmtMetric(s.prevKg)} kg → <b>${fmtMetric(s.kg)} kg</b>, vise ${fmtMetric(s.cible)} reps`;
+  return`<b>S${i+1}</b> · ${s.prevKg?'garde '+fmtMetric(s.prevKg)+' kg, ':''}vise <b>${fmtMetric(s.cible)} reps</b> <span style="opacity:.6">(${fmtMetric(s.prevReps)} la dernière fois)</span>`;
+}
+// Propositions d'un exercice, à partir de ses séries (workoutData ou aperçu)
+function exoSuggestions(sets){
+  const out=[];
+  (sets||[]).forEach((s,i)=>{const g=suggestForSet(s);if(g)out.push({i,...g});});
+  return out;
+}
+const PROG_DISCLAIMER="Valide toujours l'exécution de tes exercices avec ton coach : une technique propre améliore le stimulus musculaire, et donc tes gains. En attendant, voilà ce que tu peux viser cette semaine.";
+// Bloc affiché sur la carte d'un exercice pendant la séance
+function progBlock(sugg){
+  if(!sugg.length)return'';
+  return`<div style="margin:8px 0 0;padding:8px 10px;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:9px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--gold-deep);text-transform:uppercase;margin-bottom:5px">📈 À viser aujourd'hui</div>
+    ${sugg.map(s=>`<div style="font-size:12px;color:var(--text);line-height:1.55">${progSetLabel(s.i,s)}</div>`).join('')}
+  </div>`;
+}
+// Reconstitue les séries d'une séance du programme + la dernière perf, pour l'aperçu
+function planProgression(day){
+  if(!day)return[];
+  const nom=day.nom||'';
+  const prev=trainLogs.find(l=>l.type!=='activity'&&l.session_name===nom&&Array.isArray(l.exercises)&&l.exercises.length);
+  if(!prev)return[];
+  const out=[];
+  ['warmup','workout','cooldown'].forEach(sec=>(day[sec]||[]).forEach(e=>{
+    const grp=e.superset&&e.exercises?e.exercises:[e];
+    grp.forEach(ex=>{
+      const p=(prev.exercises||[]).find(pe=>(pe.nom||'').toLowerCase()===(ex.nom||'').toLowerCase());
+      if(!p)return;
+      const sets=(ex.setsData&&ex.setsData.length?ex.setsData:Array.from({length:parseInt(ex.sets)||1},()=>({reps:ex.reps||''})))
+        .map((sd,i)=>{const ps=(p.sets||[])[i]||{};return{reps:sd.reps||ex.reps||'',prevReps:ps.reps||'',prevKg:ps.kg||ps.load||''};});
+      const sugg=exoSuggestions(sets);
+      if(sugg.length)out.push({nom:ex.nom||'Exercice',sugg});
+    });
+  }));
+  return out;
+}
 function startWorkout(){
   const swb=document.getElementById('startWorkoutBtn');if(swb)swb.remove();
   workoutActive=true;
@@ -2453,6 +2574,10 @@ function renderActiveWorkout(){
   });
   if(curSS)blocks.push(curSS);
 
+  // Disclaimer affiché une fois, seulement s'il y a au moins une proposition
+  if(workoutData.some(ex=>exoSuggestions(ex.sets).length)){
+    h+=`<div style="margin:10px 0 4px;padding:9px 11px;background:var(--bg2);border-radius:9px;font-size:11.5px;color:var(--text2);line-height:1.5">💡 ${PROG_DISCLAIMER}</div>`;
+  }
   let curSec='';
   blocks.forEach(b=>{
     if(b.section!==curSec){
@@ -2493,6 +2618,7 @@ function _renderWoExoCard(ex,ei,opts){
     pool.forEach((o,oi)=>{if((o.nom||'').toUpperCase()===active)return;h+=`<div class="swap-item" onclick="swapExo(${ei},${oi})"><span style="color:var(--gold)">↔</span> ${o.nom}</div>`;});
     h+=`</div>`;
   }
+  h+=progBlock(exoSuggestions(ex.sets));
   h+=`<div class="bw-toggle" style="display:flex;gap:16px">
     <label><input type="checkbox" ${ex.bw?'checked':''} onchange="workoutData[${ei}].bw=this.checked;renderActiveWorkout()"> Poids du corps</label>
     <label><input type="checkbox" ${ex.unilateral?'checked':''} onchange="workoutData[${ei}].unilateral=this.checked;renderActiveWorkout()"> Unilatéral</label>

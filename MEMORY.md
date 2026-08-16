@@ -266,6 +266,18 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **Blocs d'en-tête repliables** (`roadPanel()`, clé `fz_road_panels`) : Résumé affiché par défaut, Objectifs et Légende repliés → la grille commence tout de suite.
 - Vérifié au navigateur (Playwright, harnais statique reprenant le `<style>` réel) : clair + sombre, colonnes figées au scroll horizontal.
 
+### Session 2026-08-16 — Propositions de progression au lancement d'une séance (app client)
+- Objectif coach : à chaque séance, pousser le client à progresser série par série, à partir de ce qu'il a fait la dernière fois.
+- **Le calcul est en JS dans `client.html`, pas dans l'IA** — il doit marcher en salle sans réseau, instantanément, avec des chiffres exacts. `suggestForSet(set)` applique une **double progression** :
+  - `parseRepRange()` lit la fourchette prescrite (« 9-12 », « 12 », « 9 à 12 » ; renvoie null sur AMRAP) ;
+  - **haut de fourchette atteint → monter la charge** et viser le bas de la fourchette. Seuil = `max-1` si la fourchette est large (écart ≥ 3, donc 11 ET 12 déclenchent sur 9-12, comme demandé), sinon `max` ;
+  - sinon → **garder la charge et viser +1 rep** (plafonné au max) ;
+  - pas de perf précédente, ou pas de fourchette → **aucune proposition** (on n'invente rien).
+  - Incrément de charge par paliers réalistes (`progLoadStep`) : +0,5 kg < 10 kg, +1 kg < 20, +2,5 kg < 60, +5 kg au-delà.
+- Les perfs précédentes étaient **déjà disponibles** : `startWorkout()` remplissait `prevKg`/`prevReps` par série. Rien à ajouter côté données.
+- Affichage : encart **« 📈 Ta progression du jour »** dans l'aperçu de séance (avec le disclaimer dicté par le coach, constante `PROG_DISCLAIMER`) + bloc **« À viser aujourd'hui »** sur chaque carte d'exercice pendant la séance (`_renderWoExoCard`).
+- **L'IA ne rédige que la phrase d'intro** : Edge Function `progression-tip` (`claude-opus-5`), qui reçoit les objectifs déjà calculés et n'a pas le droit de citer un chiffre. Cache localStorage par séance + semaine (`progtip:<séance>:<lundi>`), et **repli silencieux** sur le disclaimer seul si l'API ne répond pas — la feature reste utilisable hors-ligne.
+
 ### Session 2026-08-14 — Onglet Training refondu : accueil à 2 blocs + suivi des performances façon tableur
 - **Accueil de l'onglet** (`window._trainMain='home'`) : (1) un rectangle noir par programme — **le clic ouvre directement le builder** (`editClientProgram`), plus de dépliage ; (2) un rectangle noir **« Suivi des performances »** ; (3) le **graphique des séries par groupe musculaire** du programme courant. Les anciennes vues (Comparaison / Détail séance) restent accessibles depuis la vue perf (`_trainMain='legacy'`) — rien n'a été supprimé.
 - **`_renderPerfMatrix()` / `_perfTable()`** — la vue demandée, calquée sur l'ancien Google Sheet :
