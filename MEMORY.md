@@ -273,7 +273,9 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
   - **haut de fourchette atteint → monter la charge** et viser le bas de la fourchette. Seuil = `max-1` si la fourchette est large (écart ≥ 3, donc 11 ET 12 déclenchent sur 9-12, comme demandé), sinon `max` ;
   - sinon → **garder la charge et viser +1 rep** (plafonné au max) ;
   - pas de perf précédente, ou pas de fourchette → **aucune proposition** (on n'invente rien).
-  - Incrément de charge par paliers réalistes (`progLoadStep`) : +0,5 kg < 10 kg, +1 kg < 20, +2,5 kg < 60, +5 kg au-delà.
+  - **Incrément de charge fixe, jamais proportionnel à la charge** (règle du coach) : **+0,5 à 1,25 kg par côté**, soit **+1 à +2,5 kg au total** (`PROG_CHARGE_MIN`/`PROG_CHARGE_MAX`) — un seul épi de charge (T-bar row) = +1,25 kg, qui tombe dans la même fourchette. Au-delà l'exécution se dégrade et la surcharge ne paie plus. L'app affiche donc une **fourchette de charge** (« 80 kg → 81–82,5 kg »), pas un chiffre unique. ⚠️ Ne pas réintroduire de paliers du type +5 kg sur les charges lourdes.
+  - Progression en reps : **+1 à 2 reps**, plafonné au haut de la fourchette (« vise 11–12 reps »).
+  - `PROG_CHARGE_RULE` rappelée dans le bandeau de séance dès qu'au moins un exercice passe en montée de charge.
 - Les perfs précédentes étaient **déjà disponibles** : `startWorkout()` remplissait `prevKg`/`prevReps` par série. Rien à ajouter côté données.
 - Affichage : **uniquement pendant la séance lancée** — le coach a fait retirer le gros encart de l'aperçu (trop lourd avant de commencer). Bandeau en tête de séance (phrase IA + `PROG_DISCLAIMER`) + bloc **« À viser aujourd'hui »** sur chaque carte d'exercice (`_renderWoExoCard`). La phrase IA est demandée **une seule fois** au lancement (`startWorkout`), stockée dans `_progTipText` — surtout pas à chaque `renderActiveWorkout()`, qui tourne à chaque série validée.
 - **Correctif le même jour — « ça ne marchait pas sur tous les exos »**, deux causes réelles :
