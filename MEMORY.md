@@ -382,6 +382,13 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - Roadmap : bouton **« ⤓ Dernière remplie »** (`roadScrollToLastFilled()`) qui saute à la dernière semaine renseignée (calcul du décalage via `getBoundingClientRect`, ligne placée au tiers haut + flash doré). Évite de scroller 40 semaines.
 - Page **Plans alimentaires** : boutons de création ajoutés **dans la page** (`+ Nouveau plan complet` / `+ Nouveau plan macros`) car ceux de la barre du haut passaient inaperçus ; rappel que le client s'attribue dans le champ « Client(s) » du builder.
 
+### Session 2026-08-17 — RIR expliqué + valeurs négatives (client.html)
+- **Bouton `i` à côté de « RIR »** dans l'en-tête des séries (séance en cours, exos simples ET supersets, uni- et bilatéral) → `rirInfo()` ouvre une bulle qui explique les *Répétitions En Réserve* : définition, **test des 10 000 €** (« combien de reps de plus tu aurais faites si chacune valait 10 000 € ? »), échelle RIR 3-4 → RIR -1.
+- **RIR négatifs autorisés** (ex. `-1` = une rep tentée après l'échec qui n'est pas passée). Les champs RIR passent de `type=number` à `type=text inputmode=numeric` + nettoyage `cleanRir()` (chiffres, `-` en tête uniquement, 3 caractères max) car les pavés numériques mobiles n'ont pas de touche « - ».
+- **Bouton `±`** dans le champ RIR (`toggleRirSign()`) pour basculer le signe au doigt ; `onmousedown` neutralisé pour ne pas perdre le focus du champ.
+- Fabrique unique `rirCell(ei,si,field,val,ph,gold)` utilisée par les 3 champs RIR (normal, gauche, droite). Le RIR reste stocké **en chaîne** dans `train_logs` → aucun impact sur les données existantes ni sur la logique de progression (qui n'utilise que reps/kg).
+- CSS ajoutés : `.i-btn`, `.set-input.rir-in`, `.rir-sign`. `version.json` bumpé.
+
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
 

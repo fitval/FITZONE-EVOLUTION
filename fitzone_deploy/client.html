@@ -238,6 +238,12 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .set-check button { width:34px; height:34px; border-radius:50%; border:2px solid var(--border); background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; color:var(--text3); }
 .set-check button.done { border-color:var(--gold); background:var(--gold); color:white; }
 .set-check button svg { width:18px; height:18px; }
+/* Bouton "i" d'aide (ex : RIR dans l'en-tête des séries) */
+.i-btn { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; margin-left:3px; padding:0; border:1px solid var(--gold-border); border-radius:50%; background:var(--gold-pale); color:var(--gold-deep); font-family:var(--font); font-size:9px; font-weight:900; font-style:italic; line-height:1; cursor:pointer; vertical-align:middle; flex-shrink:0; }
+/* Champ RIR : bouton ± pour saisir une valeur négative (échec dépassé) */
+.set-input.rir-in { position:relative; }
+.set-input.rir-in input { padding-left:15px; padding-right:3px; }
+.rir-sign { position:absolute; left:2px; top:50%; transform:translateY(-50%); width:14px; height:16px; padding:0; border:none; border-radius:4px; background:var(--gold-pale); color:var(--gold-deep); font-family:var(--font); font-size:10px; font-weight:900; line-height:1; cursor:pointer; }
 
 .bw-toggle { display:flex; align-items:center; justify-content:flex-end; gap:6px; font-size:12px; color:var(--text3); margin-bottom:6px; }
 .bw-toggle input { accent-color:var(--gold); }
@@ -2635,12 +2641,63 @@ function _renderWoExoCard(ex,ei,opts){
   return h;
 }
 
+/* RIR — Répétitions En Réserve.
+   On accepte les valeurs négatives : -1 = tu as tenté une rép de plus après l'échec
+   et elle n'est pas passée. Les claviers mobiles numériques n'ont pas de "-",
+   d'où le petit bouton ± dans le champ. */
+function rirCell(ei,si,field,val,ph,gold){
+  const v=String(val==null?'':val);
+  return `<div class="set-input rir-in"><button class="rir-sign" tabindex="-1" onmousedown="event.preventDefault()" onclick="toggleRirSign(this,${ei},${si},'${field}')" title="Valeur négative (au-delà de l'échec)" aria-label="Changer le signe">±</button><input type="text" inputmode="numeric" pattern="-?[0-9]*" maxlength="3" placeholder="${ph||'RIR'}" value="${v}" oninput="setRir(this,${ei},${si},'${field}')"${gold?' style="border-color:var(--gold-border)"':''}></div>`;
+}
+function cleanRir(str){
+  let v=String(str||'').replace(/[^0-9-]/g,'');   // que des chiffres et le signe
+  v=v.replace(/(?!^)-/g,'');                       // le "-" seulement en tête
+  return v.slice(0,3);
+}
+function setRir(el,ei,si,field){
+  const v=cleanRir(el.value);
+  if(el.value!==v)el.value=v;
+  const st=workoutData[ei]&&workoutData[ei].sets[si];
+  if(st)st[field]=(v==='-'?'':v);                  // "-" seul = saisie en cours
+}
+function toggleRirSign(btn,ei,si,field){
+  const inp=btn.parentNode.querySelector('input');
+  if(!inp)return;
+  const v=cleanRir(inp.value);
+  inp.value=v.startsWith('-')?v.slice(1):('-'+v);
+  setRir(inp,ei,si,field);
+  inp.focus();
+}
+function rirInfo(){
+  openModal(`<div style="background:var(--white);color:var(--text);border-radius:16px;padding:18px;max-width:420px;max-height:86vh;overflow:auto;text-align:left;line-height:1.45">
+    <div style="font-size:17px;font-weight:900;color:var(--gold-deep)">Le RIR, c'est quoi ?</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Répétitions En Réserve</div>
+    <div style="font-size:13.5px;margin-bottom:11px">Le nombre de répétitions qu'il te <b>restait dans le moteur</b> quand tu as arrêté ta série. C'est ce qui mesure ta <b>proximité de l'échec</b>.</div>
+    <div style="background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:11px">
+      💰 <b>Le test des 10 000 €</b><br>Si chaque répétition en plus te rapportait 10 000 €, combien tu en aurais fait après t'être arrêté ? <b>Ce chiffre-là, c'est ton RIR.</b>
+    </div>
+    <div style="font-size:13px;font-weight:800;margin-bottom:2px">L'échelle</div>
+    <div style="font-size:13px">
+      <div style="padding:4px 0;border-bottom:1px solid var(--border)"><b>RIR 3–4</b> — loin de l'échec, ça reste confortable.</div>
+      <div style="padding:4px 0;border-bottom:1px solid var(--border)"><b>RIR 2</b> — ça pousse, il te restait 2 reps propres.</div>
+      <div style="padding:4px 0;border-bottom:1px solid var(--border)"><b>RIR 1</b> — très dur, une seule rep en réserve.</div>
+      <div style="padding:4px 0;border-bottom:1px solid var(--border)"><b>RIR 0</b> — échec : plus une seule, même pour 10 000 €.</div>
+      <div style="padding:4px 0"><b>RIR -1</b> — tu as <b>tenté</b> une rep de plus et elle n'est pas passée (-2 = deux tentatives ratées).</div>
+    </div>
+    <div style="margin-top:11px;padding:9px 11px;background:var(--bg);border-radius:10px;font-size:12.5px;color:var(--text2)">
+      Pour un RIR négatif, appuie sur le petit <b>±</b> à gauche du champ, puis tape ton chiffre.
+    </div>
+    <button class="btn-gold" style="margin-top:13px" onclick="closeModal()">J'ai compris</button>
+  </div>`);
+}
+// En-tête "RIR" + bouton i qui ouvre l'explication (répétitions en réserve)
+const RIR_HEAD=`<div>RIR<button class="i-btn" onclick="rirInfo()" title="C'est quoi le RIR ?" aria-label="C'est quoi le RIR ?">i</button></div>`;
 function _renderWoSetHeader(ex){
   if(ex.unilateral){
     return `<div class="set-header" style="font-size:10px"><div>#</div><div colspan="3" style="flex:3;text-align:center;color:var(--gold);font-weight:800">← GAUCHE</div><div colspan="3" style="flex:3;text-align:center;color:var(--text3);font-weight:800">DROITE →</div><div></div></div>`+
-           `<div class="set-header" style="margin-top:-4px"><div>#</div>${ex.bw?'':'<div>kg</div>'}<div>reps</div><div>RIR</div>${ex.bw?'':'<div>kg</div>'}<div>reps</div><div>RIR</div><div></div></div>`;
+           `<div class="set-header" style="margin-top:-4px"><div>#</div>${ex.bw?'':'<div>kg</div>'}<div>reps</div>${RIR_HEAD}${ex.bw?'':'<div>kg</div>'}<div>reps</div>${RIR_HEAD}<div></div></div>`;
   }
-  return `<div class="set-header"><div>#</div><div>${ex.bw?'':'kg'}</div><div>reps</div><div>RIR</div><div></div></div>`;
+  return `<div class="set-header"><div>#</div><div>${ex.bw?'':'kg'}</div><div>reps</div>${RIR_HEAD}<div></div></div>`;
 }
 
 function _renderWoSetRow(ex,ei,si,opts){
@@ -2658,10 +2715,10 @@ function _renderWoSetRow(ex,ei,si,opts){
       <div class="set-num">${numLabel}</div>
       ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKgL}" value="${s.kgL||''}" oninput="workoutData[${ei}].sets[${si}].kgL=this.value" style="border-color:var(--gold-border)"></div>`}
       <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phRepsL}" value="${s.repsL||''}" oninput="workoutData[${ei}].sets[${si}].repsL=this.value" style="border-color:var(--gold-border)"></div>
-      <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirL||''}" oninput="workoutData[${ei}].sets[${si}].rirL=this.value" style="border-color:var(--gold-border)"></div>
+      ${rirCell(ei,si,'rirL',s.rirL,s.rir,true)}
       ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKgR}" value="${s.kgR||''}" oninput="workoutData[${ei}].sets[${si}].kgR=this.value"></div>`}
       <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phRepsR}" value="${s.repsR||''}" oninput="workoutData[${ei}].sets[${si}].repsR=this.value"></div>
-      <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirR||''}" oninput="workoutData[${ei}].sets[${si}].rirR=this.value"></div>
+      ${rirCell(ei,si,'rirR',s.rirR,s.rir,false)}
       ${checkCell}
     </div>`;
   }
@@ -2671,7 +2728,7 @@ function _renderWoSetRow(ex,ei,si,opts){
     <div class="set-num">${numLabel}</div>
     ${ex.bw?'<div class="set-input"></div>':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kg}" oninput="workoutData[${ei}].sets[${si}].kg=this.value"></div>`}
     <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsActual}" oninput="workoutData[${ei}].sets[${si}].repsActual=this.value"></div>
-    <div class="set-input"><input type="number" inputmode="numeric" placeholder="${s.rir||'RIR'}" value="${s.rirActual}" oninput="workoutData[${ei}].sets[${si}].rirActual=this.value"></div>
+    ${rirCell(ei,si,'rirActual',s.rirActual,s.rir,false)}
     ${checkCell}
   </div>`;
 }
