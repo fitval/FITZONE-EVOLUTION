@@ -389,6 +389,16 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - Fabrique unique `rirCell(ei,si,field,val,ph,gold)` utilisée par les 3 champs RIR (normal, gauche, droite). Le RIR reste stocké **en chaîne** dans `train_logs` → aucun impact sur les données existantes ni sur la logique de progression (qui n'utilise que reps/kg).
 - CSS ajoutés : `.i-btn`, `.set-input.rir-in`, `.rir-sign`. `version.json` bumpé.
 
+### Session 2026-08-18 — Pause/reprise de séance + RIR précédents (client.html)
+- **Mettre la séance en pause** : bouton `⏸` dans l'en-tête de la séance active + bouton « ⏸ Mettre en pause » sous « Terminer la séance ». `pauseWorkout()` fige le chrono, coupe le timer de repos et écrit tout dans `localStorage.fz_wo_paused` (clé `WO_PAUSE_KEY`).
+- **Écran de pause** (`renderPausedWorkout()`) : temps écoulé, séries validées, puis « ▶ Reprendre la séance » / « Terminer et enregistrer » / « Abandonner la séance ».
+- **Reprise** (`resumeWorkout()`) : reprend depuis la mémoire si l'app n'a pas été fermée (les vidéos filmées, objets `File` non sérialisables, sont alors conservées), sinon recharge depuis `localStorage` via `applyPausedWorkout()`. Le chrono repart de `workoutStart = Date.now() - workoutElapsed*1000`.
+- **Points d'entrée de reprise** : bandeau doré « Séance en pause » sur l'accueil Entraînement, bouton de l'aperçu qui devient « ▶ Reprendre la séance » (`pausedForCurrentDay()`), et `startWorkout()` qui reprend au lieu d'écraser (confirmation si c'est une autre séance).
+- **Plus de perte de perfs** : la flèche retour (`endWorkout`) met en pause au lieu de tout jeter ; sauvegarde auto à chaque série validée et quand l'app passe en arrière-plan (`visibilitychange`) ; si l'insert `train_logs` échoue, la séance **repasse en pause** au lieu d'être perdue. Purge auto au bout de 48 h.
+- **Nouveaux états** : `workoutPaused`, `workoutElapsed`, `_woSessionName` (nom de séance conservé même si le programme n'est plus résolvable), helpers `woElapsedSec()` / `woSetsDone()` / `pausedWorkout()`.
+- **RIR précédents affichés partout** : `prevRir` / `prevRirL` / `prevRirR` stockés au lancement de la séance → le champ RIR affiche en placeholder le RIR de la dernière fois (comme kg et reps) ; le RIR demandé par le coach passe dans une chip **« RIR visé »**. Historique : RIR ajouté au détail unilatéral (G/D) et à la liste « Par exercice » (`_histSetVals()` renvoie désormais `rir`). Helper `rirTxt()` pour que `0` et `-1` ne soient pas confondus avec « vide ».
+- `version.json` bumpé.
+
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
 

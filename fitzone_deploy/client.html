@@ -217,6 +217,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .wo-title { flex:1; font-size:18px; font-weight:800; text-align:center; }
 .wo-timer-wrap { display:flex; align-items:center; gap:6px; background:var(--white); border:1px solid var(--border); border-radius:var(--r-xs); padding:6px 12px; }
 .wo-timer { font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; min-width:56px; text-align:center; }
+.wo-pause { border:1px solid var(--gold-border); background:var(--gold-pale); color:var(--gold-deep); border-radius:var(--r-xs); padding:7px 10px; font-size:13px; font-weight:800; font-family:var(--font); cursor:pointer; line-height:1; }
 
 .exo-active { background:var(--white); border-radius:var(--r); padding:16px; margin-bottom:14px; box-shadow:var(--shadow); }
 .exo-active-top { display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; }
@@ -899,6 +900,10 @@ function openMuscleImg(muscle){
 let calendarEvents=[];
 let calendarView='month',calendarDate=new Date();
 let workoutActive=false, workoutData=[], workoutStart=null, workoutTimerInterval=null;
+// Séance en pause : les perfs déjà saisies sont conservées (mémoire + localStorage)
+// pour pouvoir reprendre plus tard, même si l'app est fermée entre-temps.
+let workoutPaused=false, workoutElapsed=0, _woSessionName='';
+const WO_PAUSE_KEY='fz_wo_paused';
 let restTimerInterval=null;
 let bilanPhotos=[];
 let suiviDate=null;
@@ -1162,7 +1167,11 @@ async function loadData(){
 
 /* ===== TABS ===== */
 function switchTab(name){
-  if(workoutActive&&name!=='Train'){if(!confirm('Quitter la séance en cours ?'))return;if(runningActive)endRunningWorkout(false);else endWorkout(false);}
+  if(workoutActive&&name!=='Train'){
+    if(workoutPaused){workoutActive=false;}                                   // déjà en pause : tout est enregistré
+    else if(runningActive){if(!confirm('Quitter la séance en cours ?'))return;endRunningWorkout(false);}
+    else {if(!confirm('Mettre la séance en pause et quitter ?'))return;endWorkout(false);}
+  }
   if(typeof closeBarcodeScanner==='function')closeBarcodeScanner();
   const swb=document.getElementById('startWorkoutBtn');if(swb)swb.style.display=name==='Train'&&!workoutActive?'block':'none';
   document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
@@ -1521,6 +1530,22 @@ function renderTrainLanding(){
     <button class="btn-gold" style="flex:1;padding:14px 12px;font-size:14px" onclick="trainSubTab='activites';renderTrainPreview()">🏃 Activité libre</button>
     <button class="btn-gold" style="flex:1;padding:14px 12px;font-size:14px;background:var(--white);color:var(--on-gold);border:1.5px solid var(--gold-border)" onclick="histMode='sessions';trainSubTab='historique';renderTrainPreview()">📈 Historique</button>
   </div>`;
+  // Séance interrompue : on la remet en avant pour qu'elle ne soit pas oubliée
+  const wp=pausedWorkout();
+  if(wp){
+    const st=woSetsDone(wp.exos);
+    h+=`<div class="card" style="background:var(--gold-pale);border:1.5px solid var(--gold-border);padding:16px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:26px">⏸</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:800">Séance en pause</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${wp.sessionName||'Séance'} · ${fmtTimer(wp.elapsed||0)} · ${st.d}/${st.t} séries validées</div>
+        </div>
+      </div>
+      <button class="btn-gold" style="margin-top:12px" onclick="resumeWorkout()">▶ Reprendre la séance</button>
+      <button style="margin:8px auto 0;display:block;background:none;border:none;color:var(--text3);font-size:12px;font-weight:700;font-family:var(--font);cursor:pointer" onclick="abandonWorkout()">Abandonner</button>
+    </div>`;
+  }
   // Programme assigné par le coach
   if(!programs.length){
     h+=`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;
@@ -1562,7 +1587,7 @@ async function loadProgressionIntro(day,plan){
     const tip=out.tip.replace(/[<>]/g,'');
     try{localStorage.setItem(key,tip);}catch(e){}
     _progTipText=tip;
-    if(workoutActive)renderActiveWorkout();
+    if(workoutActive&&!workoutPaused)renderActiveWorkout();
   }catch(e){console.warn('[PROG TIP]',e);}
 }
 function renderTrainPreview(){
@@ -1635,7 +1660,8 @@ function renderTrainPreview(){
     });
   });
 
-  h+=`<div style="height:78px"></div><div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(var(--gold-rgb),.4);font-size:15px" onclick="startWorkout()">Lancer la séance</button></div>`;
+  const wpDay=pausedForCurrentDay();
+  h+=`<div style="height:78px"></div><div id="startWorkoutBtn" style="position:fixed;bottom:calc(var(--tab-h) + var(--safe-b) + 12px);left:50%;transform:translateX(-50%);z-index:150"><button class="btn-gold" style="margin:0;padding:14px 40px;width:auto;border-radius:50px;box-shadow:0 4px 20px rgba(var(--gold-rgb),.4);font-size:15px" onclick="startWorkout()">${wpDay?'▶ Reprendre la séance':'Lancer la séance'}</button></div>`;
   document.getElementById('trainContent').innerHTML=h;
 }
 
@@ -1672,13 +1698,13 @@ function renderActivitiesView(){
 
 /* ===== HISTORIQUE DES SÉANCES (musculation) ===== */
 function _histSetVals(ex,s){
-  // Renvoie {kg,reps} de la meilleure charge de la série (gère unilatéral)
+  // Renvoie {kg,reps,rir} de la meilleure charge de la série (gère unilatéral)
   if(ex.unilateral){
-    const kg=Math.max(parseFloat(s.kgL||0)||0,parseFloat(s.kgR||0)||0);
+    const kgL=parseFloat(s.kgL||0)||0,kgR=parseFloat(s.kgR||0)||0;
     const reps=Math.max(parseFloat(s.repsL||0)||0,parseFloat(s.repsR||0)||0);
-    return{kg,reps};
+    return{kg:Math.max(kgL,kgR),reps,rir:rirTxt(kgR>kgL?s.rirR:s.rirL)};
   }
-  return{kg:parseFloat(s.kg||s.load||0)||0,reps:parseFloat(s.reps||0)||0};
+  return{kg:parseFloat(s.kg||s.load||0)||0,reps:parseFloat(s.reps||0)||0,rir:rirTxt(s.rir)};
 }
 function renderHistoryView(){
   const logs=trainLogs.filter(l=>l.type==='strength'&&Array.isArray(l.exercises)&&l.exercises.length).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
@@ -1721,8 +1747,11 @@ function openWorkoutDetail(logId){
       <div style="font-size:14px;font-weight:700;margin-bottom:8px">${ex.nom||'Exercice'}${ex.unilateral?' <span style="font-size:10px;color:var(--text3);font-weight:600">(unilatéral)</span>':''}</div>`;
     (ex.sets||[]).forEach((s,i)=>{
       let line;
-      if(ex.unilateral){line=`G ${s.kgL||'—'}kg × ${s.repsL||'—'} &nbsp;·&nbsp; D ${s.kgR||'—'}kg × ${s.repsR||'—'}`;}
-      else{const rir=(s.rir!=='' && s.rir!=null && s.rir!==undefined)?' · RIR '+s.rir:'';line=`${s.kg||s.load||'—'} kg × ${s.reps||'—'} reps${rir}`;}
+      if(ex.unilateral){
+        const rG=rirTxt(s.rirL),rD=rirTxt(s.rirR);
+        line=`G ${s.kgL||'—'}kg × ${s.repsL||'—'}${rG!==''?' · RIR '+rG:''} &nbsp;·&nbsp; D ${s.kgR||'—'}kg × ${s.repsR||'—'}${rD!==''?' · RIR '+rD:''}`;
+      }
+      else{const r=rirTxt(s.rir);line=`${s.kg||s.load||'—'} kg × ${s.reps||'—'} reps${r!==''?' · RIR '+r:''}`;}
       h+=`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0;border-top:${i?'1px solid var(--border)':'none'}"><span style="width:22px;height:22px;border-radius:6px;background:var(--gold-pale);color:var(--gold-deep);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0">${i+1}</span><span>${line}</span></div>`;
     });
     if(ex.note)h+=`<div style="font-size:11px;color:var(--text3);margin-top:6px;font-style:italic">💬 ${ex.note}</div>`;
@@ -1738,9 +1767,10 @@ function renderHistoryExos(logs){
     (l.exercises||[]).forEach(ex=>{
       const nom=(ex.nom||'').trim();if(!nom)return;
       let maxKg=0,vol=0,bestReps=0;
-      (ex.sets||[]).forEach(s=>{const v=_histSetVals(ex,s);if(v.kg>maxKg){maxKg=v.kg;bestReps=v.reps;}vol+=v.kg*v.reps;});
+      let bestRir='';
+      (ex.sets||[]).forEach(s=>{const v=_histSetVals(ex,s);if(v.kg>maxKg){maxKg=v.kg;bestReps=v.reps;bestRir=v.rir;}vol+=v.kg*v.reps;});
       if(maxKg<=0&&vol<=0)return;
-      (map[nom]=map[nom]||[]).push({date:l.date,maxKg,vol,bestReps});
+      (map[nom]=map[nom]||[]).push({date:l.date,maxKg,vol,bestReps,bestRir});
     });
   });
   const names=Object.keys(map).sort((a,b)=>a.localeCompare(b,'fr'));
@@ -1768,7 +1798,7 @@ function renderHistoryExos(logs){
   series.slice().reverse().forEach(s=>{
     h+=`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--white);border-radius:10px;padding:10px 14px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,.04)">
       <span style="font-size:13px;color:var(--text2)">${fmtDate(s.date)}</span>
-      <span style="font-size:14px;font-weight:800">${s.maxKg} kg${s.bestReps?` <span style="font-size:12px;color:var(--text3);font-weight:600">× ${s.bestReps}</span>`:''}</span>
+      <span style="font-size:14px;font-weight:800">${s.maxKg} kg${s.bestReps?` <span style="font-size:12px;color:var(--text3);font-weight:600">× ${s.bestReps}</span>`:''}${s.bestRir!==''&&s.bestRir!=null?` <span style="font-size:11px;color:var(--gold-deep);font-weight:700">RIR ${s.bestRir}</span>`:''}</span>
     </div>`;
   });
   return h;
@@ -2381,7 +2411,7 @@ function renderExoPreview(ex,idx,explicitLetter){
 
   let chips=`<span class="exo-chip">Sets: ${nSets}</span><span class="exo-chip">Reps: ${repsStr}</span>`;
   if(restStr)chips+=`<span class="exo-chip">Rest: ${restStr}</span>`;
-  if(rirStr!=='')chips+=`<span class="exo-chip">RIR: ${rirStr}</span>`;
+  if(rirStr!=='')chips+=`<span class="exo-chip">RIR visé: ${rirStr}</span>`;
 
   const pool=exoPool(ex);
   const swapBtn=pool.length>1?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" title="Choisir un exercice alternatif" style="display:flex;align-items:center;justify-content:center;gap:3px;width:100%;background:var(--gold);border:none;border-radius:7px;padding:5px 6px;font-size:10px;font-weight:800;color:color-mix(in srgb,#1a1a1a var(--ink,100%),var(--text));cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.15);white-space:nowrap">⇄ Autre</button>`:'';
@@ -2490,9 +2520,138 @@ function planProgression(day){
   }));
   return out;
 }
+/* ===== PAUSE / REPRISE DE SÉANCE =====
+   Le client peut mettre sa séance en pause : les perfs déjà saisies sont enregistrées
+   en local, il peut fermer l'app et reprendre exactement là où il s'est arrêté. */
+function woElapsedSec(){return workoutStart?Math.floor((Date.now()-workoutStart)/1000):(workoutElapsed||0);}
+function woSetsDone(sets){
+  const src=sets||workoutData;
+  let d=0,t=0;
+  (src||[]).forEach(ex=>(ex.sets||[]).forEach(x=>{t++;if(x.done)d++;}));
+  return{d,t};
+}
+// La vidéo filmée est un objet File, non sérialisable : elle reste en mémoire et
+// n'est perdue que si l'app est fermée avant la reprise (les perfs, elles, restent).
+function saveWorkoutPause(paused){
+  if(!workoutData.length)return;
+  try{
+    const p=curProg()||{};
+    localStorage.setItem(WO_PAUSE_KEY,JSON.stringify({
+      v:1,paused:paused!==false,date:today(),ts:Date.now(),
+      progId:p.id||null,progIdx:currentProgIdx,dayIdx:currentDayIdx,
+      sessionName:_woSessionName||'',elapsed:woElapsedSec(),
+      exos:workoutData.map(ex=>{const o={...ex};delete o.videoFile;delete o._pool;return o;})
+    }));
+  }catch(e){console.warn('[WO PAUSE] sauvegarde impossible',e);}
+}
+function clearWorkoutPause(){try{localStorage.removeItem(WO_PAUSE_KEY);}catch(e){}}
+// Séance interrompue récupérable. Au-delà de 48 h on n'y revient plus : les perfs
+// seraient enregistrées à une date qui n'a plus rien à voir avec la séance.
+function pausedWorkout(){
+  let d=null;
+  try{const raw=localStorage.getItem(WO_PAUSE_KEY);d=raw?JSON.parse(raw):null;}catch(e){return null;}
+  if(!d||!Array.isArray(d.exos)||!d.exos.length)return null;
+  if(d.ts&&Date.now()-d.ts>48*3600*1000){clearWorkoutPause();return null;}
+  return d;
+}
+function pausedForCurrentDay(){
+  const p=pausedWorkout();
+  return (p&&p.dayIdx===currentDayIdx&&(p.progIdx==null||p.progIdx===currentProgIdx))?p:null;
+}
+function pauseWorkout(){
+  if(!workoutActive||workoutPaused)return;
+  workoutElapsed=woElapsedSec();
+  clearInterval(workoutTimerInterval);workoutTimerInterval=null;
+  workoutStart=null;
+  if(typeof skipRest==='function'&&document.getElementById('restOverlay'))skipRest();
+  workoutPaused=true;
+  saveWorkoutPause(true);
+  renderPausedWorkout();
+  document.getElementById('scrollArea').scrollTop=0;
+  toast('Séance en pause — tes perfs sont enregistrées');
+}
+// Recharge une séance interrompue depuis le stockage local (app fermée entre-temps)
+function _woRestoreTarget(p){
+  let idx=p.progId!=null?programs.findIndex(x=>String(x.id)===String(p.progId)):-1;
+  if(idx<0&&p.progIdx!=null&&programs[p.progIdx])idx=p.progIdx;
+  if(idx>=0)currentProgIdx=idx;
+  if(p.dayIdx!=null)currentDayIdx=p.dayIdx;
+}
+function applyPausedWorkout(p){
+  if(!p||!Array.isArray(p.exos)||!p.exos.length)return false;
+  _woRestoreTarget(p);
+  workoutData=p.exos.map(ex=>({...ex,videoFile:null,
+    _pool:exoPool({nom:ex.nom,video:ex.video,muscle:ex.muscle,replacements:ex.replacements||[]})}));
+  workoutElapsed=p.elapsed||0;
+  _woSessionName=p.sessionName||'';
+  return true;
+}
+function resumeWorkout(){
+  const p=pausedWorkout();
+  // Encore en mémoire (simple aller-retour dans l'app) : on garde tout, vidéos comprises
+  if(!workoutPaused||!workoutData.length){
+    if(!p){toast('Aucune séance en pause à reprendre');return;}
+    if(!applyPausedWorkout(p)){toast('Séance impossible à reprendre');clearWorkoutPause();return;}
+  } else if(p){
+    _woRestoreTarget(p); // le client a pu ouvrir un autre programme entre-temps
+  }
+  workoutPaused=false;workoutActive=true;
+  trainSubTab='programme';seanceOpen=true;
+  workoutStart=Date.now()-(workoutElapsed||0)*1000;
+  clearInterval(workoutTimerInterval);
+  workoutTimerInterval=setInterval(updateWorkoutTimer,1000);
+  const swb=document.getElementById('startWorkoutBtn');if(swb)swb.remove();
+  renderActiveWorkout();
+  document.getElementById('scrollArea').scrollTop=0;
+}
+// Quitter l'écran de pause sans rien perdre : la séance reste reprenable
+function leavePausedWorkout(){
+  workoutActive=false;
+  renderTrainPreview();
+}
+function abandonWorkout(){
+  if(!confirm('Abandonner cette séance ? Les perfs saisies seront perdues.'))return;
+  clearInterval(workoutTimerInterval);workoutTimerInterval=null;
+  clearWorkoutPause();
+  workoutPaused=false;workoutActive=false;workoutData=[];workoutElapsed=0;workoutStart=null;_woSessionName='';
+  renderTrainPreview();
+  toast('Séance abandonnée');
+}
+function renderPausedWorkout(){
+  const st=woSetsDone();
+  const name=_woSessionName||'Séance';
+  let h=`<div class="wo-header"><button class="wo-back" onclick="leavePausedWorkout()">←</button><div class="wo-title">${name}</div><div class="wo-timer-wrap"><div class="wo-timer">${fmtTimer(workoutElapsed||0)}</div><span style="font-size:13px">⏸</span></div></div>`;
+  h+=`<div style="text-align:center;padding:26px 0 18px">
+    <div style="font-size:46px;margin-bottom:10px">⏸</div>
+    <div style="font-size:21px;font-weight:800;margin-bottom:6px">Séance en pause</div>
+    <div style="font-size:14px;color:var(--text2);line-height:1.5;max-width:330px;margin:0 auto">Tes perfs sont enregistrées. Tu peux fermer l'app et reprendre plus tard, là où tu t'es arrêté.</div>
+  </div>`;
+  h+=`<div class="card" style="display:flex;gap:10px;text-align:center;padding:16px">
+    <div style="flex:1"><div style="font-size:11px;color:var(--text3);font-weight:700">TEMPS ÉCOULÉ</div><div style="font-size:20px;font-weight:800;color:var(--gold);margin-top:3px">${fmtTimer(workoutElapsed||0)}</div></div>
+    <div style="flex:1"><div style="font-size:11px;color:var(--text3);font-weight:700">SÉRIES VALIDÉES</div><div style="font-size:20px;font-weight:800;margin-top:3px">${st.d}<span style="font-size:13px;color:var(--text3)">/${st.t}</span></div></div>
+  </div>`;
+  h+=`<button class="btn-gold" style="margin-top:16px" onclick="resumeWorkout()">▶ Reprendre la séance</button>`;
+  h+=`<button class="btn-gold" style="margin-top:10px;background:var(--white);color:var(--on-gold);border:1.5px solid var(--gold-border)" onclick="showPostWorkout()">Terminer et enregistrer</button>`;
+  h+=`<button style="margin:14px auto 40px;display:block;background:none;border:none;color:#ef4444;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer" onclick="abandonWorkout()">Abandonner la séance</button>`;
+  document.getElementById('trainContent').innerHTML=h;
+}
+// Filet de sécurité : l'app peut être tuée par le système en pleine séance
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden&&workoutActive&&workoutData.length)saveWorkoutPause(workoutPaused);
+});
+
 function startWorkout(){
+  // Séance déjà commencée puis mise en pause : on la reprend au lieu de tout écraser
+  const paused=pausedWorkout();
+  if(paused){
+    if(pausedForCurrentDay()){resumeWorkout();return;}
+    if(!confirm('Ta séance « '+(paused.sessionName||'précédente')+' » est en pause et n\'est pas terminée. La perdre et démarrer celle-ci ?'))return;
+    clearWorkoutPause();
+  }
   const swb=document.getElementById('startWorkoutBtn');if(swb)swb.remove();
   workoutActive=true;
+  workoutPaused=false;
+  workoutElapsed=0;
   workoutStart=Date.now();
   const p=curProg(),day=((p||{}).jours||[])[currentDayIdx];
   if(!day)return;
@@ -2518,6 +2677,7 @@ function startWorkout(){
 
   // Find previous log for same session
   const targetName=day.nom||'Jour '+(currentDayIdx+1);
+  _woSessionName=targetName;
   const prevLog=trainLogs.find(l=>l.type!=='activity'&&l.session_name===targetName&&Array.isArray(l.exercises)&&l.exercises.length);
   const prevExos=prevLog?prevLog.exercises||[]:[];
 
@@ -2538,10 +2698,13 @@ function startWorkout(){
         kgL:'',kgR:'',repsL:'',repsR:'',rirL:'',rirR:'',
         prevKg:prevSet?prevSet.kg||prevSet.load||'':'',
         prevReps:prevSet?prevSet.reps||'':'',
+        prevRir:prevSet?rirTxt(prevSet.rir):'',
         prevKgL:prevSet?prevSet.kgL||'':'',
         prevKgR:prevSet?prevSet.kgR||'':'',
         prevRepsL:prevSet?prevSet.repsL||'':'',
         prevRepsR:prevSet?prevSet.repsR||'':'',
+        prevRirL:prevSet?rirTxt(prevSet.rirL):'',
+        prevRirR:prevSet?rirTxt(prevSet.rirR):'',
         done:false
       });
     }
@@ -2568,8 +2731,8 @@ function updateWorkoutTimer(){
 
 function renderActiveWorkout(){
   const day=((curProg()||{}).jours||[])[currentDayIdx];
-  const dayName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
-  let h=`<div class="wo-header"><button class="wo-back" onclick="endWorkout(false)">←</button><div class="wo-title">${dayName}</div><div class="wo-timer-wrap"><div class="wo-timer" id="woTimer">00:00</div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>`;
+  const dayName=(day&&(day.nom||'Jour '+(currentDayIdx+1)))||_woSessionName||'Séance';
+  let h=`<div class="wo-header"><button class="wo-back" onclick="endWorkout(false)">←</button><div class="wo-title">${dayName}</div><div class="wo-timer-wrap"><div class="wo-timer" id="woTimer">00:00</div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><button class="wo-pause" onclick="pauseWorkout()" title="Mettre la séance en pause">⏸</button></div>`;
 
   // Pré-groupe en blocs : exo simple ou superset entier
   const blocks=[];
@@ -2604,7 +2767,9 @@ function renderActiveWorkout(){
   });
 
   h+=`<button class="btn-gold" style="margin-top:16px" onclick="showPostWorkout()">Terminer la séance</button>`;
+  h+=`<button class="btn-gold" style="margin:10px 0 34px;background:var(--white);color:var(--on-gold);border:1.5px solid var(--gold-border)" onclick="pauseWorkout()">⏸ Mettre en pause</button>`;
   document.getElementById('trainContent').innerHTML=h;
+  updateWorkoutTimer();
 }
 
 function _renderWoExoCard(ex,ei,opts){
@@ -2619,6 +2784,9 @@ function _renderWoExoCard(ex,ei,opts){
   else thumb=`<div class="exo-thumb"><div class="exo-thumb-placeholder">💪</div></div>`;
   let chips=`<span class="exo-chip">Sets: ${nSets}</span><span class="exo-chip">Reps: ${repsStr}</span>`;
   if(restStr)chips+=`<span class="exo-chip">Rest: ${restStr}</span>`;
+  // RIR visé par le coach : rappelé ici car le champ RIR affiche désormais celui de la dernière fois
+  const rirGoal=rirTxt(sets0.rir);
+  if(rirGoal!=='')chips+=`<span class="exo-chip">RIR visé: ${rirGoal}</span>`;
   const pool=ex._pool||exoPool(ex);
   const canSwap=pool.length>1;
   const swapBtn=canSwap?`<button onclick="toggleSwap(${ei})" title="Choisir un exercice alternatif" style="display:flex;align-items:center;justify-content:center;gap:3px;width:100%;background:var(--gold);border:none;border-radius:7px;padding:5px 6px;font-size:10px;font-weight:800;color:color-mix(in srgb,#1a1a1a var(--ink,100%),var(--text));cursor:pointer;white-space:nowrap">⇄ Changer</button>`:'';
@@ -2649,6 +2817,8 @@ function rirCell(ei,si,field,val,ph,gold){
   const v=String(val==null?'':val);
   return `<div class="set-input rir-in"><button class="rir-sign" tabindex="-1" onmousedown="event.preventDefault()" onclick="toggleRirSign(this,${ei},${si},'${field}')" title="Valeur négative (au-delà de l'échec)" aria-label="Changer le signe">±</button><input type="text" inputmode="numeric" pattern="-?[0-9]*" maxlength="3" placeholder="${ph||'RIR'}" value="${v}" oninput="setRir(this,${ei},${si},'${field}')"${gold?' style="border-color:var(--gold-border)"':''}></div>`;
 }
+// Valeur RIR affichable : "0" et "-1" sont des valeurs valides, contrairement à '' / null
+function rirTxt(v){return (v===0||(v!=null&&v!==''))?String(v):'';}
 function cleanRir(str){
   let v=String(str||'').replace(/[^0-9-]/g,'');   // que des chiffres et le signe
   v=v.replace(/(?!^)-/g,'');                       // le "-" seulement en tête
@@ -2715,10 +2885,10 @@ function _renderWoSetRow(ex,ei,si,opts){
       <div class="set-num">${numLabel}</div>
       ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKgL}" value="${s.kgL||''}" oninput="workoutData[${ei}].sets[${si}].kgL=this.value" style="border-color:var(--gold-border)"></div>`}
       <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phRepsL}" value="${s.repsL||''}" oninput="workoutData[${ei}].sets[${si}].repsL=this.value" style="border-color:var(--gold-border)"></div>
-      ${rirCell(ei,si,'rirL',s.rirL,s.rir,true)}
+      ${rirCell(ei,si,'rirL',s.rirL,s.prevRirL||s.prevRir||s.rir,true)}
       ${ex.bw?'':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKgR}" value="${s.kgR||''}" oninput="workoutData[${ei}].sets[${si}].kgR=this.value"></div>`}
       <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phRepsR}" value="${s.repsR||''}" oninput="workoutData[${ei}].sets[${si}].repsR=this.value"></div>
-      ${rirCell(ei,si,'rirR',s.rirR,s.rir,false)}
+      ${rirCell(ei,si,'rirR',s.rirR,s.prevRirR||s.prevRir||s.rir,false)}
       ${checkCell}
     </div>`;
   }
@@ -2728,7 +2898,7 @@ function _renderWoSetRow(ex,ei,si,opts){
     <div class="set-num">${numLabel}</div>
     ${ex.bw?'<div class="set-input"></div>':`<div class="set-input"><input type="number" inputmode="decimal" placeholder="${phKg}" value="${s.kg}" oninput="workoutData[${ei}].sets[${si}].kg=this.value"></div>`}
     <div class="set-input"><input type="number" inputmode="numeric" placeholder="${phReps}" value="${s.repsActual}" oninput="workoutData[${ei}].sets[${si}].repsActual=this.value"></div>
-    ${rirCell(ei,si,'rirActual',s.rirActual,s.rir,false)}
+    ${rirCell(ei,si,'rirActual',s.rirActual,s.prevRir||s.rir,false)}
     ${checkCell}
   </div>`;
 }
@@ -2812,12 +2982,15 @@ function validateSupersetSet(ssId,si){
     const restStr=(Array.isArray(ex0.supersetRest)&&ex0.supersetRest[si])||ex0.sets[si]?.rest||'90s';
     startRestTimer(parseRestSec(restStr));
   }
+  saveWorkoutPause(false);
   renderActiveWorkout();
 }
 
 function showPostWorkout(){
-  clearInterval(workoutTimerInterval);
-  const elapsed=workoutStart?fmtTimer(Math.floor((Date.now()-workoutStart)/1000)):'00:00';
+  workoutElapsed=woElapsedSec();
+  clearInterval(workoutTimerInterval);workoutTimerInterval=null;
+  workoutStart=null;
+  const elapsed=fmtTimer(workoutElapsed);
   let h=`<div style="text-align:center;padding:32px 0">
     <div style="font-size:48px;margin-bottom:16px">🎉</div>
     <div style="font-size:22px;font-weight:800;margin-bottom:6px">Félicitations !</div>
@@ -2841,7 +3014,7 @@ async function finalizeWorkout(){
   workoutActive=false;
   if(workoutData.length){
     const day=((curProg()||{}).jours||[])[currentDayIdx];
-    const sessionName=day?day.nom||'Jour '+(currentDayIdx+1):'Séance';
+    const sessionName=(day&&(day.nom||'Jour '+(currentDayIdx+1)))||_woSessionName||'Séance';
     // Upload exercise videos to Drive
     const nom=(clientData&&(clientData.first_name||clientData.last_name))?((clientData.first_name||'')+'_'+(clientData.last_name||'')).replace(/\s+/g,'_').replace(/_+$/,''):'client';
     const dateStr=today().replace(/-/g,'');
@@ -2878,7 +3051,18 @@ async function finalizeWorkout(){
     if(rpe)trainRow.cycle=rpe;
     if(comment)trainRow.comment=comment;
     const{error}=await db.from('train_logs').insert(trainRow);
-    if(error)console.error('[WORKOUT SAVE ERROR]',error);
+    if(error){
+      // Rien n'est perdu : la séance repasse en pause, le client réessaiera
+      console.error('[WORKOUT SAVE ERROR]',error);
+      workoutActive=true;workoutPaused=true;
+      saveWorkoutPause(true);
+      hideWorkoutSaveOverlay();
+      toast('Enregistrement impossible — ta séance reste en pause');
+      renderPausedWorkout();
+      return;
+    }
+    clearWorkoutPause();
+    workoutPaused=false;workoutElapsed=0;workoutStart=null;_woSessionName='';
     if(rpe||comment){
       const existing=dailyLogs.find(l=>l.date===today());
       const extra={'RPE séance':rpe};if(comment)extra['Commentaire séance']=comment;
@@ -2943,6 +3127,7 @@ function validateSet(ei,si){
     const restSec=parseRestSec(s.rest);
     startRestTimer(restSec);
   }
+  saveWorkoutPause(false);
   renderActiveWorkout();
 }
 
@@ -3064,7 +3249,15 @@ function filmExo(ei){
 }
 
 function endWorkout(save){
-  clearInterval(workoutTimerInterval);
+  clearInterval(workoutTimerInterval);workoutTimerInterval=null;
+  // On ne jette plus ce qui a été saisi : la séance passe en pause et reste reprenable
+  if(workoutActive&&!workoutPaused&&workoutData.length){
+    workoutElapsed=woElapsedSec();
+    workoutStart=null;
+    workoutPaused=true;
+    saveWorkoutPause(true);
+    toast('Séance mise en pause — reprends quand tu veux');
+  }
   workoutActive=false;
   renderTrainPreview();
 }
