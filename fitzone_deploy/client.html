@@ -5670,27 +5670,42 @@ function _renderSuiviTable(){
       <tbody>${rows}<tr class="wk-avg"><td class="wk-fix">MOYENNES</td>${avgCells}</tr></tbody>
     </table>
   </div>`;
-  h+=`<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">↔ Fais défiler le tableau vers la droite pour voir toutes les colonnes. Tu peux remplir plusieurs jours d'un coup.</div>`;
+  h+=`<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">↔ Fais défiler le tableau vers la droite pour voir toutes les colonnes. Tu peux remplir plusieurs jours d'un coup.<br>Vider une case n'efface rien : pour corriger une valeur, remplace-la.</div>`;
   h+=`<button class="btn-gold" id="wkSaveBtn" style="margin-top:12px;opacity:.5" disabled onclick="saveSuiviWeek()">Enregistrer la semaine</button>`;
   return h;
 }
 async function saveSuiviWeek(){
-  const dates=Object.keys(_wkEdits).filter(d=>Object.keys(_wkEdits[d]||{}).length).sort();
-  if(!dates.length){toast('Aucune modification à enregistrer');return;}
   const byId={};activeDailyQuestions().forEach(q=>{byId[q.id]=q;});
-  const btn=document.getElementById('wkSaveBtn');
-  if(btn){btn.disabled=true;btn.textContent='Enregistrement…';}
-  for(const date of dates){
-    const raw=_wkEdits[date];
+  // Prépare les données jour par jour. Une case vidée est ignorée (elle n'efface
+  // pas la valeur déjà enregistrée), donc un jour peut se retrouver sans rien à écrire.
+  let cleared=0;
+  const todo=[];
+  Object.keys(_wkEdits).sort().forEach(date=>{
+    const raw=_wkEdits[date]||{};
     const data={date};
+    let count=0;
     Object.keys(raw).forEach(qid=>{
       const q=byId[qid];if(!q)return;
       const v=String(raw[qid]==null?'':raw[qid]).trim();
-      if(v===''){data[qid]='';return;}   // case vidée volontairement
-      if(['textarea','text','yesno','choice'].includes(q.type)){data[qid]=v;return;}
+      if(v===''){
+        const had=dailyLogs.find(l=>l.date===date);
+        if(had&&had.data&&had.data[qid]!=null&&String(had.data[qid]).trim()!=='')cleared++;
+        return;
+      }
+      if(['textarea','text','yesno','choice'].includes(q.type)){data[qid]=v;count++;return;}
       const num=parseFloat(v.replace(',','.'));
-      if(!isNaN(num))data[qid]=num;
+      if(!isNaN(num)){data[qid]=num;count++;}
     });
+    if(count)todo.push({date,data});
+  });
+  if(!todo.length){
+    toast(cleared?'Une case vidée n\'efface pas ce qui est déjà enregistré':'Aucune modification à enregistrer');
+    _wkEdits={};renderSuivi();return;
+  }
+  const dates=todo.map(t=>t.date);
+  const btn=document.getElementById('wkSaveBtn');
+  if(btn){btn.disabled=true;btn.textContent='Enregistrement…';}
+  for(const{date,data} of todo){
     const existing=dailyLogs.find(l=>l.date===date);
     const merged=existing?{...existing.data,...data}:data;
     const res=existing
@@ -5707,7 +5722,8 @@ async function saveSuiviWeek(){
   _wkEdits={};
   const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
   dailyLogs=nl||[];
-  toast(dates.length>1?dates.length+' jours enregistrés ✓':'Journée enregistrée ✓');
+  toast(cleared?'Enregistré ✓ — une case vidée n\'efface pas ce qui est déjà enregistré'
+    :(dates.length>1?dates.length+' jours enregistrés ✓':'Journée enregistrée ✓'));
   // Mêmes points que le questionnaire, uniquement sur la journée du jour
   if(touchedToday){
     const td=dailyLogs.find(l=>l.date===today());
