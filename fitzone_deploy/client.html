@@ -340,6 +340,27 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .chart-stat { flex:1; text-align:center; }
 .chart-stat-val { font-size:18px; font-weight:800; }
 .chart-stat-label { font-size:10px; color:var(--text3); text-transform:uppercase; font-weight:600; }
+/* Tableau hebdo du suivi quotidien : scroll horizontal, colonne des jours figée */
+.wk-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:12px; background:var(--white); box-shadow:var(--shadow); }
+.wk-tbl { border-collapse:separate; border-spacing:0; font-size:12px; width:max-content; min-width:100%; }
+.wk-tbl th, .wk-tbl td { border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:0; }
+.wk-sec { background:var(--gold); color:#fff; font-size:9px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; padding:5px 8px; text-align:center; white-space:nowrap; }
+.wk-q { background:var(--gold-pale); color:var(--gold-deep); font-size:10px; font-weight:700; padding:6px 4px; text-align:center; line-height:1.25; max-width:110px; }
+.wk-q small { display:block; font-weight:500; opacity:.7; font-size:9px; }
+.wk-day { background:var(--white); font-size:11px; font-weight:800; color:var(--text); white-space:nowrap; padding:0 10px; text-align:left; }
+.wk-day small { display:block; font-weight:600; color:var(--text3); font-size:10px; }
+.wk-fix { position:sticky; left:0; z-index:3; box-shadow:2px 0 0 var(--border); }
+.wk-tbl thead .wk-fix { z-index:5; }
+.wk-tbl tr.wk-today .wk-day { color:var(--gold-deep); background:var(--gold-pale); }
+.wk-cell input, .wk-cell select { width:66px; border:none; background:transparent; font-family:var(--font); font-size:13px; font-weight:600; color:var(--text); text-align:center; padding:11px 2px; outline:none; -webkit-appearance:none; appearance:none; border-radius:0; }
+.wk-cell input::-webkit-outer-spin-button, .wk-cell input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+.wk-cell input:focus, .wk-cell select:focus { background:var(--gold-pale); box-shadow:inset 0 0 0 1.5px var(--gold); }
+.wk-cell input::placeholder { color:var(--text3); font-weight:400; }
+.wk-cell.wk-txt input { width:150px; text-align:left; padding-left:8px; }
+.wk-cell.wk-future { background:var(--bg2); }
+.wk-cell.wk-edit input, .wk-cell.wk-edit select { background:color-mix(in srgb,#fff8e1 var(--tint,100%),var(--white)); }
+.wk-avg td { background:#1a1916; color:#f5edcf; font-size:11px; font-weight:800; text-align:center; padding:7px 4px; border-right:1px solid #2a2a2a; border-bottom:none; }
+.wk-avg .wk-fix { background:#1a1916; box-shadow:2px 0 0 #2a2a2a; text-align:left; padding-left:10px; letter-spacing:1px; font-size:10px; }
 .period-btns { display:flex; gap:6px; margin-bottom:14px; }
 .period-btn { padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600; border:none; background:var(--bg2); cursor:pointer; color:var(--text2); transition:all .2s; }
 .period-btn.active { background:var(--gold); color:white; }
@@ -908,6 +929,13 @@ let restTimerInterval=null;
 let bilanPhotos=[];
 let suiviDate=null;
 let suiviPeriod='month';
+// Rapport quotidien : le client choisit son interface (questionnaire jour par jour
+// ou tableau de la semaine), le choix est mémorisé d'une ouverture à l'autre.
+let suiviView=(()=>{try{return localStorage.getItem('fz_suiviView')==='table'?'table':'form';}catch(e){return'form';}})();
+let suiviWeek=null;      // lundi de la semaine affichée dans le tableau (YYYY-MM-DD)
+let _wkEdits={};         // {date:{idQuestion:valeurBrute}} — saisies pas encore enregistrées
+let _wkDays=[],_wkQs=[]; // contexte du dernier rendu du tableau
+const WK_MAX_BACK=12;    // dailyLogs ne remonte qu'à 90 jours : au-delà on n'ouvre pas le tableau
 
 let coachPartners=[]; // [{image, description, button_text, button_url}, ...]
 let clientRoadmap=[]; // Array d'objectifs [{text, start_date, end_date|null}] depuis roadmaps.objectifs
@@ -5132,6 +5160,13 @@ let dailyQuestions=[
   {id:'Contexte',section:'NOTES',icon:'fa-pen',label:'Donne du contexte à ta note pour que ton coach puisse mieux la comprendre.',type:'textarea',required:false},
   {id:'Note attitude (/10)',section:'ATTITUDE',icon:'fa-star',label:'Note attitude',type:'rating',scale:10,required:false}
 ];
+/* Le coach peut désactiver certaines questions pour ce client précis
+   (clients.daily_questions = ids actifs ; null = tout est actif). */
+function activeDailyQuestions(){
+  const only=clientData&&clientData.daily_questions;
+  if(!Array.isArray(only))return dailyQuestions;
+  return dailyQuestions.filter(q=>only.includes(q.id));
+}
 function _renderDynQuestionInput(q,inpId,value){
   const v=value==null?'':value;
   switch(q.type){
@@ -5423,12 +5458,27 @@ function _dailyReportState(log){
   const d=log.data;
   const filled=Object.keys(d).filter(k=>k!=='date'&&d[k]!=null&&String(d[k]).trim()!=='');
   if(!filled.length)return 'empty';
-  const req=dailyQuestions.filter(q=>q.required);
+  const req=activeDailyQuestions().filter(q=>q.required);
   const allReq=req.every(q=>{const v=d[q.id];return v!=null&&String(v).trim()!=='';});
   return allReq?'complete':'partial';
 }
+function setSuiviView(v){
+  suiviView=(v==='table')?'table':'form';
+  try{localStorage.setItem('fz_suiviView',suiviView);}catch(e){}
+  renderSuivi();
+}
 function renderSuivi(){
   if(!suiviDate)suiviDate=today();
+  let h=`<div class="day-tabs" style="margin-bottom:16px">
+    <button class="day-tab${suiviView==='form'?' active':''}" onclick="setSuiviView('form')">📝 Questionnaire</button>
+    <button class="day-tab${suiviView==='table'?' active':''}" onclick="setSuiviView('table')">📊 Tableau de la semaine</button>
+  </div>`;
+  h+=(suiviView==='table')?_renderSuiviTable():_renderSuiviForm();
+  h+=_renderSuiviChart();
+  document.getElementById('suiviContent').innerHTML=h;
+  if(suiviView==='table')_wkUpdateAvg();
+}
+function _renderSuiviForm(){
   const log=dailyLogs.find(l=>l.date===suiviDate);
   const d=log?log.data:{};
   let h='';
@@ -5437,7 +5487,9 @@ function renderSuivi(){
   h+=`<div class="card"><div class="suivi-date-pick"><input type="date" value="${suiviDate}" onchange="suiviDate=this.value;renderSuivi()"></div>`;
 
   // Questions dynamiques
-  dailyQuestions.forEach(q=>{
+  const qs=activeDailyQuestions();
+  if(!qs.length)h+=`<div style="font-size:13px;color:var(--text3);text-align:center;padding:20px 0">Ton coach n'a activé aucune question pour ton rapport quotidien.</div>`;
+  qs.forEach(q=>{
     const subLabel=q.sub?`<span>${q.sub}</span>`:'';
     const req=q.required?' <span style="color:color-mix(in srgb,#dc2626 var(--ink,100%),var(--text));font-weight:800" title="Obligatoire">*</span>':'';
     if(q.type==='rating'){
@@ -5461,7 +5513,10 @@ function renderSuivi(){
     <button class="btn-outline" onclick="saveSuivi(true)">⚖️ Enregistrer seulement la pesée</button>
     <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.4">Tu peux enregistrer ta pesée le matin, puis compléter le reste du rapport le soir.</div>
   </div></div>`;
-
+  return h;
+}
+function _renderSuiviChart(){
+  let h='';
   // Chart section
   h+=`<div style="margin-top:20px"><div class="card-label" style="color:var(--text3)">ÉVOLUTION DU POIDS</div>`;
   h+=`<div class="period-btns">${[['week','7j'],['month','30j'],['quarter','90j'],['all','Tout']].map(([k,l])=>`<button class="period-btn${suiviPeriod===k?' active':''}" onclick="suiviPeriod='${k}';renderSuivi()">${l}</button>`).join('')}</div>`;
@@ -5472,9 +5527,202 @@ function renderSuivi(){
     h+=`<div class="chart-stats"><div class="chart-stat"><div class="chart-stat-val">${f.v.toFixed(1)}</div><div class="chart-stat-label">Début</div></div><div class="chart-stat"><div class="chart-stat-val">${la.v.toFixed(1)}</div><div class="chart-stat-label">Fin</div></div><div class="chart-stat"><div class="chart-stat-val">${avg.toFixed(1)}</div><div class="chart-stat-label">Moyenne</div></div><div class="chart-stat"><div class="chart-stat-val" style="color:${parseFloat(pct)<0?'var(--green)':'var(--red)'}">${pct>0?'+':''}${pct}%</div><div class="chart-stat-label">Évolution</div></div></div></div>`;
   } else h+=`<div class="card" style="text-align:center;padding:32px"><div style="font-size:14px;color:var(--text3)">Pas assez de données pour le graphique.</div></div>`;
   h+=`</div>`;
+  return h;
+}
 
+/* ===== TABLEAU DE LA SEMAINE =====
+   Même lecture que la feuille de suivi du coach : une ligne par jour, une colonne
+   par question, scroll horizontal, colonne des jours figée à gauche. */
+function _wkMonday(dateStr){
+  const d=new Date(dateStr+'T12:00:00');
+  d.setDate(d.getDate()-((d.getDay()+6)%7));
+  return localDateStr(d);
+}
+function _wkShift(days){
+  const d=new Date((suiviWeek||_wkMonday(today()))+'T12:00:00');
+  d.setDate(d.getDate()+days);
+  suiviWeek=localDateStr(d);
+  renderSuivi();
+}
+function _wkFmtVal(v,q){
+  const num=parseFloat(v);
+  if(isNaN(num))return String(v==null?'':v);
+  if(q.type==='percent')return Math.round(num)+'%';
+  if(q.unit==='h'){const hh=Math.floor(num),mm=Math.round((num-hh)*60);return hh+'h'+String(mm).padStart(2,'0');}
+  return String(Math.round(num*100)/100);
+}
+// Moyennes recalculées à la volée pendant la saisie (comme la ligne MOYENNES du Sheet)
+function _wkUpdateAvg(){
+  _wkQs.forEach((q,qi)=>{
+    const cell=document.getElementById('wkAvg_'+qi);
+    if(!cell)return;
+    if(!['number','rating','percent'].includes(q.type)){cell.textContent='';return;}
+    const vals=[];
+    document.querySelectorAll('[data-qi="'+qi+'"]').forEach(el=>{
+      const f=parseFloat(String(el.value||'').replace(',','.'));
+      if(!isNaN(f))vals.push(f);
+    });
+    if(!vals.length){cell.textContent='';return;}
+    cell.textContent=_wkFmtVal(vals.reduce((a,b)=>a+b,0)/vals.length,q);
+  });
+}
+function wkSet(el,di,qi){
+  const day=_wkDays[di],q=_wkQs[qi];
+  if(!day||!q)return;
+  (_wkEdits[day.date]=_wkEdits[day.date]||{})[q.id]=el.value;
+  const cell=el.closest('.wk-cell');if(cell)cell.classList.add('wk-edit');
+  _wkUpdateAvg();
+  _wkSyncSaveBtn();
+}
+function _wkEditCount(){
+  return Object.keys(_wkEdits).filter(d=>Object.keys(_wkEdits[d]||{}).length).length;
+}
+function _wkSyncSaveBtn(){
+  const b=document.getElementById('wkSaveBtn');if(!b)return;
+  const c=_wkEditCount();
+  b.disabled=!c;
+  b.style.opacity=c?'1':'.5';
+  b.textContent=c?`Enregistrer (${c} jour${c>1?'s':''})`:'Enregistrer la semaine';
+}
+function _wkCellInput(q,qi,di,day,val){
+  const v=val==null?'':String(val);
+  const dis=day.future?' disabled':'';
+  const attrs=`data-qi="${qi}" data-di="${di}" oninput="wkSet(this,${di},${qi})" onchange="wkSet(this,${di},${qi})"${dis}`;
+  const esc=x=>String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  if(q.type==='rating'){
+    let o=`<option value=""></option>`;
+    for(let i=1;i<=(q.scale||5);i++)o+=`<option value="${i}"${String(v)===String(i)?' selected':''}>${i}</option>`;
+    return`<select ${attrs}>${o}</select>`;
+  }
+  if(q.type==='yesno'){
+    return`<select ${attrs}><option value=""></option><option value="Oui"${v==='Oui'?' selected':''}>Oui</option><option value="Non"${v==='Non'?' selected':''}>Non</option></select>`;
+  }
+  if(q.type==='choice'){
+    let o=`<option value=""></option>`;
+    (q.options||[]).forEach(op=>{o+=`<option value="${esc(op)}"${v===op?' selected':''}>${esc(op)}</option>`;});
+    return`<select ${attrs}>${o}</select>`;
+  }
+  if(q.type==='textarea'||q.type==='text'){
+    return`<input type="text" value="${esc(v)}" placeholder="—" ${attrs}>`;
+  }
+  if(q.type==='percent'){
+    return`<input type="number" inputmode="numeric" min="0" max="100" step="5" value="${esc(v)}" placeholder="%" ${attrs}>`;
+  }
+  const step=q.step||1;
+  return`<input type="number" inputmode="decimal" step="${step}" value="${esc(v)}" placeholder="—" ${attrs}>`;
+}
+function _renderSuiviTable(){
+  const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const qs=activeDailyQuestions();
+  const curMon=_wkMonday(today());
+  if(!suiviWeek)suiviWeek=curMon;
+  if(suiviWeek>curMon)suiviWeek=curMon;
+  // Sections dans l'ordre des questions
+  const sections=[],secMap=new Map();
+  qs.forEach(q=>{const sec=q.section||'AUTRE';if(!secMap.has(sec)){secMap.set(sec,[]);sections.push(sec);}secMap.get(sec).push(q);});
+  // Index global de chaque question (ordre d'affichage = ordre des sections)
+  const order=[];sections.forEach(sec=>secMap.get(sec).forEach(q=>order.push(q)));
+  _wkQs=order;
+  // Les 7 jours de la semaine
+  const tdy=today();
+  const labels=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  _wkDays=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(suiviWeek+'T12:00:00');d.setDate(d.getDate()+i);
+    const ds=localDateStr(d);
+    _wkDays.push({date:ds,label:labels[i],num:String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'),future:ds>tdy,log:dailyLogs.find(l=>l.date===ds)});
+  }
+  const wEnd=_wkDays[6].date;
+  const fr=x=>new Date(x+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+  const backLimit=(()=>{const d=new Date(curMon+'T12:00:00');d.setDate(d.getDate()-7*WK_MAX_BACK);return localDateStr(d);})();
 
-  document.getElementById('suiviContent').innerHTML=h;
+  let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <button class="period-btn" ${suiviWeek<=backLimit?'disabled style="opacity:.4"':''} onclick="_wkShift(-7)">←</button>
+    <div style="flex:1;text-align:center"><div style="font-size:14px;font-weight:800">${suiviWeek===curMon?'Cette semaine':'Semaine du '+fr(suiviWeek)}</div><div style="font-size:11px;color:var(--text3)">${fr(suiviWeek)} — ${fr(wEnd)}</div></div>
+    <button class="period-btn" ${suiviWeek>=curMon?'disabled style="opacity:.4"':''} onclick="_wkShift(7)">→</button>
+  </div>`;
+
+  if(!order.length){
+    return h+`<div class="card" style="text-align:center;padding:28px;font-size:13px;color:var(--text3)">Ton coach n'a activé aucune question pour ton rapport quotidien.</div>`;
+  }
+
+  const secHead=sections.map(sec=>`<th class="wk-sec" colspan="${secMap.get(sec).length}">${esc(sec)}</th>`).join('');
+  const qHead=order.map(q=>{
+    const u=q.unit?q.unit:(q.type==='percent'?'%':(q.type==='rating'?'/'+(q.scale||5):''));
+    return`<th class="wk-q">${esc(q.label||q.id)}${u?`<small>(${esc(u)})</small>`:''}</th>`;
+  }).join('');
+  const rows=_wkDays.map((day,di)=>{
+    const cells=order.map((q,qi)=>{
+      const val=day.log&&day.log.data?day.log.data[q.id]:'';
+      const cls='wk-cell'+((q.type==='textarea'||q.type==='text')?' wk-txt':'')+(day.future?' wk-future':'');
+      return`<td class="${cls}">${_wkCellInput(q,qi,di,day,val)}</td>`;
+    }).join('');
+    return`<tr class="${day.date===tdy?'wk-today':''}"><td class="wk-day wk-fix">${day.label}<small>${day.num}</small></td>${cells}</tr>`;
+  }).join('');
+  const avgCells=order.map((q,qi)=>`<td id="wkAvg_${qi}"></td>`).join('');
+
+  h+=`<div class="wk-wrap">
+    <table class="wk-tbl">
+      <thead>
+        <tr><th class="wk-sec wk-fix" style="text-align:left">JOUR</th>${secHead}</tr>
+        <tr><th class="wk-q wk-fix"></th>${qHead}</tr>
+      </thead>
+      <tbody>${rows}<tr class="wk-avg"><td class="wk-fix">MOYENNES</td>${avgCells}</tr></tbody>
+    </table>
+  </div>`;
+  h+=`<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">↔ Fais défiler le tableau vers la droite pour voir toutes les colonnes. Tu peux remplir plusieurs jours d'un coup.</div>`;
+  h+=`<button class="btn-gold" id="wkSaveBtn" style="margin-top:12px;opacity:.5" disabled onclick="saveSuiviWeek()">Enregistrer la semaine</button>`;
+  return h;
+}
+async function saveSuiviWeek(){
+  const dates=Object.keys(_wkEdits).filter(d=>Object.keys(_wkEdits[d]||{}).length).sort();
+  if(!dates.length){toast('Aucune modification à enregistrer');return;}
+  const byId={};activeDailyQuestions().forEach(q=>{byId[q.id]=q;});
+  const btn=document.getElementById('wkSaveBtn');
+  if(btn){btn.disabled=true;btn.textContent='Enregistrement…';}
+  for(const date of dates){
+    const raw=_wkEdits[date];
+    const data={date};
+    Object.keys(raw).forEach(qid=>{
+      const q=byId[qid];if(!q)return;
+      const v=String(raw[qid]==null?'':raw[qid]).trim();
+      if(v===''){data[qid]='';return;}   // case vidée volontairement
+      if(['textarea','text','yesno','choice'].includes(q.type)){data[qid]=v;return;}
+      const num=parseFloat(v.replace(',','.'));
+      if(!isNaN(num))data[qid]=num;
+    });
+    const existing=dailyLogs.find(l=>l.date===date);
+    const merged=existing?{...existing.data,...data}:data;
+    const res=existing
+      ? await db.from('daily_logs').update({data:merged}).eq('id',existing.id)
+      : await db.from('daily_logs').insert({coach_id:clientData.coach_id,client_id:clientData.id,date,data:merged});
+    if(res.error){
+      console.error('[SAVE SEMAINE]',res.error,{date});
+      toast('Erreur d\'enregistrement : '+(res.error.message||res.error));
+      _wkSyncSaveBtn();
+      return;
+    }
+  }
+  const touchedToday=dates.includes(today());
+  _wkEdits={};
+  const{data:nl}=await db.from('daily_logs').select('*').eq('client_id',clientData.id).order('date',{ascending:false}).limit(90);
+  dailyLogs=nl||[];
+  toast(dates.length>1?dates.length+' jours enregistrés ✓':'Journée enregistrée ✓');
+  // Mêmes points que le questionnaire, uniquement sur la journée du jour
+  if(touchedToday){
+    const td=dailyLogs.find(l=>l.date===today());
+    const d=(td&&td.data)||{};
+    if(_dailyReportState(td)==='complete')await awardPoints('daily_report',25,{date:today()});
+    if(d['Poids'])await awardPoints('weight_logged',15,{weight:d['Poids']});
+    if(d['Pas']&&parseFloat(d['Pas'])>=8000)await awardPoints('steps_goal',30,{steps:d['Pas']});
+    const diet=parseFloat(d['Alimentation suivie (%)']);
+    if(!isNaN(diet)){
+      let pts=0;
+      if(diet>=90)pts=75;else if(diet>=70)pts=50;else if(diet>=50)pts=25;else if(diet>=30)pts=10;
+      if(pts>0)await awardPoints('nutrition_validation',pts,{pct:diet});
+    }
+  }
+  renderSuivi();
 }
 
 function getChartData(metric){
@@ -5497,14 +5745,16 @@ async function saveSuivi(weighInOnly){
   if(weighInOnly){
     // Pesée seule : on n'enregistre QUE le poids. Les autres champs (dont le slider %
     // qui a une valeur par défaut) sont ignorés, et les obligatoires ne bloquent pas.
-    const wq=dailyQuestions.find(q=>q.id==='Poids')||dailyQuestions.find(q=>(q.unit||'').toLowerCase()==='kg');
+    const qs=activeDailyQuestions();
+    const wq=qs.find(q=>q.id==='Poids')||qs.find(q=>(q.unit||'').toLowerCase()==='kg');
+    if(!wq){toast('La pesée n\'est pas activée dans ton rapport');return;}
     const wEl=wq?document.getElementById('dq_'+_slug(wq.id)):null;
     const wv=wEl?parseFloat((wEl.value||'').trim()):NaN;
     if(isNaN(wv)){toast('Saisis ton poids pour enregistrer la pesée');return;}
     data[wq.id]=wv;
   } else {
     const missing=[];
-    dailyQuestions.forEach(q=>{
+    activeDailyQuestions().forEach(q=>{
       const el=document.getElementById('dq_'+_slug(q.id));if(!el)return;
       const raw=(el.value||'').trim();
       if(raw===''){if(q.required)missing.push(q.label||q.id);return;}

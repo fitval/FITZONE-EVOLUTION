@@ -4365,8 +4365,11 @@ function _renderProgressionContent(el,reRenderFn){
   if(!el||!curClient)return;
   const reRender=reRenderFn||'renderProgressionTab()';
   let logs=lsGet('daily_'+curClient.id,[]);
-  const metrics=['Poids','Énergie','Faim','Stress','Sommeil (h)','Pas','Alimentation suivie (%)','Note attitude (/10)'];
-  const selMetric=window._progMetric||'Poids';
+  const actIds=_dlActiveQuestions().map(q=>q.id);
+  let metrics=['Poids','Énergie','Faim','Stress','Sommeil (h)','Pas','Alimentation suivie (%)','Note attitude (/10)']
+    .filter(m=>!Array.isArray(curClient.daily_questions)||actIds.includes(m));
+  if(!metrics.length)metrics=['Poids'];
+  const selMetric=metrics.includes(window._progMetric)?window._progMetric:metrics[0];
   // Filter data for selected metric
   const mData=logs.filter(l=>l[selMetric]!==undefined&&l[selMetric]!=='').sort((a,b)=>new Date(a.date)-new Date(b.date));
   const optHtml=metrics.map(m=>`<option${m===selMetric?' selected':''}>${m}</option>`).join('');
@@ -4486,8 +4489,8 @@ function _renderProgressionContent(el,reRenderFn){
         </div>
       </div>
     </div>
-    <div style="margin-top:16px"><button class="btn btn-dark btn-sm" onclick="addDailyLog()">+ Ajouter une entrée</button></div>
-    ${_renderWeeklyDailyGrid(logs,window._dlQuestions||DEFAULT_Q_DAILY)}`;
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-dark btn-sm" onclick="addDailyLog()">+ Ajouter une entrée</button><button class="btn btn-ghost btn-sm" onclick="openDailyQModal()" title="Choisir les questions posées à ce client">⚙️ Questions du rapport${Array.isArray(curClient.daily_questions)?` (${curClient.daily_questions.length}/${(window._dlQuestions||DEFAULT_Q_DAILY).length})`:''}</button></div>
+    ${_renderWeeklyDailyGrid(logs,_dlActiveQuestions())}`;
   // Async load des questions personnalisées du coach (re-render si différent du cache)
   if(currentCoach){
     db.from('settings').select('q_daily').eq('coach_id',currentCoach.id).maybeSingle().then(({data})=>{
@@ -4503,6 +4506,68 @@ function _renderProgressionContent(el,reRenderFn){
    - Colonnes = questions q_daily, groupées par section.
    - Cellules vides quand pas de réponse pour ce jour.
    - Ligne MOYENNES en bas de chaque semaine pour les questions numériques. */
+/* Questions du rapport quotidien réellement demandées à CE client.
+   clients.daily_questions = ids actifs ; null = toutes actives (cas par défaut,
+   et les questions ajoutées plus tard le sont automatiquement). */
+function _dlActiveQuestions(){
+  const all=window._dlQuestions||DEFAULT_Q_DAILY;
+  const only=curClient&&curClient.daily_questions;
+  if(!Array.isArray(only))return all;
+  return all.filter(q=>only.includes(q.id));
+}
+/* Choix des questions posées à ce client (interrupteur par question) */
+function openDailyQModal(){
+  if(!curClient){toast('Aucun client sélectionné');return;}
+  const all=window._dlQuestions||DEFAULT_Q_DAILY;
+  const only=curClient.daily_questions;
+  const isOn=q=>!Array.isArray(only)||only.includes(q.id);
+  const sections=[],secMap=new Map();
+  all.forEach(q=>{const sec=q.section||'AUTRE';if(!secMap.has(sec)){secMap.set(sec,[]);sections.push(sec);}secMap.get(sec).push(q);});
+  let body=`<div style="padding:18px 22px">
+    <div style="font-size:13px;color:var(--text3);line-height:1.5;margin-bottom:14px">Décoche ce que tu ne veux pas demander à <b>${esc(curClient.first_name||'ce client')}</b>. Les questions décochées disparaissent de son questionnaire <b>et</b> de son tableau, sans rien supprimer de l'historique déjà enregistré.</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px"><button class="btn btn-ghost btn-xs" onclick="_dlqAll(true)">Tout activer</button><button class="btn btn-ghost btn-xs" onclick="_dlqAll(false)">Tout désactiver</button></div>`;
+  sections.forEach(sec=>{
+    body+=`<div style="font-size:11px;font-weight:800;letter-spacing:1.2px;color:var(--text3);margin:14px 0 6px;text-transform:uppercase">${esc(sec)}</div>`;
+    secMap.get(sec).forEach((q,i)=>{
+      const idx=all.indexOf(q);
+      body+=`<label style="display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:13px">
+        <input type="checkbox" class="dlq-chk" data-qid="${esc(q.id)}" ${isOn(q)?'checked':''} style="width:17px;height:17px;accent-color:var(--gold)">
+        <span style="flex:1">${esc(q.label||q.id)}</span>
+        <span style="font-size:11px;color:var(--text3)">${q.type==='rating'?'/'+(q.scale||5):q.unit?esc(q.unit):q.type==='percent'?'%':q.type==='textarea'?'texte':''}</span>
+      </label>`;
+    });
+  });
+  body+=`</div>`;
+  let m=document.getElementById('mDailyQ');
+  if(!m){
+    m=document.createElement('div');m.className='overlay';m.id='mDailyQ';
+    m.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
+      <div class="mh"><div class="mt">Questions du rapport quotidien</div><button class="mc" onclick="closeM('mDailyQ')">✕</button></div>
+      <div class="mb" id="dailyQBody"></div>
+      <div class="mf"><button class="btn btn-ghost" onclick="closeM('mDailyQ')">Annuler</button><button class="btn btn-dark" onclick="saveDailyQuestions()">Enregistrer</button></div>
+    </div>`;
+    document.body.appendChild(m);
+  }
+  document.getElementById('dailyQBody').innerHTML=body;
+  openM('mDailyQ');
+}
+function _dlqAll(on){document.querySelectorAll('#mDailyQ .dlq-chk').forEach(c=>{c.checked=on;});}
+async function saveDailyQuestions(){
+  if(!curClient){toast('Aucun client sélectionné');return;}
+  const all=window._dlQuestions||DEFAULT_Q_DAILY;
+  const chks=[...document.querySelectorAll('#mDailyQ .dlq-chk')];
+  const ids=chks.filter(c=>c.checked).map(c=>c.dataset.qid);
+  // Tout coché → on stocke null : les questions ajoutées plus tard resteront actives
+  const value=(ids.length===all.length)?null:ids;
+  const{error}=await db.from('clients').update({daily_questions:value}).eq('id',curClient.id);
+  if(error){toast('Erreur: '+error.message);return;}
+  curClient.daily_questions=value;
+  const idx=allClients.findIndex(c=>c.id===curClient.id);if(idx>=0)allClients[idx].daily_questions=value;
+  closeM('mDailyQ');
+  toast(value===null?'Toutes les questions sont actives ✓':ids.length+' question'+(ids.length>1?'s':'')+' active'+(ids.length>1?'s':'')+' ✓');
+  renderProgressionTab();
+  if(document.getElementById('progPopupContent'))renderProgressionPopup();
+}
 function _renderWeeklyDailyGrid(logs, qDaily){
   if(!Array.isArray(logs)||!logs.length){
     return '<div style="margin-top:20px;padding:24px;text-align:center;color:var(--text3);font-size:13px;background:var(--white);border:1.5px dashed var(--border);border-radius:10px">📅 Pas encore de données quotidiennes. La vue hebdomadaire apparaîtra dès la première saisie du client.</div>';
@@ -4623,7 +4688,7 @@ async function addDailyLog(){
   openM('mDailyLog');
 }
 function _renderDailyLogForm(date){
-  const qDaily=window._dlQuestions||DEFAULT_Q_DAILY;
+  const qDaily=_dlActiveQuestions();
   const logs=lsGet('daily_'+curClient.id,[]);
   const existing=logs.find(l=>l.date===date)||{};
   let h=`<div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="dlDate" value="${date}" onchange="_renderDailyLogForm(this.value)"></div>`;
@@ -4659,7 +4724,7 @@ function _renderDailyLogForm(date){
 async function saveDailyLog(){
   if(!curClient||!currentCoach){toast('Client/coach non identifié');return;}
   const date=document.getElementById('dlDate').value;if(!date){toast('Date requise');return;}
-  const qDaily=window._dlQuestions||DEFAULT_Q_DAILY;
+  const qDaily=_dlActiveQuestions();
   const entry={};
   qDaily.forEach(q=>{
     const el=document.getElementById('dl_'+_dlSlug(q.id));if(!el)return;

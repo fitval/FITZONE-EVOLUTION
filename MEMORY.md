@@ -399,6 +399,18 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **RIR précédents affichés partout** : `prevRir` / `prevRirL` / `prevRirR` stockés au lancement de la séance → le champ RIR affiche en placeholder le RIR de la dernière fois (comme kg et reps) ; le RIR demandé par le coach passe dans une chip **« RIR visé »**. Historique : RIR ajouté au détail unilatéral (G/D) et à la liste « Par exercice » (`_histSetVals()` renvoie désormais `rir`). Helper `rirTxt()` pour que `0` et `-1` ne soient pas confondus avec « vide ».
 - `version.json` bumpé.
 
+### Session 2026-08-18 (2) — Deux interfaces pour le rapport quotidien + questions par client
+- **Le client choisit son interface** à l'ouverture de l'onglet Suivi : `📝 Questionnaire` (jour par jour, l'existant) ou `📊 Tableau de la semaine`. Choix mémorisé dans `localStorage.fz_suiviView` (`suiviView`, `setSuiviView()`).
+- **Tableau hebdo client** (`_renderSuiviTable()`) calqué sur la feuille de suivi du coach : une ligne par jour (Lun→Dim), une colonne par question groupée par section, **scroll horizontal** avec la colonne des jours **figée** (`.wk-fix` sticky), ligne **MOYENNES** noire recalculée en direct pendant la saisie (`_wkUpdateAvg()`).
+  - Saisie directe dans les cases (`wkSet()` → `_wkEdits[date][idQuestion]`), cases modifiées surlignées, bouton « Enregistrer (N jours) » qui n'apparaît actif qu'en cas de modification. Jours futurs désactivés.
+  - `saveSuiviWeek()` fusionne par date dans `daily_logs` (update si la ligne existe, insert sinon) ; points gamification appliqués uniquement à la journée du jour, `daily_report` seulement si le rapport est complet.
+  - Navigation semaine ← / → limitée à **12 semaines en arrière** (`WK_MAX_BACK`) car `dailyLogs` ne charge que 90 jours : au-delà on risquerait d'insérer un doublon au lieu de mettre à jour.
+  - CSS `.wk-*`. Piège : un `<input type=number>` impose sa largeur intrinsèque (~161 px) à la colonne ; il faut une **largeur en px explicite** (`width:66px`), `width:100%` + `min-width` ne suffit pas.
+- **Questions activables client par client** : nouvelle colonne `clients.daily_questions` (jsonb, migration `20260818120000_clients_daily_questions.sql`, appliquée). `NULL` = toutes actives (donc rien ne change pour l'existant et les questions ajoutées plus tard sont actives d'office) ; sinon tableau des ids actifs.
+  - Coach : bouton **« ⚙️ Questions du rapport (n/N) »** dans l'onglet Progression de la fiche client → modal à cases à cocher par section (`openDailyQModal()` / `saveDailyQuestions()`). Tout coché → on enregistre `null`.
+  - Le filtre s'applique partout : questionnaire client, tableau client, grille hebdo du coach, saisie manuelle du coach et sélecteur de métrique du graphique (`activeDailyQuestions()` côté client, `_dlActiveQuestions()` côté dashboard).
+- `version.json` bumpé.
+
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
 
