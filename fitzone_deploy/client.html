@@ -341,26 +341,42 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .chart-stat-val { font-size:18px; font-weight:800; }
 .chart-stat-label { font-size:10px; color:var(--text3); text-transform:uppercase; font-weight:600; }
 /* Tableau hebdo du suivi quotidien : scroll horizontal, colonne des jours figée */
-.wk-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:12px; background:var(--white); box-shadow:var(--shadow); }
-.wk-tbl { border-collapse:separate; border-spacing:0; font-size:12px; width:max-content; min-width:100%; }
-.wk-tbl th, .wk-tbl td { border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:0; }
-.wk-sec { background:var(--gold); color:#fff; font-size:9px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; padding:5px 8px; text-align:center; white-space:nowrap; }
-.wk-q { background:var(--gold-pale); color:var(--gold-deep); font-size:10px; font-weight:700; padding:6px 4px; text-align:center; line-height:1.25; max-width:110px; }
-.wk-q small { display:block; font-weight:500; opacity:.7; font-size:9px; }
-.wk-day { background:var(--white); font-size:11px; font-weight:800; color:var(--text); white-space:nowrap; padding:0 10px; text-align:left; }
-.wk-day small { display:block; font-weight:600; color:var(--text3); font-size:10px; }
-.wk-fix { position:sticky; left:0; z-index:3; box-shadow:2px 0 0 var(--border); }
-.wk-tbl thead .wk-fix { z-index:5; }
-.wk-tbl tr.wk-today .wk-day { color:var(--gold-deep); background:var(--gold-pale); }
-.wk-cell input, .wk-cell select { width:66px; border:none; background:transparent; font-family:var(--font); font-size:13px; font-weight:600; color:var(--text); text-align:center; padding:11px 2px; outline:none; -webkit-appearance:none; appearance:none; border-radius:0; }
-.wk-cell input::-webkit-outer-spin-button, .wk-cell input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
-.wk-cell input:focus, .wk-cell select:focus { background:var(--gold-pale); box-shadow:inset 0 0 0 1.5px var(--gold); }
-.wk-cell input::placeholder { color:var(--text3); font-weight:400; }
-.wk-cell.wk-txt input { width:150px; text-align:left; padding-left:8px; }
-.wk-cell.wk-future { background:var(--bg2); }
-.wk-cell.wk-edit input, .wk-cell.wk-edit select { background:color-mix(in srgb,#fff8e1 var(--tint,100%),var(--white)); }
-.wk-avg td { background:#1a1916; color:#f5edcf; font-size:11px; font-weight:800; text-align:center; padding:7px 4px; border-right:1px solid #2a2a2a; border-bottom:none; }
-.wk-avg .wk-fix { background:#1a1916; box-shadow:2px 0 0 #2a2a2a; text-align:left; padding-left:10px; letter-spacing:1px; font-size:10px; }
+/* Tableau hebdo du suivi quotidien.
+   La colonne des jours est figée SANS position:sticky : deux blocs côte à côte,
+   seul celui de droite défile. Les hauteurs de ligne et les largeurs de colonne
+   sont fixes et identiques des deux côtés, donc l'alignement ne peut pas se
+   décaler (le sticky dans un <table> laissait passer les cellules dessous). */
+.wk { --wk-head:62px; --wk-row:46px; --wk-avg:34px; display:flex; align-items:stretch; border-radius:12px; overflow:hidden; background:var(--white); box-shadow:var(--shadow); }
+.wk-left { flex:0 0 auto; position:relative; z-index:2; box-shadow:4px 0 8px rgba(0,0,0,.10); }
+.wk-right { flex:1 1 0%; min-width:0; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity; }
+.wk-hrow .wk-c { scroll-snap-align:start; }
+.wk-right::-webkit-scrollbar { height:4px; }
+.wk-right::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.wk-inner { width:max-content; min-width:100%; }
+.wk-row { display:flex; height:var(--wk-row); background:var(--white); }
+.wk-row.wk-fut { background:var(--bg2); }
+.wk-row.wk-hrow { height:var(--wk-head); background:var(--gold-pale); }
+.wk-row.wk-arow { height:var(--wk-avg); background:#1a1916; }
+.wk-c { flex:0 0 auto; box-sizing:border-box; border-bottom:1px solid var(--border); border-right:1px solid var(--border); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.wk-h { background:var(--gold-pale); flex-direction:column; gap:2px; padding:4px 5px; text-align:center; }
+.wk-h b { font-size:10.5px; font-weight:800; color:var(--gold-deep); line-height:1.2; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.wk-h i { font-size:8px; font-weight:800; font-style:normal; letter-spacing:.8px; text-transform:uppercase; color:var(--text3); line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.wk-h u { font-size:9px; font-weight:600; text-decoration:none; color:var(--text3); line-height:1; }
+.wk-d { flex-direction:column; align-items:flex-start; justify-content:center; gap:1px; padding:0 10px; background:var(--white); }
+.wk-d b { font-size:12px; font-weight:800; color:var(--text); line-height:1.1; }
+.wk-d small { font-size:10px; font-weight:600; color:var(--text3); line-height:1.1; }
+.wk-d.wk-now { background:var(--gold-pale); }
+.wk-d.wk-now b { color:var(--gold-deep); }
+.wk-fut .wk-c, .wk-c.wk-fut, .wk-d.wk-fut { background:var(--bg2); }
+.wk-c input, .wk-c select { width:100%; height:100%; box-sizing:border-box; border:none; background:transparent; font-family:var(--font); font-size:13px; font-weight:600; color:var(--text); text-align:center; padding:0 2px; outline:none; -webkit-appearance:none; appearance:none; border-radius:0; }
+.wk-c input::-webkit-outer-spin-button, .wk-c input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+.wk-c input:focus, .wk-c select:focus { background:var(--gold-pale); box-shadow:inset 0 0 0 2px var(--gold); }
+.wk-c input::placeholder { color:var(--text3); font-weight:400; }
+.wk-c.wk-txt input { text-align:left; padding-left:8px; }
+.wk-c.wk-edit { background:color-mix(in srgb,#fff8e1 var(--tint,100%),var(--white)); }
+.wk-arow .wk-c { background:#1a1916; color:#f5edcf; font-size:11px; font-weight:800; border-right-color:#2a2a2a; border-bottom:none; }
+.wk-arow .wk-d { background:#1a1916; color:#f5edcf; font-size:10px; font-weight:800; letter-spacing:1px; justify-content:center; }
+.wk-hint { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text3); margin-top:8px; line-height:1.45; }
 .period-btns { display:flex; gap:6px; margin-bottom:14px; }
 .period-btn { padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600; border:none; background:var(--bg2); cursor:pointer; color:var(--text2); transition:all .2s; }
 .period-btn.active { background:var(--gold); color:white; }
@@ -5570,7 +5586,7 @@ function wkSet(el,di,qi){
   const day=_wkDays[di],q=_wkQs[qi];
   if(!day||!q)return;
   (_wkEdits[day.date]=_wkEdits[day.date]||{})[q.id]=el.value;
-  const cell=el.closest('.wk-cell');if(cell)cell.classList.add('wk-edit');
+  const cell=el.closest('.wk-c');if(cell)cell.classList.add('wk-edit');
   _wkUpdateAvg();
   _wkSyncSaveBtn();
 }
@@ -5584,45 +5600,39 @@ function _wkSyncSaveBtn(){
   b.style.opacity=c?'1':'.5';
   b.textContent=c?`Enregistrer (${c} jour${c>1?'s':''})`:'Enregistrer la semaine';
 }
+// Largeur d'une colonne : la même pour l'en-tête, les 7 jours et la moyenne
+function _wkColW(q){return (q.type==='textarea'||q.type==='text')?150:76;}
 function _wkCellInput(q,qi,di,day,val){
   const v=val==null?'':String(val);
   const dis=day.future?' disabled':'';
   const attrs=`data-qi="${qi}" data-di="${di}" oninput="wkSet(this,${di},${qi})" onchange="wkSet(this,${di},${qi})"${dis}`;
   const esc=x=>String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-  if(q.type==='rating'){
-    let o=`<option value=""></option>`;
-    for(let i=1;i<=(q.scale||5);i++)o+=`<option value="${i}"${String(v)===String(i)?' selected':''}>${i}</option>`;
-    return`<select ${attrs}>${o}</select>`;
-  }
-  if(q.type==='yesno'){
-    return`<select ${attrs}><option value=""></option><option value="Oui"${v==='Oui'?' selected':''}>Oui</option><option value="Non"${v==='Non'?' selected':''}>Non</option></select>`;
-  }
-  if(q.type==='choice'){
-    let o=`<option value=""></option>`;
-    (q.options||[]).forEach(op=>{o+=`<option value="${esc(op)}"${v===op?' selected':''}>${esc(op)}</option>`;});
+  if(q.type==='rating'||q.type==='yesno'||q.type==='choice'){
+    let opts=[];
+    if(q.type==='rating'){for(let i=1;i<=(q.scale||5);i++)opts.push(String(i));}
+    else if(q.type==='yesno')opts=['Oui','Non'];
+    else opts=(q.options||[]).map(String);
+    let o=`<option value="">—</option>`;
+    opts.forEach(op=>{o+=`<option value="${esc(op)}"${v===op?' selected':''}>${esc(op)}</option>`;});
     return`<select ${attrs}>${o}</select>`;
   }
   if(q.type==='textarea'||q.type==='text'){
     return`<input type="text" value="${esc(v)}" placeholder="—" ${attrs}>`;
   }
   if(q.type==='percent'){
-    return`<input type="number" inputmode="numeric" min="0" max="100" step="5" value="${esc(v)}" placeholder="%" ${attrs}>`;
+    return`<input type="number" inputmode="numeric" min="0" max="100" step="5" value="${esc(v)}" placeholder="—" ${attrs}>`;
   }
   const step=q.step||1;
   return`<input type="number" inputmode="decimal" step="${step}" value="${esc(v)}" placeholder="—" ${attrs}>`;
 }
 function _renderSuiviTable(){
   const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  const qs=activeDailyQuestions();
+  // Les colonnes suivent exactement l'ordre des questions du questionnaire
+  const order=activeDailyQuestions();
+  _wkQs=order;
   const curMon=_wkMonday(today());
   if(!suiviWeek)suiviWeek=curMon;
   if(suiviWeek>curMon)suiviWeek=curMon;
-  // Sections dans l'ordre des questions
-  const sections=[],secMap=new Map();
-  qs.forEach(q=>{const sec=q.section||'AUTRE';if(!secMap.has(sec)){secMap.set(sec,[]);sections.push(sec);}secMap.get(sec).push(q);});
-  // Index global de chaque question (ordre d'affichage = ordre des sections)
-  const order=[];sections.forEach(sec=>secMap.get(sec).forEach(q=>order.push(q)));
-  _wkQs=order;
   // Les 7 jours de la semaine
   const tdy=today();
   const labels=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
@@ -5646,31 +5656,33 @@ function _renderSuiviTable(){
     return h+`<div class="card" style="text-align:center;padding:28px;font-size:13px;color:var(--text3)">Ton coach n'a activé aucune question pour ton rapport quotidien.</div>`;
   }
 
-  const secHead=sections.map(sec=>`<th class="wk-sec" colspan="${secMap.get(sec).length}">${esc(sec)}</th>`).join('');
-  const qHead=order.map(q=>{
-    const u=q.unit?q.unit:(q.type==='percent'?'%':(q.type==='rating'?'/'+(q.scale||5):''));
-    return`<th class="wk-q">${esc(q.label||q.id)}${u?`<small>(${esc(u)})</small>`:''}</th>`;
-  }).join('');
-  const rows=_wkDays.map((day,di)=>{
-    const cells=order.map((q,qi)=>{
-      const val=day.log&&day.log.data?day.log.data[q.id]:'';
-      const cls='wk-cell'+((q.type==='textarea'||q.type==='text')?' wk-txt':'')+(day.future?' wk-future':'');
-      return`<td class="${cls}">${_wkCellInput(q,qi,di,day,val)}</td>`;
-    }).join('');
-    return`<tr class="${day.date===tdy?'wk-today':''}"><td class="wk-day wk-fix">${day.label}<small>${day.num}</small></td>${cells}</tr>`;
-  }).join('');
-  const avgCells=order.map((q,qi)=>`<td id="wkAvg_${qi}"></td>`).join('');
+  // Colonne de gauche : figée, hors de la zone qui défile
+  let left=`<div class="wk-left">
+    <div class="wk-row wk-hrow"><div class="wk-c wk-h" style="width:78px;align-items:flex-start;padding-left:10px"><i>Jour</i></div></div>`;
+  _wkDays.forEach(day=>{
+    left+=`<div class="wk-row"><div class="wk-c wk-d${day.date===tdy?' wk-now':''}${day.future?' wk-fut':''}" style="width:78px"><b>${day.label}</b><small>${day.num}</small></div></div>`;
+  });
+  left+=`<div class="wk-row wk-arow"><div class="wk-c wk-d" style="width:78px">MOY.</div></div></div>`;
 
-  h+=`<div class="wk-wrap">
-    <table class="wk-tbl">
-      <thead>
-        <tr><th class="wk-sec wk-fix" style="text-align:left">JOUR</th>${secHead}</tr>
-        <tr><th class="wk-q wk-fix"></th>${qHead}</tr>
-      </thead>
-      <tbody>${rows}<tr class="wk-avg"><td class="wk-fix">MOYENNES</td>${avgCells}</tr></tbody>
-    </table>
-  </div>`;
-  h+=`<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">↔ Fais défiler le tableau vers la droite pour voir toutes les colonnes. Tu peux remplir plusieurs jours d'un coup.<br>Vider une case n'efface rien : pour corriger une valeur, remplace-la.</div>`;
+  // Zone qui défile : une colonne par question, largeurs identiques ligne à ligne
+  const w=order.map(_wkColW);
+  const head=order.map((q,qi)=>{
+    const u=q.unit?q.unit:(q.type==='percent'?'%':(q.type==='rating'?'/'+(q.scale||5):''));
+    return`<div class="wk-c wk-h" style="width:${w[qi]}px" title="${esc(q.label||q.id)}"><i>${esc(q.section||'')}</i><b>${esc(q.label||q.id)}</b>${u?`<u>${esc(u)}</u>`:''}</div>`;
+  }).join('');
+  const rows=_wkDays.map((day,di)=>order.map((q,qi)=>{
+    const val=day.log&&day.log.data?day.log.data[q.id]:'';
+    const cls='wk-c'+((q.type==='textarea'||q.type==='text')?' wk-txt':'')+(day.future?' wk-fut':'');
+    return`<div class="${cls}" style="width:${w[qi]}px">${_wkCellInput(q,qi,di,day,val)}</div>`;
+  }).join('')).map((cells,di)=>`<div class="wk-row${_wkDays[di].future?' wk-fut':''}">${cells}</div>`).join('');
+  const avg=order.map((q,qi)=>`<div class="wk-c" id="wkAvg_${qi}" style="width:${w[qi]}px"></div>`).join('');
+
+  h+=`<div class="wk">${left}<div class="wk-right" id="wkScroll"><div class="wk-inner">
+    <div class="wk-row wk-hrow">${head}</div>
+    ${rows}
+    <div class="wk-row wk-arow">${avg}</div>
+  </div></div></div>`;
+  h+=`<div class="wk-hint"><span style="font-size:13px">↔</span><span>Fais défiler le tableau vers la droite pour voir toutes les colonnes — la colonne des jours reste visible. Vider une case n'efface rien : pour corriger une valeur, remplace-la.</span></div>`;
   h+=`<button class="btn-gold" id="wkSaveBtn" style="margin-top:12px;opacity:.5" disabled onclick="saveSuiviWeek()">Enregistrer la semaine</button>`;
   return h;
 }

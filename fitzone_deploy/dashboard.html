@@ -4573,10 +4573,16 @@ function _renderWeeklyDailyGrid(logs, qDaily){
     return '<div style="margin-top:20px;padding:24px;text-align:center;color:var(--text3);font-size:13px;background:var(--white);border:1.5px dashed var(--border);border-radius:10px">📅 Pas encore de données quotidiennes. La vue hebdomadaire apparaîtra dès la première saisie du client.</div>';
   }
   const sorted=logs.slice().sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:0));
-  // Sections (préserve l'ordre)
-  const sections=[],secMap=new Map();
-  (qDaily||[]).forEach(q=>{const s=q.section||'AUTRE';if(!secMap.has(s)){secMap.set(s,[]);sections.push(s);}secMap.get(s).push(q);});
-  if(!sections.length)return '';
+  // Colonnes dans l'ordre EXACT du questionnaire (même ordre que côté client) :
+  // on regroupe seulement les questions consécutives d'une même section, au lieu
+  // de rassembler toute une section, ce qui réordonnait les colonnes.
+  const runs=[];
+  (qDaily||[]).forEach(q=>{
+    const sec=q.section||'AUTRE';
+    const last=runs[runs.length-1];
+    if(last&&last.sec===sec)last.qs.push(q);else runs.push({sec,qs:[q]});
+  });
+  if(!runs.length)return '';
   // Calcul semaines (Lun→Dim) entre première entrée et aujourd'hui
   const startOfMon=d=>{const x=new Date(d);x.setHours(0,0,0,0);const day=x.getDay();x.setDate(x.getDate()-((day+6)%7));return x;};
   const dateKey=d=>localDateStr(d);
@@ -4613,18 +4619,18 @@ function _renderWeeklyDailyGrid(logs, qDaily){
   let html='<div style="margin-top:28px">';
   html+='<div style="font-size:13px;font-weight:800;letter-spacing:.5px;color:var(--text);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px"><span>📅</span><span>Vue hebdomadaire complète</span><span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0">— toutes les réponses du questionnaire quotidien, semaine par semaine</span></div>';
   weeks.forEach(w=>{
-    const secHead=sections.map(s=>`<th colspan="${secMap.get(s).length}" style="background:var(--gold);color:#fff;padding:6px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;border:1px solid var(--gold-dk)">${esc(s)}</th>`).join('');
-    const qHead=sections.map(s=>secMap.get(s).map(q=>{
+    const secHead=runs.map(r=>`<th colspan="${r.qs.length}" style="background:var(--gold);color:#fff;padding:6px 10px;font-size:10px;font-weight:800;letter-spacing:1.5px;border:1px solid var(--gold-dk)">${esc(r.sec)}</th>`).join('');
+    const qHead=runs.map(r=>r.qs.map(q=>{
       const u=q.unit?` <span style="opacity:.55;font-weight:500">(${esc(q.unit)})</span>`:q.type==='percent'?' <span style="opacity:.55;font-weight:500">(%)</span>':q.type==='rating'?' <span style="opacity:.55;font-weight:500">(/'+(q.scale||5)+')</span>':'';
       return `<th style="background:var(--gold-tint);padding:6px 6px;font-size:10px;font-weight:700;color:var(--gold-deep);border:1px solid var(--gold-border);min-width:78px">${esc(q.label||q.id)}${u}</th>`;
     }).join('')).join('');
     const rows=w.days.map((d,i)=>{
       const dt=d.date;
       const dateCell=`<td style="background:color-mix(in srgb,#fafaf6 var(--tint,100%),var(--white));padding:5px 10px;border:1px solid #e8e4dc;font-size:11px;font-weight:700;color:var(--gold-deep);white-space:nowrap">${dayLabels[i]} ${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}</td>`;
-      const cells=sections.map(s=>secMap.get(s).map(q=>fmtCell(d.log?d.log[q.id]:null,q,d.inFuture)).join('')).join('');
+      const cells=runs.map(r=>r.qs.map(q=>fmtCell(d.log?d.log[q.id]:null,q,d.inFuture)).join('')).join('');
       return `<tr>${dateCell}${cells}</tr>`;
     }).join('');
-    const avgCells=sections.map(s=>secMap.get(s).map(q=>{
+    const avgCells=runs.map(r=>r.qs.map(q=>{
       if(['number','rating','percent'].includes(q.type)){
         const vs=w.days.map(d=>d.log?parseFloat(d.log[q.id]):NaN).filter(v=>!isNaN(v));
         if(!vs.length)return '<td style="background:#1a1916;border:1px solid #2a2a2a"></td>';
