@@ -346,7 +346,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
    seul celui de droite défile. Les hauteurs de ligne et les largeurs de colonne
    sont fixes et identiques des deux côtés, donc l'alignement ne peut pas se
    décaler (le sticky dans un <table> laissait passer les cellules dessous). */
-.wk { --wk-head:62px; --wk-row:46px; --wk-avg:34px; display:flex; align-items:stretch; border-radius:12px; overflow:hidden; background:var(--white); box-shadow:var(--shadow); }
+.wk { --wk-head:86px; --wk-row:46px; --wk-avg:34px; display:flex; align-items:stretch; border-radius:12px; overflow:hidden; background:var(--white); box-shadow:var(--shadow); }
 .wk-left { flex:0 0 auto; position:relative; z-index:2; box-shadow:4px 0 8px rgba(0,0,0,.10); }
 .wk-right { flex:1 1 0%; min-width:0; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity; }
 .wk-hrow .wk-c { scroll-snap-align:start; }
@@ -358,9 +358,9 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .wk-row.wk-hrow { height:var(--wk-head); background:var(--gold-pale); }
 .wk-row.wk-arow { height:var(--wk-avg); background:#1a1916; }
 .wk-c { flex:0 0 auto; box-sizing:border-box; border-bottom:1px solid var(--border); border-right:1px solid var(--border); display:flex; align-items:center; justify-content:center; overflow:hidden; }
-.wk-h { background:var(--gold-pale); flex-direction:column; gap:2px; padding:4px 5px; text-align:center; }
-.wk-h b { font-size:10.5px; font-weight:800; color:var(--gold-deep); line-height:1.2; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.wk-h i { font-size:8px; font-weight:800; font-style:normal; letter-spacing:.8px; text-transform:uppercase; color:var(--text3); line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.wk-h { background:var(--gold-pale); flex-direction:column; gap:3px; padding:6px 8px; text-align:center; }
+.wk-h b { font-size:11.5px; font-weight:800; color:var(--gold-deep); line-height:1.25; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+.wk-h i { font-size:8.5px; font-weight:800; font-style:normal; letter-spacing:.8px; text-transform:uppercase; color:var(--text3); line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
 .wk-h u { font-size:9px; font-weight:600; text-decoration:none; color:var(--text3); line-height:1; }
 .wk-d { flex-direction:column; align-items:flex-start; justify-content:center; gap:1px; padding:0 10px; background:var(--white); }
 .wk-d b { font-size:12px; font-weight:800; color:var(--text); line-height:1.1; }
@@ -5601,7 +5601,7 @@ function _wkSyncSaveBtn(){
   b.textContent=c?`Enregistrer (${c} jour${c>1?'s':''})`:'Enregistrer la semaine';
 }
 // Largeur d'une colonne : la même pour l'en-tête, les 7 jours et la moyenne
-function _wkColW(q){return (q.type==='textarea'||q.type==='text')?150:76;}
+function _wkColW(q){return (q.type==='textarea'||q.type==='text')?210:112;}
 function _wkCellInput(q,qi,di,day,val){
   const v=val==null?'':String(val);
   const dis=day.future?' disabled':'';
