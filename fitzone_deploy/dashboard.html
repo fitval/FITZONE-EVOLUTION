@@ -1007,6 +1007,7 @@ body:has(#detPage.show) .toast{bottom:54px}
             </div>
           </div>
           <div class="fg" style="margin-bottom:12px"><label class="fl">Description</label><textarea class="fta" id="progDesc" placeholder="Vue d'ensemble du programme…" style="min-height:50px"></textarea></div>
+          <div id="progDeloadBox" style="margin-bottom:12px"></div>
           <div class="prog-days-row" id="progDaysTabs"></div>
           <div id="progDayContent"></div>
           <div id="progVolChart" style="margin-top:14px"></div>
@@ -2238,6 +2239,7 @@ let nutSt={};
 let pfClients=[],pfDays=[],pfDayIdx=0,pfMealIdx=null,pfEditId=null,pfFromClient=false;
 /* Programme builder */
 let progDays=[],progDayIdx=0,progEditId=null,progExoTarget={sec:null,idx:null},progClients=[];
+let progDeload=null;   // phase éphémère (deload) du programme en cours d'édition
 let progShowRIR=true,progShowTempo=true,seanceShowRIR=true,seanceShowTempo=true;
 /* Repas builder */
 let rpItems=[];
@@ -4897,6 +4899,13 @@ function _renderClientProgDay(day){
 }
 // Une carte par programme du client : repliée par défaut sauf le plus récent.
 // L'oeil 👁️ décide lequel (ou lesquels) le client voit dans son app.
+// Pastille « deload en cours / programmé » — masquée dès que la phase est passée
+function dlBadgeHtml(prog){
+  const w=(typeof dlWindow==='function')?dlWindow(prog&&prog.deload):null;
+  if(!w||w.over)return'';
+  const txt=w.on?`DELOAD S${w.weekIdx}/${w.weeks} \u00b7 jusqu'au ${dlFmtD(w.last)}`:`DELOAD d\u00e8s le ${dlFmtD(w.start)}`;
+  return`<span title="Phase \u00e9ph\u00e9m\u00e8re : s\u00e9ries r\u00e9duites pendant ${w.weeks} semaine${w.weeks>1?'s':''}" style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;background:rgba(99,102,241,.18);color:#818cf8;border:1px solid rgba(99,102,241,.35)">\u{1F319} ${txt}</span>`;
+}
 function _renderClientProgCard(p,isLatest){
   const jours=p.jours||[];
   const tVol={};let tSets=0;
@@ -4914,7 +4923,7 @@ function _renderClientProgCard(p,isLatest){
     <div class="plan-hdr" style="background:var(--dark);color:white">
       <div style="width:36px;height:36px;border-radius:10px;background:${visible?'var(--gold)':'rgba(255,255,255,.12)'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">\u{1F3CB}\uFE0F</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px;flex-wrap:wrap">${esc(p.nom||'Programme')} ${statut}${isLatest?'<span style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;background:var(--gold-pale);color:var(--gold);border:1px solid var(--gold-border)">PROGRAMME ACTUEL</span>':''}</div>
+        <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px;flex-wrap:wrap">${esc(p.nom||'Programme')} ${statut}${dlBadgeHtml(p)}${isLatest?'<span style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:6px;background:var(--gold-pale);color:var(--gold);border:1px solid var(--gold-border)">PROGRAMME ACTUEL</span>':''}</div>
         <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;display:flex;flex-wrap:wrap;gap:6px">
           <span>${jours.length} s\u00e9ance${jours.length>1?'s':''} \u00b7 ${tSets} s\u00e9ries</span>
           ${cree?`<span style="opacity:.3">\u00b7</span><span>cr\u00e9\u00e9 le ${cree}</span>`:''}
@@ -4938,7 +4947,7 @@ function _perfNorm(s){return String(s||'').toLowerCase().normalize('NFD').replac
 // Valeurs d'une série réalisée (gère les exercices unilatéraux)
 function _perfSetVals(s){
   if(!s)return{kg:null,reps:null,rir:null};
-  const num=v=>{const n=parseFloat(v);return isNaN(n)?null:n;};
+  const num=v=>{const n=parseFloat(String(v==null?'':v).replace(',','.'));return isNaN(n)?null:n;};
   const kg=s.kgL!=null||s.kgR!=null?Math.max(num(s.kgL)||0,num(s.kgR)||0)||null:num(s.kg!==''&&s.kg!=null?s.kg:s.load);
   const reps=s.repsL!=null||s.repsR!=null?Math.max(num(s.repsL)||0,num(s.repsR)||0)||null:num(s.reps);
   const rir=num(s.rir!=null&&s.rir!==''?s.rir:(s.rirL!=null?s.rirL:null));
@@ -7334,12 +7343,13 @@ function openProgBuilder(id){
     progClients=[];
     const ids=p.clientIds||p.client_ids||(p.clientId||p.client_id?[p.clientId||p.client_id]:[]);
     ids.forEach(cid=>{const c=allClients.find(x=>x.id===cid);if(c)progClients.push(c);});
+    progDeload=(p.deload&&typeof p.deload==='object')?JSON.parse(JSON.stringify(p.deload)):null;
   }
-  else{progEditId=null;progDays=[{nom:'Jour 1',warmup:[],workout:[],cooldown:[]}];progDayIdx=0;document.getElementById('progNom').value='';document.getElementById('progTags').value='';document.getElementById('progDesc').value='';document.getElementById('progBuilderTitle').textContent='Nouveau programme';progClients=[];}
+  else{progEditId=null;progDays=[{nom:'Jour 1',warmup:[],workout:[],cooldown:[]}];progDayIdx=0;document.getElementById('progNom').value='';document.getElementById('progTags').value='';document.getElementById('progDesc').value='';document.getElementById('progBuilderTitle').textContent='Nouveau programme';progClients=[];progDeload=null;}
   document.getElementById('progClIn').value='';renderClientBadges(progClients,'progClBadges','progRemoveClient');
   const importSel=document.getElementById('progImportSel');
   if(importSel)importSel.innerHTML='<option value="">— Choisir une séance —</option>'+seances.map(s=>`<option value="${s.id}">${s.nom}</option>`).join('');
-  progRenderDays();filterLib('');
+  progRenderDays();progRenderDeload();filterLib('');
   document.getElementById('progListWrap').style.display='none';document.getElementById('progBuilderWrap').style.display='block';
   document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="closeProgBuilder()">← Retour</button><button class="btn btn-gold btn-sm" onclick="saveProg()">💾 Enregistrer</button>`;
 }
@@ -7804,6 +7814,8 @@ function progRenderDay(){
     ${mkSection(d.cooldown||[],'❄️ Retour au calme','cooldown')}
     <div style="margin-top:12px"><label class="fl">Instructions</label><textarea class="fta" id="dayInstr" onchange="progDays[progDayIdx].instr=this.value" placeholder="Notes générales…">${d.instr||''}</textarea></div>
   `;
+  // La liste d'exos du deload suit les modifs du programme
+  if(typeof progRenderDeload==='function')progRenderDeload();
 }
 
 // Drag & drop exercices entre sections
@@ -8051,6 +8063,158 @@ function libAddExo(idx){
   if(!progExoTarget?.sec){toast('Clique d\'abord sur une section (Échauffement / Entraînement / Retour au calme)');return;}
   addExoToDay(e);
 }
+/* ===== DELOAD / PHASE ÉPHÉMÈRE =====
+   Alléger un programme pendant 1 à N semaines sans le réécrire : on retire des
+   séries EFFECTIVES (par défaut sur tous les exos, ajustable exo par exo).
+   La fenêtre a une date de début et une durée : passée cette date, le programme
+   d'origine reprend tout seul, côté coach comme côté app client.
+   Stocké dans programs.deload (jsonb) — voir migration 20260820120000. */
+function dlKey(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();}
+function dlDefault(){return{active:true,start:localDateStr(new Date()),weeks:1,sets:-1,note:'',exos:{}};}
+// Fenêtre de la phase : null si pas configurée. on = en cours aujourd'hui.
+function dlWindow(dl){
+  if(!dl||!dl.active||!dl.start)return null;
+  const weeks=Math.max(1,parseInt(dl.weeks)||1);
+  const start=new Date(String(dl.start)+'T00:00:00');
+  if(isNaN(start))return null;
+  const end=new Date(start);end.setDate(end.getDate()+weeks*7);   // 1er jour APRÈS la phase
+  const last=new Date(end);last.setDate(last.getDate()-1);
+  const now=new Date();now.setHours(0,0,0,0);
+  return{start,end,last,weeks,on:now>=start&&now<end,over:now>=end,
+    weekIdx:(now>=start&&now<end)?Math.floor((now-start)/604800000)+1:0};
+}
+// Séries retirées pour cet exercice (toujours ≤ 0)
+function dlDelta(dl,nom){
+  if(!dl)return 0;
+  const k=dlKey(nom);
+  const ov=dl.exos&&Object.prototype.hasOwnProperty.call(dl.exos,k)?parseInt(dl.exos[k]):null;
+  const d=(ov!=null&&!isNaN(ov))?ov:(parseInt(dl.sets)||0);
+  return Math.min(0,d);
+}
+// Nombre de séries à faire pendant la phase (jamais moins d'une)
+function dlSetCount(dl,nom,n){n=parseInt(n)||0;if(n<=0)return n;return Math.max(1,n+dlDelta(dl,nom));}
+function dlFmtD(d){return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});}
+
+// Exercices du programme en cours d'édition, dédoublonnés par nom
+function progDeloadExos(){
+  const map={};
+  (progDays||[]).forEach(d=>{
+    if(d.type==='running')return;
+    ['warmup','workout','cooldown'].forEach(sec=>(d[sec]||[]).forEach(e=>{
+      const grp=e.superset?(e.exercises||[]):[e];
+      grp.forEach(ex=>{
+        const nom=ex.nom||'';if(!nom)return;
+        const k=dlKey(nom);if(!k)return;
+        const n=ex.setsData&&ex.setsData.length?ex.setsData.length:(parseInt(ex.sets)||0);
+        const it=map[k]||(map[k]={key:k,nom,sets:0,jours:[]});
+        it.sets=Math.max(it.sets,n);
+        const dn=d.nom||'Jour';
+        if(!it.jours.includes(dn))it.jours.push(dn);
+      });
+    }));
+  });
+  return Object.values(map);
+}
+function progRenderDeload(){
+  const el=document.getElementById('progDeloadBox');if(!el)return;
+  const dl=progDeload;
+  if(!dl||!dl.active){
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px dashed var(--border);border-radius:10px;padding:9px 12px;background:var(--bg2)">
+      <span style="font-size:15px">🌙</span>
+      <div style="flex:1;min-width:180px">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">Deload / phase éphémère</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:1px">Retire des séries pendant 1 à 4 semaines, sans toucher au programme. Il revient à la normale tout seul.</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="progDeloadToggle(true)">Activer</button>
+    </div>`;
+    return;
+  }
+  const w=dlWindow(dl);
+  const exos=progDeloadExos();
+  let statut='';
+  if(!w)statut=`<span style="color:#f59e0b">Choisis une date de début</span>`;
+  else if(w.on)statut=`<span style="color:#16a34a;font-weight:800">EN COURS</span> · semaine ${w.weekIdx}/${w.weeks} · jusqu'au ${dlFmtD(w.last)} inclus`;
+  else if(w.over)statut=`<span style="color:var(--text3)">Terminée le ${dlFmtD(w.last)}</span> — le programme est déjà revenu à la normale`;
+  else statut=`<span style="color:var(--gold)">Programmée</span> · du ${dlFmtD(w.start)} au ${dlFmtD(w.last)}`;
+
+  const rows=exos.map(x=>{
+    const ov=dl.exos&&Object.prototype.hasOwnProperty.call(dl.exos,x.key);
+    const delta=dlDelta(dl,x.nom);
+    const fin=dlSetCount(dl,x.nom,x.sets);
+    const chg=fin!==x.sets;
+    return`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.nom)}${ov?'<span style="font-size:9px;font-weight:800;color:var(--gold);margin-left:6px">PERSO</span>':''}</div>
+        <div style="font-size:10px;color:var(--text3)">${esc(x.jours.join(' · '))}</div>
+      </div>
+      <div style="font-size:11px;color:${chg?'#f59e0b':'var(--text3)'};font-weight:700;white-space:nowrap;min-width:74px;text-align:right">${x.sets} → <b style="font-size:13px">${fin}</b> séries</div>
+      <div style="display:flex;gap:3px">
+        <button class="btn btn-ghost btn-xs" title="Retirer une série de plus" onclick="progDeloadExoStep('${x.key}',-1)">−</button>
+        <button class="btn btn-ghost btn-xs" title="Remettre une série" onclick="progDeloadExoStep('${x.key}',1)">+</button>
+        ${ov?`<button class="btn btn-ghost btn-xs" title="Revenir au réglage par défaut" onclick="progDeloadExoReset('${x.key}')">↺</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`<div style="border:1.5px solid var(--gold-border);border-radius:10px;background:rgba(var(--gold-rgb),.05);overflow:hidden">
+    <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--gold-pale);flex-wrap:wrap">
+      <span style="font-size:15px">🌙</span>
+      <div style="font-size:12px;font-weight:800;color:var(--gold)">DELOAD / PHASE ÉPHÉMÈRE</div>
+      <div style="font-size:11px;color:var(--text2);margin-left:4px">${statut}</div>
+      <button class="btn btn-ghost btn-xs" style="margin-left:auto" onclick="progDeloadToggle(false)">Désactiver</button>
+    </div>
+    <div style="padding:10px 12px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <div class="fg" style="flex:1;min-width:130px;margin:0"><label class="fl">Début</label>
+          <input class="fi" type="date" value="${esc(dl.start||'')}" onchange="progDeloadField('start',this.value)"></div>
+        <div class="fg" style="flex:1;min-width:110px;margin:0"><label class="fl">Durée</label>
+          <select class="fs" onchange="progDeloadField('weeks',this.value)">${[1,2,3,4].map(n=>`<option value="${n}"${(parseInt(dl.weeks)||1)===n?' selected':''}>${n} semaine${n>1?'s':''}</option>`).join('')}</select></div>
+        <div class="fg" style="flex:1;min-width:150px;margin:0"><label class="fl">Séries retirées (défaut)</label>
+          <select class="fs" onchange="progDeloadField('sets',this.value)">${[0,-1,-2,-3].map(n=>`<option value="${n}"${(parseInt(dl.sets)||0)===n?' selected':''}>${n===0?'Aucune':n+' série'+(n<-1?'s':'')}</option>`).join('')}</select></div>
+      </div>
+      <div class="fg" style="margin-bottom:8px"><label class="fl">Message affiché au client (facultatif)</label>
+        <input class="fi" placeholder="Semaine de décharge : garde les mêmes charges, moins de volume." value="${esc(dl.note||'')}" onchange="progDeloadField('note',this.value)"></div>
+      ${exos.length?`<div style="display:flex;align-items:center;gap:6px;margin:10px 0 4px;flex-wrap:wrap">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)">Ajustement par exercice</div>
+        <button class="btn btn-ghost btn-xs" style="margin-left:auto" onclick="progDeloadResetAll()">↺ Tout au défaut</button>
+        <button class="btn btn-ghost btn-xs" onclick="progDeloadKeepAll()">Ne rien retirer</button>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:8px;background:var(--white);max-height:230px;overflow-y:auto">${rows}</div>`
+      :`<div style="font-size:11px;color:var(--text3)">Ajoute des exercices au programme pour régler le deload exercice par exercice.</div>`}
+      <div style="font-size:10.5px;color:var(--text3);margin-top:7px;line-height:1.45">Les séries sont retirées <b>par la fin</b> de chaque exercice, jamais en dessous d'une série. Le client voit un bandeau « décharge » et la séance allégée pendant la période.</div>
+    </div>
+  </div>`;
+}
+function progDeloadToggle(on){
+  if(on)progDeload=progDeload?{...progDeload,active:true,start:progDeload.start||localDateStr(new Date())}:dlDefault();
+  else if(progDeload)progDeload.active=false;
+  progRenderDeload();
+}
+function progDeloadField(k,v){
+  if(!progDeload)return;
+  if(k==='weeks'||k==='sets')progDeload[k]=parseInt(v)||0;
+  else progDeload[k]=v;
+  progRenderDeload();
+}
+function progDeloadExoStep(key,dir){
+  if(!progDeload)return;
+  if(!progDeload.exos)progDeload.exos={};
+  const cur=dlDelta(progDeload,key);
+  progDeload.exos[key]=Math.min(0,cur+dir);
+  progRenderDeload();
+}
+function progDeloadExoReset(key){
+  if(!progDeload||!progDeload.exos)return;
+  delete progDeload.exos[key];
+  progRenderDeload();
+}
+function progDeloadResetAll(){if(progDeload){progDeload.exos={};progRenderDeload();}}
+function progDeloadKeepAll(){
+  if(!progDeload)return;
+  progDeload.exos={};
+  progDeloadExos().forEach(x=>{progDeload.exos[x.key]=0;});
+  progRenderDeload();
+}
 function saveProg(){
   const nom=document.getElementById('progNom')?.value.trim();if(!nom){toast('Titre requis');return;}
   if(!currentCoach||!currentCoach.id){toast('Session expirée — reconnecte-toi');return;}
@@ -8059,7 +8223,7 @@ function saveProg(){
   // Préserve coach_id du programme existant (cas admin qui édite un prog d'un autre coach), sinon currentCoach
   const existing=progEditId?progs.find(p=>p.id===progEditId):null;
   const coachId=existing?.coach_id||currentCoach.id;
-  const prog={id:progEditId||Date.now(),coach_id:coachId,nom,tags,desc:document.getElementById('progDesc')?.value||'',jours:JSON.parse(JSON.stringify(progDays)),clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:progClients.map(c=>c.id),clientNoms:progClients.map(c=>c.first_name+' '+c.last_name),visible_client:existing?existing.visible_client!==false:true,createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
+  const prog={id:progEditId||Date.now(),coach_id:coachId,nom,tags,desc:document.getElementById('progDesc')?.value||'',jours:JSON.parse(JSON.stringify(progDays)),clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:progClients.map(c=>c.id),clientNoms:progClients.map(c=>c.first_name+' '+c.last_name),visible_client:existing?existing.visible_client!==false:true,deload:(progDeload&&progDeload.active)?progDeload:null,createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
   const isNewProg=!progEditId;
   if(progEditId){const i=progs.findIndex(p=>p.id===progEditId);if(i>=0)progs[i]=prog;else progs.push(prog);}else progs.push(prog);
   lsSave('fz_progs',progs);dbSave('programs',prog);closeProgBuilder();toast('Programme enregistré ✓');
@@ -8084,7 +8248,7 @@ function renderProgList(){
       <div class="plan-hdr" onclick="openProgBuilder(${p.id})">
         <div style="width:38px;height:38px;border-radius:10px;background:var(--dark);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">💪</div>
         <div style="flex:1">
-          <div style="font-size:14px;font-weight:700;color:var(--text)">${p.nom}${hiddenBadge(isVisibleToClient(p))}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:7px;flex-wrap:wrap">${p.nom}${hiddenBadge(isVisibleToClient(p))}${dlBadgeHtml(p)}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:2px">${(p.clientNoms||p.client_noms||[]).length?(p.clientNoms||p.client_noms).join(', ')+' · ':''}${(p.jours||[]).length} jours · ${totalSets} séries/semaine · ${new Date(p.createdAt).toLocaleDateString('fr-FR')}</div>
           <div style="margin-top:5px">${(Array.isArray(p.tags)?p.tags:typeof p.tags==='string'?p.tags.split(',').map(s=>s.trim()).filter(Boolean):[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
         </div>
@@ -12224,7 +12388,8 @@ async function saveAndEditAITrainPlan(){
     if(cl)progClients.push(cl);
     document.getElementById('progClIn').value='';
     renderClientBadges(progClients,'progClBadges','progRemoveClient');
-    progRenderDays();filterLib('');
+    progDeload=(prog.deload&&typeof prog.deload==='object')?JSON.parse(JSON.stringify(prog.deload)):null;
+    progRenderDays();progRenderDeload();filterLib('');
     document.getElementById('progListWrap').style.display='none';
     document.getElementById('progBuilderWrap').style.display='block';
     document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="closeProgBuilder()">← Retour</button><button class="btn btn-gold btn-sm" onclick="saveProg()">💾 Enregistrer</button>`;

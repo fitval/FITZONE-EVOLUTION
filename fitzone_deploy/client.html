@@ -546,6 +546,32 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .rm2-row.cur .rm2-w { box-shadow:inset 3px 0 0 var(--gold); }
 .rm2-row.cur .rm2-w b { color:var(--gold-deep); }
 .rm-hint { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text3); margin-top:8px; line-height:1.45; }
+/* Tableau de progression (une colonne par séance faite) — même patron que .rm2 :
+   colonne des exercices figée à gauche, corps scrollable, en-tête synchronisé en JS. */
+.pf2 { --pf-w:128px; --pf-head:40px; --pf-row:34px; border-radius:12px; overflow:hidden; background:var(--white); box-shadow:var(--shadow); }
+.pf2-head { display:flex; background:var(--dark); }
+.pf2-head-fix { flex:0 0 auto; width:var(--pf-w); }
+.pf2-hscroll { flex:1 1 0%; min-width:0; overflow:hidden; }
+.pf2-body { display:flex; align-items:flex-start; overflow-y:auto; -webkit-overflow-scrolling:touch; max-height:60vh; }
+.pf2-left { flex:0 0 auto; position:relative; z-index:2; background:var(--white); box-shadow:4px 0 8px rgba(0,0,0,.10); }
+.pf2-right { flex:1 1 0%; min-width:0; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; }
+.pf2-right::-webkit-scrollbar { height:4px; }
+.pf2-right::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.pf2-inner { width:max-content; min-width:100%; }
+.pf2-row { display:flex; height:var(--pf-row); }
+.pf2-c { flex:0 0 auto; box-sizing:border-box; display:flex; align-items:center; justify-content:center; padding:0 5px; border-bottom:1px solid var(--border); border-right:1px solid var(--border); overflow:hidden; font-size:12px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; }
+.pf2-h { height:var(--pf-head); flex-direction:column; align-items:center; justify-content:center; background:var(--dark); border-bottom:none; border-right:1px solid rgba(255,255,255,.08); padding:0 3px; }
+.pf2-h b { font-size:10px; font-weight:800; color:#fff; line-height:1.2; }
+.pf2-h small { font-size:8.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:rgba(255,255,255,.6); line-height:1.2; }
+.pf2-h.last { background:linear-gradient(180deg,var(--dark),rgba(var(--gold-rgb),.55)); }
+.pf2-x { flex-direction:column; align-items:flex-start; justify-content:center; gap:1px; padding:0 8px; }
+.pf2-x b { display:block; max-width:100%; font-size:11px; font-weight:800; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pf2-x small { font-size:9.5px; font-weight:700; color:var(--text3); line-height:1.1; }
+.pf2-sep { border-top:2px solid var(--text3); }
+.pf2-grp { border-left:2px solid var(--border); }
+.pf2-mut { color:var(--text3); opacity:.45; }
+.pf2-tot .pf2-c { background:var(--bg2); border-bottom:none; }
+.pf2-dot { display:inline-block; width:10px; height:10px; border-radius:3px; vertical-align:-1px; }
 
 /* Bonus tab */
 .level-card { background:linear-gradient(135deg,var(--dark2),var(--dark)); border-radius:var(--r); padding:24px; color:white; margin-bottom:14px; text-align:center; }
@@ -899,6 +925,7 @@ let currentProgIdx=0; // le coach peut rendre plusieurs programmes visibles à l
 function curProg(){return programs[currentProgIdx]||programs[0]||null;}
 let trainSubTab='list';
 let histMode='sessions',histExo=null;
+let pfSession='';   // séance affichée dans le tableau de progression
 let coachActivityTypes=[];
 let coachMuscleImages={}; // { "Biceps": "<url drive>", ... }
 function driveImgUrl(url){if(!url||!url.includes('drive.google.com'))return url;let id=null;const m1=url.match(/\/d\/([^/]+)/);if(m1)id=m1[1];const m2=url.match(/[?&]id=([^&]+)/);if(m2)id=m2[1];return id?'https://lh3.googleusercontent.com/d/'+id:url;}
@@ -1570,6 +1597,53 @@ function seanceSub(j){
   if(j.type==='running')return n?'Running · '+n+' bloc'+(n>1?'s':''):'Séance running';
   return n?n+' exercice'+(n>1?'s':''):'Aucun exercice';
 }
+/* ===== DELOAD / PHASE ÉPHÉMÈRE =====
+   Le coach peut alléger un programme sur 1 à N semaines (dévolume) : des séries
+   sont retirées par la fin de chaque exercice, sans jamais descendre sous 1.
+   La fenêtre est datée : passée la période, la séance reprend sa forme normale
+   sans que personne n'ait à toucher au programme. Config : programs.deload. */
+function dlKey(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();}
+function dlWindow(dl){
+  if(!dl||!dl.active||!dl.start)return null;
+  const weeks=Math.max(1,parseInt(dl.weeks)||1);
+  const start=new Date(String(dl.start)+'T00:00:00');
+  if(isNaN(start))return null;
+  const end=new Date(start);end.setDate(end.getDate()+weeks*7);   // 1er jour APRÈS la phase
+  const last=new Date(end);last.setDate(last.getDate()-1);
+  const now=new Date();now.setHours(0,0,0,0);
+  const on=now>=start&&now<end;
+  return{start,end,last,weeks,on,over:now>=end,weekIdx:on?Math.floor((now-start)/604800000)+1:0,dl};
+}
+function dlDelta(dl,nom){
+  if(!dl)return 0;
+  const k=dlKey(nom);
+  const ov=(dl.exos&&Object.prototype.hasOwnProperty.call(dl.exos,k))?parseInt(dl.exos[k]):null;
+  const d=(ov!=null&&!isNaN(ov))?ov:(parseInt(dl.sets)||0);
+  return Math.min(0,d);
+}
+function dlSetCount(dlv,nom,n){
+  n=parseInt(n)||0;
+  if(!dlv||n<=0)return n;
+  return Math.max(1,n+dlDelta(dlv.dl,nom));
+}
+// Phase en cours pour ce programme (null sinon) — recalculée à chaque rendu
+function dlOf(prog){const w=dlWindow(prog&&prog.deload);return w&&w.on?w:null;}
+let _dlCur=null;   // phase active du programme affiché (séance, aperçu, séance en cours)
+function dlBanner(dlv){
+  if(!dlv)return'';
+  const note=dlv.dl&&dlv.dl.note?String(dlv.dl.note).replace(/[<>]/g,''):'';
+  const fin=dlv.last.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
+  return`<div style="display:flex;align-items:flex-start;gap:10px;background:rgba(99,102,241,.10);border:1.5px solid rgba(99,102,241,.35);border-radius:12px;padding:11px 13px;margin-bottom:14px">
+    <div style="font-size:20px;line-height:1">🌙</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:800;color:var(--text)">Semaine de décharge ${dlv.weeks>1?`(${dlv.weekIdx}/${dlv.weeks})`:''}</div>
+      <div style="font-size:11.5px;color:var(--text2);margin-top:2px;line-height:1.45">${note||'Ton coach a allégé le volume : certaines séries sont retirées.'}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px">Jusqu'au ${fin} — ton programme reprend normalement ensuite.</div>
+    </div>
+  </div>`;
+}
+// Pastille sur une carte de séance/exercice
+function dlChip(){return`<span class="exo-chip" style="background:rgba(99,102,241,.14);color:#6366f1;border-color:rgba(99,102,241,.3)">🌙 décharge</span>`;}
 // Page d'accueil de l'onglet Entraînement (comme la nutrition) : choix programme / activité
 function renderTrainLanding(){
   workoutActive=false;
@@ -1605,9 +1679,11 @@ function renderTrainLanding(){
     h+=`<div class="card-label" style="color:var(--text3);margin-bottom:8px">${programs.length>1?'MES PROGRAMMES':'MON PROGRAMME'}</div>`;
     h+=programs.map((p,i)=>{
       const nb=(p.jours||[]).length;
+      const w=dlOf(p);
       return`<div class="plan-card fade-up" style="animation-delay:${Math.min(i*.05,.2)}s" onclick="currentProgIdx=${i};trainSubTab='programme';seanceOpen=false;renderTrainPreview()">
         <div class="plan-name">${p.nom||'Programme'}</div>
         <div style="font-size:13px;color:var(--text3);margin-top:4px">${nb?nb+' séance'+(nb>1?'s':'')+' · touche pour voir':'Aucune séance'}</div>
+        ${w?`<div style="display:inline-block;margin-top:6px;font-size:11px;font-weight:800;color:#6366f1;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:3px 8px">🌙 Décharge${w.weeks>1?` ${w.weekIdx}/${w.weeks}`:''} · jusqu'au ${w.last.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</div>`:''}
       </div>`;
     }).join('');
   }
@@ -1649,13 +1725,14 @@ function renderTrainPreview(){
   if(trainSubTab==='historique'){document.getElementById('trainTitle').textContent='Historique';document.getElementById('trainContent').innerHTML=backBtn+renderHistoryView();return;}
   if(!programs.length){document.getElementById('trainTitle').textContent='Entraînement';document.getElementById('trainContent').innerHTML=backBtn+`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucun programme assigné pour le moment.</div></div>`;return;}
   const p=curProg(),jours=p.jours||[];
+  _dlCur=dlOf(p);   // phase de décharge en cours ? (recalculée à chaque rendu)
   if(!jours.length){document.getElementById('trainTitle').textContent=p.nom||'Entraînement';document.getElementById('trainContent').innerHTML=backBtn+`<div class="empty"><div class="empty-text">Ce programme n'a pas encore de séances.</div></div>`;return;}
 
   // Niveau 1 : la liste des séances du programme
   if(!seanceOpen||currentDayIdx==null||!jours[currentDayIdx]){
     document.getElementById('trainTitle').textContent=p.nom||'Entraînement';
     const chev=`<svg class="sess-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
-    document.getElementById('trainContent').innerHTML=backBtn
+    document.getElementById('trainContent').innerHTML=backBtn+dlBanner(_dlCur)
       +`<div style="font-size:13px;color:var(--text3);margin:0 0 14px">${jours.length} séance${jours.length>1?'s':''} · touche une séance pour la voir</div>`
       +`<div class="sess-list">${jours.map((j,i)=>`<button class="sess-row fade-up" style="animation-delay:${Math.min(i*.04,.2)}s" onclick="openSeance(${i})">
         <div class="sess-num">${i+1}</div>
@@ -1668,7 +1745,9 @@ function renderTrainPreview(){
   // Niveau 2 : l'aperçu de la séance choisie
   const day=jours[currentDayIdx];
   document.getElementById('trainTitle').textContent=day.nom||'Séance '+(currentDayIdx+1);
-  let h=backBtn+`<div class="sess-head"><div class="sess-num">${currentDayIdx+1}</div><div class="sess-head-sub">${p.nom||'Programme'} · ${seanceSub(day)}</div></div>`;
+  let h=backBtn+`<div class="sess-head"><div class="sess-num">${currentDayIdx+1}</div><div class="sess-head-sub">${p.nom||'Programme'} · ${seanceSub(day)}</div></div>`
+    +`<button onclick="openSeanceTable(${JSON.stringify(day.nom||'Séance '+(currentDayIdx+1)).replace(/"/g,'&quot;')})" style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:12px;padding:11px 13px;border-radius:12px;border:1.5px solid var(--border);background:var(--white);color:var(--text);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer"><span style="font-size:16px">📊</span><span style="flex:1;text-align:left">Voir le tableau de progression</span><span style="color:var(--text3)">›</span></button>`
+    +dlBanner(_dlCur);
 
   if(day.type==='running'){
     const SEC_LABELS={warmup:['🔥 Échauffement','🔥'],workout:['🏃 Corps de séance','🏃'],cooldown:['❄️ Retour au calme','❄️']};
@@ -1760,11 +1839,12 @@ function _histSetVals(ex,s){
 function renderHistoryView(){
   const logs=trainLogs.filter(l=>l.type==='strength'&&Array.isArray(l.exercises)&&l.exercises.length).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   let h=`<div class="day-tabs" style="margin-bottom:14px">
-    <button class="day-tab${histMode==='sessions'?' active':''}" onclick="histMode='sessions';renderTrainPreview()">📋 Mes séances</button>
-    <button class="day-tab${histMode==='exos'?' active':''}" onclick="histMode='exos';renderTrainPreview()">📈 Par exercice</button>
+    <button class="day-tab${histMode==='sessions'?' active':''}" style="padding:12px 14px" onclick="histMode='sessions';renderTrainPreview()">📋 Séances</button>
+    <button class="day-tab${histMode==='exos'?' active':''}" style="padding:12px 14px" onclick="histMode='exos';renderTrainPreview()">📈 Exercices</button>
+    <button class="day-tab${histMode==='tableau'?' active':''}" style="padding:12px 14px" onclick="histMode='tableau';renderTrainPreview()">📊 Tableau</button>
   </div>`;
   if(!logs.length){h+=`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucune séance de musculation enregistrée pour le moment.<br>Lance une séance depuis ton programme !</div></div>`;return h;}
-  return h+(histMode==='exos'?renderHistoryExos(logs):renderHistorySessions(logs));
+  return h+(histMode==='tableau'?renderHistoryTable(logs):histMode==='exos'?renderHistoryExos(logs):renderHistorySessions(logs));
 }
 function renderHistorySessions(logs){
   let h=`<div style="font-size:13px;font-weight:700;color:var(--text3);margin-bottom:10px">${logs.length} séance${logs.length>1?'s':''}</div>`;
@@ -1852,6 +1932,175 @@ function renderHistoryExos(logs){
       <span style="font-size:14px;font-weight:800">${s.maxKg} kg${s.bestReps?` <span style="font-size:12px;color:var(--text3);font-weight:600">× ${s.bestReps}</span>`:''}${s.bestRir!==''&&s.bestRir!=null?` <span style="font-size:11px;color:var(--gold-deep);font-weight:700">RIR ${s.bestRir}</span>`:''}</span>
     </div>`;
   });
+  return h;
+}
+/* ===== TABLEAU DE PROGRESSION (vue tableur, comme celle du coach) =====
+   Une ligne par série, une colonne par séance déjà faite : la plus ancienne à
+   gauche, la dernière (celle qui vient d'être enregistrée) tout à droite.
+   Chaque cellule reps/charge est comparée à la MÊME série de la séance
+   précédente : vert = progression, jaune = maintien, rouge = baisse.
+   Mise en page : patron .rm2 de la roadmap (colonne figée + corps scrollable). */
+const PF_UP='rgba(34,197,94,.22)',PF_FLAT='rgba(234,179,8,.22)',PF_DOWN='rgba(239,68,68,.20)';
+const PF_W_REPS=48,PF_W_KG=52,PF_W_RIR=42;
+function _pfNum(v){const n=parseFloat(String(v==null?'':v).replace(',','.'));return isNaN(n)?null:n;}
+function _pfCellBg(cur,prev){
+  if(cur==null||prev==null)return'';           // rien à comparer : cellule neutre
+  if(cur>prev)return`;background:${PF_UP}`;
+  if(cur===prev)return`;background:${PF_FLAT}`;
+  return`;background:${PF_DOWN}`;
+}
+// Valeurs d'une série réalisée (gère les exercices unilatéraux : on garde le côté le plus lourd)
+function _pfSetVals(s){
+  if(!s)return{kg:null,reps:null,rir:null};
+  const has=v=>v!=null&&v!=='';
+  const kg=(has(s.kgL)||has(s.kgR))?Math.max(_pfNum(s.kgL)||0,_pfNum(s.kgR)||0):_pfNum(has(s.kg)?s.kg:s.load);
+  const reps=(has(s.repsL)||has(s.repsR))?Math.max(_pfNum(s.repsL)||0,_pfNum(s.repsR)||0):_pfNum(s.reps);
+  const rir=_pfNum(has(s.rir)?s.rir:(has(s.rirL)?s.rirL:s.rirR));
+  return{kg,reps,rir};
+}
+// Séance du programme portant ce nom → exercices prescrits à plat (supersets inclus)
+function _pfPrescribed(nom){
+  for(const p of programs){
+    for(const day of (p.jours||[])){
+      if(normExo(day.nom||'')!==normExo(nom))continue;
+      const out=[];
+      ['warmup','workout','cooldown'].forEach(sec=>(day[sec]||[]).forEach(e=>{
+        const grp=e.superset&&e.exercises?e.exercises:[e];
+        grp.forEach(ex=>{
+          const sets=(ex.setsData&&ex.setsData.length)?ex.setsData:Array.from({length:parseInt(ex.sets)||1},()=>({reps:ex.reps||'',rir:ex.rir||''}));
+          out.push({nom:ex.nom||'Exercice',sets});
+        });
+      }));
+      return out;
+    }
+  }
+  return[];
+}
+// Ouvre le tableau directement sur une séance donnée (depuis l'aperçu de séance)
+function openSeanceTable(nom){
+  pfSession=normExo(nom);
+  histMode='tableau';
+  trainSubTab='historique';
+  const sa=document.getElementById('scrollArea');if(sa)sa.scrollTop=0;
+  renderTrainPreview();
+}
+function renderHistoryTable(logs){
+  // Regroupe les séances enregistrées par nom (la plus ancienne d'abord dans chaque groupe)
+  const groups={};
+  logs.forEach(l=>{
+    const k=normExo(l.session_name||'Séance');
+    if(!groups[k])groups[k]={key:k,nom:l.session_name||'Séance',logs:[]};
+    groups[k].logs.push(l);
+  });
+  const keys=Object.keys(groups);
+  keys.forEach(k=>groups[k].logs.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))));
+  if(!pfSession||!groups[pfSession])pfSession=normExo(logs[0].session_name||'Séance');
+  const g=groups[pfSession];
+  const faites=g.logs;
+
+  let h='';
+  if(keys.length>1){
+    h+=`<select style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:12px;background:var(--white);font-size:14px;font-weight:700;font-family:var(--font);color:var(--text);margin-bottom:12px" onchange="pfSession=this.value;renderTrainPreview()">`
+      +keys.map(k=>`<option value="${k}"${k===pfSession?' selected':''}>${(groups[k].nom||'Séance').replace(/"/g,'&quot;')} (${groups[k].logs.length})</option>`).join('')
+      +`</select>`;
+  }
+
+  // Exos prescrits, puis ceux faits en plus (ajoutés ou remplacés pendant la séance)
+  const exos=_pfPrescribed(g.nom).map(e=>({nom:e.nom,sets:e.sets,hors:false}));
+  const vus=exos.map(e=>normExo(e.nom));
+  faites.forEach(l=>(l.exercises||[]).forEach(ex=>{
+    const n=normExo(ex.nom||'');
+    if(!n||vus.includes(n))return;
+    vus.push(n);exos.push({nom:ex.nom||'Exercice',sets:[],hors:true});
+  }));
+  if(!exos.length)return h+`<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Aucun exercice à afficher pour cette séance.</div></div>`;
+  const hasPrescr=exos.some(e=>e.sets.length);
+
+  // ---- En-tête : colonnes "prévu" puis une colonne par séance faite
+  let head='';
+  if(hasPrescr){
+    head+=`<div class="pf2-c pf2-h pf2-grp" style="width:${PF_W_REPS}px"><b>Prévu</b><small>reps</small></div>`
+         +`<div class="pf2-c pf2-h" style="width:${PF_W_RIR}px"><b>&nbsp;</b><small>RIR</small></div>`;
+  }
+  faites.forEach((l,i)=>{
+    const dt=l.date?new Date(String(l.date)+'T12:00:00'):null;
+    const d=dt&&!isNaN(dt)?dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):'—';
+    const last=i===faites.length-1?' last':'';
+    head+=`<div class="pf2-c pf2-h pf2-grp${last}" style="width:${PF_W_REPS}px"><b>${d}</b><small>reps</small></div>`
+         +`<div class="pf2-c pf2-h${last}" style="width:${PF_W_KG}px"><b>&nbsp;</b><small>kg</small></div>`
+         +`<div class="pf2-c pf2-h${last}" style="width:${PF_W_RIR}px"><b>&nbsp;</b><small>RIR</small></div>`;
+  });
+
+  // ---- Corps : une ligne par série
+  let left='',body='';
+  exos.forEach((exo,ei)=>{
+    const done=faites.map(l=>(l.exercises||[]).find(x=>normExo(x.nom)===normExo(exo.nom))||null);
+    const nb=Math.max(exo.sets.length||0,...done.map(r=>r&&r.sets?r.sets.length:0),1);
+    for(let si=0;si<nb;si++){
+      const sep=(si===0&&ei>0)?' pf2-sep':'';
+      const nomEsc=rmEsc(exo.nom);
+      left+=`<div class="pf2-row"><div class="pf2-c pf2-x${sep}" style="width:var(--pf-w)">`
+        +(si===0
+          ?`<b title="${nomEsc}">${nomEsc}${exo.hors?' <span style="font-size:8px;color:var(--gold-deep)">HORS PROG.</span>':''}</b><small>Série 1</small>`
+          :`<small>Série ${si+1}</small>`)
+        +`</div></div>`;
+      body+=`<div class="pf2-row">`;
+      if(hasPrescr){
+        const pr=exo.sets[si]||{};
+        body+=`<div class="pf2-c pf2-grp${sep}" style="width:${PF_W_REPS}px">${pr.reps?rmEsc(pr.reps):'<span class="pf2-mut">—</span>'}</div>`
+             +`<div class="pf2-c${sep}" style="width:${PF_W_RIR}px">${(pr.rir!==undefined&&pr.rir!=='')?rmEsc(pr.rir):'<span class="pf2-mut">—</span>'}</div>`;
+      }
+      done.forEach((r,li)=>{
+        const cur=_pfSetVals(r&&r.sets?r.sets[si]:null);
+        const prevEx=li>0?done[li-1]:null;
+        const prv=li>0?_pfSetVals(prevEx&&prevEx.sets?prevEx.sets[si]:null):{kg:null,reps:null};
+        const mut='<span class="pf2-mut">—</span>';
+        body+=`<div class="pf2-c pf2-grp${sep}" style="width:${PF_W_REPS}px${_pfCellBg(cur.reps,prv.reps)}">${cur.reps!=null?fmtMetric(cur.reps):mut}</div>`
+             +`<div class="pf2-c${sep}" style="width:${PF_W_KG}px${_pfCellBg(cur.kg,prv.kg)}">${cur.kg!=null?fmtMetric(cur.kg):mut}</div>`
+             +`<div class="pf2-c${sep}" style="width:${PF_W_RIR}px">${cur.rir!=null?String(fmtMetric(cur.rir)).replace('.',','):mut}</div>`;
+      });
+      body+=`</div>`;
+    }
+  });
+
+  // ---- Pied : volume soulevé par séance
+  const vols=faites.map(l=>{
+    let v=0;(l.exercises||[]).forEach(ex=>(ex.sets||[]).forEach(s=>{const x=_pfSetVals(s);if(x.kg&&x.reps)v+=x.kg*x.reps;}));
+    return Math.round(v);
+  });
+  left+=`<div class="pf2-row pf2-tot"><div class="pf2-c pf2-x pf2-sep" style="width:var(--pf-w)"><b>Volume</b><small>kg soulevés</small></div></div>`;
+  let tot=`<div class="pf2-row pf2-tot">`;
+  if(hasPrescr)tot+=`<div class="pf2-c pf2-grp pf2-sep" style="width:${PF_W_REPS+PF_W_RIR}px"></div>`;
+  faites.forEach((l,i)=>{
+    tot+=`<div class="pf2-c pf2-grp pf2-sep" style="width:${PF_W_REPS+PF_W_KG+PF_W_RIR}px;font-weight:800">${vols[i]?vols[i].toLocaleString('fr-FR'):'—'}</div>`;
+  });
+  tot+=`</div>`;
+  body+=tot;
+
+  h+=`<div class="rm-legend">
+      <span class="pf2-dot" style="background:${PF_UP}"></span> progresse
+      <span class="pf2-dot" style="background:${PF_FLAT};margin-left:8px"></span> maintient
+      <span class="pf2-dot" style="background:${PF_DOWN};margin-left:8px"></span> baisse
+      <span style="margin-left:auto;font-size:11px;color:var(--text3)">${faites.length} séance${faites.length>1?'s':''}</span>
+    </div>
+    <div class="pf2">
+      <div class="pf2-head">
+        <div class="pf2-head-fix"><div class="pf2-c pf2-h" style="width:var(--pf-w)"><b>Exercice</b><small>par série</small></div></div>
+        <div class="pf2-hscroll" id="pfHead"><div class="pf2-inner"><div class="pf2-row" style="height:var(--pf-head)">${head}</div></div></div>
+      </div>
+      <div class="pf2-body" id="pfBody">
+        <div class="pf2-left">${left}</div>
+        <div class="pf2-right" id="pfScroll"><div class="pf2-inner">${body}</div></div>
+      </div>
+    </div>
+    <div class="rm-hint"><span style="font-size:13px">↔</span><span>Fais défiler vers la gauche pour revoir tes anciennes séances — la dernière est à droite, comparée série par série à la précédente.</span></div>`;
+  // En-tête synchronisé sur le scroll horizontal + on démarre sur la séance la plus récente
+  setTimeout(()=>{
+    const sc=document.getElementById('pfScroll'),hd=document.getElementById('pfHead');
+    if(!sc||!hd)return;
+    sc.addEventListener('scroll',()=>{hd.scrollLeft=sc.scrollLeft;},{passive:true});
+    sc.scrollLeft=sc.scrollWidth;hd.scrollLeft=sc.scrollLeft;
+  },40);
   return h;
 }
 async function delActFromList(logId){
@@ -2453,8 +2702,9 @@ function renderExoPreview(ex,idx,explicitLetter){
   const vid=ytId(ex.video);
   const sets=ex.setsData||ex.sets_data||[];
   const letter=explicitLetter!=null?explicitLetter:String.fromCharCode(65+idx);
-  const nSets=sets.length||parseInt(ex.sets)||0;
-  const repsStr=sets.length?sets.map(s=>s.reps||'?').join(' '):(ex.reps||'?');
+  const nSetsAll=sets.length||parseInt(ex.sets)||0;
+  const nSets=dlSetCount(_dlCur,ex.nom,nSetsAll);   // décharge : on retire par la fin
+  const repsStr=sets.length?sets.slice(0,nSets).map(s=>s.reps||'?').join(' '):(ex.reps||'?');
   const restStr=sets.length&&sets[0].rest?sets[0].rest:(ex.rest||'');
   const rirStr=sets.length&&sets[0].rir!==undefined?sets[0].rir:'';
 
@@ -2465,9 +2715,10 @@ function renderExoPreview(ex,idx,explicitLetter){
     thumb=`<div class="exo-thumb"><div class="exo-thumb-placeholder">💪</div></div>`;
   }
 
-  let chips=`<span class="exo-chip">Sets: ${nSets}</span><span class="exo-chip">Reps: ${repsStr}</span>`;
+  let chips=`<span class="exo-chip">Sets: ${nSets}${nSets<nSetsAll?` <s style="opacity:.5">${nSetsAll}</s>`:''}</span><span class="exo-chip">Reps: ${repsStr}</span>`;
   if(restStr)chips+=`<span class="exo-chip">Rest: ${restStr}</span>`;
   if(rirStr!=='')chips+=`<span class="exo-chip">RIR visé: ${rirStr}</span>`;
+  if(nSets<nSetsAll)chips+=dlChip();
 
   const pool=exoPool(ex);
   const swapBtn=pool.length>1?`<button class="swap-preview-btn" onclick="event.stopPropagation();togglePreviewSwap(this)" title="Choisir un exercice alternatif" style="display:flex;align-items:center;justify-content:center;gap:3px;width:100%;background:var(--gold);border:none;border-radius:7px;padding:5px 6px;font-size:10px;font-weight:800;color:color-mix(in srgb,#1a1a1a var(--ink,100%),var(--text));cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.15);white-space:nowrap">⇄ Autre</button>`:'';
@@ -2568,7 +2819,8 @@ function planProgression(day){
     grp.forEach(ex=>{
       const p=lastPerfFor(ex.nom);
       if(!p)return;
-      const sets=(ex.setsData&&ex.setsData.length?ex.setsData:Array.from({length:parseInt(ex.sets)||1},()=>({reps:ex.reps||''})))
+      const setsAll=ex.setsData&&ex.setsData.length?ex.setsData:Array.from({length:parseInt(ex.sets)||1},()=>({reps:ex.reps||''}));
+      const sets=setsAll.slice(0,dlSetCount(_dlCur,ex.nom,setsAll.length))
         .map((sd,i)=>{const ps=(p.sets||[])[i]||{};return{reps:sd.reps||ex.reps||'',prevReps:ps.reps||'',prevKg:ps.kg||ps.load||''};});
       const sugg=exoSuggestions(sets);
       if(sugg.length)out.push({nom:ex.nom||'Exercice',sugg});
@@ -2711,6 +2963,7 @@ function startWorkout(){
   workoutStart=Date.now();
   const p=curProg(),day=((p||{}).jours||[])[currentDayIdx];
   if(!day)return;
+  _dlCur=dlOf(p);   // décharge en cours : les séries retirées ne sont pas proposées
 
   // Build workout data — préserve les supersets en marquant chaque exo avec un supersetId + position
   workoutData=[];
@@ -2739,7 +2992,7 @@ function startWorkout(){
 
   allExos.forEach((ex,i)=>{
     const sets=ex.setsData||ex.sets_data||[];
-    const nSets=sets.length||parseInt(ex.sets)||3;
+    const nSets=dlSetCount(_dlCur,ex.nom,sets.length||parseInt(ex.sets)||3);
     const prev=prevExos.find(pe=>normExo(pe.nom)===normExo(ex.nom))||lastPerfFor(ex.nom);
     const setsArr=[];
     for(let s=0;s<nSets;s++){
@@ -2786,9 +3039,11 @@ function updateWorkoutTimer(){
 }
 
 function renderActiveWorkout(){
+  _dlCur=dlOf(curProg());   // séance reprise après un rechargement : on recalcule la décharge
   const day=((curProg()||{}).jours||[])[currentDayIdx];
   const dayName=(day&&(day.nom||'Jour '+(currentDayIdx+1)))||_woSessionName||'Séance';
   let h=`<div class="wo-header"><button class="wo-back" onclick="endWorkout(false)">←</button><div class="wo-title">${dayName}</div><div class="wo-timer-wrap"><div class="wo-timer" id="woTimer">00:00</div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><button class="wo-pause" onclick="pauseWorkout()" title="Mettre la séance en pause">⏸</button></div>`;
+  h+=dlBanner(_dlCur);
 
   // Pré-groupe en blocs : exo simple ou superset entier
   const blocks=[];
@@ -2870,27 +3125,37 @@ function _renderWoExoCard(ex,ei,opts){
    et elle n'est pas passée. Les claviers mobiles numériques n'ont pas de "-",
    d'où le petit bouton ± dans le champ. */
 function rirCell(ei,si,field,val,ph,gold){
-  const v=String(val==null?'':val);
-  return `<div class="set-input rir-in"><button class="rir-sign" tabindex="-1" onmousedown="event.preventDefault()" onclick="toggleRirSign(this,${ei},${si},'${field}')" title="Valeur négative (au-delà de l'échec)" aria-label="Changer le signe">±</button><input type="text" inputmode="numeric" pattern="-?[0-9]*" maxlength="3" placeholder="${ph||'RIR'}" value="${v}" oninput="setRir(this,${ei},${si},'${field}')"${gold?' style="border-color:var(--gold-border)"':''}></div>`;
+  const v=rirTxt(val);   // affichage à la française : 1,5 (la valeur stockée garde le point)
+  return `<div class="set-input rir-in"><button class="rir-sign" tabindex="-1" onmousedown="event.preventDefault()" onclick="toggleRirSign(this,${ei},${si},'${field}')" title="Valeur négative (au-delà de l'échec)" aria-label="Changer le signe">±</button><input type="text" inputmode="decimal" pattern="-?[0-9]*[.,]?[0-9]*" maxlength="5" placeholder="${ph||'RIR'}" value="${v}" oninput="setRir(this,${ei},${si},'${field}')"${gold?' style="border-color:var(--gold-border)"':''}></div>`;
 }
-// Valeur RIR affichable : "0" et "-1" sont des valeurs valides, contrairement à '' / null
-function rirTxt(v){return (v===0||(v!=null&&v!==''))?String(v):'';}
+// Valeur RIR affichable : "0" et "-1" sont des valeurs valides, contrairement à '' / null.
+// Décimales affichées à la française (1.5 stocké → "1,5" à l'écran).
+function rirTxt(v){return (v===0||(v!=null&&v!==''))?String(v).replace('.',','):'';}
+/* Demi-RIR autorisés (1,5 · 2.5) : 2 chiffres avant la virgule, 1 après.
+   On garde le séparateur tapé par le client dans le champ, la valeur stockée
+   est toujours normalisée avec un point (parseFloat côté coach). */
 function cleanRir(str){
-  let v=String(str||'').replace(/[^0-9-]/g,'');   // que des chiffres et le signe
-  v=v.replace(/(?!^)-/g,'');                       // le "-" seulement en tête
-  return v.slice(0,3);
+  let v=String(str==null?'':str).replace(/[^0-9.,-]/g,'').replace(/(?!^)-/g,'');
+  const neg=v.charAt(0)==='-';
+  const b=(neg?v.slice(1):v).match(/^(\d{0,2})(?:([.,])(\d?))?/);
+  return (neg?'-':'')+(b?b[1]+(b[2]?b[2]+(b[3]||''):''):'');
+}
+// Valeur enregistrée : point décimal, sans séparateur ni signe orphelins
+function rirStore(v){
+  const s=String(v==null?'':v).replace(',','.').replace(/[.]$/,'');
+  return (s===''||s==='-'||s==='.'||s==='-.')?'':s;
 }
 function setRir(el,ei,si,field){
   const v=cleanRir(el.value);
   if(el.value!==v)el.value=v;
   const st=workoutData[ei]&&workoutData[ei].sets[si];
-  if(st)st[field]=(v==='-'?'':v);                  // "-" seul = saisie en cours
+  if(st)st[field]=rirStore(v);                     // "-" ou "1," seuls = saisie en cours
 }
 function toggleRirSign(btn,ei,si,field){
   const inp=btn.parentNode.querySelector('input');
   if(!inp)return;
   const v=cleanRir(inp.value);
-  inp.value=v.startsWith('-')?v.slice(1):('-'+v);
+  inp.value=v.startsWith('-')?v.slice(1):('-'+v);   // les décimales suivent le signe
   setRir(inp,ei,si,field);
   inp.focus();
 }
@@ -2912,6 +3177,7 @@ function rirInfo(){
     </div>
     <div style="margin-top:11px;padding:9px 11px;background:var(--bg);border-radius:10px;font-size:12.5px;color:var(--text2)">
       Pour un RIR négatif, appuie sur le petit <b>±</b> à gauche du champ, puis tape ton chiffre.
+      Tu peux aussi mettre un <b>demi-point</b> (1,5) quand tu hésites entre deux valeurs.
     </div>
     <button class="btn-gold" style="margin-top:13px" onclick="closeModal()">J'ai compris</button>
   </div>`);

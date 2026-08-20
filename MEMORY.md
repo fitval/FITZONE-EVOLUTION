@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-08-02 (app client : onglet Roadmap en lecture seule + montage avant/après épuré)
+**Dernière mise à jour** : 2026-08-20 (deload/phase éphémère sur les programmes + tableau de progression client + RIR à virgule)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -414,6 +414,21 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
   - Coach : bouton **« ⚙️ Questions du rapport (n/N) »** dans l'onglet Progression de la fiche client → modal à cases à cocher par section (`openDailyQModal()` / `saveDailyQuestions()`). Tout coché → on enregistre `null`.
   - Le filtre s'applique partout : questionnaire client, tableau client, grille hebdo du coach, saisie manuelle du coach et sélecteur de métrique du graphique (`activeDailyQuestions()` côté client, `_dlActiveQuestions()` côté dashboard).
 - `version.json` bumpé.
+
+### Session 2026-08-20 — Deload, tableau de progression client, RIR décimal
+- **Mode deload / phase éphémère sur un programme** (nouvelle colonne `programs.deload` jsonb, migration `20260820120000_programs_deload.sql`, appliquée).
+  - Config = `{active, start:'YYYY-MM-DD', weeks, sets:-1, note, exos:{<nom normalisé>:-2}}`. `sets` = séries retirées par défaut, `exos` = override exercice par exercice (0 = on ne retire rien).
+  - **La fenêtre est datée** : passée `start + weeks*7`, le programme reprend sa forme normale tout seul, sans que le coach ait à repasser dessus. C'est tout l'intérêt du « éphémère » : rien à défaire.
+  - Coach (`dashboard.html`) : encart **🌙 Deload / phase éphémère** dans le builder de programme (sous la Description) — `progRenderDeload()`, état `progDeload`, sauvegardé par `saveProg()`. Liste des exos du programme avec `4 → 3 séries` et boutons −/+/↺. La liste se rafraîchit à chaque `progRenderDay()`.
+  - Pastille `dlBadgeHtml()` (DELOAD S1/2 · jusqu'au …) sur les cartes programme de la fiche client et de la liste Programmes ; masquée dès que la phase est passée.
+  - Client (`client.html`) : `dlWindow/dlDelta/dlSetCount/dlOf` + `_dlCur` recalculé à chaque rendu. Les séries sont retirées **par la fin**, jamais en dessous de 1. Bandeau « Semaine de décharge (1/2) » sur la liste des séances, l'aperçu et la séance en cours ; chip 🌙 + `Sets: 3 ~~4~~` sur l'exo ; `planProgression()` ne propose que les séries conservées.
+  - Le deload est porté par le **programme**, donc partagé par tous les clients qui l'ont : pour n'alléger qu'un client, dupliquer le programme.
+- **Tableau de progression côté client** (3ᵉ onglet 📊 Tableau dans Entraînement → Historique, + bouton « Voir le tableau de progression » sur l'aperçu d'une séance → `openSeanceTable()`).
+  - Même lecture que la vue tableur du coach : une ligne par série, colonnes « Prévu » (reps/RIR) puis **une colonne par séance faite** (reps/kg/RIR), la plus ancienne à gauche, la dernière à droite (en-tête doré). Comparaison à la même série de la séance précédente : vert = progresse, jaune = maintient, rouge = baisse. Ligne « Volume » (kg soulevés) en pied. Exos faits hors programme marqués HORS PROG.
+  - Mise en page : patron `.rm2` de la roadmap → nouvelles classes `.pf2` (colonne exercices figée en flex, corps scrollable, en-tête synchronisé en JS, scroll initial à droite). **Pas de `<table>`/`sticky`** (voir historique du tableau hebdo).
+  - Sélecteur de séance si plusieurs séances ont un historique. Libellés des onglets raccourcis (Séances / Exercices / Tableau) pour qu'ils tiennent sur un écran de téléphone.
+- **RIR à virgule** (demi-RIR) : côté client `cleanRir()` accepte `1,5` / `2.5` (2 chiffres + 1 décimale, signe − conservé), `rirStore()` normalise avec un **point** avant enregistrement, `rirTxt()` réaffiche avec une **virgule**. Champ passé en `inputmode="decimal"`, `maxlength=5`. Côté coach, `_perfSetVals()` parse désormais les virgules (`parseFloat('1,5')` valait 1).
+- `version.json` bumpé (2026082001).
 
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
