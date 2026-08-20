@@ -563,7 +563,20 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .pf2-h { height:var(--pf-head); flex-direction:column; align-items:center; justify-content:center; background:var(--dark); border-bottom:none; border-right:1px solid rgba(255,255,255,.08); padding:0 3px; }
 .pf2-h b { font-size:10px; font-weight:800; color:#fff; line-height:1.2; }
 .pf2-h small { font-size:8.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:rgba(255,255,255,.6); line-height:1.2; }
-.pf2-h.last { background:linear-gradient(180deg,var(--dark),rgba(var(--gold-rgb),.55)); }
+.pf2-h.now { background:linear-gradient(180deg,var(--dark),rgba(var(--gold-rgb),.6)); }
+/* Vue tableau pendant la séance : mêmes colonnes, lignes plus hautes pour les champs */
+.pf2.wo { --pf-row:46px; --pf-head:38px; }
+.pf2-in { padding:0 2px; }
+.pf2-in .set-input { margin:0; width:100%; }
+.pf2-in .set-input input { padding:8px 2px; font-size:13px; }
+.pf2-now { background:rgba(var(--gold-rgb),.07); }
+.pf2-chk button { width:28px; height:28px; border-radius:50%; border:2px solid var(--border); background:none; color:var(--text3); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
+.pf2-chk button.done { border-color:var(--gold); background:var(--gold); color:#fff; }
+.pf2-chk button svg { width:15px; height:15px; }
+.pf2-add { margin-left:5px; padding:1px 5px; border:1px solid var(--border); border-radius:6px; background:var(--bg2); color:var(--text3); font-size:9px; font-weight:800; font-family:var(--font); cursor:pointer; }
+.wo-view-bar { display:flex; gap:6px; margin:2px 0 12px; }
+.wo-view-btn { flex:1; padding:9px 10px; border-radius:10px; border:1.5px solid var(--border); background:var(--white); color:var(--text3); font-size:12.5px; font-weight:800; font-family:var(--font); cursor:pointer; }
+.wo-view-btn.active { border-color:var(--gold); background:var(--gold-pale); color:var(--gold-deep); }
 .pf2-x { flex-direction:column; align-items:flex-start; justify-content:center; gap:1px; padding:0 8px; }
 .pf2-x b { display:block; max-width:100%; font-size:11px; font-weight:800; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pf2-x small { font-size:9.5px; font-weight:700; color:var(--text3); line-height:1.1; }
@@ -925,7 +938,9 @@ let currentProgIdx=0; // le coach peut rendre plusieurs programmes visibles à l
 function curProg(){return programs[currentProgIdx]||programs[0]||null;}
 let trainSubTab='list';
 let histMode='sessions',histExo=null;
-let pfSession='';   // séance affichée dans le tableau de progression
+// Deux façons de faire sa séance : les fiches (par défaut) ou le tableau. Choix mémorisé.
+let woView='cards';
+try{if(localStorage.getItem('fz_woView')==='table')woView='table';}catch(e){}
 let coachActivityTypes=[];
 let coachMuscleImages={}; // { "Biceps": "<url drive>", ... }
 function driveImgUrl(url){if(!url||!url.includes('drive.google.com'))return url;let id=null;const m1=url.match(/\/d\/([^/]+)/);if(m1)id=m1[1];const m2=url.match(/[?&]id=([^&]+)/);if(m2)id=m2[1];return id?'https://lh3.googleusercontent.com/d/'+id:url;}
@@ -1746,7 +1761,6 @@ function renderTrainPreview(){
   const day=jours[currentDayIdx];
   document.getElementById('trainTitle').textContent=day.nom||'Séance '+(currentDayIdx+1);
   let h=backBtn+`<div class="sess-head"><div class="sess-num">${currentDayIdx+1}</div><div class="sess-head-sub">${p.nom||'Programme'} · ${seanceSub(day)}</div></div>`
-    +`<button onclick="openSeanceTable(${JSON.stringify(day.nom||'Séance '+(currentDayIdx+1)).replace(/"/g,'&quot;')})" style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:12px;padding:11px 13px;border-radius:12px;border:1.5px solid var(--border);background:var(--white);color:var(--text);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer"><span style="font-size:16px">📊</span><span style="flex:1;text-align:left">Voir le tableau de progression</span><span style="color:var(--text3)">›</span></button>`
     +dlBanner(_dlCur);
 
   if(day.type==='running'){
@@ -1839,12 +1853,11 @@ function _histSetVals(ex,s){
 function renderHistoryView(){
   const logs=trainLogs.filter(l=>l.type==='strength'&&Array.isArray(l.exercises)&&l.exercises.length).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   let h=`<div class="day-tabs" style="margin-bottom:14px">
-    <button class="day-tab${histMode==='sessions'?' active':''}" style="padding:12px 14px" onclick="histMode='sessions';renderTrainPreview()">📋 Séances</button>
-    <button class="day-tab${histMode==='exos'?' active':''}" style="padding:12px 14px" onclick="histMode='exos';renderTrainPreview()">📈 Exercices</button>
-    <button class="day-tab${histMode==='tableau'?' active':''}" style="padding:12px 14px" onclick="histMode='tableau';renderTrainPreview()">📊 Tableau</button>
+    <button class="day-tab${histMode==='sessions'?' active':''}" onclick="histMode='sessions';renderTrainPreview()">📋 Mes séances</button>
+    <button class="day-tab${histMode==='exos'?' active':''}" onclick="histMode='exos';renderTrainPreview()">📈 Par exercice</button>
   </div>`;
   if(!logs.length){h+=`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucune séance de musculation enregistrée pour le moment.<br>Lance une séance depuis ton programme !</div></div>`;return h;}
-  return h+(histMode==='tableau'?renderHistoryTable(logs):histMode==='exos'?renderHistoryExos(logs):renderHistorySessions(logs));
+  return h+(histMode==='exos'?renderHistoryExos(logs):renderHistorySessions(logs));
 }
 function renderHistorySessions(logs){
   let h=`<div style="font-size:13px;font-weight:700;color:var(--text3);margin-bottom:10px">${logs.length} séance${logs.length>1?'s':''}</div>`;
@@ -1932,175 +1945,6 @@ function renderHistoryExos(logs){
       <span style="font-size:14px;font-weight:800">${s.maxKg} kg${s.bestReps?` <span style="font-size:12px;color:var(--text3);font-weight:600">× ${s.bestReps}</span>`:''}${s.bestRir!==''&&s.bestRir!=null?` <span style="font-size:11px;color:var(--gold-deep);font-weight:700">RIR ${s.bestRir}</span>`:''}</span>
     </div>`;
   });
-  return h;
-}
-/* ===== TABLEAU DE PROGRESSION (vue tableur, comme celle du coach) =====
-   Une ligne par série, une colonne par séance déjà faite : la plus ancienne à
-   gauche, la dernière (celle qui vient d'être enregistrée) tout à droite.
-   Chaque cellule reps/charge est comparée à la MÊME série de la séance
-   précédente : vert = progression, jaune = maintien, rouge = baisse.
-   Mise en page : patron .rm2 de la roadmap (colonne figée + corps scrollable). */
-const PF_UP='rgba(34,197,94,.22)',PF_FLAT='rgba(234,179,8,.22)',PF_DOWN='rgba(239,68,68,.20)';
-const PF_W_REPS=48,PF_W_KG=52,PF_W_RIR=42;
-function _pfNum(v){const n=parseFloat(String(v==null?'':v).replace(',','.'));return isNaN(n)?null:n;}
-function _pfCellBg(cur,prev){
-  if(cur==null||prev==null)return'';           // rien à comparer : cellule neutre
-  if(cur>prev)return`;background:${PF_UP}`;
-  if(cur===prev)return`;background:${PF_FLAT}`;
-  return`;background:${PF_DOWN}`;
-}
-// Valeurs d'une série réalisée (gère les exercices unilatéraux : on garde le côté le plus lourd)
-function _pfSetVals(s){
-  if(!s)return{kg:null,reps:null,rir:null};
-  const has=v=>v!=null&&v!=='';
-  const kg=(has(s.kgL)||has(s.kgR))?Math.max(_pfNum(s.kgL)||0,_pfNum(s.kgR)||0):_pfNum(has(s.kg)?s.kg:s.load);
-  const reps=(has(s.repsL)||has(s.repsR))?Math.max(_pfNum(s.repsL)||0,_pfNum(s.repsR)||0):_pfNum(s.reps);
-  const rir=_pfNum(has(s.rir)?s.rir:(has(s.rirL)?s.rirL:s.rirR));
-  return{kg,reps,rir};
-}
-// Séance du programme portant ce nom → exercices prescrits à plat (supersets inclus)
-function _pfPrescribed(nom){
-  for(const p of programs){
-    for(const day of (p.jours||[])){
-      if(normExo(day.nom||'')!==normExo(nom))continue;
-      const out=[];
-      ['warmup','workout','cooldown'].forEach(sec=>(day[sec]||[]).forEach(e=>{
-        const grp=e.superset&&e.exercises?e.exercises:[e];
-        grp.forEach(ex=>{
-          const sets=(ex.setsData&&ex.setsData.length)?ex.setsData:Array.from({length:parseInt(ex.sets)||1},()=>({reps:ex.reps||'',rir:ex.rir||''}));
-          out.push({nom:ex.nom||'Exercice',sets});
-        });
-      }));
-      return out;
-    }
-  }
-  return[];
-}
-// Ouvre le tableau directement sur une séance donnée (depuis l'aperçu de séance)
-function openSeanceTable(nom){
-  pfSession=normExo(nom);
-  histMode='tableau';
-  trainSubTab='historique';
-  const sa=document.getElementById('scrollArea');if(sa)sa.scrollTop=0;
-  renderTrainPreview();
-}
-function renderHistoryTable(logs){
-  // Regroupe les séances enregistrées par nom (la plus ancienne d'abord dans chaque groupe)
-  const groups={};
-  logs.forEach(l=>{
-    const k=normExo(l.session_name||'Séance');
-    if(!groups[k])groups[k]={key:k,nom:l.session_name||'Séance',logs:[]};
-    groups[k].logs.push(l);
-  });
-  const keys=Object.keys(groups);
-  keys.forEach(k=>groups[k].logs.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))));
-  if(!pfSession||!groups[pfSession])pfSession=normExo(logs[0].session_name||'Séance');
-  const g=groups[pfSession];
-  const faites=g.logs;
-
-  let h='';
-  if(keys.length>1){
-    h+=`<select style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:12px;background:var(--white);font-size:14px;font-weight:700;font-family:var(--font);color:var(--text);margin-bottom:12px" onchange="pfSession=this.value;renderTrainPreview()">`
-      +keys.map(k=>`<option value="${k}"${k===pfSession?' selected':''}>${(groups[k].nom||'Séance').replace(/"/g,'&quot;')} (${groups[k].logs.length})</option>`).join('')
-      +`</select>`;
-  }
-
-  // Exos prescrits, puis ceux faits en plus (ajoutés ou remplacés pendant la séance)
-  const exos=_pfPrescribed(g.nom).map(e=>({nom:e.nom,sets:e.sets,hors:false}));
-  const vus=exos.map(e=>normExo(e.nom));
-  faites.forEach(l=>(l.exercises||[]).forEach(ex=>{
-    const n=normExo(ex.nom||'');
-    if(!n||vus.includes(n))return;
-    vus.push(n);exos.push({nom:ex.nom||'Exercice',sets:[],hors:true});
-  }));
-  if(!exos.length)return h+`<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Aucun exercice à afficher pour cette séance.</div></div>`;
-  const hasPrescr=exos.some(e=>e.sets.length);
-
-  // ---- En-tête : colonnes "prévu" puis une colonne par séance faite
-  let head='';
-  if(hasPrescr){
-    head+=`<div class="pf2-c pf2-h pf2-grp" style="width:${PF_W_REPS}px"><b>Prévu</b><small>reps</small></div>`
-         +`<div class="pf2-c pf2-h" style="width:${PF_W_RIR}px"><b>&nbsp;</b><small>RIR</small></div>`;
-  }
-  faites.forEach((l,i)=>{
-    const dt=l.date?new Date(String(l.date)+'T12:00:00'):null;
-    const d=dt&&!isNaN(dt)?dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):'—';
-    const last=i===faites.length-1?' last':'';
-    head+=`<div class="pf2-c pf2-h pf2-grp${last}" style="width:${PF_W_REPS}px"><b>${d}</b><small>reps</small></div>`
-         +`<div class="pf2-c pf2-h${last}" style="width:${PF_W_KG}px"><b>&nbsp;</b><small>kg</small></div>`
-         +`<div class="pf2-c pf2-h${last}" style="width:${PF_W_RIR}px"><b>&nbsp;</b><small>RIR</small></div>`;
-  });
-
-  // ---- Corps : une ligne par série
-  let left='',body='';
-  exos.forEach((exo,ei)=>{
-    const done=faites.map(l=>(l.exercises||[]).find(x=>normExo(x.nom)===normExo(exo.nom))||null);
-    const nb=Math.max(exo.sets.length||0,...done.map(r=>r&&r.sets?r.sets.length:0),1);
-    for(let si=0;si<nb;si++){
-      const sep=(si===0&&ei>0)?' pf2-sep':'';
-      const nomEsc=rmEsc(exo.nom);
-      left+=`<div class="pf2-row"><div class="pf2-c pf2-x${sep}" style="width:var(--pf-w)">`
-        +(si===0
-          ?`<b title="${nomEsc}">${nomEsc}${exo.hors?' <span style="font-size:8px;color:var(--gold-deep)">HORS PROG.</span>':''}</b><small>Série 1</small>`
-          :`<small>Série ${si+1}</small>`)
-        +`</div></div>`;
-      body+=`<div class="pf2-row">`;
-      if(hasPrescr){
-        const pr=exo.sets[si]||{};
-        body+=`<div class="pf2-c pf2-grp${sep}" style="width:${PF_W_REPS}px">${pr.reps?rmEsc(pr.reps):'<span class="pf2-mut">—</span>'}</div>`
-             +`<div class="pf2-c${sep}" style="width:${PF_W_RIR}px">${(pr.rir!==undefined&&pr.rir!=='')?rmEsc(pr.rir):'<span class="pf2-mut">—</span>'}</div>`;
-      }
-      done.forEach((r,li)=>{
-        const cur=_pfSetVals(r&&r.sets?r.sets[si]:null);
-        const prevEx=li>0?done[li-1]:null;
-        const prv=li>0?_pfSetVals(prevEx&&prevEx.sets?prevEx.sets[si]:null):{kg:null,reps:null};
-        const mut='<span class="pf2-mut">—</span>';
-        body+=`<div class="pf2-c pf2-grp${sep}" style="width:${PF_W_REPS}px${_pfCellBg(cur.reps,prv.reps)}">${cur.reps!=null?fmtMetric(cur.reps):mut}</div>`
-             +`<div class="pf2-c${sep}" style="width:${PF_W_KG}px${_pfCellBg(cur.kg,prv.kg)}">${cur.kg!=null?fmtMetric(cur.kg):mut}</div>`
-             +`<div class="pf2-c${sep}" style="width:${PF_W_RIR}px">${cur.rir!=null?String(fmtMetric(cur.rir)).replace('.',','):mut}</div>`;
-      });
-      body+=`</div>`;
-    }
-  });
-
-  // ---- Pied : volume soulevé par séance
-  const vols=faites.map(l=>{
-    let v=0;(l.exercises||[]).forEach(ex=>(ex.sets||[]).forEach(s=>{const x=_pfSetVals(s);if(x.kg&&x.reps)v+=x.kg*x.reps;}));
-    return Math.round(v);
-  });
-  left+=`<div class="pf2-row pf2-tot"><div class="pf2-c pf2-x pf2-sep" style="width:var(--pf-w)"><b>Volume</b><small>kg soulevés</small></div></div>`;
-  let tot=`<div class="pf2-row pf2-tot">`;
-  if(hasPrescr)tot+=`<div class="pf2-c pf2-grp pf2-sep" style="width:${PF_W_REPS+PF_W_RIR}px"></div>`;
-  faites.forEach((l,i)=>{
-    tot+=`<div class="pf2-c pf2-grp pf2-sep" style="width:${PF_W_REPS+PF_W_KG+PF_W_RIR}px;font-weight:800">${vols[i]?vols[i].toLocaleString('fr-FR'):'—'}</div>`;
-  });
-  tot+=`</div>`;
-  body+=tot;
-
-  h+=`<div class="rm-legend">
-      <span class="pf2-dot" style="background:${PF_UP}"></span> progresse
-      <span class="pf2-dot" style="background:${PF_FLAT};margin-left:8px"></span> maintient
-      <span class="pf2-dot" style="background:${PF_DOWN};margin-left:8px"></span> baisse
-      <span style="margin-left:auto;font-size:11px;color:var(--text3)">${faites.length} séance${faites.length>1?'s':''}</span>
-    </div>
-    <div class="pf2">
-      <div class="pf2-head">
-        <div class="pf2-head-fix"><div class="pf2-c pf2-h" style="width:var(--pf-w)"><b>Exercice</b><small>par série</small></div></div>
-        <div class="pf2-hscroll" id="pfHead"><div class="pf2-inner"><div class="pf2-row" style="height:var(--pf-head)">${head}</div></div></div>
-      </div>
-      <div class="pf2-body" id="pfBody">
-        <div class="pf2-left">${left}</div>
-        <div class="pf2-right" id="pfScroll"><div class="pf2-inner">${body}</div></div>
-      </div>
-    </div>
-    <div class="rm-hint"><span style="font-size:13px">↔</span><span>Fais défiler vers la gauche pour revoir tes anciennes séances — la dernière est à droite, comparée série par série à la précédente.</span></div>`;
-  // En-tête synchronisé sur le scroll horizontal + on démarre sur la séance la plus récente
-  setTimeout(()=>{
-    const sc=document.getElementById('pfScroll'),hd=document.getElementById('pfHead');
-    if(!sc||!hd)return;
-    sc.addEventListener('scroll',()=>{hd.scrollLeft=sc.scrollLeft;},{passive:true});
-    sc.scrollLeft=sc.scrollWidth;hd.scrollLeft=sc.scrollLeft;
-  },40);
   return h;
 }
 async function delActFromList(logId){
@@ -3044,6 +2888,10 @@ function renderActiveWorkout(){
   const dayName=(day&&(day.nom||'Jour '+(currentDayIdx+1)))||_woSessionName||'Séance';
   let h=`<div class="wo-header"><button class="wo-back" onclick="endWorkout(false)">←</button><div class="wo-title">${dayName}</div><div class="wo-timer-wrap"><div class="wo-timer" id="woTimer">00:00</div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><button class="wo-pause" onclick="pauseWorkout()" title="Mettre la séance en pause">⏸</button></div>`;
   h+=dlBanner(_dlCur);
+  h+=`<div class="wo-view-bar">
+    <button class="wo-view-btn${woView==='table'?'':' active'}" onclick="setWoView('cards')">☰ Fiches</button>
+    <button class="wo-view-btn${woView==='table'?' active':''}" onclick="setWoView('table')">▦ Tableau</button>
+  </div>`;
 
   // Pré-groupe en blocs : exo simple ou superset entier
   const blocks=[];
@@ -3067,15 +2915,19 @@ function renderActiveWorkout(){
     const monteCharge=workoutData.some(ex=>exoSuggestions(ex.sets).some(g=>g.type==='charge'));
     h+=`<div style="margin:10px 0 4px;padding:9px 11px;background:var(--bg2);border-radius:9px;font-size:11.5px;color:var(--text2);line-height:1.5">${_progTipText?`<b style="color:var(--text)">${_progTipText}</b><br>`:''}💡 ${PROG_DISCLAIMER}${monteCharge?`<br><span style="display:inline-block;margin-top:5px">⚖️ ${PROG_CHARGE_RULE}</span>`:''}</div>`;
   }
-  let curSec='';
-  blocks.forEach(b=>{
-    if(b.section!==curSec){
-      curSec=b.section;
-      const lb={warmup:'Échauffement',workout:'Workout',cooldown:'Retour au calme'}[curSec];
-      h+=`<div class="section-hdr">${lb}</div>`;
-    }
-    h+=(b.type==='single')?_renderWoSingle(b.ei):_renderWoSuperset(b);
-  });
+  if(woView==='table'){
+    h+=renderWoTable();
+  } else {
+    let curSec='';
+    blocks.forEach(b=>{
+      if(b.section!==curSec){
+        curSec=b.section;
+        const lb={warmup:'Échauffement',workout:'Workout',cooldown:'Retour au calme'}[curSec];
+        h+=`<div class="section-hdr">${lb}</div>`;
+      }
+      h+=(b.type==='single')?_renderWoSingle(b.ei):_renderWoSuperset(b);
+    });
+  }
 
   h+=`<button class="btn-gold" style="margin-top:16px" onclick="showPostWorkout()">Terminer la séance</button>`;
   h+=`<button class="btn-gold" style="margin:10px 0 34px;background:var(--white);color:var(--on-gold);border:1.5px solid var(--gold-border)" onclick="pauseWorkout()">⏸ Mettre en pause</button>`;
@@ -3294,6 +3146,185 @@ function _renderWoSuperset(b){
   return h;
 }
 
+/* ===== VUE TABLEAU DE LA SÉANCE =====
+   Deuxième façon de faire sa séance (l'autre étant les fiches) : un tableau qui
+   se lit de gauche à droite — à gauche toutes les séances passées portant le
+   même nom, tout à droite la colonne du jour, vierge, où le client saisit
+   kg / reps / RIR. Chaque cellule passée est comparée à la même série de la
+   séance d'avant : vert = progression, jaune = maintien, rouge = baisse.
+   Mise en page : patron .rm2 de la roadmap (colonne figée + corps scrollable,
+   en-tête synchronisé en JS) — surtout pas de <table> + position:sticky. */
+const PF_UP='rgba(34,197,94,.22)',PF_FLAT='rgba(234,179,8,.22)',PF_DOWN='rgba(239,68,68,.20)';
+const PF_W_REPS=48,PF_W_KG=52,PF_W_RIR=42;               // colonnes des séances passées
+const PF_W_KG_NOW=60,PF_W_REPS_NOW=56,PF_W_RIR_NOW=54,PF_W_CHK=40;  // colonne du jour
+function _pfNum(v){const n=parseFloat(String(v==null?'':v).replace(',','.'));return isNaN(n)?null:n;}
+function _pfCellBg(cur,prev){
+  if(cur==null||prev==null)return'';           // rien à comparer : cellule neutre
+  if(cur>prev)return`;background:${PF_UP}`;
+  if(cur===prev)return`;background:${PF_FLAT}`;
+  return`;background:${PF_DOWN}`;
+}
+// Valeurs d'une série enregistrée (unilatéral : on garde le côté le plus lourd)
+function _pfSetVals(s){
+  if(!s)return{kg:null,reps:null,rir:null};
+  const has=v=>v!=null&&v!=='';
+  const kg=(has(s.kgL)||has(s.kgR))?Math.max(_pfNum(s.kgL)||0,_pfNum(s.kgR)||0):_pfNum(has(s.kg)?s.kg:s.load);
+  const reps=(has(s.repsL)||has(s.repsR))?Math.max(_pfNum(s.repsL)||0,_pfNum(s.repsR)||0):_pfNum(s.reps);
+  const rir=_pfNum(has(s.rir)?s.rir:(has(s.rirL)?s.rirL:s.rirR));
+  return{kg,reps,rir};
+}
+// Valeurs d'un côté précis (lignes G / D des exercices unilatéraux)
+function _pfSideVals(s,side){
+  if(!s)return{kg:null,reps:null,rir:null};
+  if(side==='L')return{kg:_pfNum(s.kgL),reps:_pfNum(s.repsL),rir:_pfNum(s.rirL)};
+  if(side==='R')return{kg:_pfNum(s.kgR),reps:_pfNum(s.repsR),rir:_pfNum(s.rirR)};
+  return _pfSetVals(s);
+}
+// Séances déjà enregistrées portant le même nom, la plus ancienne d'abord
+function _woPastLogs(){
+  const nom=normExo(_woSessionName||'');
+  if(!nom)return[];
+  return trainLogs.filter(l=>l&&l.type!=='activity'&&Array.isArray(l.exercises)&&l.exercises.length&&normExo(l.session_name||'')===nom)
+    .slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+}
+// Volume soulevé aujourd'hui, calculé comme celui des séances passées (1 valeur par série)
+function _woTodayVolume(){
+  let v=0;
+  workoutData.forEach(ex=>(ex.sets||[]).forEach(st=>{
+    if(ex.unilateral)v+=Math.max(_pfNum(st.kgL)||0,_pfNum(st.kgR)||0)*Math.max(_pfNum(st.repsL)||0,_pfNum(st.repsR)||0);
+    else v+=(_pfNum(st.kg)||0)*(_pfNum(st.repsActual)||0);
+  }));
+  return Math.round(v);
+}
+// Saisie dans une cellule du jour : on écrit dans workoutData sans re-render
+// (le re-render ferait perdre le focus), et on rafraîchit juste le total.
+function woCell(el,ei,si,field){
+  const st=workoutData[ei]&&workoutData[ei].sets[si];
+  if(!st)return;
+  st[field]=el.value;
+  const v=document.getElementById('woTblVol');
+  if(v)v.textContent=_woTodayVolume().toLocaleString('fr-FR');
+}
+let _woTbl={x:null,y:0};   // position de défilement du tableau, conservée entre 2 rendus
+function setWoView(v){
+  woView=(v==='table')?'table':'cards';
+  try{localStorage.setItem('fz_woView',woView);}catch(e){}
+  if(woView==='table')_woTbl={x:null,y:0};   // on ouvre sur la colonne du jour
+  renderActiveWorkout();
+}
+function renderWoTable(){
+  const past=_woPastLogs();
+  const CHK=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const SEC_ICO={warmup:'🔥 ',workout:'',cooldown:'❄️ '};
+
+  // ---- En-tête : prévu, une colonne par séance passée, puis le jour
+  let head=`<div class="pf2-c pf2-h pf2-grp" style="width:${PF_W_REPS}px"><b>Prévu</b><small>reps</small></div>`
+          +`<div class="pf2-c pf2-h" style="width:${PF_W_RIR}px"><b>&nbsp;</b><small>RIR</small></div>`;
+  past.forEach(l=>{
+    const dt=l.date?new Date(String(l.date)+'T12:00:00'):null;
+    const d=dt&&!isNaN(dt)?dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}):'—';
+    head+=`<div class="pf2-c pf2-h pf2-grp" style="width:${PF_W_REPS}px"><b>${d}</b><small>reps</small></div>`
+         +`<div class="pf2-c pf2-h" style="width:${PF_W_KG}px"><b>&nbsp;</b><small>kg</small></div>`
+         +`<div class="pf2-c pf2-h" style="width:${PF_W_RIR}px"><b>&nbsp;</b><small>RIR</small></div>`;
+  });
+  const dAuj=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
+  head+=`<div class="pf2-c pf2-h now pf2-grp" style="width:${PF_W_KG_NOW}px"><b>AUJ.</b><small>kg</small></div>`
+       +`<div class="pf2-c pf2-h now" style="width:${PF_W_REPS_NOW}px"><b>${dAuj}</b><small>reps</small></div>`
+       +`<div class="pf2-c pf2-h now" style="width:${PF_W_RIR_NOW}px"><b>&nbsp;</b><small>RIR</small></div>`
+       +`<div class="pf2-c pf2-h now" style="width:${PF_W_CHK}px"><b>&nbsp;</b><small>ok</small></div>`;
+
+  // ---- Corps : une ligne par série (deux par série pour un exo unilatéral)
+  let left='',body='',nRows=0;
+  workoutData.forEach((ex,ei)=>{
+    const nom=(ex.nom||'Exercice');
+    const pastEx=past.map(l=>(l.exercises||[]).find(x=>normExo(x.nom)===normExo(nom))||null);
+    const lettre=ex.supersetLetter?`${ex.supersetLetter}${ex.supersetPosition||''} · `:'';
+    (ex.sets||[]).forEach((st,si)=>{
+      const sides=ex.unilateral?['L','R']:[null];
+      sides.forEach(side=>{
+        const first=(si===0&&(side===null||side==='L'));
+        const dernier=(si===ex.sets.length-1&&(side===null||side==='R'));
+        const sep=first&&nRows>0?' pf2-sep':'';
+        nRows++;
+        const lbl=`Série ${si+1}${side?(side==='L'?' · G':' · D'):''}`;
+        left+=`<div class="pf2-row"><div class="pf2-c pf2-x${sep}" style="width:var(--pf-w)">`
+          +(first?`<b title="${rmEsc(nom)}">${SEC_ICO[ex.section]||''}${rmEsc(lettre+nom)}</b>`:'')
+          +`<small>${lbl}${dernier?`<button class="pf2-add" onclick="addSet(${ei})" title="Ajouter une série">+ série</button>`:''}</small>`
+          +`</div></div>`;
+
+        body+=`<div class="pf2-row">`;
+        // prescription du coach
+        body+=`<div class="pf2-c pf2-grp${sep}" style="width:${PF_W_REPS}px">${st.reps?rmEsc(st.reps):'<span class="pf2-mut">—</span>'}</div>`
+             +`<div class="pf2-c${sep}" style="width:${PF_W_RIR}px">${rirTxt(st.rir)!==''?rmEsc(rirTxt(st.rir)):'<span class="pf2-mut">—</span>'}</div>`;
+        // séances passées, comparées à la précédente
+        pastEx.forEach((pe,li)=>{
+          const cur=_pfSideVals(pe&&pe.sets?pe.sets[si]:null,side);
+          const pv=li>0?_pfSideVals(pastEx[li-1]&&pastEx[li-1].sets?pastEx[li-1].sets[si]:null,side):{kg:null,reps:null};
+          const mut='<span class="pf2-mut">—</span>';
+          body+=`<div class="pf2-c pf2-grp${sep}" style="width:${PF_W_REPS}px${_pfCellBg(cur.reps,pv.reps)}">${cur.reps!=null?fmtMetric(cur.reps):mut}</div>`
+               +`<div class="pf2-c${sep}" style="width:${PF_W_KG}px${_pfCellBg(cur.kg,pv.kg)}">${cur.kg!=null?fmtMetric(cur.kg):mut}</div>`
+               +`<div class="pf2-c${sep}" style="width:${PF_W_RIR}px">${cur.rir!=null?rirTxt(cur.rir):mut}</div>`;
+        });
+        // colonne du jour : saisie
+        const fKg=side==='L'?'kgL':side==='R'?'kgR':'kg';
+        const fReps=side==='L'?'repsL':side==='R'?'repsR':'repsActual';
+        const fRir=side==='L'?'rirL':side==='R'?'rirR':'rirActual';
+        const phKg=(side==='L'?st.prevKgL:side==='R'?st.prevKgR:st.prevKg)||st.prevKg||'kg';
+        const phReps=(side==='L'?st.prevRepsL:side==='R'?st.prevRepsR:st.prevReps)||st.prevReps||'reps';
+        const phRir=(side==='L'?st.prevRirL:side==='R'?st.prevRirR:st.prevRir)||st.prevRir||st.rir;
+        body+=ex.bw
+          ?`<div class="pf2-c pf2-now pf2-grp${sep}" style="width:${PF_W_KG_NOW}px"><span class="pf2-mut">PdC</span></div>`
+          :`<div class="pf2-c pf2-in pf2-now pf2-grp${sep}" style="width:${PF_W_KG_NOW}px"><div class="set-input"><input type="number" inputmode="decimal" placeholder="${rmEsc(phKg)}" value="${rmEsc(st[fKg]||'')}" oninput="woCell(this,${ei},${si},'${fKg}')"></div></div>`;
+        body+=`<div class="pf2-c pf2-in pf2-now${sep}" style="width:${PF_W_REPS_NOW}px"><div class="set-input"><input type="number" inputmode="numeric" placeholder="${rmEsc(phReps)}" value="${rmEsc(st[fReps]||'')}" oninput="woCell(this,${ei},${si},'${fReps}')"></div></div>`;
+        body+=`<div class="pf2-c pf2-in pf2-now${sep}" style="width:${PF_W_RIR_NOW}px">${rirCell(ei,si,fRir,st[fRir],phRir,false)}</div>`;
+        body+=`<div class="pf2-c pf2-chk pf2-now${sep}" style="width:${PF_W_CHK}px">`
+          +((side===null||side==='L')?`<button class="${st.done?'done':''}" onclick="validateSet(${ei},${si})" title="Valider la série">${CHK}</button>`:'')
+          +`</div>`;
+        body+=`</div>`;
+      });
+    });
+  });
+
+  // ---- Pied : volume soulevé
+  const vols=past.map(l=>{
+    let v=0;(l.exercises||[]).forEach(ex=>(ex.sets||[]).forEach(s=>{const x=_pfSetVals(s);if(x.kg&&x.reps)v+=x.kg*x.reps;}));
+    return Math.round(v);
+  });
+  left+=`<div class="pf2-row pf2-tot"><div class="pf2-c pf2-x pf2-sep" style="width:var(--pf-w)"><b>Volume</b><small>kg soulevés</small></div></div>`;
+  let tot=`<div class="pf2-row pf2-tot"><div class="pf2-c pf2-grp pf2-sep" style="width:${PF_W_REPS+PF_W_RIR}px"></div>`;
+  vols.forEach(v=>{tot+=`<div class="pf2-c pf2-grp pf2-sep" style="width:${PF_W_REPS+PF_W_KG+PF_W_RIR}px;font-weight:800">${v?v.toLocaleString('fr-FR'):'—'}</div>`;});
+  tot+=`<div class="pf2-c pf2-grp pf2-sep pf2-now" style="width:${PF_W_KG_NOW+PF_W_REPS_NOW+PF_W_RIR_NOW+PF_W_CHK}px;font-weight:800"><span id="woTblVol">${_woTodayVolume().toLocaleString('fr-FR')}</span>&nbsp;kg</div></div>`;
+  body+=tot;
+
+  const legende=past.length?`<div class="rm-legend">
+      <span class="pf2-dot" style="background:${PF_UP}"></span> progresse
+      <span class="pf2-dot" style="background:${PF_FLAT};margin-left:8px"></span> maintient
+      <span class="pf2-dot" style="background:${PF_DOWN};margin-left:8px"></span> baisse
+      <span style="margin-left:auto;font-size:11px;color:var(--text3)">${past.length} séance${past.length>1?'s':''} passée${past.length>1?'s':''}</span>
+    </div>`:`<div class="rm-legend"><span style="font-size:11px;color:var(--text3)">Première fois sur cette séance : les colonnes de gauche se rempliront séance après séance.</span></div>`;
+
+  setTimeout(()=>{
+    const sc=document.getElementById('pfScroll'),hd=document.getElementById('pfHead'),bd=document.getElementById('pfBody');
+    if(!sc||!hd)return;
+    sc.addEventListener('scroll',()=>{hd.scrollLeft=sc.scrollLeft;_woTbl.x=sc.scrollLeft;},{passive:true});
+    if(bd)bd.addEventListener('scroll',()=>{_woTbl.y=bd.scrollTop;},{passive:true});
+    sc.scrollLeft=(_woTbl.x!=null?_woTbl.x:sc.scrollWidth);   // par défaut : sur la colonne du jour
+    hd.scrollLeft=sc.scrollLeft;
+    if(bd&&_woTbl.y)bd.scrollTop=_woTbl.y;
+  },30);
+
+  return legende+`<div class="pf2 wo">
+      <div class="pf2-head">
+        <div class="pf2-head-fix"><div class="pf2-c pf2-h" style="width:var(--pf-w)"><b>Exercice</b><small>par série</small></div></div>
+        <div class="pf2-hscroll" id="pfHead"><div class="pf2-inner"><div class="pf2-row" style="height:var(--pf-head)">${head}</div></div></div>
+      </div>
+      <div class="pf2-body" id="pfBody">
+        <div class="pf2-left">${left}</div>
+        <div class="pf2-right" id="pfScroll"><div class="pf2-inner">${body}</div></div>
+      </div>
+    </div>
+    <div class="rm-hint"><span style="font-size:13px">↔</span><span>La colonne dorée à droite, c'est ta séance du jour. Fais défiler vers la gauche pour revoir les précédentes. Pour changer d'exercice, filmer ou laisser une note, repasse en <b>☰ Fiches</b>.</span></div>`;
+}
 function validateSupersetSet(ssId,si){
   const eis=workoutData.map((x,i)=>x.supersetId===ssId?i:-1).filter(i=>i>=0);
   if(!eis.length)return;
