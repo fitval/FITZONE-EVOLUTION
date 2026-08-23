@@ -3807,7 +3807,7 @@ function renderRoadTab(){
   // Toolbar
   let toolbar=`<div class="road-toolbar">
     <div style="display:flex;align-items:center;gap:10px"><label class="fl" style="margin:0">Date de départ :</label><input type="date" class="fi" style="width:175px" value="${sd}" onchange="updateRoadStartDate(this.value)"></div>
-    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3)">${totalWeeks} sem.</span><button class="rbtn" onclick="addRoadWeeks()">+ Ajouter semaines</button><button class="rbtn" onclick="roadTrimEmpty()" title="Retire les semaines vierges après la dernière semaine renseignée (min. 52)">🧹 Nettoyer les vides</button><button class="rbtn" onclick="roadScrollToToday()" title="Aller à la semaine en cours">📍 Aujourd'hui</button><button class="rbtn" onclick="roadScrollToLastFilled()" title="Aller à la dernière semaine renseignée">⤓ Dernière remplie</button></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3)">${totalWeeks} sem.</span><span style="display:inline-flex;align-items:center;gap:4px"><input id="roadAddN" type="number" min="1" max="100" value="10" title="Nombre de semaines à ajouter" style="width:52px;padding:5px 6px;border:1.5px solid var(--border2);border-radius:6px;background:var(--white);color:var(--text);font-family:var(--font);font-size:12px;font-weight:700;text-align:center;outline:none" onkeydown="if(event.key==='Enter'){event.preventDefault();addRoadWeeks()}"><button class="rbtn" onclick="addRoadWeeks()">+ Ajouter semaines</button></span><button class="rbtn" onclick="roadTrimEmpty()" title="Retire les semaines vierges après la dernière semaine renseignée (min. 52)">🧹 Nettoyer les vides</button><button class="rbtn" onclick="roadScrollToToday()" title="Aller à la semaine en cours">📍 Aujourd'hui</button><button class="rbtn" onclick="roadScrollToLastFilled()" title="Aller à la dernière semaine renseignée">⤓ Dernière remplie</button></div>
     <div style="flex:1"></div>`;
   if(roadCopy){
     toolbar+=`<span class="rcopy-info">Copié : <b>${roadCopy.value||'(vide)'}</b> (${roadCopy.field})</span>`;
@@ -4078,40 +4078,62 @@ async function _roadObjPersist(list){
     await db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,objectifs:list},{onConflict:'coach_id,client_id'});
   }catch(e){console.warn('[road obj persist]',e);}
 }
-function addRoadWeeks(){
-  const n=prompt('Combien de semaines ajouter ?','10');
-  if(!n)return;
-  const num=parseInt(n);
-  if(isNaN(num)||num<1||num>100){toast('Nombre invalide');return;}
-  // On part du nombre de semaines RÉELLEMENT affiché (max entre 52, données et override)
-  const key='road_'+curClient.id;
-  const saved=lsGet(key,{});
-  const cur=_roadTotalWeeks(saved);
-  const total=cur+num;
-  window['_roadWeeks_'+curClient.id]=total;
-  // Persisté tout de suite : sans ça, des semaines ajoutées puis laissées vierges
-  // disparaissaient au rafraîchissement de la page.
-  saved._total=total;
-  lsSave(key,saved);
-  renderRoadTab();
-  _roadPersistWeeks(saved);
-  toast(num+' semaine'+(num>1?'s':'')+' ajoutée'+(num>1?'s':''));
-  // Scroll jusqu'à la 1re nouvelle semaine pour montrer qu'elles sont bien là
-  setTimeout(()=>{
-    const wrap=document.querySelector('#tc-roadmap .road-wrap');
-    if(wrap)wrap.scrollTo({top:wrap.scrollHeight,behavior:'smooth'});
-  },60);
+// Ajout de semaines. Le nombre vient du champ de la barre d'outils : plus aucun
+// prompt() natif, car dès que le navigateur coche « empêcher cette page de créer
+// des boîtes de dialogue supplémentaires », prompt() renvoie null en silence et le
+// bouton paraît mort. prompt() ne sert plus que de secours si le champ a disparu.
+// Tout est enveloppé dans un try/catch : une erreur (localStorage plein, rendu…)
+// doit se voir dans un toast au lieu de rendre le bouton silencieux.
+function addRoadWeeks(n){
+  if(!curClient){toast('Ouvre d\'abord une fiche client');return;}
+  try{
+    if(n==null||n===undefined){
+      const inp=document.getElementById('roadAddN');
+      n=inp?inp.value:prompt('Combien de semaines ajouter ?','10');
+    }
+    if(n===null)return;                 // prompt annulé
+    if(String(n).trim()==='')n=10;      // champ vidé → valeur par défaut
+    const num=parseInt(n,10);
+    if(isNaN(num)||num<1||num>100){toast('Nombre de semaines invalide (1 à 100)');return;}
+    // On part du nombre de semaines RÉELLEMENT affiché (max entre 52, données et override)
+    const key='road_'+curClient.id;
+    const saved=lsGet(key,{});
+    const cur=_roadTotalWeeks(saved);
+    const total=cur+num;
+    // Override de session posé AVANT la sauvegarde : même si le localStorage est
+    // plein, les semaines s'affichent tout de suite.
+    window['_roadWeeks_'+curClient.id]=total;
+    // Persisté tout de suite : sans ça, des semaines ajoutées puis laissées vierges
+    // disparaissaient au rafraîchissement de la page.
+    saved._total=total;
+    try{lsSave(key,saved);}
+    catch(e){console.error('[roadmap] sauvegarde locale impossible',e);toast('⚠️ Semaines ajoutées mais mémoire locale pleine');}
+    renderRoadTab();
+    _roadPersistWeeks(saved);
+    toast(num+' semaine'+(num>1?'s':'')+' ajoutée'+(num>1?'s':'')+' — '+total+' au total');
+    // Scroll jusqu'à la 1re nouvelle semaine pour montrer qu'elles sont bien là
+    setTimeout(()=>{
+      const wrap=document.querySelector('#tc-roadmap .road-wrap');
+      if(wrap)wrap.scrollTo({top:wrap.scrollHeight,behavior:'smooth'});
+    },60);
+  }catch(e){
+    console.error('[addRoadWeeks]',e);
+    toast('Erreur ajout de semaines : '+((e&&e.message)||e));
+  }
 }
 // Sauvegarde Supabase "au fil de l'eau" : ne doit JAMAIS bloquer l'affichage.
 function _roadPersistWeeks(d){
   if(!currentCoach||!curClient)return;
   try{
-    db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'}).catch(e=>console.warn('road save:',e));
+    db.from('roadmaps').upsert({coach_id:currentCoach.id,client_id:curClient.id,weeks:d},{onConflict:'coach_id,client_id'})
+      .then(r=>{if(r&&r.error){console.warn('road save:',r.error);toast('⚠️ Sauvegarde cloud de la roadmap échouée : '+r.error.message);}})
+      .catch(e=>console.warn('road save:',e));
   }catch(e){console.warn('road save:',e);}
 }
 // Supprime les semaines VIERGES situées après la dernière semaine renseignée.
 // Les semaines vierges intercalées entre deux semaines remplies sont conservées
 // (elles font partie de la chronologie : on ne peut pas décaler les numéros).
+let _roadTrimArm=null; // "armement" du nettoyage des semaines vierges (confirmation en 2 clics)
 function roadTrimEmpty(){
   if(!curClient)return;
   const key='road_'+curClient.id,d=lsGet(key,{});
@@ -4121,7 +4143,15 @@ function roadTrimEmpty(){
   const target=Math.max(52,lastFilled);
   if(target>=cur){toast('Aucune semaine vierge à la fin');return;}
   const removed=cur-target;
-  if(!confirm('Supprimer les '+removed+' dernière'+(removed>1?'s':'')+' semaine'+(removed>1?'s':'')+' vierge'+(removed>1?'s':'')+' (S'+(target+1)+' → S'+cur+') ?\n\nLa roadmap repassera à '+target+' semaines.'))return;
+  // Confirmation en 2 clics plutôt qu'un confirm() natif : si le navigateur bloque
+  // les boîtes de dialogue, confirm() renvoie false et le bouton paraît mort.
+  if(_roadTrimArm!==cur){
+    _roadTrimArm=cur;
+    setTimeout(()=>{if(_roadTrimArm===cur)_roadTrimArm=null;},8000);
+    toast('Reclique sur 🧹 pour supprimer les '+removed+' semaine'+(removed>1?'s':'')+' vierge'+(removed>1?'s':'')+' (S'+(target+1)+' → S'+cur+')');
+    return;
+  }
+  _roadTrimArm=null;
   weeks.filter(w=>w>target).forEach(w=>{delete d[w];});
   d._total=target;
   window['_roadWeeks_'+curClient.id]=target;

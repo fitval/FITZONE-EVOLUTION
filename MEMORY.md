@@ -439,6 +439,13 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - `addExoToDay()` : l'exo ajouté à un superset **s'aligne sur le nb de séries du groupe** (plus de lignes dépareillées dans le tableur) et hérite du repos commun (`setsRest`).
 - Modèle de données inchangé (`{superset:true, exercises:[…], setsRest:[…]}`) → rien à changer côté client.
 
+### Session 2026-08-23 (2) — Roadmap : le bouton « + Ajouter semaines » ne répondait plus
+- **Cause** : `addRoadWeeks()` reposait sur un `prompt()` natif. Dès que le navigateur coche « Empêcher cette page de créer des boîtes de dialogue supplémentaires » (Chrome le propose après plusieurs dialogues d'affilée, et ça reste actif pour toute la session/l'onglet), `prompt()` renvoie **null sans rien afficher** → `if(!n)return;` → le bouton ne faisait plus rien, sans erreur console. Reproduit en local (harnais Playwright + stub Supabase) : ancien code = 52 semaines avant/après clic, nouveau code = OK.
+- **Fix** : le nombre de semaines se saisit dans un **champ numérique** à côté du bouton (défaut 10, Entrée valide). `prompt()` n'est plus qu'un secours si le champ n'existe pas. Tout `addRoadWeeks()` est dans un `try/catch` → toute erreur (localStorage plein, rendu) devient un toast au lieu d'un bouton muet ; l'override de session `_roadWeeks_<id>` est posé **avant** `lsSave` pour que l'affichage tienne même si le stockage local est saturé.
+- `roadTrimEmpty()` (🧹 Nettoyer les vides) utilisait `confirm()` → même symptôme. Remplacé par une **confirmation en 2 clics** (1er clic = toast « reclique pour confirmer », armement 8 s).
+- `_roadPersistWeeks()` : un échec de l'upsert Supabase est maintenant signalé par un toast (avant : `console.warn` silencieux).
+- ⚠️ Le fichier contient encore ~40 `confirm()` / ~13 `prompt()` ailleurs : mêmes symptômes possibles si les dialogues sont bloqués.
+
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
 
