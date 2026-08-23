@@ -431,6 +431,14 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **RIR à virgule** (demi-RIR) : côté client `cleanRir()` accepte `1,5` / `2.5` (2 chiffres + 1 décimale, signe − conservé), `rirStore()` normalise avec un **point** avant enregistrement, `rirTxt()` réaffiche avec une **virgule**. Champ passé en `inputmode="decimal"`, `maxlength=5`. Côté coach, `_perfSetVals()` parse désormais les virgules (`parseFloat('1,5')` valait 1).
 - `version.json` bumpé (2026082001).
 
+### Session 2026-08-23 — Supersets dans la vue tableur du builder de programme
+- La vue **▦ Tableur** du builder de programme (`progRenderSheet`, dashboard.html) savait *afficher* les supersets mais pas en *créer un complet* : le ⚡ convertissait l'exo en superset et il n'y avait ensuite aucun moyen d'y ajouter le 2e exercice (le bouton « + Ajouter exercice au superset » n'existait que dans la vue ☰ Fiches).
+- Ajouté dans la colonne actions du tableur : bouton **⚡＋** (`progAddToSuperset(sec,idx)`) qui cible le superset — le prochain exercice cliqué dans la bibliothèque de droite y est ajouté. Le bouton s'affiche en violet plein tant que le superset est ciblé (`ssTgt`).
+- `progMkSuperset()` cible désormais directement le superset créé (`progExoTarget={sec,idx,superset:true}`) + focus sur la recherche biblio : ⚡ puis clic sur un exo = superset fonctionnel en 2 clics. Il initialise aussi `setsRest` à partir du repos existant.
+- Colonne **Variant** : ✕ par ligne (`progDelSupExo`) pour retirer un exo du superset ; s'il n'en reste qu'un, il redevient un exercice simple. Le 🗑 du groupe supprime tout le superset (titre adapté).
+- `addExoToDay()` : l'exo ajouté à un superset **s'aligne sur le nb de séries du groupe** (plus de lignes dépareillées dans le tableur) et hérite du repos commun (`setsRest`).
+- Modèle de données inchangé (`{superset:true, exercises:[…], setsRest:[…]}`) → rien à changer côté client.
+
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
 
