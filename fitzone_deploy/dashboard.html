@@ -7531,13 +7531,14 @@ function progRenderSheet(el,d){
     const S=sets.length;
     const repls=ex.replacements||[];
     const nm=(ex.nom||'').replace(/'/g,"\\'");
+    const ssTgt=!!(progExoTarget&&progExoTarget.superset&&progExoTarget.sec===key&&progExoTarget.idx===i);
     let out='';
     sets.forEach((s,k)=>{
       out+='<tr>';
       if(k===0){
         out+=`<td class="gs-num${ssColor?' gs-ss':''}" rowspan="${S}">${si>=0?numLabel:`<input class="gi" style="color:var(--on-gold);font-weight:800;padding:0" value="${numLabel}" onchange="progMoveExo('${key}',${i},parseInt(this.value)-1)" title="Changer la position">`}</td>
         <td class="gs-lbl" rowspan="${S}" style="min-width:150px">${esc(ex.nom||'')}</td>
-        <td rowspan="${S}" style="min-width:92px">${repls.length?`<select class="gi" style="font-size:10px" onchange="if(this.value!=='')progSheetVariant('${key}',${i},${si},parseInt(this.value))"><option value="">— actuel —</option>${repls.map((r,ri)=>`<option value="${ri}">${esc(r.nom||'')}</option>`).join('')}</select>`:''}<button class="gs-x" onclick="progEditReplacements('${key}',${i}${si>=0?','+si:''})" title="Gérer les alternatives">⇄</button></td>`;
+        <td rowspan="${S}" style="min-width:92px">${repls.length?`<select class="gi" style="font-size:10px" onchange="if(this.value!=='')progSheetVariant('${key}',${i},${si},parseInt(this.value))"><option value="">— actuel —</option>${repls.map((r,ri)=>`<option value="${ri}">${esc(r.nom||'')}</option>`).join('')}</select>`:''}<button class="gs-x" onclick="progEditReplacements('${key}',${i}${si>=0?','+si:''})" title="Gérer les alternatives">⇄</button>${si>=0?`<button class="gs-x" onclick="progDelSupExo('${key}',${i},${si})" title="Retirer cet exercice du superset">✕</button>`:''}</td>`;
       }
       out+=`<td style="width:26px;font-weight:700;color:var(--text3)">${k+1}</td>
         <td style="min-width:74px"><input class="gi" value="${esc(s.reps||'')}" placeholder="8-12" onchange="${si>=0?`progDays[progDayIdx]['${key}'][${i}].exercises[${si}].setsData[${k}].reps=this.value`:`progUpdSet('${key}',${i},${k},'reps',this.value)`}"></td>
@@ -7551,8 +7552,8 @@ function progRenderSheet(el,d){
           <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:1px">
             <button class="gs-x" onclick="progSheetSets('${key}',${i},1)" title="Ajouter une série">＋</button>
             <button class="gs-x" onclick="progSheetSets('${key}',${i},-1)" title="Retirer une série">－</button>
-            ${si<0?`<button class="gs-x" onclick="progMkSuperset('${key}',${i})" title="Convertir en superset">⚡</button>`:''}
-            <button class="gs-x" onclick="progDelExo('${key}',${i})" title="Supprimer l'exercice">🗑</button>
+            ${si<0?`<button class="gs-x" onclick="progMkSuperset('${key}',${i})" title="Convertir en superset">⚡</button>`:`<button class="gs-x" onclick="progAddToSuperset('${key}',${i})" title="Ajouter un exercice au superset" style="${ssTgt?'background:#d946ef;color:#fff;border-radius:4px;':'color:#d946ef;'}font-weight:800">⚡＋</button>`}
+            <button class="gs-x" onclick="progDelExo('${key}',${i})" title="${si>=0?'Supprimer tout le superset':"Supprimer l'exercice"}">🗑</button>
           </div></td>`;
       }
       out+='</tr>';
@@ -7745,7 +7746,7 @@ function progRenderDay(){
           </div>
         </div>
         <div style="padding:7px 12px">
-          <button class="add-exo-zone" style="margin:0;padding:6px 10px" onclick="progExoTarget={sec:'${key}',idx:${i},superset:true}">+ Ajouter exercice au superset</button>
+          <button class="add-exo-zone" style="margin:0;padding:6px 10px" onclick="progAddToSuperset('${key}',${i})">+ Ajouter exercice au superset</button>
         </div>
       </div>`;
     }
@@ -7876,8 +7877,22 @@ function progSetTarget(sec){
 // Convertir en superset
 function progMkSuperset(sec,idx){
   const e=progDays[progDayIdx][sec][idx];
-  progDays[progDayIdx][sec][idx]={superset:true,exercises:[{...e}]};
-  progRenderDay();toast('Superset créé — ajoute le 2e exercice');
+  const rest=((e.setsData||[])[0]||{}).rest||e.rest||'90s';
+  const n=Math.max(1,(e.setsData||[]).length||1);
+  progDays[progDayIdx][sec][idx]={superset:true,exercises:[{...e}],setsRest:Array.from({length:n},()=>rest)};
+  progExoTarget={sec,idx,superset:true};
+  progRenderDay();
+  const li=document.getElementById('libIn');if(li){li.focus();li.select();}
+  toast('Superset créé — choisis le 2e exercice dans la bibliothèque →');
+}
+// Cible un superset existant : le prochain exercice choisi dans la biblio y sera ajouté
+function progAddToSuperset(sec,idx){
+  const ss=progDays[progDayIdx]&&progDays[progDayIdx][sec]&&progDays[progDayIdx][sec][idx];
+  if(!ss||!ss.superset)return;
+  progExoTarget={sec,idx,superset:true};
+  progRenderDay();
+  const li=document.getElementById('libIn');if(li){li.focus();li.select();}
+  toast('Superset sélectionné — choisis l\'exercice à ajouter →');
 }
 function progDelSupExo(sec,idx,si){
   const ss=progDays[progDayIdx][sec][idx];
@@ -8032,7 +8047,21 @@ function addExoToDay(exo){
   const newExo={nom:exo.nom,muscle:exo.muscle||'',equip:exo.equip||'',video:exo.video||'',sets:String(nbSets),setsData,notes:'',replacements:exo.replacements||[]};
   if(isSuperset&&ssIdx!==null&&ssIdx!==undefined){
     const ss=progDays[progDayIdx][sec][ssIdx];
-    if(ss&&ss.superset){ss.exercises.push(newExo);toast(exo.nom+' ajouté au superset ✓');}
+    if(ss&&ss.superset){
+      // le superset garde son nb de séries : le nouvel exo s'y aligne (1 ligne/série dans le tableur)
+      const n=Math.max(1,...(ss.exercises||[]).map(x=>(x.setsData||[]).length),1);
+      const c=newExo.setsData.length;
+      if(c<n){const last=newExo.setsData[c-1];for(let k=c;k<n;k++)newExo.setsData.push({...last});}
+      else if(c>n)newExo.setsData.length=n;
+      newExo.sets=String(n);
+      ss.exercises.push(newExo);
+      // repos commun à tout le superset
+      if(!Array.isArray(ss.setsRest))ss.setsRest=[];
+      while(ss.setsRest.length<n)ss.setsRest.push(ss.setsRest[ss.setsRest.length-1]||'90s');
+      if(ss.setsRest.length>n)ss.setsRest.length=n;
+      ss.exercises.forEach(x=>(x.setsData||[]).forEach((sd,k)=>{if(ss.setsRest[k])sd.rest=ss.setsRest[k];}));
+      toast(exo.nom+' ajouté au superset ✓');
+    }
     else progDays[progDayIdx][sec].push(newExo);
   } else {
     progDays[progDayIdx][sec].push(newExo);
