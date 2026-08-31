@@ -580,6 +580,14 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .pf2-x { flex-direction:column; align-items:flex-start; justify-content:center; gap:1px; padding:0 8px; }
 .pf2-x b { display:block; max-width:100%; font-size:11px; font-weight:800; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pf2-x small { font-size:9.5px; font-weight:700; color:var(--text3); line-height:1.1; }
+/* Rappel de la consigne du coach sous chaque série (la colonne "Prévu" est loin à gauche) */
+.pf2-x .pf2-goal { max-width:100%; color:var(--gold-deep); font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Ligne de note par exercice : la cellule reste collée au bord gauche quand on fait
+   défiler les séances passées (largeur fixée en JS = largeur visible du tableau) */
+.pf2-nr { height:44px; }
+.pf2-note { flex:0 0 auto; position:sticky; left:0; z-index:1; box-sizing:border-box; display:flex; align-items:center; padding:5px 7px; background:var(--white); border-bottom:1px solid var(--border); border-right:1px solid var(--border); }
+.pf2-nt { width:100%; height:34px; padding:6px 9px; border:1.5px solid var(--border); border-radius:8px; font-size:12px; font-family:var(--font); background:var(--white); color:var(--text); resize:none; outline:none; }
+.pf2-nt:focus { border-color:var(--gold-border); }
 .pf2-sep { border-top:2px solid var(--text3); }
 .pf2-grp { border-left:2px solid var(--border); }
 .pf2-mut { color:var(--text3); opacity:.45; }
@@ -3206,6 +3214,7 @@ function woCell(el,ei,si,field){
   if(v)v.textContent=_woTodayVolume().toLocaleString('fr-FR');
 }
 let _woTbl={x:null,y:0};   // position de défilement du tableau, conservée entre 2 rendus
+let _woNoteFit=null;       // handler resize qui recale la largeur des champs de note
 function setWoView(v){
   woView=(v==='table')?'table':'cards';
   try{localStorage.setItem('fz_woView',woView);}catch(e){}
@@ -3247,9 +3256,12 @@ function renderWoTable(){
         const sep=first&&nRows>0?' pf2-sep':'';
         nRows++;
         const lbl=`Série ${si+1}${side?(side==='L'?' · G':' · D'):''}`;
+        // consigne du coach rappelée sous la série : la colonne "Prévu" est hors écran
+        const cible=st.reps?`\u{1F3AF} ${rmEsc(String(st.reps))} reps`:'';
         left+=`<div class="pf2-row"><div class="pf2-c pf2-x${sep}" style="width:var(--pf-w)">`
           +(first?`<b title="${rmEsc(nom)}">${SEC_ICO[ex.section]||''}${rmEsc(lettre+nom)}</b>`:'')
           +`<small>${lbl}${dernier?`<button class="pf2-add" onclick="addSet(${ei})" title="Ajouter une série">+ série</button>`:''}</small>`
+          +(cible?`<small class="pf2-goal" title="Objectif du coach">${cible}</small>`:'')
           +`</div></div>`;
 
         body+=`<div class="pf2-row">`;
@@ -3283,6 +3295,9 @@ function renderWoTable(){
         body+=`</div>`;
       });
     });
+    // ---- Note libre de l'exercice (même champ que la vue Fiches)
+    left+=`<div class="pf2-row pf2-nr"><div class="pf2-c pf2-x" style="width:var(--pf-w)"><small>\u{1F4DD} Note</small></div></div>`;
+    body+=`<div class="pf2-row pf2-nr"><div class="pf2-note"><textarea class="pf2-nt" placeholder="Notes, réglages, feedback..." oninput="workoutData[${ei}].note=this.value">${rmEsc(ex.note||'')}</textarea></div></div>`;
   });
 
   // ---- Pied : volume soulevé
@@ -3308,6 +3323,10 @@ function renderWoTable(){
     if(!sc||!hd)return;
     sc.addEventListener('scroll',()=>{hd.scrollLeft=sc.scrollLeft;_woTbl.x=sc.scrollLeft;},{passive:true});
     if(bd)bd.addEventListener('scroll',()=>{_woTbl.y=bd.scrollTop;},{passive:true});
+    const fitNotes=()=>{sc.querySelectorAll('.pf2-note').forEach(n=>{n.style.width=sc.clientWidth+'px';});};
+    fitNotes();
+    if(_woNoteFit)window.removeEventListener('resize',_woNoteFit);
+    _woNoteFit=fitNotes;window.addEventListener('resize',_woNoteFit);
     sc.scrollLeft=(_woTbl.x!=null?_woTbl.x:sc.scrollWidth);   // par défaut : sur la colonne du jour
     hd.scrollLeft=sc.scrollLeft;
     if(bd&&_woTbl.y)bd.scrollTop=_woTbl.y;
@@ -3323,7 +3342,7 @@ function renderWoTable(){
         <div class="pf2-right" id="pfScroll"><div class="pf2-inner">${body}</div></div>
       </div>
     </div>
-    <div class="rm-hint"><span style="font-size:13px">↔</span><span>La colonne dorée à droite, c'est ta séance du jour. Fais défiler vers la gauche pour revoir les précédentes. Pour changer d'exercice, filmer ou laisser une note, repasse en <b>☰ Fiches</b>.</span></div>`;
+    <div class="rm-hint"><span style="font-size:13px">↔</span><span>La colonne dorée à droite, c'est ta séance du jour. Fais défiler vers la gauche pour revoir les précédentes. Sous chaque série tu retrouves la consigne du coach, et sous chaque exercice un champ pour tes notes. Pour changer d'exercice ou te filmer, repasse en <b>☰ Fiches</b>.</span></div>`;
 }
 function validateSupersetSet(ssId,si){
   const eis=workoutData.map((x,i)=>x.supersetId===ssId?i:-1).filter(i=>i>=0);
