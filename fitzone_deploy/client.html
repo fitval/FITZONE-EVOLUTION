@@ -588,6 +588,28 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .pf2-note { flex:0 0 auto; position:sticky; left:0; z-index:1; box-sizing:border-box; display:flex; align-items:center; padding:5px 7px; background:var(--white); border-bottom:1px solid var(--border); border-right:1px solid var(--border); }
 .pf2-nt { width:100%; height:34px; padding:6px 9px; border:1.5px solid var(--border); border-radius:8px; font-size:12px; font-family:var(--font); background:var(--white); color:var(--text); resize:none; outline:none; }
 .pf2-nt:focus { border-color:var(--gold-border); }
+
+/* ===== CHAT AVEC LE COACH =====
+   Pas de conteneur scrollable imbriqué : c'est la .scroll-area de la page qui
+   défile (le scroll dans le scroll est un piège sur iOS). Le champ de saisie
+   est fixe au-dessus de la barre d'onglets, et remonte avec le clavier grâce
+   à --kb, calculé depuis visualViewport. */
+.chat-list { display:flex; flex-direction:column; gap:7px; padding-bottom:76px; }
+.chat-day { align-self:center; font-size:10.5px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; color:var(--text3); background:var(--white); border:1px solid var(--border); border-radius:20px; padding:3px 12px; margin:10px 0 4px; }
+.chat-b { max-width:80%; padding:9px 13px; border-radius:15px; font-size:14px; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
+.chat-in { align-self:flex-start; background:var(--white); border:1px solid var(--border); border-bottom-left-radius:4px; color:var(--text); }
+.chat-out { align-self:flex-end; background:var(--gold); color:var(--on-gold); border-bottom-right-radius:4px; }
+.chat-out.pending { opacity:.55; }
+.chat-out.failed { background:#ffe4e4; color:#c03030; border:1px solid #ffb4b4; }
+.chat-t { font-size:10px; font-weight:700; opacity:.55; margin-top:4px; text-align:right; }
+.chat-retry { background:none; border:none; padding:0; margin-left:6px; font-size:10px; font-weight:800; color:inherit; text-decoration:underline; cursor:pointer; font-family:var(--font); }
+.chat-composer { position:fixed; left:0; right:0; bottom:max(var(--kb,0px), calc(var(--tab-h) + var(--safe-b))); z-index:101; display:flex; gap:8px; align-items:flex-end; padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px)); background:var(--white); border-top:1px solid var(--border); }
+@media (min-width:430px) { .chat-composer { max-width:430px; left:50%; transform:translateX(-50%); } }
+.chat-composer textarea { flex:1; min-height:42px; max-height:120px; resize:none; padding:11px 13px; border:1.5px solid var(--border); border-radius:12px; font-size:15px; font-family:var(--font); background:var(--white); color:var(--text); outline:none; }
+.chat-composer textarea:focus { border-color:var(--gold-border); }
+.chat-send { flex:0 0 auto; width:42px; height:42px; border:none; border-radius:50%; background:var(--gold); color:var(--on-gold); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
+.chat-send svg { width:19px; height:19px; }
+.chat-send:disabled { opacity:.4; }
 .pf2-sep { border-top:2px solid var(--text3); }
 .pf2-grp { border-left:2px solid var(--border); }
 .pf2-mut { color:var(--text3); opacity:.45; }
@@ -737,10 +759,14 @@ textarea.form-input { min-height:100px; resize:vertical; }
 <div id="app">
   <div class="scroll-area" id="scrollArea">
     <div id="tabHome" class="tab-section active">
-      <div class="home-header"><div class="home-date" id="homeDate"></div><div style="display:flex;align-items:center;gap:10px"><div class="notif-bell" onclick="openNotifPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><div class="notif-badge" id="notifBadge" style="display:none">0</div></div><div class="home-avatar" id="homeAvatar" onclick="openProfileModal()" style="cursor:pointer;overflow:hidden"></div></div></div>
+      <div class="home-header"><div class="home-date" id="homeDate"></div><div style="display:flex;align-items:center;gap:10px"><div class="notif-bell" onclick="switchTab('Chat')" title="Discuter avec mon coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg><div class="notif-badge" id="chatBadge" style="display:none">0</div></div><div class="notif-bell" onclick="openNotifPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><div class="notif-badge" id="notifBadge" style="display:none">0</div></div><div class="home-avatar" id="homeAvatar" onclick="openProfileModal()" style="cursor:pointer;overflow:hidden"></div></div></div>
       <div class="home-phase" id="homePhase"></div>
       <div class="home-greet"><div class="home-greet-line1">Bonjour,</div><div class="home-greet-line2" id="homeName"></div></div>
       <div id="homeCards"></div>
+    </div>
+    <div id="tabChat" class="tab-section">
+      <div style="padding-top:20px"><button class="back-btn" onclick="switchTab('Home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Retour</button><div class="card-label" style="color:var(--text3)">MESSAGERIE</div><div style="font-size:24px;font-weight:800;margin-bottom:14px" id="chatTitle">Mon coach</div></div>
+      <div id="chatContent"></div>
     </div>
     <div id="tabTrain" class="tab-section">
       <div style="padding-top:20px"><button class="back-btn" id="trainBack" onclick="trainBackAction()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Retour</button><div style="font-size:24px;font-weight:800;margin-bottom:4px" id="trainTitle">Entraînement</div></div>
@@ -1264,6 +1290,7 @@ async function loadData(){
   }catch(e){console.error('[CALENDAR]',e);calendarEvents=[];}
   // Load gamification data
   await loadGamification();
+  loadChat();   // messagerie coach (non bloquant : l'app s'ouvre sans attendre le fil)
 }
 
 /* ===== TABS ===== */
@@ -1284,6 +1311,7 @@ function switchTab(name){
   else if(name==='Train')renderTrainPreview();
   else if(name==='Nutri')renderNutriList();
   else if(name==='Bilan'){renderBilanList();document.getElementById('btnHome').classList.add('active');}
+  else if(name==='Chat'){renderChat();document.getElementById('btnHome').classList.add('active');}
   else if(name==='Suivi')renderSuivi();
   else if(name==='Learn')renderLearn();
   else if(name==='Bonus')renderBonus();
@@ -1400,6 +1428,18 @@ function renderHome(){
   const dailySub=dailyState==='empty'?'Poids · Pas · Faim · Énergie...'
     :dailyState==='partial'?'<span style="color:#f59e0b;font-weight:700">⚠️ Pesée enregistrée — complète le reste ce soir</span>'
     :'Modifier mes données du jour';
+  // Accès au chat — mis en avant quand le coach a répondu
+  html+=`<div class="card fade-up" id="chatHomeCard" onclick="switchTab('Chat')" style="animation-delay:.03s;cursor:pointer;display:flex;align-items:center;gap:14px${chatUnread?';border:2px solid var(--gold);background:var(--gold-pale)':''}">
+    <div style="width:40px;height:40px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;flex:0 0 auto">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--on-gold)" stroke-width="2" style="width:20px;height:20px"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:15px;font-weight:800">${chatUnread?`${chatUnread} nouveau${chatUnread>1?'x':''} message${chatUnread>1?'s':''}`:'Mon coach'}</div>
+      <div style="font-size:12.5px;color:var(--text3)">${chatUnread?'Touche pour lire':'Poser une question, envoyer une photo'}</div>
+    </div>
+    <div style="font-size:18px;color:var(--text3)">›</div>
+  </div>`;
+
   html+=`<div class="card-dark rapport-card${dailyBorder} fade-up" onclick="showSuiviInline()" style="animation-delay:.05s">
     <div class="card-label">RAPPORT QUOTIDIEN</div>
     <div style="display:flex;align-items:center;gap:16px">
@@ -7166,6 +7206,191 @@ function showPwaTutorial(mode){
 
 function closePwaTuto(){
   document.getElementById('pwaTuto').style.display='none';
+}
+
+/* ═══════════════ CHAT AVEC LE COACH ═══════════════
+   Fil unique (table `messages`). Trois points sensibles :
+   1. Envoi OPTIMISTE : la bulle s'affiche avant la réponse du serveur, avec un
+      `local_id` généré ici. L'écho Realtime porte le même local_id → on remplace
+      la bulle au lieu d'en créer une seconde.
+   2. iOS coupe le websocket quand l'app passe en arrière-plan : on refait un
+      fetch complet au retour au premier plan, sans jamais recharger la page
+      (un reload en pleine séance ferait perdre workoutData).
+   3. La 4G tombe en salle : un envoi raté reste visible avec « réessayer »,
+      il n'est jamais perdu silencieusement.                                    */
+
+let chatMsgs=[];         // fil, du plus ancien au plus récent
+let chatUnread=0;
+let _chatChan=null;
+let _chatLoaded=false;
+let _chatWired=false;
+
+function chatTime(ts){const d=new Date(ts);return isNaN(d)?'':d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});}
+function chatDayKey(ts){const d=new Date(ts);return isNaN(d)?'':localDateStr(d);}
+function chatDayLabel(k){
+  const t=localDateStr(new Date());
+  const y=new Date();y.setDate(y.getDate()-1);
+  if(k===t)return "Aujourd'hui";
+  if(k===localDateStr(y))return 'Hier';
+  const d=new Date(k+'T12:00:00');
+  return isNaN(d)?k:d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+}
+
+async function loadChat(){
+  if(!clientData||!clientData.id)return;
+  const{data,error}=await db.from('messages').select('*')
+    .eq('client_id',clientData.id).order('created_at',{ascending:true}).limit(200);
+  if(error){console.warn('[CHAT] chargement:',error.message);return;}
+  // On conserve les messages encore en cours d'envoi / en échec, absents du serveur
+  const enAttente=chatMsgs.filter(m=>m._pending||m._failed);
+  const srv=data||[];
+  chatMsgs=srv.concat(enAttente.filter(p=>!srv.some(m=>m.local_id&&m.local_id===p.local_id)));
+  _chatLoaded=true;
+  chatCount();
+  chatWire();
+  chatSubscribe();
+  if(document.getElementById('tabChat')?.classList.contains('active'))chatPaint();
+}
+
+function chatCount(){
+  chatUnread=chatMsgs.filter(m=>m.sender!=='client'&&!m.read_by_client).length;
+  const el=document.getElementById('chatBadge');
+  if(el){
+    if(chatUnread>0){el.style.display='flex';el.textContent=chatUnread>9?'9+':chatUnread;}
+    else el.style.display='none';
+  }
+  const card=document.getElementById('chatHomeCard');
+  if(card&&typeof renderHome==='function'&&document.getElementById('tabHome')?.classList.contains('active'))renderHome();
+}
+
+/* Souscription temps réel + reprise au retour au premier plan */
+function chatWire(){
+  if(_chatWired)return;_chatWired=true;
+  document.addEventListener('visibilitychange',()=>{
+    // iOS a pu couper le websocket en arrière-plan : on resynchronise le fil.
+    if(document.visibilityState==='visible'&&_chatLoaded)loadChat();
+  });
+  // Le champ de saisie doit rester au-dessus du clavier
+  if(window.visualViewport){
+    const vv=window.visualViewport;
+    const fit=()=>{
+      const kb=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);
+      document.documentElement.style.setProperty('--kb',kb+'px');
+    };
+    vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit);
+  }
+}
+
+function chatSubscribe(){
+  if(_chatChan||!clientData)return;
+  _chatChan=db.channel('msg-client-'+clientData.id)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'client_id=eq.'+clientData.id},p=>{
+      const n=p.new;if(!n)return;
+      const i=n.local_id?chatMsgs.findIndex(m=>m.local_id===n.local_id):-1;
+      if(i>=0)chatMsgs[i]={...n};
+      else if(!chatMsgs.some(m=>m.id===n.id))chatMsgs.push(n);
+      chatMsgs.sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
+      chatCount();
+      if(document.getElementById('tabChat')?.classList.contains('active')){chatPaint();chatMarkRead();}
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'client_id=eq.'+clientData.id},p=>{
+      const n=p.new;if(!n)return;
+      const i=chatMsgs.findIndex(m=>m.id===n.id);
+      if(i>=0){chatMsgs[i]={...chatMsgs[i],...n};chatCount();
+        if(document.getElementById('tabChat')?.classList.contains('active'))chatPaint(false);}
+    })
+    .subscribe();
+}
+
+const CHAT_SEND_ICO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+
+function renderChat(){
+  const el=document.getElementById('chatContent');if(!el)return;
+  // L'app client ne charge pas le nom du coach : libellé générique.
+  el.innerHTML=`<div class="chat-list" id="chatList"></div>
+    <div class="chat-composer">
+      <textarea id="chatInput" rows="1" placeholder="Écris à ton coach…" oninput="chatGrow(this)"></textarea>
+      <button class="chat-send" id="chatSendBtn" onclick="chatSend()" aria-label="Envoyer">${CHAT_SEND_ICO}</button>
+    </div>`;
+  if(!_chatLoaded)loadChat(); else {chatPaint();chatMarkRead();}
+}
+
+function chatPaint(scroll){
+  const l=document.getElementById('chatList');if(!l)return;
+  if(!chatMsgs.length){
+    l.innerHTML=`<div class="card" style="text-align:center;padding:28px 20px">
+      <div style="font-size:34px;margin-bottom:8px">💬</div>
+      <div style="font-size:15px;font-weight:800;margin-bottom:4px">Écris à ton coach</div>
+      <div style="font-size:13px;color:var(--text3);line-height:1.5">Une question sur ta séance, ton plan alimentaire, une photo à envoyer&nbsp;? C'est ici.</div>
+    </div>`;
+    return;
+  }
+  let h='',day='';
+  chatMsgs.forEach(m=>{
+    const k=chatDayKey(m.created_at);
+    if(k!==day){day=k;h+=`<div class="chat-day">${chatDayLabel(k)}</div>`;}
+    const mine=m.sender==='client';
+    // 'auto' = règle automatique : le client le voit comme un message du coach (voulu)
+    const cls=mine?('chat-out'+(m._pending?' pending':'')+(m._failed?' failed':'')):'chat-in';
+    const corps=m.kind==='text'?rmEsc(m.body||''):`📎 ${rmEsc((m.attachment_meta&&m.attachment_meta.name)||'Pièce jointe')}`;
+    let etat;
+    if(m._failed)etat=`Non envoyé<button class="chat-retry" onclick="chatRetry('${m.local_id}')">réessayer</button>`;
+    else if(m._pending)etat='Envoi…';
+    else etat=chatTime(m.created_at);
+    h+=`<div class="chat-b ${cls}">${corps}<div class="chat-t">${etat}</div></div>`;
+  });
+  l.innerHTML=h;
+  if(scroll!==false)chatScrollBottom();
+}
+
+function chatScrollBottom(){
+  const sa=document.getElementById('scrollArea');
+  if(sa)requestAnimationFrame(()=>{sa.scrollTop=sa.scrollHeight;});
+}
+function chatGrow(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
+
+async function chatSend(){
+  const inp=document.getElementById('chatInput');if(!inp||!clientData)return;
+  const body=inp.value.trim();if(!body)return;
+  const localId=crypto.randomUUID();
+  chatMsgs.push({
+    coach_id:clientData.coach_id,client_id:clientData.id,sender:'client',body,kind:'text',
+    local_id:localId,read_by_client:true,read_by_coach:false,
+    created_at:new Date().toISOString(),_pending:true
+  });
+  inp.value='';chatGrow(inp);
+  chatPaint();
+  await chatFlush(localId);
+}
+
+async function chatFlush(localId){
+  const i=chatMsgs.findIndex(m=>m.local_id===localId);if(i<0)return;
+  const m=chatMsgs[i];
+  m._pending=true;m._failed=false;chatPaint(false);
+  const payload={coach_id:m.coach_id,client_id:m.client_id,sender:'client',body:m.body,
+                 kind:'text',local_id:m.local_id,read_by_client:true,read_by_coach:false};
+  const{data,error}=await db.from('messages').insert(payload).select().single();
+  const j=chatMsgs.findIndex(x=>x.local_id===localId);if(j<0)return;
+  if(error){
+    // 23505 : la ligne existe déjà (retry après un timeout réseau) → c'est un succès
+    if(error.code==='23505'){chatMsgs[j]._pending=false;chatMsgs[j]._failed=false;}
+    else{chatMsgs[j]._pending=false;chatMsgs[j]._failed=true;console.warn('[CHAT] envoi:',error.message);}
+  } else chatMsgs[j]={...data};
+  chatPaint(false);
+}
+function chatRetry(localId){chatFlush(localId);}
+
+/* Marquage "lu" : un UPDATE bloqué par une policy manquante renvoie 0 ligne
+   SANS erreur — on vérifie donc ce qui a réellement été modifié. */
+async function chatMarkRead(){
+  if(!clientData)return;
+  if(!chatMsgs.some(m=>m.sender!=='client'&&!m.read_by_client))return;
+  const{data,error}=await db.from('messages').update({read_by_client:true})
+    .eq('client_id',clientData.id).neq('sender','client').eq('read_by_client',false).select('id');
+  if(error){console.warn('[CHAT] marquage lu:',error.message);return;}
+  if(!data||!data.length){console.warn('[CHAT] marquage lu : 0 ligne (policy UPDATE ?)');return;}
+  chatMsgs.forEach(m=>{if(m.sender!=='client')m.read_by_client=true;});
+  chatCount();
 }
 </script>
 </body>

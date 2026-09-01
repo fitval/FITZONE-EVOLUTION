@@ -779,6 +779,7 @@ body:has(#detPage.show) .toast{bottom:54px}
       <div class="qa" onclick="showPage('tr-progs',document.getElementById('nav-tr-progs'));openSub('sub-train','arr-tr')"><div class="qa-ico">💪</div><div class="qa-lbl">Programme</div><div class="qa-sub">Créer</div></div>
       <div class="qa" onclick="showPage('learning',document.getElementById('nav-lr'))"><div class="qa-ico">🎓</div><div class="qa-lbl">Learning</div><div class="qa-sub">Créer module</div></div>
     </div>
+    <div id="ovMsgs"></div>
     <div class="g2">
       <div class="card cp" style="cursor:pointer" onclick="showPage('clients',document.getElementById('nav-cl'));openSub('sub-clients','arr-cl')">
         <div class="cl">Clients actifs</div>
@@ -1496,6 +1497,7 @@ body:has(#detPage.show) .toast{bottom:54px}
     <div class="tabs" id="detTabs" style="flex-wrap:wrap">
       <div class="tab active" onclick="swDet('questionnaire',this)">📋 Questionnaire</div>
       <div class="tab" onclick="swDet('recap',this);renderRecapTab()">🤖 Récap</div>
+      <div class="tab" onclick="swDet('messages',this);renderMsgTab()" id="detTabMsg">💬 Messages</div>
       <div class="tab" onclick="swDet('nutrition',this)">🥗 Nutrition</div>
       <div class="tab" onclick="swDet('roadmap',this)">🗓️ Roadmap</div>
       <div class="tab" onclick="swDet('progression',this);renderProgressionTab()">📊 Progression</div>
@@ -1511,6 +1513,7 @@ body:has(#detPage.show) .toast{bottom:54px}
     </div>
     <div class="tc active" id="tc-questionnaire"></div>
     <div class="tc" id="tc-recap"></div>
+    <div class="tc" id="tc-messages"></div>
     <div class="tc" id="tc-nutrition"></div>
     <div class="tc" id="tc-roadmap"></div>
     <div class="tc" id="tc-progression"></div>
@@ -2090,6 +2093,27 @@ body:has(#detPage.show) .toast{bottom:54px}
 .b-reserve{background:color-mix(in srgb,#f3e8ff var(--tint,100%),var(--white));color:color-mix(in srgb,#7c3aed var(--ink,100%),var(--text));border:1px solid #c4b5fd}
 .b-accepte{background:color-mix(in srgb,#e8f8f0 var(--tint,100%),var(--white));color:color-mix(in srgb,#1a7040 var(--ink,100%),var(--text));border:1px solid #80d4a8}
 .b-refuse{background:color-mix(in srgb,#fff0f0 var(--tint,100%),var(--white));color:color-mix(in srgb,#c03030 var(--ink,100%),var(--text));border:1px solid #ffcccc}
+/* ===== MESSAGERIE COACH ↔ CLIENT ===== */
+.msg-wrap{display:flex;flex-direction:column;height:min(64vh,620px);border:1px solid var(--border2);border-radius:var(--rsm);overflow:hidden;background:var(--bg2)}
+.msg-thread{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:7px}
+.msg-day{align-self:center;font-size:10.5px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;color:var(--text3);background:var(--white);border:1px solid var(--border);border-radius:20px;padding:3px 12px;margin:10px 0 4px}
+.msg-b{max-width:74%;padding:9px 13px;border-radius:15px;font-size:13.5px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg-in{align-self:flex-start;background:var(--white);border:1px solid var(--border);border-bottom-left-radius:4px;color:var(--text)}
+.msg-out{align-self:flex-end;background:var(--gold);color:var(--on-gold);border-bottom-right-radius:4px}
+.msg-out.pending{opacity:.55}
+.msg-out.failed{background:color-mix(in srgb,#ffe4e4 var(--tint,100%),var(--white));color:color-mix(in srgb,#c03030 var(--ink,100%),var(--text));border:1px solid #ffb4b4}
+.msg-t{font-size:10px;font-weight:700;opacity:.55;margin-top:4px;text-align:right}
+.msg-tag{display:inline-block;font-size:9px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;opacity:.7;margin-right:5px;vertical-align:1px}
+.msg-composer{display:flex;gap:8px;align-items:flex-end;padding:10px;border-top:1px solid var(--border);background:var(--white)}
+.msg-composer textarea{flex:1;min-height:42px;max-height:130px;resize:none;padding:11px 13px;border:1.5px solid var(--border2);border-radius:11px;font-size:13.5px;font-family:var(--font);background:var(--white);color:var(--text);outline:none}
+.msg-composer textarea:focus{border-color:var(--gold)}
+.msg-send{flex:0 0 auto;height:42px;padding:0 18px;border:none;border-radius:11px;background:var(--gold);color:var(--on-gold);font-size:13px;font-weight:800;font-family:var(--font);cursor:pointer}
+.msg-send:disabled{opacity:.4;cursor:not-allowed}
+.msg-pill{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:#e11d48;color:#fff;font-size:10px;font-weight:900;vertical-align:1px}
+.msg-retry{background:none;border:none;padding:0;margin-left:6px;font-size:10px;font-weight:800;color:inherit;text-decoration:underline;cursor:pointer;font-family:var(--font)}
+.ov-msg-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.ov-msg-row:last-child{border-bottom:none}
+.ov-msg-row:hover{opacity:.75}
 </style>
 
 <!-- MODAL: REC FORM BUILDER -->
@@ -2619,6 +2643,7 @@ function showPage(name,el){
 }
 function goBack(){
   bldCloseAll();
+  msgUnsubscribe();
   document.getElementById('detPage').classList.remove('show');
   sessionStorage.removeItem('fz_current_client');
   showPage('clients',document.getElementById('nav-cl'));openSub('sub-clients','arr-cl');
@@ -2632,6 +2657,7 @@ async function loadClients(){
   renderStats();renderClients(allClients);updateNotifBadge();
   // Populate coach filter dropdown
   populateCoachFilter();
+  loadMsgUnread();   // pastilles de messages non lus (asynchrone, ne bloque pas la liste)
 }
 async function populateCoachFilter(){
   const sel=document.getElementById('coachFilter');if(!sel||sel.options.length>1)return;
@@ -2655,7 +2681,7 @@ function renderClients(list){
     const pts=cp?cp.monthly_points:0;
     const lv=cp?cp.level:'bronze';
     return`<tr class="crow" onclick="openDet('${c.id}')">
-      <td><div class="c-cell"><div class="c-av" style="background:${col}">${ini}</div><div><div class="c-nm">${c.first_name||''} ${c.last_name||''}</div><div class="c-sb">${c.email||''}</div></div></div></td>
+      <td><div class="c-cell"><div class="c-av" style="background:${col}">${ini}</div><div><div class="c-nm">${c.first_name||''} ${c.last_name||''}${_msgUnread[c.id]?`<span class="msg-pill" title="${_msgUnread[c.id]} message(s) non lu(s)">${_msgUnread[c.id]}</span>`:''}</div><div class="c-sb">${c.email||''}</div></div></div></td>
       <td>${stBadge(c.status)}</td>
       <td style="font-size:13px;font-weight:600;color:var(--gold)">${pts}</td>
       <td style="font-size:16px">${lvEmoji[lv]||'🥉'}</td>
@@ -2737,6 +2763,7 @@ let canEditClient=true;
 async function openDet(id){
   bldCloseAll();
   curClient=allClients.find(c=>c.id===id);if(!curClient)return;
+  if(_msgsFor!==id){msgUnsubscribe();_msgs=[];_msgsFor=null;}   // fil du client précédent
   // Chaque fiche client s'ouvre sur l'accueil de l'onglet Training, pas sur la vue perf du client précédent
   window._trainMain='home';window._perfProgId=null;window._cliProgOpen={};window._cliProgDay={};
   canEditClient=isAdmin||curClient.coach_id===currentCoach.id;
@@ -14847,6 +14874,249 @@ async function openNewClientModal(){
   document.getElementById('nfContractStart').value=document.getElementById('nfContractStart2').value;
   nfPreviewUpdate();
   openM('mNewClient');
+}
+
+/* ═══════════════ MESSAGERIE COACH ↔ CLIENT ═══════════════
+   Un fil unique par client (table `messages`), pas de table conversations :
+   le couple (coach_id, client_id) EST la conversation.
+
+   Trois règles à ne pas casser :
+   1. L'envoi est OPTIMISTE : la bulle apparaît avant la réponse du serveur,
+      identifiée par un `local_id` généré ici. L'écho Realtime qui revient
+      porte le même local_id → on remplace la bulle au lieu d'en ajouter une
+      seconde (sinon message affiché en double).
+   2. On ne re-render jamais le fil pendant que le coach tape : seul le tableau
+      _msgs change, et msgPaint() ne touche qu'au conteneur du fil.
+   3. Un UPDATE sans policy renvoie 0 ligne SANS erreur — le marquage "lu"
+      vérifie donc ce qu'il a réellement modifié.                              */
+
+let _msgs=[];            // fil du client ouvert, du plus ancien au plus récent
+let _msgsFor=null;       // client_id du fil chargé
+let _msgUnread={};       // {client_id: nb de messages client non lus}
+let _msgChan=null;       // souscription Realtime en cours
+let _msgChanFor=null;
+
+const MSG_PAGE=200;      // messages chargés d'un coup (au-delà : bouton "plus ancien")
+
+function msgTime(ts){
+  const d=new Date(ts);
+  return isNaN(d)?'':d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+// Étiquette de séparation de journée. localDateStr : jamais toISOString (décalage UTC).
+function msgDayKey(ts){const d=new Date(ts);return isNaN(d)?'':localDateStr(d);}
+function msgDayLabel(key){
+  const today=localDateStr(new Date());
+  const y=new Date();y.setDate(y.getDate()-1);
+  if(key===today)return "Aujourd'hui";
+  if(key===localDateStr(y))return 'Hier';
+  const d=new Date(key+'T12:00:00');
+  return isNaN(d)?key:d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+}
+
+/* ── Compteurs de non-lus (pastilles liste clients + overview) ── */
+async function loadMsgUnread(){
+  if(!currentCoach)return;
+  const{data,error}=await db.from('messages')
+    .select('client_id,body,kind,created_at')
+    .eq('coach_id',currentCoach.id).eq('sender','client').eq('read_by_coach',false)
+    .order('created_at',{ascending:false}).limit(500);
+  if(error){console.warn('[MSG] non-lus:',error.message);return;}
+  const m={},last={};
+  (data||[]).forEach(r=>{
+    m[r.client_id]=(m[r.client_id]||0)+1;
+    if(!last[r.client_id])last[r.client_id]=r;   // trié desc : le premier vu est le plus récent
+  });
+  _msgUnread=m;window._msgLast=last;
+  renderOvMsgs();
+  // Rafraîchit les pastilles si la liste clients est déjà à l'écran
+  if(document.getElementById('clBody')&&document.getElementById('page-clients')?.classList.contains('active')){
+    filterCl(document.querySelector('.si input')?.value||'');
+  }
+}
+
+function renderOvMsgs(){
+  const el=document.getElementById('ovMsgs');if(!el)return;
+  const ids=Object.keys(_msgUnread).filter(id=>_msgUnread[id]>0);
+  if(!ids.length){el.innerHTML='';return;}
+  const rows=ids.map(id=>{
+    const c=allClients.find(x=>x.id===id);
+    const last=(window._msgLast||{})[id];
+    const nm=c?`${c.first_name||''} ${c.last_name||''}`.trim():'Client';
+    const ini=c?((c.first_name||'?')[0]+(c.last_name||'?')[0]).toUpperCase():'?';
+    const col=(c&&c.avatar_color)||'#c49a2a';
+    const prev=last?(last.kind==='text'?(last.body||''):'📎 Pièce jointe'):'';
+    return`<div class="ov-msg-row" onclick="openDetMessages('${id}')">
+      <div class="c-av" style="background:${col};flex:0 0 auto">${ini}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:700">${esc(nm)}</div>
+        <div style="font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(prev.slice(0,90))}</div>
+      </div>
+      <span class="msg-pill" style="margin:0">${_msgUnread[id]}</span>
+    </div>`;
+  }).join('');
+  const n=ids.length;
+  el.innerHTML=`<div class="card" style="margin-bottom:14px">
+    <div class="cl">💬 Messages à répondre</div>
+    <div style="font-size:12px;color:var(--text3);margin:-2px 0 8px">${n} conversation${n>1?'s':''} en attente</div>
+    ${rows}
+  </div>`;
+}
+
+// Ouvre la fiche client directement sur l'onglet Messages
+async function openDetMessages(id){
+  await openDet(id);
+  const tab=document.getElementById('detTabMsg');
+  if(tab)tab.click();
+}
+
+/* ── Onglet Messages de la fiche client ── */
+function renderMsgTab(){
+  const el=document.getElementById('tc-messages');if(!el||!curClient)return;
+  const prenom=esc(curClient.first_name||'ton client');
+  el.innerHTML=`<div class="msg-wrap">
+      <div class="msg-thread" id="msgThread"><div class="empty" style="margin:auto"><div class="ei">💬</div><div class="et">Chargement…</div></div></div>
+      <div class="msg-composer">
+        <textarea id="msgInput" rows="1" placeholder="Écrire à ${prenom}…  (Entrée pour envoyer, Maj+Entrée pour aller à la ligne)" oninput="msgGrow(this)" onkeydown="msgKey(event)"></textarea>
+        <button class="msg-send" id="msgSendBtn" onclick="msgSend()">Envoyer</button>
+      </div>
+    </div>
+    <div style="font-size:11.5px;color:var(--text3);margin-top:8px">Le client voit ce fil dans son application. Il n'est pas notifié sur son téléphone : il le découvre à sa prochaine ouverture de l'app.</div>`;
+  msgLoad();
+}
+
+async function msgLoad(){
+  if(!curClient)return;
+  const cid=curClient.id;
+  _msgsFor=cid;
+  const{data,error}=await db.from('messages').select('*')
+    .eq('client_id',cid).order('created_at',{ascending:true}).limit(MSG_PAGE);
+  if(_msgsFor!==cid)return;                       // le coach a changé de fiche entre-temps
+  if(error){
+    const t=document.getElementById('msgThread');
+    if(t)t.innerHTML=`<div class="empty" style="margin:auto"><div class="ei">⚠️</div><div class="et">Messages indisponibles</div><div class="es">${esc(error.message)}</div></div>`;
+    return;
+  }
+  _msgs=data||[];
+  msgPaint(true);
+  msgSubscribe(cid);
+  msgMarkRead();
+}
+
+function msgPaint(scroll){
+  const t=document.getElementById('msgThread');if(!t)return;
+  if(!_msgs.length){
+    t.innerHTML=`<div class="empty" style="margin:auto"><div class="ei">💬</div><div class="et">Aucun message</div><div class="es">Écris le premier message ci-dessous.</div></div>`;
+    return;
+  }
+  let h='',day='';
+  _msgs.forEach(m=>{
+    const k=msgDayKey(m.created_at);
+    if(k!==day){day=k;h+=`<div class="msg-day">${msgDayLabel(k)}</div>`;}
+    const mine=m.sender!=='client';
+    const cls=mine?('msg-out'+(m._pending?' pending':'')+(m._failed?' failed':'')):'msg-in';
+    const tag=m.sender==='auto'?`<span class="msg-tag" title="Envoyé par une règle automatique — le client le voit comme un message de ta part">⚙︎ auto</span>`:'';
+    let corps=m.kind==='text'?esc(m.body||''):`📎 ${esc((m.attachment_meta&&m.attachment_meta.name)||'Pièce jointe')}`;
+    let etat;
+    if(m._failed)etat=`Non envoyé<button class="msg-retry" onclick="msgRetry('${m.local_id}')">réessayer</button>`;
+    else if(m._pending)etat='Envoi…';
+    else etat=msgTime(m.created_at)+(mine&&m.read_by_client?' · lu':'');
+    h+=`<div class="msg-b ${cls}">${tag}${corps}<div class="msg-t">${etat}</div></div>`;
+  });
+  t.innerHTML=h;
+  if(scroll!==false)t.scrollTop=t.scrollHeight;
+}
+
+function msgGrow(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,130)+'px';}
+function msgKey(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();msgSend();}
+}
+
+async function msgSend(){
+  const inp=document.getElementById('msgInput');if(!inp||!curClient)return;
+  const body=inp.value.trim();
+  if(!body)return;
+  const row={
+    coach_id:curClient.coach_id||currentCoach.id,
+    client_id:curClient.id,
+    sender:'coach',
+    body,
+    kind:'text',
+    local_id:crypto.randomUUID(),
+    read_by_coach:true,
+    read_by_client:false
+  };
+  inp.value='';msgGrow(inp);
+  // Bulle immédiate : le coach ne doit pas attendre le serveur
+  _msgs.push({...row,created_at:new Date().toISOString(),_pending:true});
+  msgPaint();
+  await msgFlush(row.local_id);
+}
+
+// Envoie (ou renvoie) le message portant ce local_id
+async function msgFlush(localId){
+  const i=_msgs.findIndex(m=>m.local_id===localId);
+  if(i<0)return;
+  const m=_msgs[i];
+  m._pending=true;m._failed=false;msgPaint(false);
+  const payload={coach_id:m.coach_id,client_id:m.client_id,sender:m.sender,body:m.body,
+                 kind:m.kind,local_id:m.local_id,read_by_coach:true,read_by_client:false};
+  const{data,error}=await db.from('messages').insert(payload).select().single();
+  const j=_msgs.findIndex(x=>x.local_id===localId);
+  if(j<0)return;                                   // fil changé entre-temps
+  if(error){
+    // 23505 = l'unique (client_id, local_id) a déjà la ligne : l'envoi avait abouti
+    if(error.code==='23505'){_msgs[j]._pending=false;_msgs[j]._failed=false;}
+    else{_msgs[j]._pending=false;_msgs[j]._failed=true;console.warn('[MSG] envoi:',error.message);}
+  } else {
+    _msgs[j]={...data};
+  }
+  msgPaint(false);
+}
+function msgRetry(localId){msgFlush(localId);}
+
+/* ── Temps réel ── */
+function msgSubscribe(cid){
+  if(_msgChanFor===cid&&_msgChan)return;
+  msgUnsubscribe();
+  _msgChanFor=cid;
+  _msgChan=db.channel('msg-coach-'+cid)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'client_id=eq.'+cid},p=>{
+      const n=p.new;if(!n)return;
+      // Doublon de notre propre envoi optimiste : on remplace au lieu d'ajouter
+      const i=n.local_id?_msgs.findIndex(m=>m.local_id===n.local_id):-1;
+      if(i>=0)_msgs[i]={...n};
+      else if(!_msgs.some(m=>m.id===n.id))_msgs.push(n);
+      _msgs.sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
+      msgPaint();
+      if(n.sender==='client')msgMarkRead();
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'client_id=eq.'+cid},p=>{
+      const n=p.new;if(!n)return;
+      const i=_msgs.findIndex(m=>m.id===n.id);
+      if(i>=0){_msgs[i]={..._msgs[i],...n};msgPaint(false);}
+    })
+    .subscribe();
+}
+function msgUnsubscribe(){
+  if(_msgChan){try{db.removeChannel(_msgChan);}catch(e){}}
+  _msgChan=null;_msgChanFor=null;
+}
+
+/* ── Marquage "lu" côté coach ──
+   Un UPDATE bloqué par une policy manquante renvoie 0 ligne sans erreur :
+   on demande donc les lignes modifiées et on log si le compte ne colle pas. */
+async function msgMarkRead(){
+  if(!curClient)return;
+  const nb=_msgs.filter(m=>m.sender==='client'&&!m.read_by_coach).length;
+  if(!nb)return;
+  const{data,error}=await db.from('messages').update({read_by_coach:true})
+    .eq('client_id',curClient.id).eq('sender','client').eq('read_by_coach',false).select('id');
+  if(error){console.warn('[MSG] marquage lu:',error.message);return;}
+  if(!data||!data.length){console.warn('[MSG] marquage lu : 0 ligne modifiée (policy UPDATE ?)');return;}
+  _msgs.forEach(m=>{if(m.sender==='client')m.read_by_coach=true;});
+  _msgUnread[curClient.id]=0;
+  renderOvMsgs();
+  msgPaint(false);
 }
 </script>
 </body>
