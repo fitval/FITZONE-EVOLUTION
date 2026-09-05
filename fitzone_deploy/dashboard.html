@@ -2124,7 +2124,7 @@ body:has(#detPage.show) .toast{bottom:54px}
     <div class="fg"><label class="fl">Description <span class="fl-o">optionnel</span></label><textarea class="fta" id="rfDesc" rows="2" placeholder="Description affichée aux candidats"></textarea></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px">
       <div class="cl" style="margin:0">Questions</div>
-      <div style="display:flex;gap:4px">
+      <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
         <button class="btn btn-xs btn-ghost" onclick="addRecQ('short')">+ Court</button>
         <button class="btn btn-xs btn-ghost" onclick="addRecQ('long')">+ Long</button>
         <button class="btn btn-xs btn-ghost" onclick="addRecQ('radio')">+ Choix unique</button>
@@ -2132,17 +2132,37 @@ body:has(#detPage.show) .toast{bottom:54px}
         <button class="btn btn-xs btn-ghost" onclick="addRecQ('select')">+ Liste</button>
       </div>
     </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 10px">
+      <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:800">Coordonnées</span>
+      <button class="btn btn-xs btn-ghost" onclick="addRecQ('first_name')">+ Prénom</button>
+      <button class="btn btn-xs btn-ghost" onclick="addRecQ('last_name')">+ Nom</button>
+      <button class="btn btn-xs btn-ghost" onclick="addRecQ('email')">+ Email</button>
+      <button class="btn btn-xs btn-ghost" onclick="addRecQ('phone')">+ Téléphone</button>
+    </div>
     <div id="rfQuestions"></div>
     <div style="border-top:1.5px solid var(--border);margin-top:18px;padding-top:14px">
-      <div class="cl" style="margin:0 0 10px">Bouton après validation</div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
-          <input type="checkbox" id="rfBtnEnabled" onchange="document.getElementById('rfBtnFields').style.display=this.checked?'block':'none'"> Afficher un bouton après l'envoi du questionnaire
+      <div class="cl" style="margin:0 0 10px">Bouton d'envoi</div>
+      <div class="fg"><label class="fl">Texte du bouton <span class="fl-o">optionnel</span></label><input class="fi" id="rfSubmitText" placeholder="Envoyer ma candidature"></div>
+    </div>
+    <div style="border-top:1.5px solid var(--border);margin-top:18px;padding-top:14px">
+      <div class="cl" style="margin:0 0 10px">Après l'envoi du formulaire</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer">
+          <input type="radio" name="rfAction" value="none" onchange="rfActionChange()" style="margin-top:2px">
+          <span><strong>Envoyer uniquement</strong><br><span style="font-size:11px;color:var(--text3)">Le candidat voit le message de remerciement, rien d'autre.</span></span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer">
+          <input type="radio" name="rfAction" value="redirect" onchange="rfActionChange()" style="margin-top:2px">
+          <span><strong>Envoyer puis rediriger vers un lien</strong><br><span style="font-size:11px;color:var(--text3)">Le candidat est envoyé automatiquement sur la page choisie (pas d'écran intermédiaire).</span></span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer">
+          <input type="radio" name="rfAction" value="button" onchange="rfActionChange()" style="margin-top:2px">
+          <span><strong>Envoyer puis afficher un bouton</strong><br><span style="font-size:11px;color:var(--text3)">Écran de remerciement avec un bouton que le candidat doit cliquer.</span></span>
         </label>
       </div>
       <div id="rfBtnFields" style="display:none">
-        <div class="fg"><label class="fl">Texte du bouton</label><input class="fi" id="rfBtnText" placeholder="Ex : Suis les prochaines étapes"></div>
-        <div class="fg"><label class="fl">Lien du bouton (URL)</label><input class="fi" id="rfBtnUrl" placeholder="https://..."></div>
+        <div class="fg" id="rfBtnTextWrap"><label class="fl">Texte du bouton</label><input class="fi" id="rfBtnText" placeholder="Ex : Suis les prochaines étapes"></div>
+        <div class="fg"><label class="fl" id="rfBtnUrlLabel">Lien du bouton (URL)</label><input class="fi" id="rfBtnUrl" placeholder="https://..."></div>
       </div>
     </div>
   </div>
@@ -10821,36 +10841,67 @@ async function renderRecForms(){
 }
 
 function openRecFormBuilder(){
-  recEditId=null;recQuestions=[];
+  recEditId=null;recQuestions=recIdentDefaults();
   document.getElementById('recFormMT').textContent='Nouveau questionnaire';
   document.getElementById('rfTitle').value='';
   document.getElementById('rfDesc').value='';
-  document.getElementById('rfBtnEnabled').checked=false;
-  document.getElementById('rfBtnFields').style.display='none';
+  document.getElementById('rfSubmitText').value='';
   document.getElementById('rfBtnText').value='';
   document.getElementById('rfBtnUrl').value='';
+  rfSetAction('none');
   renderRecQuestions();
   openM('mRecForm');
+}
+
+// Radios "Après l'envoi du formulaire"
+function rfGetAction(){
+  const r=document.querySelector('input[name="rfAction"]:checked');
+  return r?r.value:'none';
+}
+function rfSetAction(a){
+  document.querySelectorAll('input[name="rfAction"]').forEach(r=>{r.checked=(r.value===a);});
+  rfActionChange();
+}
+function rfActionChange(){
+  const a=rfGetAction();
+  document.getElementById('rfBtnFields').style.display=a==='none'?'none':'block';
+  document.getElementById('rfBtnTextWrap').style.display=a==='button'?'block':'none';
+  document.getElementById('rfBtnUrlLabel').textContent=a==='redirect'?'Lien de redirection (URL)':'Lien du bouton (URL)';
 }
 
 async function editRecForm(id){
   const f=recForms.find(x=>x.id===id);if(!f)return;
   recEditId=id;
   recQuestions=JSON.parse(JSON.stringify(f.questions||[]));
+  // Ancien format : prénom/nom/email/tél étaient figés en haut du formulaire → on les remonte en questions
+  if(!recQuestions.some(q=>REC_IDENT_TYPES.includes(q.type)))recQuestions=recIdentDefaults().concat(recQuestions);
   document.getElementById('recFormMT').textContent='Modifier le questionnaire';
   document.getElementById('rfTitle').value=f.title;
   document.getElementById('rfDesc').value=f.description||'';
-  const hasBtn=!!(f.success_button_url);
-  document.getElementById('rfBtnEnabled').checked=hasBtn;
-  document.getElementById('rfBtnFields').style.display=hasBtn?'block':'none';
+  document.getElementById('rfSubmitText').value=f.submit_button_text||'';
   document.getElementById('rfBtnText').value=f.success_button_text||'';
   document.getElementById('rfBtnUrl').value=f.success_button_url||'';
+  let act=f.success_action||'';
+  if(!act)act=f.success_button_url?'button':'none';
+  rfSetAction(act);
   renderRecQuestions();
   openM('mRecForm');
 }
 
+// Questions "coordonnées" : leur réponse alimente les colonnes de la fiche candidat
+const REC_IDENT_TYPES=['first_name','last_name','email','phone'];
+const REC_IDENT_LABELS={first_name:'Prénom',last_name:'Nom',email:'Email',phone:'Téléphone'};
+function recIdentDefaults(){
+  return REC_IDENT_TYPES.map(t=>({id:crypto.randomUUID(),type:t,label:REC_IDENT_LABELS[t],required:(t==='first_name'||t==='last_name'),options:[]}));
+}
+
 function addRecQ(type){
-  const labels={short:'Réponse courte',long:'Réponse longue',radio:'Choix unique',checkbox:'Choix multiple',select:'Liste déroulante'};
+  if(REC_IDENT_TYPES.includes(type)){
+    if(recQuestions.some(q=>q.type===type)){toast('« '+REC_IDENT_LABELS[type]+' » est déjà dans le formulaire');return;}
+    recQuestions.push({id:crypto.randomUUID(),type,label:REC_IDENT_LABELS[type],required:(type==='first_name'||type==='last_name'),options:[]});
+    renderRecQuestions();
+    return;
+  }
   recQuestions.push({id:crypto.randomUUID(),type,label:'',required:false,options:['radio','checkbox','select'].includes(type)?['Option 1','Option 2']:[]});
   renderRecQuestions();
 }
@@ -10858,13 +10909,14 @@ function addRecQ(type){
 function renderRecQuestions(){
   const el=document.getElementById('rfQuestions');
   if(!recQuestions.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Ajoutez des questions avec les boutons ci-dessus</div>';return;}
-  const typeLabels={short:'Réponse courte',long:'Réponse longue',radio:'Choix unique',checkbox:'Choix multiple',select:'Liste déroulante'};
+  const typeLabels={short:'Réponse courte',long:'Réponse longue',radio:'Choix unique',checkbox:'Choix multiple',select:'Liste déroulante',first_name:'Prénom',last_name:'Nom',email:'Email',phone:'Téléphone'};
   let h='';
   recQuestions.forEach((q,i)=>{
+    const isIdent=REC_IDENT_TYPES.includes(q.type);
     h+=`<div class="rec-q-item">
       <div class="rec-q-drag" title="Réordonner">⋮⋮</div>
       <div class="rec-q-body">
-        <div class="rec-q-type">${typeLabels[q.type]||q.type} ${q.required?'<span style="color:color-mix(in srgb,#c03030 var(--ink,100%),var(--text))">*</span>':''}</div>
+        <div class="rec-q-type">${typeLabels[q.type]||q.type} ${q.required?'<span style="color:color-mix(in srgb,#c03030 var(--ink,100%),var(--text))">*</span>':''}${isIdent?' <span style="color:var(--text3);font-weight:600;text-transform:none;letter-spacing:0">· enregistré dans la fiche candidat</span>':''}</div>
         <input class="fi" value="${esc(q.label)}" placeholder="Intitulé de la question" oninput="recQuestions[${i}].label=this.value" style="margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px;cursor:pointer">
@@ -10901,17 +10953,28 @@ async function saveRecForm(){
   const desc=document.getElementById('rfDesc').value.trim();
   const valid=recQuestions.filter(q=>q.label.trim());
   if(!valid.length){toast('Ajoutez au moins une question');return;}
-  const btnEnabled=document.getElementById('rfBtnEnabled').checked;
+  const action=rfGetAction();
+  const submitText=document.getElementById('rfSubmitText').value.trim();
   const btnText=document.getElementById('rfBtnText').value.trim();
   const btnUrl=document.getElementById('rfBtnUrl').value.trim();
-  const obj={title,description:desc||null,questions:valid,coach_id:currentCoach.id,success_button_text:btnEnabled&&btnText?btnText:null,success_button_url:btnEnabled&&btnUrl?btnUrl:null};
-  if(recEditId){
-    await db.from('recruitment_forms').update(obj).eq('id',recEditId);
-    toast('Questionnaire mis à jour');
-  }else{
-    await db.from('recruitment_forms').insert([obj]);
-    toast('Questionnaire créé');
+  if(action!=='none'&&!btnUrl){toast(action==='redirect'?'Lien de redirection requis':'Lien du bouton requis');return;}
+  const obj={title,description:desc||null,questions:valid,coach_id:currentCoach.id,
+    submit_button_text:submitText||null,
+    success_action:action,
+    success_button_text:action==='button'&&btnText?btnText:null,
+    success_button_url:action==='none'?null:btnUrl};
+  const{error}=recEditId
+    ? await db.from('recruitment_forms').update(obj).eq('id',recEditId)
+    : await db.from('recruitment_forms').insert([obj]);
+  if(error){
+    if(/submit_button_text|success_action/i.test(error.message||'')){
+      alert("⚠️ Colonnes manquantes dans Supabase.\n\nExécute la migration :\nsupabase/migrations/20260905120000_recruitment_forms_submit_action.sql");
+    }else{
+      toast('Erreur : '+(error.message||'enregistrement impossible'));
+    }
+    console.error(error);return;
   }
+  toast(recEditId?'Questionnaire mis à jour':'Questionnaire créé');
   closeM('mRecForm');
   renderRecForms();
 }
@@ -10988,7 +11051,7 @@ async function renderRecResponses(){
     const checked=_selectedRecResps.has(r.id);
     h+=`<tr class="crow"${checked?' style="background:var(--gold-pale)"':''}>
       <td style="text-align:center" onclick="event.stopPropagation()"><input type="checkbox" ${checked?'checked':''} onclick="toggleRecRespSel('${r.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--gold)"></td>
-      <td onclick="openRecResp('${r.id}')" style="cursor:pointer"><div class="c-cell"><div class="c-av" style="background:var(--gold)">${(r.first_name||'?')[0].toUpperCase()}</div><div><div class="c-nm">${esc(r.first_name)} ${esc(r.last_name)}</div>${r.phone?`<div class="c-sb">${esc(r.phone)}</div>`:''}</div></div></td>
+      <td onclick="openRecResp('${r.id}')" style="cursor:pointer"><div class="c-cell"><div class="c-av" style="background:var(--gold)">${(r.first_name||'?')[0].toUpperCase()}</div><div><div class="c-nm">${esc(((r.first_name||'')+' '+(r.last_name||'')).trim()||'Candidat sans nom')}</div>${r.phone?`<div class="c-sb">${esc(r.phone)}</div>`:''}</div></div></td>
       <td onclick="openRecResp('${r.id}')" style="cursor:pointer;font-size:12px">${esc(r.email||'—')}</td>
       <td onclick="openRecResp('${r.id}')" style="cursor:pointer;font-size:12px">${form?esc(form.title):'—'}</td>
       <td><span class="badge b-${curStatus}" style="margin-right:4px">${statusLabels[curStatus]}</span></td>
@@ -11035,6 +11098,7 @@ function _buildSelectedRecRespsExport(){
     const seen=new Set();
     questions.forEach(q=>{
       if(!q||!q.id)return;seen.add(q.id);
+      if(REC_IDENT_TYPES.includes(q.type))return; // déjà exporté via prenom/nom/email/telephone
       const v=ans[q.id];
       qa.push({question:q.label||q.id,type:q.type||'text',answer:v==null?'':(Array.isArray(v)?v.join(', '):typeof v==='object'?JSON.stringify(v):String(v))});
     });
@@ -11119,7 +11183,7 @@ async function openRecResp(id){
   const fmtAns=v=>{if(v==null||v==='')return'—';if(Array.isArray(v))return v.length?v.map(String).join(', '):'—';if(typeof v==='object')return JSON.stringify(v);return String(v);};
   let h=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
     <div class="c-av" style="width:44px;height:44px;font-size:16px;background:var(--gold)">${(r.first_name||'?')[0].toUpperCase()}</div>
-    <div><div style="font-size:16px;font-weight:800">${esc(r.first_name)} ${esc(r.last_name)}</div>
+    <div><div style="font-size:16px;font-weight:800">${esc(((r.first_name||'')+' '+(r.last_name||'')).trim()||'Candidat sans nom')}</div>
     <div style="font-size:12px;color:var(--text3)">${esc(r.email||'')} ${r.phone?' · '+esc(r.phone):''}</div></div>
   </div>`;
   if(form)h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">Questionnaire : <strong>${esc(form.title)}</strong> · ${new Date(r.created_at).toLocaleDateString('fr-FR')}</div>`;
@@ -11131,6 +11195,7 @@ async function openRecResp(id){
     questions.forEach(q=>{
       if(!q||!q.id)return;
       renderedKeys.add(q.id);
+      if(REC_IDENT_TYPES.includes(q.type))return; // prénom/nom/email/tél : affichés dans l'en-tête
       const val=fmtAns(answers[q.id]);
       h+=`<div class="qi"><div class="qil">${esc(q.label||q.id)}</div><div class="qiv">${esc(val)}</div></div>`;
     });
