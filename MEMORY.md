@@ -51,6 +51,7 @@
 - [x] **Bilan hebdo sur page Accueil** (bulle grisée/dorée selon jour de bilan, cliquable pour remplir)
 - [x] **Icônes app client** : Accueil = maison, Nutrition = bol fumant, onglet Bilan retiré de la nav
 - [x] **UI nutrition améliorée** (barre macros colorée P/G/L, icônes repas, pastilles source macro, instructions affichées)
+- [x] **Affichage par client dans l'app** (2026-09-15) : colonnes `clients.show_progress` / `clients.show_chat` (bool, défaut true, migration `20260915120000_clients_app_toggles.sql`). Boutons « 👁️/🙈 📈 % parcours » et « 💬 Tchat » dans le hero de la fiche client (`appFlagBtn` / `setClientAppFlag`). Côté `client.html` : `show_progress===false` → pas de carte « Mon parcours » (`renderRoadmapVisual`) ; `chatAllowed()` faux → pas de carte tchat, pas d'icône `#chatBell`, `loadChat` non lancé, `switchTab('Chat')` redirige vers Home. Colonne absente = affiché (rétrocompatible). ⚠️ Masquage d'interface uniquement : la RLS de `messages` n'est pas modifiée.
 - [x] **Notifications webhooks par formulaire de recrutement** : éditeur de webhook liste tous les `recruitment_forms` du coach comme cases à cocher individuelles (clé `recruitment_response:<form_id>`), filtrage côté Edge Function `notify-webhook`
 - [x] **Scan code-barres app client (Nutrition)** : lib `html5-qrcode` + lookup OpenFoodFacts (~3M produits), preview macros+micros (sucre/fibres/sat_fat/sel), insert `food_logs` avec colonne JSONB `extra` (migration `food_logs_extra.sql`). Visible coach via les requêtes food_logs existantes (pas de duplication daily_logs)
 

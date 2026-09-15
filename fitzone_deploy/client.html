@@ -759,7 +759,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
 <div id="app">
   <div class="scroll-area" id="scrollArea">
     <div id="tabHome" class="tab-section active">
-      <div class="home-header"><div class="home-date" id="homeDate"></div><div style="display:flex;align-items:center;gap:10px"><div class="notif-bell" onclick="switchTab('Chat')" title="Discuter avec mon coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg><div class="notif-badge" id="chatBadge" style="display:none">0</div></div><div class="notif-bell" onclick="openNotifPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><div class="notif-badge" id="notifBadge" style="display:none">0</div></div><div class="home-avatar" id="homeAvatar" onclick="openProfileModal()" style="cursor:pointer;overflow:hidden"></div></div></div>
+      <div class="home-header"><div class="home-date" id="homeDate"></div><div style="display:flex;align-items:center;gap:10px"><div class="notif-bell" id="chatBell" onclick="switchTab('Chat')" title="Discuter avec mon coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg><div class="notif-badge" id="chatBadge" style="display:none">0</div></div><div class="notif-bell" onclick="openNotifPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><div class="notif-badge" id="notifBadge" style="display:none">0</div></div><div class="home-avatar" id="homeAvatar" onclick="openProfileModal()" style="cursor:pointer;overflow:hidden"></div></div></div>
       <div class="home-phase" id="homePhase"></div>
       <div class="home-greet"><div class="home-greet-line1">Bonjour,</div><div class="home-greet-line2" id="homeName"></div></div>
       <div id="homeCards"></div>
@@ -1290,11 +1290,15 @@ async function loadData(){
   }catch(e){console.error('[CALENDAR]',e);calendarEvents=[];}
   // Load gamification data
   await loadGamification();
-  loadChat();   // messagerie coach (non bloquant : l'app s'ouvre sans attendre le fil)
+  if(chatAllowed())loadChat();   // messagerie coach (non bloquant : l'app s'ouvre sans attendre le fil)
 }
+
+// Le coach peut désactiver le tchat pour ce client (clients.show_chat=false). Absent = activé.
+function chatAllowed(){return !clientData||clientData.show_chat!==false;}
 
 /* ===== TABS ===== */
 function switchTab(name){
+  if(name==='Chat'&&!chatAllowed())name='Home';
   if(workoutActive&&name!=='Train'){
     if(workoutPaused){workoutActive=false;}                                   // déjà en pause : tout est enregistré
     else if(runningActive){if(!confirm('Quitter la séance en cours ?'))return;endRunningWorkout(false);}
@@ -1428,8 +1432,9 @@ function renderHome(){
   const dailySub=dailyState==='empty'?'Poids · Pas · Faim · Énergie...'
     :dailyState==='partial'?'<span style="color:#f59e0b;font-weight:700">⚠️ Pesée enregistrée — complète le reste ce soir</span>'
     :'Modifier mes données du jour';
-  // Accès au chat — mis en avant quand le coach a répondu
-  html+=`<div class="card fade-up" id="chatHomeCard" onclick="switchTab('Chat')" style="animation-delay:.03s;cursor:pointer;display:flex;align-items:center;gap:14px${chatUnread?';border:2px solid var(--gold);background:var(--gold-pale)':''}">
+  // Accès au chat — mis en avant quand le coach a répondu (masquable par le coach : clients.show_chat)
+  const chatBell=document.getElementById('chatBell');if(chatBell)chatBell.style.display=chatAllowed()?'':'none';
+  if(chatAllowed())html+=`<div class="card fade-up" id="chatHomeCard" onclick="switchTab('Chat')" style="animation-delay:.03s;cursor:pointer;display:flex;align-items:center;gap:14px${chatUnread?';border:2px solid var(--gold);background:var(--gold-pale)':''}">
     <div style="width:40px;height:40px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;flex:0 0 auto">
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--on-gold)" stroke-width="2" style="width:20px;height:20px"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
     </div>
@@ -1489,8 +1494,8 @@ function renderHome(){
   // Objectifs de la semaine (rédigés par le coach dans l'onglet Roadmap)
   html+=renderWeeklyObjectives();
 
-  // Visual roadmap at the bottom
-  html+=renderRoadmapVisual();
+  // Visual roadmap at the bottom (masquable par le coach : clients.show_progress)
+  if(clientData.show_progress!==false)html+=renderRoadmapVisual();
 
   // Partner banners (last widgets)
   coachPartners.forEach((cp,ci)=>{
