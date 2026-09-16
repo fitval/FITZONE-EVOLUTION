@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
+import { clientAdmin, exigerCompte, Refus, reponseRefus } from "../_shared/securite.ts";
 
 // Une à deux phrases pour introduire les objectifs de la séance.
 // Les CHIFFRES sont calculés dans l'app (client.html → suggestForSet) : le modèle
@@ -15,6 +16,9 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    // Réservé aux comptes connus (cliente ou coach), vérifié avant toute lecture de la demande et tout appel à l'IA.
+    await exigerCompte(req, clientAdmin());
+
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
       return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }),
@@ -75,6 +79,7 @@ RÈGLES :
     return new Response(JSON.stringify({ tip, model: message.model }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
+    if (err instanceof Refus) return reponseRefus(err);
     console.error("[PROGRESSION-TIP]", err);
     return new Response(JSON.stringify({ error: (err as Error).message || "Erreur inconnue" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
