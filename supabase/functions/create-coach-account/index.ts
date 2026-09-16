@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { clientAdmin, exigerCoach, Refus, reponseRefus } from "../_shared/securite.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SENDER = "Fitzone Evolution <noreply@xn--fitzone-volution-iqb.fr>";
@@ -17,7 +17,10 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Réservé aux coachs admin / super_admin, vérifié avant même de lire la demande.
+    const supabaseAdmin = clientAdmin();
+    await exigerCoach(req, supabaseAdmin, { adminSeulement: true });
 
     const { email, first_name, last_name } = await req.json();
     if (!email) {
@@ -26,10 +29,6 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
 
     // Create auth user
     const tempPassword = crypto.randomUUID() + "Aa1!";
@@ -94,6 +93,7 @@ Deno.serve(async (req: Request) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
+    if (error instanceof Refus) return reponseRefus(error);
     const errMsg = error instanceof Error ? error.message : "Unknown error";
     console.error("create-coach-account error:", errMsg);
     return new Response(
