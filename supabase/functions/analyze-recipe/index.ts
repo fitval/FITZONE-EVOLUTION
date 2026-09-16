@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
+import { clientAdmin, exigerCoach, Refus, reponseRefus } from "../_shared/securite.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Réservé aux coachs connectés, vérifié avant toute lecture de la demande et tout appel à l'IA.
+    await exigerCoach(req, clientAdmin());
+
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
       return new Response(
@@ -131,6 +135,7 @@ FORMAT JSON REQUIS (retourne UNIQUEMENT du JSON valide, pas de texte ni markdown
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
+    if (error instanceof Refus) return reponseRefus(error);
     const errMsg = error instanceof Error ? error.message : "Unknown error";
     console.error("analyze-recipe error:", errMsg);
     return new Response(

@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
+import { clientAdmin, exigerCoach, Refus, reponseRefus } from "../_shared/securite.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,6 +74,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Réservé aux coachs connectés, vérifié avant toute lecture de la demande et tout appel à l'IA.
+    await exigerCoach(req, clientAdmin());
+
     const { config, clientProfile } = await req.json();
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
@@ -324,6 +328,7 @@ Le champ "from_db" indique si l'aliment vient de la base du coach (true) ou est 
     });
 
   } catch (err: unknown) {
+    if (err instanceof Refus) return reponseRefus(err);
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error("generate-meal-plan error:", errMsg);
     return new Response(

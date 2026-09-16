@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
+import { clientAdmin, exigerCoach, Refus, reponseRefus } from "../_shared/securite.ts";
 
 // Récap hebdo : le dashboard calcule les chiffres, l'IA n'écrit que le commentaire.
 // Aucun chiffre n'est inventé ici — le prompt interdit d'en produire d'autres.
@@ -16,6 +17,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Réservé aux coachs connectés, vérifié avant toute lecture de la demande et tout appel à l'IA.
+    await exigerCoach(req, clientAdmin());
+
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
       return new Response(
@@ -97,6 +101,7 @@ Maximum 130 mots au total.`;
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
+    if (err instanceof Refus) return reponseRefus(err);
     console.error("[WEEKLY-RECAP]", err);
     return new Response(
       JSON.stringify({ error: (err as Error).message || "Erreur inconnue" }),
