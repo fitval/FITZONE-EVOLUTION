@@ -1,8 +1,18 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { clientAdmin, exigerCoach, Refus } from "../_shared/securite.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SENDER = "Fitzone Evolution <noreply@xn--fitzone-volution-iqb.fr>";
+
+// Seules pages de retour acceptées quand l'appel ne vient pas d'un coach connecté.
+// Les variantes sans .html sont servies par GitHub Pages (signet, adresse tapée) : sans elles,
+// « mot de passe oublié » échouerait en silence, la réponse étant neutre.
+const REDIRECTIONS_PUBLIQUES = [
+  "https://fitval.github.io/FITZONE-EVOLUTION/fitzone_deploy/login.html",
+  "https://fitval.github.io/FITZONE-EVOLUTION/fitzone_deploy/login",
+  "https://fitval.github.io/FITZONE-EVOLUTION/fitzone_deploy/client-login.html",
+  "https://fitval.github.io/FITZONE-EVOLUTION/fitzone_deploy/client-login",
+];
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,12 +20,33 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Réponse des appels sans session coach : identique que le compte existe ou non.
+function reponseNeutre(): Response {
+  return new Response(
+    JSON.stringify({ success: true }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAdmin = clientAdmin();
+
+    // « Mot de passe oublié » doit marcher sans connexion. Un coach connecté garde le
+    // comportement complet ; tout autre appel est restreint (recovery, pages du site, réponse neutre).
+    let estCoach = false;
+    try {
+      await exigerCoach(req, supabaseAdmin);
+      estCoach = true;
+    } catch (err) {
+      if (!(err instanceof Refus)) throw err;
+    }
+
     const { email, type, redirect_to } = await req.json();
 
     if (!email) {
@@ -25,14 +56,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
+    if (!estCoach && !REDIRECTIONS_PUBLIQUES.includes(redirect_to)) {
+      return reponseNeutre();
+    }
 
     // Generate the recovery/invite link via admin API
-    const linkType = type === "invite" ? "invite" : "recovery";
+    // Sans session coach, jamais d'invite : elle CRÉE un compte.
+    const linkType = estCoach && type === "invite" ? "invite" : "recovery";
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: linkType,
       email,
@@ -40,6 +70,7 @@ Deno.serve(async (req: Request) => {
     });
 
     if (error) {
+      if (!estCoach) return reponseNeutre();
       return new Response(
         JSON.stringify({ error: error.message }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -65,7 +96,7 @@ Deno.serve(async (req: Request) => {
     let subject: string;
     let html: string;
 
-    if (type === "invite") {
+    if (linkType === "invite") {
       subject = "Bienvenue sur Fitzone Evolution !";
       html = `${baseStyle}
         <h2 style="text-align:center;font-size:18px;color:#1a1916;margin-bottom:8px">Ton compte a ete cree !</h2>
@@ -97,6 +128,8 @@ Deno.serve(async (req: Request) => {
 
     if (!res.ok) {
       console.error("Resend error:", result);
+      // Seuls les comptes existants arrivent ici : une erreur visible trahirait leur existence.
+      if (!estCoach) return reponseNeutre();
       return new Response(
         JSON.stringify({ error: "Erreur envoi email" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
