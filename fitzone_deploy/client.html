@@ -891,6 +891,14 @@ const SUPA='https://wsrykmutyhjxdnhnyexl.supabase.co';
 const KEY='sb_publishable_e_FCHR17eNikXRpUKG6jmA_d4WbSai3';
 const db=supabase.createClient(SUPA,KEY);
 
+// En-têtes des appels aux fonctions Edge : clé publique + jeton de la session en cours.
+async function enTetesFonction(){
+  const{data:{session}}=await db.auth.getSession();
+  const h={'Content-Type':'application/json','apikey':KEY};
+  if(session)h['Authorization']='Bearer '+session.access_token;
+  return h;
+}
+
 /* ===== CAPTURE D'ERREURS (diagnostic crash séance) =====
    Mémorise les dernières erreurs JS dans localStorage et, PENDANT une séance,
    affiche un bandeau avec le message exact pour qu'on sache ce qui plante
@@ -1158,7 +1166,7 @@ async function sendRecoveryEmail(email){
     const redirectTo=location.origin+location.pathname.replace(/[^/]*$/,'')+'client-login.html';
     const res=await fetch(SUPA+'/functions/v1/send-email',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:await enTetesFonction(),
       body:JSON.stringify({email,type:'recovery',redirect_to:redirectTo})
     });
     return res.ok;
@@ -1774,7 +1782,7 @@ async function loadProgressionIntro(day,plan){
     const objectifs=[];
     plan.forEach(e=>e.sugg.forEach(s=>objectifs.push({nom:e.nom,charge:s.type==='charge'?s.kgMin:0,reps:s.type==='reps'?1:0})));
     const res=await fetch(SUPA+'/functions/v1/progression-tip',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      method:'POST',headers:await enTetesFonction(),
       body:JSON.stringify({prenom:(clientData&&clientData.first_name)||'',seance:day.nom||'',objectifs})
     });
     const out=await res.json();
@@ -5757,9 +5765,9 @@ async function submitBilan(){
         await awardPoints('bilan_submit',75,{date:d});
         if(photoCount>0) await awardPoints('bilan_photo',50,{photos:photoCount});
       }catch(pe){console.warn('[bilan points]',pe);}
-      fetch(SUPA+'/functions/v1/notify-webhook',{
+      enTetesFonction().then(h=>fetch(SUPA+'/functions/v1/notify-webhook',{
         method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+        headers:h,
         body:JSON.stringify({
           coach_id:clientData.coach_id,
           event:'bilan_submitted',
@@ -5771,7 +5779,7 @@ async function submitBilan(){
             weight:rep['Poids']||rep.poids||null
           }
         })
-      }).catch(e=>console.warn('[notify]',e));
+      })).catch(e=>console.warn('[notify]',e));
     }
 
     // 3) Upload des photos AVANT de quitter l'écran. Le bilan (texte) est déjà
@@ -6340,7 +6348,7 @@ async function submitMealEstimation(){
     const body={description:desc||undefined,plan_macros:plan_macros||undefined};
     if(estPhotoBase64){body.image_base64=estPhotoBase64;body.media_type=estMediaType;}
     const resp=await fetch(SUPA+'/functions/v1/estimate-meal',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      method:'POST',headers:await enTetesFonction(),
       body:JSON.stringify(body)
     });
     const json=await resp.json();

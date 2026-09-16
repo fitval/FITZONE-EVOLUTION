@@ -2231,6 +2231,14 @@ const db=createClient(SUPA,KEY);
   }catch(e){console.warn('[db patch]',e);}
 })();
 
+// En-têtes des appels aux fonctions Edge : clé publique + jeton de la session en cours.
+async function enTetesFonction(){
+  const{data:{session}}=await db.auth.getSession();
+  const h={'Content-Type':'application/json','apikey':KEY};
+  if(session)h['Authorization']='Bearer '+session.access_token;
+  return h;
+}
+
 /* AUTH STATE */
 let currentUser=null;
 let currentCoach=null;
@@ -9522,7 +9530,7 @@ async function irProcessNext(){
 
       const resp=await fetch(SUPA+'/functions/v1/analyze-recipe',{
         method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+        headers:await enTetesFonction(),
         body:JSON.stringify({image_base64:b64,media_type:mediaType,food_database:foodDB}),
         signal:controller.signal
       });
@@ -10073,7 +10081,7 @@ async function generateAIPlan(){
     pBar.style.width='2%';pText.textContent='Connexion à l\'IA…';
     const resp=await fetch(SUPA+'/functions/v1/generate-meal-plan',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY,'apikey':KEY},
+      headers:await enTetesFonction(),
       body:JSON.stringify({config,clientProfile})
     });
 
@@ -10601,7 +10609,7 @@ async function resetCoachPassword(email){
   if(!email)return;
   toast('Envoi du lien de reset...');
   try{
-    const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/login.html'})});
+    const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:await enTetesFonction(),body:JSON.stringify({email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/login.html'})});
     if(!res.ok)throw new Error('Erreur');
     toast('Lien de reset envoyé à '+email+' ✓');
   }catch(e){toast('Erreur: '+e.message);}
@@ -10690,7 +10698,7 @@ async function createClientAccount(clientId,email,firstName,lastName,opts){
     const coachName=((currentCoach?.first_name||'')+' '+(currentCoach?.last_name||'')).trim()||null;
     const resp=await fetch(SUPA+'/functions/v1/create-client-account',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      headers:await enTetesFonction(),
       body:JSON.stringify({email,first_name:firstName,last_name:lastName,token:opts.token||null,has_contract:!!opts.hasContract,coach_name:coachName})
     });
     const result=await resp.json();
@@ -10761,7 +10769,7 @@ async function inviteCoachAccount(email,firstName,lastName){
   try{
     const resp=await fetch(SUPA+'/functions/v1/create-coach-account',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      headers:await enTetesFonction(),
       body:JSON.stringify({email,first_name:firstName,last_name:lastName})
     });
     const result=await resp.json();
@@ -10793,7 +10801,7 @@ async function resendClientInvite(clientId){
   if(r.userId){toast('Email NON envoyé : '+(r.emailError||'raison inconnue'));return;}
   // Client already has account — send password reset via Resend
   try{
-    const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:c.email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/client-login.html'})});
+    const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:await enTetesFonction(),body:JSON.stringify({email:c.email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/client-login.html'})});
     if(!res.ok)throw new Error('Erreur envoi');
     toast('Email envoyé à '+c.email);
   }catch(e){toast('Erreur: '+e.message);}
@@ -10807,11 +10815,11 @@ async function resendCoachInvite(email){
     const co=team.find(c=>c.email===email);
     await fetch(SUPA+'/functions/v1/create-coach-account',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      headers:await enTetesFonction(),
       body:JSON.stringify({email,first_name:co?co.first:'',last_name:co?co.last:''})
     }).catch(()=>{});
     // Then send recovery email (works whether account is new or existing)
-    const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/login.html'})});
+    const res=await fetch(SUPA+'/functions/v1/send-email',{method:'POST',headers:await enTetesFonction(),body:JSON.stringify({email,type:'recovery',redirect_to:window.location.origin+'/FITZONE-EVOLUTION/fitzone_deploy/login.html'})});
     if(!res.ok)throw new Error('Erreur envoi');
     toast('Invitation renvoyée à '+email+' ✓');
   }catch(e){toast('Erreur: '+e.message);}
@@ -11516,7 +11524,7 @@ async function generateRecapAI(){
   try{
     const res=await fetch(SUPA+'/functions/v1/weekly-recap',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      headers:await enTetesFonction(),
       body:JSON.stringify({
         prenom:curClient.first_name||'Le client',
         objectif:(curQ&&curQ.goal)||null,
@@ -12330,7 +12338,7 @@ async function generateAITrainPlan(){
     pBar.style.width='5%';pText.textContent='Envoi des paramètres…';
     const resp=await fetch(SUPA+'/functions/v1/generate-training-plan',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY,'apikey':KEY},
+      headers:await enTetesFonction(),
       body:JSON.stringify({config,clientProfile})
     });
     pBar.style.width='50%';pText.textContent='L\'IA construit le programme…';
@@ -13630,7 +13638,7 @@ async function testNotif(idx){
   try{
     const resp=await fetch(SUPA+'/functions/v1/notify-webhook',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      headers:await enTetesFonction(),
       body:JSON.stringify({event:'test',test_webhook_url:w.url})
     });
     const j=await resp.json();
@@ -13929,7 +13937,7 @@ async function triggerClientEmail(event,clientId,extraVars){
   try{
     await fetch(SUPA+'/functions/v1/send-client-email',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+KEY},
+      headers:await enTetesFonction(),
       body:JSON.stringify({coach_id:currentCoach.id,event,client_id:clientId,extra_vars:extraVars||{}})
     });
   }catch(e){console.warn('triggerClientEmail:',e);}
