@@ -10,7 +10,7 @@
 // {coach_name}, etc., puis envoie via Resend.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { clientAdmin, exigerCoach, Refus, reponseRefus } from "../_shared/securite.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SENDER = "Fitzone Evolution <noreply@xn--fitzone-volution-iqb.fr>";
@@ -66,9 +66,9 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+    // Réservé aux coachs connectés, vérifié avant même de lire la demande.
+    const supabase = clientAdmin();
+    const appelant = await exigerCoach(req, supabase);
 
     const body = await req.json();
     const coachId: string | undefined = body.coach_id;
@@ -80,6 +80,11 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: "coach_id, event et client_id requis" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Un coach n'envoie qu'en son propre nom ; seuls admin et super_admin peuvent agir pour un autre.
+    if (coachId !== appelant.coachId && !["admin", "super_admin"].includes(appelant.role)) {
+      throw new Refus(403, "Envoi réservé au coach de ce client");
     }
 
     // Charger les règles + infos du coach + du client
@@ -140,6 +145,7 @@ Deno.serve(async (req: Request) => {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    if (err instanceof Refus) return reponseRefus(err);
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
