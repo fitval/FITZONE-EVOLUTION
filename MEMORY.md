@@ -68,8 +68,14 @@
 - **`generate-training-plan`** : génère un programme d'entraînement via Claude Sonnet (streaming), `--no-verify-jwt`. Méthode coach encodée : `priority_muscles` pilote ordre/volume(6-16 séries/sem)/fréquence/split, repos 90s petits muscles → 180-240s gros polyart borné par durée séance. **Fourchettes de reps** strictement limitées à `"5-8" / "9-12" / "10-15" / "13-16" / "MAX"` (tiret, jamais slash) + durées warmup/cooldown ; 2 fourchettes possibles sur un même exo, la PLUS COURTE en premier (heavy d'abord). **Match flexible des exos** (server + dashboard) : (1) normalisation lowercase + suppression accents + ponctuation → espace ; (2) si pas de match exact normalisé, **match par tokens** avec stopwords filtrés (a/la/le/avec/de/du/des/à…) — les tokens de la BIBLIO doivent tous être présents dans le nom IA, sinon drop ; (3) **renommage automatique** vers le nom exact de la biblio pour que tous les enrichissements (vidéo, équipement, notes, replacements) propagent. Le strict equality d'avant droppait tout. La biblio coach est désormais autoritative sur les enrichments (`m.video||ex.video`, pas l'inverse). **Normalisation reps** vers les 5 fourchettes autorisées par midpoint. Form : modal `mGenTrainPlan`, champ `gtpPriority`. Rendu dashboard : `s.reps==='MAX'` matché en regex `/^max$/i` (insensible à la casse).
 - **`analyze-recipe`** : analyse screenshot de recette via Claude Vision, déployée avec `--no-verify-jwt`
 - **Secret** : `ANTHROPIC_API_KEY` configuré sur Supabase
-- **Clé publishable** : `sb_publishable_...` (pas un JWT standard → `--no-verify-jwt` obligatoire)
+- **Clé publishable** : `sb_publishable_...` (pas un JWT standard → raison historique du `--no-verify-jwt`, voir ci-dessous)
 - **Project ref** : `wsrykmutyhjxdnhnyexl`
+- **Réglage `verify_jwt` réel en production** (relevé le 2026-09-16 avec `npx supabase functions list`) — **pas toutes en `--no-verify-jwt`** :
+  - `verify_jwt=true` : `send-client-email`, `process-scheduled-emails`, `bright-handler` (voir plus bas)
+  - `verify_jwt=false` : les 11 autres
+  - Test du 16/09 sur `send-client-email` (corps vide) : la passerelle accepte la clé publishable malgré `verify_jwt=true` → ce contrôle ne bloque rien aujourd'hui, mais il ne faut pas le retirer par inadvertance.
+  - Pas de `supabase/config.toml` : le réglage vient uniquement de l'option passée au déploiement.
+- **⚠️ Nom du dossier ≠ adresse déployée** : `supabase/functions/notify-discord` est publiée sous l'adresse **`bright-handler`** (nom affiché `notify-discord`, créée le 2026-05-02, v2, secret `DISCORD_RECRUITMENT_WEBHOOK`). Un `functions deploy notify-discord` **créerait un doublon** au lieu de la mettre à jour. Aucun appelant (ni pages, ni triggers, ni cron, 0 webhook de base) : `recruitment.html` visait `/functions/v1/notify-discord`, adresse qui n'a jamais existé, remplacée le même jour par `notify-webhook`. Laissée en place le 16/09, décision (supprimer ou redéployer proprement) à prendre à froid.
 
 ### Points techniques importants
 - Le plan builder (`planBuilderWrap`) est un overlay `position:fixed` z-index 9000, sorti de `page-nut-plans`, utilisable depuis n'importe où (fiche client, page plans)
@@ -459,6 +465,6 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - **Toujours demander** avant de refactorer du code existant qui fonctionne.
 - Variable globale clients = `allClients` (pas `clients`)
 - Plans IA utilisent `alims`, pas `items` — utiliser `mealItems()` dans client.html
-- Edge Functions nécessitent `--no-verify-jwt` à chaque redéploiement
+- Edge Functions : avant tout redéploiement, relever `npx supabase functions list` et redéployer chaque fonction **avec son réglage `verify_jwt` actuel** et **sous son adresse réelle** (le dossier `notify-discord` est déployé sous `bright-handler`). Détail dans « Supabase Edge Functions ».
 - Inputs mobiles : toujours `oninput` (pas `onchange`) pour capturer les valeurs en temps réel
 - Ne pas appeler `renderActiveWorkout()` depuis les handlers d'input (re-render complet = perte de focus)
