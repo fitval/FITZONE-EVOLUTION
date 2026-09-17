@@ -9,6 +9,45 @@ Application SaaS de coaching sportif et nutritionnel.
 - **Objectif final** : plateforme complète coach + app client sur les stores (iOS/Android).
 - **Fondateur** : coach sportif solo qui développe avec Claude.
 
+## Langue
+- Réponses en **français**, du début à la fin de la session, y compris les comptes rendus après une commande,
+  un commit ou un déploiement. Seuls restent tels quels le code, les commandes, les noms de fichiers et les
+  messages d'erreur cités.
+
+## Sécurité — règles non négociables
+- Base Supabase **en production**, avec de vraies clientes (adresses, téléphones, bilans de santé). Toute
+  modification : ce qu'elle change, un test, puis la suivante. Le SQL collé dans l'éditeur Supabase s'écrit
+  **une instruction par ligne**.
+- Le dépôt est **public** (GitHub Pages). Aucun secret dans le code, les commentaires, les commits ou `MEMORY.md`.
+  Seule la clé `sb_publishable_` y a sa place : elle est publique par conception. Les clés legacy (`anon`,
+  `service_role`) sont désactivées depuis le 17/09/2026.
+- **Aucune faiblesse non corrigée ne s'écrit dans le dépôt** (ni `MEMORY.md`, ni commentaire, ni message de
+  commit). Les points ouverts vivent dans une note privée, hors dépôt. Dans le dépôt, on écrit les règles à suivre.
+- Ne jamais faire remonter de données de clientes dans une conversation : des nombres et des structures, pas des lignes.
+- **Règles RLS** : jamais de `USING (true)` ni d'accès `anon` à des données de clientes. Toute nouvelle règle
+  s'appuie sur `get_my_client_id()`, `get_my_coach_id()` ou `is_admin()`. Toute modification passe par une
+  **migration** dans `supabase/migrations/`, jamais à la main sans trace. État de référence :
+  `supabase/migrations/20260917120000_rls_etat_reel_corrections_manuelles.sql`. Les anciens scripts de
+  `supabase/` marqués « NE JAMAIS REJOUER » ne se recollent jamais.
+- **Fonctions Edge** : chaque fonction vérifie elle-même son appelant avec `supabase/functions/_shared/securite.ts`
+  (`exigerCoach`, `exigerCompte`) et accède à la base par `clientAdmin()` (clé secrète), jamais par
+  `SUPABASE_SERVICE_ROLE_KEY`. Exceptions voulues, sans contrôle d'appelant : `send-email` (restreinte hors
+  session coach), `submit-questionnaire` (jeton de fiche), `notify-webhook` (publique). Toute nouvelle fonction
+  vérifie son appelant.
+- **Avant tout déploiement de fonction** : relever `npx supabase functions list`, redéployer chaque fonction
+  **sous son adresse réelle** et **avec son réglage `verify_jwt` actuel**. Jamais `--prune`.
+- **Comptes** : les inscriptions publiques Supabase sont désactivées. Les comptes se créent uniquement par les
+  fonctions `create-client-account` et `create-coach-account`.
+
+## Ce qu'il faut savoir sur ce projet
+- Site statique (HTML) publié par GitHub Pages · base, comptes et fonctions : Supabase.
+- Stripe et Whop sont utilisés **hors de l'app** : la table `payments` est saisie à la main dans le dashboard
+  (aucune intégration, aucun webhook entrant).
+- Les clientes se connectent par email et mot de passe (`client-login.html`).
+- `recruitment.html` est **public** : rempli sans compte.
+- Le dépôt ne contient qu'une partie du schéma (les tables de base ne sont dans aucune migration) : **la base est
+  la vérité du schéma**, pas le dépôt.
+
 ## Architecture actuelle
 - **Frontend** : HTML/CSS/JavaScript vanilla (pas de framework), fichiers monolithiques (inline CSS + JS)
 - **Backend/Auth** : Supabase (Auth + PostgreSQL)
@@ -19,14 +58,14 @@ Application SaaS de coaching sportif et nutritionnel.
 ## Fichiers principaux
 - `fitzone_deploy/index.html` — Redirect vers login
 - `fitzone_deploy/login.html` — Auth coach (Supabase Auth)
-- `fitzone_deploy/dashboard.html` — Dashboard coach (fichier monolithique ~2200 lignes, ~185 KB)
-- `fitzone_deploy/questionnaire.html` — Formulaire client (accès par token, ~53 KB)
-- `fitzone_deploy/client.html` — App mobile client (accès par token, 4 onglets : Programme/Nutrition/Bilan/Progression)
+- `fitzone_deploy/dashboard.html` — Dashboard coach (fichier monolithique, ~15 250 lignes au 17/09/2026)
+- `fitzone_deploy/questionnaire.html` — Contrat à signer et questionnaire d'intégration (lien avec jeton, cliente connectée)
+- `fitzone_deploy/client.html` — App cliente (connexion par compte via `client-login.html`)
 
 ## Supabase
 - **URL** : `https://wsrykmutyhjxdnhnyexl.supabase.co`
-- **Tables** : `coaches`, `clients`, `questionnaires`, `plans`
-- **Auth** : email/password pour les coachs
+- **Tables** : une quarantaine (fiches, contrats, paiements, journaux, programmes, plans…) — la base fait foi
+- **Auth** : email/mot de passe pour les coachs et les clientes ; inscriptions publiques désactivées
 - **Client JS** :
 ```javascript
 const SUPA = 'https://wsrykmutyhjxdnhnyexl.supabase.co';
@@ -35,28 +74,14 @@ const { createClient } = supabase;
 const db = createClient(SUPA, KEY);
 ```
 
-## Stockage hybride (migration en cours)
-### Dans Supabase (migré)
-- Auth (session, login, register)
-- Coaches (profil coach lié à user_id)
-- Clients (CRUD complet, filtres par statut/tags)
-- Questionnaires (soumis par les clients via token)
-- Plans nutrition macros (partiellement)
-
-### Encore en localStorage (à migrer vers Supabase)
-| Clé localStorage | Contenu |
-|---|---|
-| `fz_exos` | Bibliothèque d'exercices |
-| `fz_progs` | Programmes d'entraînement |
-| `fz_seances` | Séances d'entraînement |
-| `fz_alims` | Base de données aliments |
-| `fz_repas` | Templates de repas |
-| `fz_plans` | Plans nutrition complets |
-| `fz_modules` | Modules de formation |
-| `fz_team` | Équipe coaching |
-| `fz_settings` | Préférences utilisateur |
-| `road_<id>` | Roadmap 52 semaines par client |
-| `pfRecent` | Aliments récents (plan builder) |
+## Données et stockage
+- **Supabase est la référence** pour toutes les données, dont les fiches clientes (identité, contact), qui ne
+  passent jamais par le navigateur.
+- Le dashboard garde **des copies en cache dans le `localStorage` du navigateur du coach**, y compris des données
+  liées aux clientes : `daily_<id>` (journaux), `bilans_<id>`, `trainlog_<id>`, `road_<id>` / `road_obj_<id>`,
+  `fz_plans`, `fz_progs`, ainsi que `fz_exos`, `fz_seances`, `fz_alims`, `fz_repas`, `fz_modules`, `fz_team`,
+  `fz_settings`, `fz_finance`, `fz_commissions`. Ce navigateur contient donc des données sensibles.
+- `client.html` n'y garde que des préférences d'affichage.
 
 ## Modules du dashboard
 1. **Overview** — Stats, actions rapides
