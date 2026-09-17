@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { clientAdmin } from "../_shared/securite.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -125,9 +125,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+    // Pas de contrôle d'appelant : fonction publique par nature (recruitment.html). Migration de clé seulement.
+    const supabase = clientAdmin();
 
     const body = await req.json();
     const coachId: string | undefined = body.coach_id;
