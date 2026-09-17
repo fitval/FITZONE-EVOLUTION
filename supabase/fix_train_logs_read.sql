@@ -1,3 +1,10 @@
+-- ⚠️⚠️⚠️ ANCIEN SCRIPT MANUEL — NE JAMAIS REJOUER, NI EN ENTIER NI PAR MORCEAUX ⚠️⚠️⚠️
+-- Ce script réinstalle le droit pour le rôle anonyme d'exécuter client_get_train_logs (ancien mode jeton, supprimé en phase 3).
+-- Ces accès ont été fermés en production. L'état de référence des règles RLS est tracé dans :
+--   supabase/migrations/20260917120000_rls_etat_reel_corrections_manuelles.sql
+-- Pour réparer ou modifier quelque chose : écrire une nouvelle migration ciblée, jamais recoller ce fichier.
+-- Conservé pour l'historique uniquement (en-tête ajouté le 17/09/2026).
+
 -- RPC pour lire les train_logs en mode anon (token-based)
 -- Corrige le bug: les clients anon ne voient pas leurs anciennes perfs
 

@@ -1,3 +1,10 @@
+-- ⚠️⚠️⚠️ ANCIEN SCRIPT MANUEL — NE JAMAIS REJOUER, NI EN ENTIER NI PAR MORCEAUX ⚠️⚠️⚠️
+-- Ce script réinstalle le droit pour le rôle anonyme d'exécuter les fonctions client_* de l'ancien mode jeton (supprimé en phase 3, mai 2026).
+-- Ces accès ont été fermés en production. L'état de référence des règles RLS est tracé dans :
+--   supabase/migrations/20260917120000_rls_etat_reel_corrections_manuelles.sql
+-- Pour réparer ou modifier quelque chose : écrire une nouvelle migration ciblée, jamais recoller ce fichier.
+-- Conservé pour l'historique uniquement (en-tête ajouté le 17/09/2026).
+
 -- ============================================================
 -- FITZONE EVOLUTION — Security Fix: Remove dangerous anon policies
 -- ============================================================

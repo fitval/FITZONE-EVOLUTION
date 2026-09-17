@@ -1,3 +1,10 @@
+-- ⚠️⚠️⚠️ ANCIEN SCRIPT MANUEL — NE JAMAIS REJOUER, NI EN ENTIER NI PAR MORCEAUX ⚠️⚠️⚠️
+-- Ce script réinstalle anon_all_food_logs (FOR ALL TO anon USING true) : journaux alimentaires des clientes lisibles et modifiables par tous.
+-- Ces accès ont été fermés en production. L'état de référence des règles RLS est tracé dans :
+--   supabase/migrations/20260917120000_rls_etat_reel_corrections_manuelles.sql
+-- Pour réparer ou modifier quelque chose : écrire une nouvelle migration ciblée, jamais recoller ce fichier.
+-- Conservé pour l'historique uniquement (en-tête ajouté le 17/09/2026).
+
 -- ============================================================
 -- FITZONE EVOLUTION — Food tracking client
 -- ============================================================

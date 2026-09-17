@@ -453,6 +453,15 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - `_roadPersistWeeks()` : un échec de l'upsert Supabase est maintenant signalé par un toast (avant : `console.warn` silencieux).
 - ⚠️ Le fichier contient encore ~40 `confirm()` / ~13 `prompt()` ailleurs : mêmes symptômes possibles si les dialogues sont bloqués.
 
+### Sessions 2026-09-16/17 — Sécurité : fonctions Edge, accès anonymes, modification de fiche client
+- **Fonctions Edge verrouillées** (module `supabase/functions/_shared/securite.ts`, clé secrète `default`) : `exigerCoach` (dont `adminSeulement` pour `create-coach-account`), `exigerCompte` pour `estimate-meal` / `progression-tip`, `send-email` restreinte hors session coach (recovery seulement, liste blanche des pages de connexion avec et sans `.html`, réponse neutre). `submit-questionnaire` et `notify-webhook` : migration de clé seulement. Les pages envoient le jeton de session (`enTetesFonction()`). `process-scheduled-emails` et `bright-handler` (= dossier `notify-discord`) non touchées.
+- **Inscriptions publiques Supabase coupées** (`disable_signup = true`) : l'onglet « Inscription » de `login.html` ne fonctionne plus. Les comptes se créent par les fonctions admin.
+- **Règles anonymes fermées le 17/09** : `anon_sign_unsigned_contracts` (modification anonyme des contrats), `anon_read_unsigned_contracts`, `anon_clients_onboarding`, `anon_read_settings` (réglages dont URL de webhooks → URL à régénérer). Plus aucune lecture anonyme de `clients`, `client_contracts`, `settings`. Accès anonymes restants voulus : `recruitment_forms` (lecture), `recruitment_responses` (insertion), et 4 fonctions `client_*` qui exigent un jeton client.
+- **Traçage** : `supabase/migrations/20260917120000_rls_etat_reel_corrections_manuelles.sql` (enregistrée comme appliquée, rien exécuté) fixe l'état réel : 67 `drop policy if exists` (dont `anon_all_water_logs` / `anon_all_salt_logs`, que la chaîne de migrations réinstallait) et 6 règles créées à la main reproduites. Les 11 anciens scripts de `supabase/` qui réinstallent des accès anonymes ou des « Allow all » portent un en-tête **NE JAMAIS REJOUER**.
+- **Nouveau : ✏️ Modifier la fiche client** (dashboard) + fonction Edge `update-client-email` : l'email est corrigé sur le compte de connexion existant (plus de second compte orphelin quand on corrige une faute de frappe puis renvoie l'invitation).
+- **Reste à traiter (séance « verrouillage »)** : tout compte connecté peut écrire `coaches.role` (règles `auth_coaches_insert` / `auth_coaches_update` + auto-création de fiche coach dans `login.html` et `dashboard.html`) ; `auth_clients_update` et `auth_client_rw_own_contracts` laissent une cliente modifier sa fiche et son contrat non signé ; instantané complet des règles RLS ; 10 comptes auth sans fiche.
+- **Clés étrangères vers `coaches`** : pas toutes en RESTRICT (mélange NO ACTION / CASCADE / SET NULL). Ne jamais « débloquer » la suppression d'une fiche coach : la cascade effacerait `point_transactions`, `client_points`, `coach_rewards`, `messages`…
+
 ## Bugs connus
 - Aucun bug critique identifié pour le moment
 
