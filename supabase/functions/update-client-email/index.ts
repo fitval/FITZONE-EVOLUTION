@@ -3,8 +3,7 @@
 // de second compte (corriger la fiche puis renvoyer l'invitation créait un compte orphelin).
 //
 // POST body: { client_id, email }
-// Réservé au coach du client. Pas d'exception admin tant que coaches.role reste modifiable
-// par n'importe quel compte connecté : sinon n'importe qui pourrait détourner un compte client.
+// Réservé au coach du client, sans exception pour les administrateurs (choix de prudence).
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { clientAdmin, exigerCoach, Refus, reponseRefus } from "../_shared/securite.ts";

@@ -78,8 +78,7 @@ drop policy if exists "coach_team_all" on public.team;
 drop policy if exists "anon_clients_select" on public.clients;
 
 -- 4. Règles en service créées à la main, jamais présentes dans le dépôt : reproduites à l'identique.
---    ⚠️ auth_client_rw_own_contracts et auth_client_update_own_status laissent une cliente modifier
---    son contrat non signé et sa fiche : tracées telles quelles, à corriger en séance « verrouillage ».
+--    Tracées telles quelles : des ajustements sont prévus (séance « verrouillage »).
 drop policy if exists "auth_client_rw_own_contracts" on public.client_contracts;
 create policy "auth_client_rw_own_contracts" on public.client_contracts as permissive for all to authenticated using ((client_id IN ( SELECT clients.id FROM clients WHERE (clients.user_id = auth.uid())))) with check ((client_id IN ( SELECT clients.id FROM clients WHERE (clients.user_id = auth.uid()))));
 drop policy if exists "auth_client_update_own_status" on public.clients;
