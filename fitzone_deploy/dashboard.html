@@ -1588,6 +1588,16 @@ body:has(#detPage.show) .toast{bottom:54px}
   </div>
   <div class="mf"><button class="btn btn-ghost" onclick="closeM('mNewClient')">Annuler</button><button class="btn btn-dark" id="btnCreate" onclick="doCreateClient()">Créer et envoyer le contrat →</button></div>
 </div></div>
+<div class="overlay" id="mEditClient"><div class="modal" style="max-width:520px">
+  <div class="mh"><div class="mt">Modifier le client</div><button class="mc" onclick="closeM('mEditClient')">✕</button></div>
+  <div class="mb">
+    <div class="fr2"><div class="fg"><label class="fl">Prénom *</label><input class="fi" id="ecFirst"></div><div class="fg"><label class="fl">Nom *</label><input class="fi" id="ecLast"></div></div>
+    <div class="fg"><label class="fl">Email *</label><input class="fi" id="ecEmail" type="email" autocomplete="off"><div style="font-size:11px;color:var(--text3);margin-top:4px">Si le client a déjà un compte, son adresse de connexion est corrigée aussi (aucun second compte n'est créé).</div></div>
+    <div class="fr2"><div class="fg"><label class="fl">Téléphone <span class="fl-o">optionnel</span></label><input class="fi" id="ecPhone"></div><div class="fg"><label class="fl">Date de naissance</label><input class="fi" type="date" id="ecBirthDate"></div></div>
+    <div class="fg"><label class="fl">Adresse postale <span class="fl-o">(pour le contrat)</span></label><textarea class="fi" id="ecAddress" rows="2" style="resize:vertical"></textarea></div>
+  </div>
+  <div class="mf"><button class="btn btn-ghost" onclick="closeM('mEditClient')">Annuler</button><button class="btn btn-dark" id="btnEditClient" onclick="saveEditClient()">Enregistrer</button></div>
+</div></div>
 <style>
 .nf-dur-btn,.nf-plan-btn{padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--white);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);transition:all .15s}
 .nf-dur-btn:hover,.nf-plan-btn:hover{border-color:var(--gold);color:var(--gold)}
@@ -2841,6 +2851,7 @@ function renderDetHero(){
     :c.status==='paused'?`<button class="btn btn-sm" style="background:rgba(0,200,100,.15);color:#40d080;border:1px solid rgba(0,200,100,.25)" onclick="resumeClient('${c.id}')">▶️ Réactiver</button>`:'';
   const delBtn=window._perms?.canDeleteClient?`<button class="btn btn-sm" style="background:rgba(255,50,50,.12);color:color-mix(in srgb,#ff6060 var(--ink,100%),var(--text));border:1px solid rgba(255,50,50,.2)" onclick="deleteClientStart('${c.id}')">🗑️</button>`:'';
   const inviteBtn=c.email?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="resendClientInvite('${c.id}')">📧 Invitation</button>`:'';
+  const editBtn=c.coach_id===currentCoach?.id?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="openEditClient()">✏️ Modifier</button>`:'';
   // Coach assignment dropdown (super admin only)
   let coachSelect='';
   if(window._perms?.isSuperAdmin&&adminCoaches.length){
@@ -2849,7 +2860,7 @@ function renderDetHero(){
   }
   const contractBtn=window._perms?.isSuperAdmin?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="openClientContractsList('${c.id}')">📄 Contrat</button>`:'';
   const appBtn=(c.status==='active'||c.status==='questionnaire_done')?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:'';
-  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select>${coachSelect}<span style="font-size:11px;color:rgba(255,255,255,.4)">App :</span>${appFlagBtn('show_progress','📈 % parcours',c.show_progress!==false)}${appFlagBtn('show_chat','💬 Tchat',c.show_chat!==false)}</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${appBtn}${contractBtn}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${inviteBtn}${pauseBtn}${delBtn}</div>`;
+  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select>${coachSelect}<span style="font-size:11px;color:rgba(255,255,255,.4)">App :</span>${appFlagBtn('show_progress','📈 % parcours',c.show_progress!==false)}${appFlagBtn('show_chat','💬 Tchat',c.show_chat!==false)}</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${appBtn}${contractBtn}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${editBtn}${inviteBtn}${pauseBtn}${delBtn}</div>`;
 }
 
 async function openClientContractsList(clientId){
@@ -10707,6 +10718,45 @@ async function createClientAccount(clientId,email,firstName,lastName,opts){
     await db.from('clients').update({user_id:result.user_id}).eq('id',clientId);
     return {userId:result.user_id,emailSent:result.email_sent,emailError:result.email_error||null};
   }catch(err){console.warn('Client account error:',err);return {error:err.message||'Erreur réseau (Edge Function injoignable)'};}
+}
+
+/* ===== MODIFIER LES INFOS D'UN CLIENT ===== */
+// L'email passe par la fonction update-client-email : elle corrige aussi le compte de connexion.
+// Corriger seulement la fiche puis renvoyer l'invitation créait un second compte (orphelin).
+function openEditClient(){
+  const c=curClient;if(!c)return;
+  if(c.coach_id!==currentCoach?.id){toast('Seul le coach de ce client peut modifier ses infos');return;}
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||'';};
+  set('ecFirst',c.first_name);set('ecLast',c.last_name);set('ecEmail',c.email);
+  set('ecPhone',c.phone);set('ecBirthDate',c.birth_date);set('ecAddress',c.address);
+  openM('mEditClient');
+}
+
+async function saveEditClient(){
+  const c=curClient;if(!c)return;
+  const val=id=>(document.getElementById(id)?.value||'').trim();
+  const f=val('ecFirst'),l=val('ecLast'),e=val('ecEmail').toLowerCase();
+  if(!f||!l||!e){toast('Prénom, nom et email requis');return;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){toast('Adresse email invalide');return;}
+  const btn=document.getElementById('btnEditClient');btn.disabled=true;btn.textContent='⏳…';
+  const fin=()=>{btn.disabled=false;btn.textContent='Enregistrer';};
+  const rafraichir=async()=>{await loadClients();curClient=allClients.find(x=>x.id===c.id)||c;renderDetHero();document.getElementById('tbTitle').textContent=(curClient.first_name||'')+' '+(curClient.last_name||'');};
+  const infos={first_name:f,last_name:l,phone:val('ecPhone'),birth_date:val('ecBirthDate')||null,address:val('ecAddress')||null};
+  const{error}=await db.from('clients').update(infos).eq('id',c.id);
+  if(error){fin();toast('Erreur: '+error.message);return;}
+  let emailModifie=false;
+  if(e!==(c.email||'').trim().toLowerCase()){
+    if(c.user_id&&!confirm('Changer l\'email de connexion de ce client ?\n\nS\'il utilise déjà l\'app, il devra désormais se connecter avec la nouvelle adresse.')){fin();closeM('mEditClient');await rafraichir();toast('Infos enregistrées, email inchangé');return;}
+    try{
+      const resp=await fetch(SUPA+'/functions/v1/update-client-email',{method:'POST',headers:await enTetesFonction(),body:JSON.stringify({client_id:c.id,email:e})});
+      const r=await resp.json().catch(()=>({}));
+      if(!resp.ok||r.error){fin();await rafraichir();toast('Infos enregistrées, mais email NON modifié : '+(r.error||('erreur '+resp.status)));return;}
+      emailModifie=!r.inchange;
+    }catch(err){fin();await rafraichir();toast('Infos enregistrées, mais email NON modifié : '+err.message);return;}
+  }
+  fin();closeM('mEditClient');await rafraichir();
+  if(emailModifie&&confirm('Email modifié ✓\n\nRenvoyer l\'invitation à la nouvelle adresse ?'))resendClientInvite(c.id);
+  else toast(emailModifie?'Infos et email modifiés ✓':'Infos enregistrées ✓');
 }
 
 /* ===== PAUSE / RESUME CLIENT ===== */
