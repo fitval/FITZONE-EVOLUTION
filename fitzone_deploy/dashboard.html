@@ -429,6 +429,9 @@ body:has(#detPage.show) .toast{bottom:54px}
 .gs input[type=number].gi::-webkit-outer-spin-button,.gs input[type=number].gi::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .gs .gs-x{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 3px;line-height:1}
 .gs .gs-x:hover{color:color-mix(in srgb,#dc2626 var(--ink,100%),var(--text))}
+.gs .gs-x.gs-ssbtn{flex:0 0 100%;background:rgba(217,70,239,.12);border:1px solid #d946ef;color:#d946ef;border-radius:5px;font-size:9px;font-weight:800;padding:2px 3px;margin-top:3px;white-space:nowrap}
+.gs .gs-x.gs-ssbtn:hover{background:#d946ef;color:#fff}
+.gs .gs-x.gs-ssbtn.on{background:#d946ef;color:#fff}
 /* barre d'outils au-dessus d'une grille */
 .gs-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .gs-btn{font-size:11px;font-weight:700;padding:6px 13px;border-radius:6px;border:1.5px solid var(--border2);background:var(--white);cursor:pointer;font-family:var(--font);color:var(--text);transition:all .15s}
@@ -7693,11 +7696,11 @@ function progRenderSheet(el,d){
         <td rowspan="${S}" style="min-width:118px">${muscleSelectHtml(ex.muscle,si>=0?`progUpdSupExoMuscle('${key}',${i},${si},this.value)`:`progUpdExoMuscle('${key}',${i},this.value)`)}</td>
         <td rowspan="${S}" style="min-width:130px"><input class="gi" style="text-align:left" value="${esc(ex.notes||'')}" placeholder="—" onchange="progSheetNotes('${key}',${i},${si},this.value)"></td>
         <td rowspan="${S}" style="width:38px">${ex.video&&ytId(ex.video)?`<button class="gs-x" style="color:var(--gold);font-size:13px" onclick="watchVid('${nm}','${ex.video}','')" title="Voir la vidéo">▶</button>`:'<span style="color:var(--text3);font-size:10px">—</span>'}</td>`;
-        if(si<=0)out+=`<td rowspan="${nbRows}" style="width:46px;padding:2px">
+        if(si<=0)out+=`<td rowspan="${nbRows}" style="width:92px;padding:2px">
           <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:1px">
             <button class="gs-x" onclick="progSheetSets('${key}',${i},1)" title="Ajouter une série">＋</button>
             <button class="gs-x" onclick="progSheetSets('${key}',${i},-1)" title="Retirer une série">－</button>
-            ${si<0?`<button class="gs-x" onclick="progMkSuperset('${key}',${i})" title="Convertir en superset">⚡</button>`:`<button class="gs-x" onclick="progAddToSuperset('${key}',${i})" title="Ajouter un exercice au superset" style="${ssTgt?'background:#d946ef;color:#fff;border-radius:4px;':'color:#d946ef;'}font-weight:800">⚡＋</button>`}
+            ${si<0?`<button class="gs-x gs-ssbtn" onclick="progMkSuperset('${key}',${i})" title="Grouper cet exercice en superset, puis choisir le 2e exercice dans la bibliothèque">⚡ Superset</button>`:`<button class="gs-x gs-ssbtn${ssTgt?' on':''}" onclick="progAddToSuperset('${key}',${i})" title="Ajouter un exercice à ce superset">⚡ + exercice</button>`}
             <button class="gs-x" onclick="progDelExo('${key}',${i})" title="${si>=0?'Supprimer tout le superset':"Supprimer l'exercice"}">🗑</button>
           </div></td>`;
       }
@@ -7736,7 +7739,7 @@ function progRenderSheet(el,d){
       <div class="gs-wrap"><table class="gs"><thead><tr>
         <th style="width:34px">#</th><th style="min-width:150px">Exercice</th><th style="min-width:92px">Variant</th>
         <th style="width:26px">Set</th><th style="min-width:74px">Reps</th><th style="min-width:48px">RIR</th>
-        <th style="min-width:92px">Rest</th><th style="min-width:118px">Muscles</th><th style="min-width:130px">Notes</th><th style="width:38px">Vid</th><th style="width:46px"></th>
+        <th style="min-width:92px">Rest</th><th style="min-width:118px">Muscles</th><th style="min-width:130px">Notes</th><th style="width:38px">Vid</th><th style="width:92px">Actions</th>
       </tr></thead><tbody>${rows||`<tr><td colspan="11" style="padding:12px;color:var(--text3)">Aucun exercice — clique sur « + Exercice » puis choisis-en un dans la bibliothèque à droite.</td></tr>`}
       ${isMain?`<tr><td class="gs-lbl" colspan="3">Notes clients</td><td class="gs-plain" colspan="8"><input class="gi" style="text-align:left" value="${esc(d.instr||'')}" placeholder="Notes visibles par le client…" onchange="progDays[progDayIdx].instr=this.value"></td></tr>`:''}
       </tbody></table></div>

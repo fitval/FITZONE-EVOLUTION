@@ -78,6 +78,12 @@
 - **⚠️ Nom du dossier ≠ adresse déployée** : `supabase/functions/notify-discord` est publiée sous l'adresse **`bright-handler`** (nom affiché `notify-discord`, créée le 2026-05-02, v2, secret `DISCORD_RECRUITMENT_WEBHOOK`). Un `functions deploy notify-discord` **créerait un doublon** au lieu de la mettre à jour. Aucun appelant (ni pages, ni triggers, ni cron, 0 webhook de base) : `recruitment.html` visait `/functions/v1/notify-discord`, adresse qui n'a jamais existé, remplacée le même jour par `notify-webhook`. Laissée en place le 16/09, décision (supprimer ou redéployer proprement) à prendre à froid.
 
 ### Points techniques importants
+- **Superset en vue Tableur du programme** : la fonctionnalité existait déjà (`progMkSuperset` / `progAddToSuperset`)
+  mais son bouton était introuvable — `.gs-x` gris sans fond ni bordure, 12px, dans une colonne de 46px partagée avec
+  ＋ − 🗑. Depuis le 19/09/2026 : classe `.gs-ssbtn` (violet #d946ef, encadré, `flex:0 0 100%` donc sur sa propre
+  ligne), libellés « ⚡ Superset » et « ⚡ + exercice », colonne élargie à 92px et intitulée « Actions ». Aucune
+  logique modifiée — c'était un problème de découvrabilité, pas de code manquant. ⚠️ Le builder de SÉANCES, lui,
+  n'a ni vue tableur ni supersets.
 - **Enregistrements vers Supabase (`dbSave`)** : `dbSave` retourne `{ok, message}`. Tout appelant qui affiche un
   « enregistré ✓ » doit `await` le résultat et ne confirmer QUE si `ok` est vrai — sinon le message ment (c'était le
   cas de `saveProg`/`savePlanFull` avant le 19/09/2026 : un programme et un plan alimentaire ont été perdus). Les
