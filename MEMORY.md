@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-08-20 (deload/phase éphémère sur les programmes + tableau de progression client + RIR à virgule)
+**Dernière mise à jour** : 2026-09-19 (fiabilisation des enregistrements Supabase : plus de « enregistré ✓ » mensonger)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -78,6 +78,14 @@
 - **⚠️ Nom du dossier ≠ adresse déployée** : `supabase/functions/notify-discord` est publiée sous l'adresse **`bright-handler`** (nom affiché `notify-discord`, créée le 2026-05-02, v2, secret `DISCORD_RECRUITMENT_WEBHOOK`). Un `functions deploy notify-discord` **créerait un doublon** au lieu de la mettre à jour. Aucun appelant (ni pages, ni triggers, ni cron, 0 webhook de base) : `recruitment.html` visait `/functions/v1/notify-discord`, adresse qui n'a jamais existé, remplacée le même jour par `notify-webhook`. Laissée en place le 16/09, décision (supprimer ou redéployer proprement) à prendre à froid.
 
 ### Points techniques importants
+- **Enregistrements vers Supabase (`dbSave`)** : `dbSave` retourne `{ok, message}`. Tout appelant qui affiche un
+  « enregistré ✓ » doit `await` le résultat et ne confirmer QUE si `ok` est vrai — sinon le message ment (c'était le
+  cas de `saveProg`/`savePlanFull` avant le 19/09/2026 : un programme et un plan alimentaire ont été perdus). Les
+  échecs sont mémorisés dans `localStorage.fz_pending` et réinjectés par `restorePending()` à la fin de
+  `loadAllData()` : sans ça, `loadAllData` écrase `fz_progs`/`fz_plans` avec le contenu de la base et le travail non
+  synchronisé disparaît sans un mot. En cas d'échec, `saveProg`/`savePlanFull` NE ferment PAS le builder et fixent
+  `progEditId`/`pfEditId` pour éviter un doublon au nouvel essai. ⚠️ Les 23 autres appels à `dbSave` ne sont
+  toujours pas attendus : appliquer la même règle si on y touche.
 - Le plan builder (`planBuilderWrap`) est un overlay `position:fixed` z-index 9000, sorti de `page-nut-plans`, utilisable depuis n'importe où (fiche client, page plans)
 - `pfFromClient` flag : quand on ouvre le builder depuis la fiche client, `closePlanBuilder()` revient à la fiche client au lieu de la page Plans
 - `editClientPlan()` charge le plan directement depuis Supabase (évite les problèmes de matching ID bigint entre cache local et Supabase)

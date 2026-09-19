@@ -2369,6 +2369,32 @@ async function dbLoad(table){
   }
 }
 
+/* ===== FILET DE SECURITE : elements non enregistres dans Supabase =====
+   Avant : un enregistrement qui echouait laissait l'element uniquement dans le
+   navigateur, et loadAllData() ecrasait ce cache au rechargement suivant avec le
+   contenu de la base -> le travail disparaissait sans un mot.
+   Maintenant : tout echec est memorise dans 'fz_pending' et reinjecte au chargement. */
+function pendingGet(){try{return JSON.parse(localStorage.getItem('fz_pending'))||{};}catch{return{};}}
+function pendingSave(p){try{localStorage.setItem('fz_pending',JSON.stringify(p));}catch(e){console.warn('pending save failed',e);}}
+function pendingAdd(table,item){const p=pendingGet();const a=p[table]||[];const i=a.findIndex(x=>x.id===item.id);if(i>=0)a[i]=item;else a.push(item);p[table]=a;pendingSave(p);}
+function pendingRemove(table,id){const p=pendingGet();if(!p[table])return;p[table]=p[table].filter(x=>x.id!==id);if(!p[table].length)delete p[table];pendingSave(p);}
+function pendingCount(){const p=pendingGet();return Object.values(p).reduce((n,a)=>n+a.length,0);}
+function restorePending(){
+  const p=pendingGet();let n=0;
+  Object.keys(p).forEach(table=>{
+    const m=DB_MAP[table];if(!m)return;
+    const arr=window[m.arr]||[];
+    (p[table]||[]).forEach(item=>{
+      const i=arr.findIndex(x=>x.id===item.id);
+      if(i>=0)arr[i]=item;else arr.push(item);
+      n++;
+    });
+    window[m.arr]=arr;lsSave(m.ls,arr);
+  });
+  if(n)setTimeout(()=>toast('\u26a0\ufe0f '+n+' element(s) jamais enregistre(s) dans le cloud \u2014 rouvre-les et enregistre a nouveau'),1500);
+  return n;
+}
+
 async function dbSave(table,item){
   const m=DB_MAP[table];if(!m)return;
   if(!item.coach_id&&currentCoach)item.coach_id=currentCoach.id;
@@ -2389,6 +2415,7 @@ async function dbSave(table,item){
     row.clients_data=row.clients||row.clients_data||[];
     delete row.first;delete row.last;delete row.clients;
   }
+  let echec=null;
   try{
     let{error}=await db.from(table).upsert(row,{onConflict:'id'});
     // Si l'erreur est RLS et que la session a peut-être expiré, on rafraîchit et réessaie une fois
@@ -2408,13 +2435,17 @@ async function dbSave(table,item){
       } else {
         toast('⚠️ Erreur Supabase: '+error.message);
       }
+      echec=error.message||'erreur inconnue';
     } else console.log('✅ dbSave OK:',table,row.id);
-  }catch(e){console.warn('dbSave exception:',table,e);}
+  }catch(e){console.warn('dbSave exception:',table,e);echec=e.message||'erreur reseau';}
   // Always update localStorage too
   const arr=window[m.arr]||[];
   const idx=arr.findIndex(a=>a.id===item.id);
   if(idx>=0)arr[idx]=item;else arr.push(item);
   lsSave(m.ls,arr);
+  // Memorise l'echec pour que le cache local ne soit pas ecrase au prochain chargement
+  if(echec)pendingAdd(table,item);else pendingRemove(table,item.id);
+  return {ok:!echec,message:echec};
 }
 
 async function dbDelete(table,id){
@@ -2502,6 +2533,8 @@ async function loadAllData(){
   lsSave('fz_exos',exos);lsSave('fz_progs',progs);lsSave('fz_alims',alims);
   lsSave('fz_repas',repas);lsSave('fz_plans',plans);lsSave('fz_modules',modules);
   lsSave('fz_team',team);lsSave('fz_seances',seances);
+  // Reinjecte ce qui n'a jamais pu partir vers Supabase, au lieu de l'ecraser
+  restorePending();
   // Load gamification data for all clients
   await loadCoachGamification();
   // Load settings
@@ -6588,7 +6621,7 @@ function pfSaveInlineRepas(){
   }
   pfRenderRepasList();toast(nom+' créé et ajouté ✓');
 }
-function savePlanFull(){
+async function savePlanFull(){
   const nom=document.getElementById('pfNom')?.value.trim();if(!nom){toast('Nom du plan requis');return;}
   if(!currentCoach||!currentCoach.id){toast('Session expirée — reconnecte-toi');return;}
   const t=pfCalcTotal();
@@ -6601,7 +6634,10 @@ function savePlanFull(){
   const plan={id:pfEditId||Date.now(),coach_id:coachId,type:'full',nom,clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:pfClients.map(c=>c.id),clientNoms:pfClients.map(c=>c.first_name+' '+c.last_name),kcal:Math.round(t.k/nDays),prot:Math.round(t.p/nDays),carb:Math.round(t.g/nDays),fat:Math.round(t.l/nDays),hide_macros:hideMacros,allow_swaps:allowSwaps,visible_client:existing?existing.visible_client!==false:true,jours:JSON.parse(JSON.stringify(pfDays)),createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
   const isNewPlan=!pfEditId;
   if(pfEditId){const i=plans.findIndex(p=>p.id===pfEditId);if(i>=0)plans[i]=plan;else plans.push(plan);}else plans.push(plan);
-  lsSave('fz_plans',plans);dbSave('plans_full',plan);closePlanBuilder();renderPlansListPage();toast('Plan enregistré ✓');
+  lsSave('fz_plans',plans);
+  const res=await dbSave('plans_full',plan);
+  if(!res||!res.ok){pfEditId=plan.id;toast('\u274c Plan NON enregistre dans le cloud \u2014 ne ferme pas cette fenetre, reessaie. '+((res&&res.message)||''));return;}
+  closePlanBuilder();renderPlansListPage();toast('Plan enregistré ✓');
   if(isNewPlan)(plan.clientIds||[]).forEach(cid=>triggerClientEmail('nutrition_plan_ready',cid,{plan_name:plan.nom}));
 }
 function _planDailyAvg(p){
@@ -8353,7 +8389,7 @@ function progDeloadKeepAll(){
   progDeloadExos().forEach(x=>{progDeload.exos[x.key]=0;});
   progRenderDeload();
 }
-function saveProg(){
+async function saveProg(){
   const nom=document.getElementById('progNom')?.value.trim();if(!nom){toast('Titre requis');return;}
   if(!currentCoach||!currentCoach.id){toast('Session expirée — reconnecte-toi');return;}
   const tags=document.getElementById('progTags')?.value.split(',').map(t=>t.trim()).filter(Boolean);
@@ -8364,7 +8400,10 @@ function saveProg(){
   const prog={id:progEditId||Date.now(),coach_id:coachId,nom,tags,desc:document.getElementById('progDesc')?.value||'',jours:JSON.parse(JSON.stringify(progDays)),clientId:firstCl?.id||null,clientNom:firstCl?(firstCl.first_name+' '+firstCl.last_name):null,clientIds:progClients.map(c=>c.id),clientNoms:progClients.map(c=>c.first_name+' '+c.last_name),visible_client:existing?existing.visible_client!==false:true,deload:(progDeload&&progDeload.active)?progDeload:null,createdAt:existing?.createdAt||existing?.created_at||new Date().toISOString()};
   const isNewProg=!progEditId;
   if(progEditId){const i=progs.findIndex(p=>p.id===progEditId);if(i>=0)progs[i]=prog;else progs.push(prog);}else progs.push(prog);
-  lsSave('fz_progs',progs);dbSave('programs',prog);closeProgBuilder();toast('Programme enregistré ✓');
+  lsSave('fz_progs',progs);
+  const res=await dbSave('programs',prog);
+  if(!res||!res.ok){progEditId=prog.id;toast('\u274c Programme NON enregistre dans le cloud \u2014 ne ferme pas cette fenetre, reessaie. '+((res&&res.message)||''));return;}
+  closeProgBuilder();toast('Programme enregistré ✓');
   if(isNewProg)(prog.clientIds||[]).forEach(cid=>triggerClientEmail('program_ready',cid,{program_name:prog.nom}));
 }
 function calcVolSemaine(jours){
