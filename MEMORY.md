@@ -523,3 +523,20 @@ jour), avec des jauges d'objectifs — l'équivalent de l'app **Pixa**. Livré e
 - Testé au navigateur (Playwright) sur une **copie instrumentée avec un faux Supabase** : création
   depuis un modèle, grille (372 cases), saisie, case bicolore, éditeur, suivi privé, suppression —
   aucune erreur console. `version.json` bumpé.
+- **Palier 2 — visualisations** (même jour) : barre de vues `Année · Mois · Donut · Courbe`
+  (`hbView`), tout en **SVG inline** comme `renderChart()` — aucune bibliothèque, aucun CDN.
+  - `hbDonutHtml` : anneau en `stroke-dasharray` sur un cercle, **2 px de fond entre deux parts**,
+    total au centre, légende chiffrée (jours + %).
+  - `hbLineHtml` : une ligne par couleur sur 12 mois. ⚠️ Pour l'année en cours la série **s'arrête
+    au mois courant** (sinon la courbe plonge à zéro sur des mois pas encore vécus) et les mois à
+    venir sont estompés en abscisse ; échelle arrondie à un pas entier (`step=ceil(mx/3)`).
+  - `hbDowHtml` : barres **empilées** par jour de semaine (7 barres plutôt que 7×N barres fines),
+    2 px de fond entre segments, total au-dessus.
+  - `hbMonthHtml` : calendrier du mois, numéro du jour posé sur la couleur ; `hbInk()` choisit
+    l'encre noire ou blanche selon la luminance de la couleur choisie par la cliente (sinon un
+    numéro sombre sur `#1f2937` serait illisible).
+  - `hbStatsBar` : jours remplis, moyenne par semaine, moyenne par mois — divisées par le temps
+    **réellement écoulé** dans l'année (`hbElapsed`), jamais par 52 semaines en septembre.
+  - Règles de dataviz suivies : légende toujours présente dès 2 séries (l'identité ne repose jamais
+    sur la couleur seule), textes en couleurs de texte du thème et non en couleur de série, pas de
+    double axe, marques fines. Les couleurs viennent de la cliente : aucune palette imposée.

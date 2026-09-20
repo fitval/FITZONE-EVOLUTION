@@ -437,6 +437,26 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .hb-pick { display:flex; align-items:center; gap:12px; padding:12px; border-radius:12px; border:1px solid var(--border); margin-bottom:8px; cursor:pointer; background:var(--white); }
 .hb-pick.on { border-color:var(--text2); background:var(--bg2); }
 .hb-pick-sw { width:26px; height:26px; border-radius:8px; flex-shrink:0; }
+.hb-views { display:flex; gap:5px; background:var(--bg2); border-radius:11px; padding:3px; margin-bottom:16px; }
+.hb-vb { flex:1; border:none; background:none; border-radius:9px; padding:8px 4px; font-size:11.5px; font-weight:700; font-family:var(--font); color:var(--text3); cursor:pointer; }
+.hb-vb.on { background:var(--white); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.hb-stats { display:flex; gap:8px; margin-bottom:16px; }
+.hb-stat { flex:1; background:var(--white); border:1px solid var(--border); border-radius:12px; padding:11px 10px; text-align:center; }
+.hb-stat-v { font-size:18px; font-weight:800; }
+.hb-stat-l { font-size:10px; color:var(--text3); margin-top:2px; line-height:1.3; }
+.hb-chart { background:var(--white); border:1px solid var(--border); border-radius:var(--r-sm); padding:14px; margin-bottom:12px; }
+.hb-chart-t { font-size:12px; font-weight:700; color:var(--text3); margin-bottom:10px; }
+.hb-lg { display:flex; align-items:center; gap:9px; padding:6px 0; }
+.hb-lg-sw { width:14px; height:14px; border-radius:4px; flex-shrink:0; }
+.hb-lg-nm { flex:1; font-size:13px; font-weight:600; }
+.hb-lg-v { font-size:12.5px; color:var(--text3); font-variant-numeric:tabular-nums; }
+.hb-mnav { display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:12px; }
+.hb-mgrid { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
+.hb-mlb { font-size:10px; color:var(--text3); text-align:center; font-weight:700; padding-bottom:2px; }
+.hb-mcell { aspect-ratio:1; border-radius:9px; background:var(--bg2); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; color:var(--text3); cursor:pointer; }
+.hb-mcell.off { background:transparent; cursor:default; }
+.hb-mcell.today { box-shadow:0 0 0 1.5px var(--text2); }
+.hb-empty { font-size:13px; color:var(--text3); text-align:center; padding:26px 10px; line-height:1.5; }
 .hb-tpl { display:flex; align-items:center; gap:11px; padding:12px 13px; border-radius:12px; border:1px dashed var(--border); margin-bottom:9px; cursor:pointer; }
 
 @media (min-width:430px) { .scroll-area { max-width:430px; margin:0 auto; } .tab-bar { max-width:430px; left:50%; transform:translateX(-50%); border-radius:20px 20px 0 0; } }
@@ -2476,6 +2496,7 @@ const HB_TEMPLATES=[
   {nom:'Ma journée',emoji:'⭐',priv:false,options:[{label:'1 étoile',color:'#ef4444'},{label:'2 étoiles',color:'#fb923c'},{label:'3 étoiles',color:'#fde047'},{label:'4 étoiles',color:'#a7f3a0'},{label:'5 étoiles',color:'#10b981'}]}
 ];
 let habitTrackers=[],habitEntries={},habitYear=new Date().getFullYear(),curTrackerId=null,hbDraft=null,hbPalIdx=-1,hbLoaded=false;
+let hbView='year',hbMonth=new Date().getMonth();   // vue affichée : year | month | donut | curve
 function hbEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function hbCur(){return habitTrackers.find(t=>String(t.id)===String(curTrackerId))||null;}
 function hbDays(t){const e=habitEntries[t.id]||{};return Object.keys(e).filter(d=>(e[d]||[]).length).length;}
@@ -2522,12 +2543,16 @@ async function hbSetYear(delta){habitYear+=delta;await loadHabits();renderTracke
 
 function renderTrackerDetail(){
   const t=hbCur();if(!t)return renderTrackerTab();
-  const n=hbDays(t);
+  const st=hbStats(t);
   let h=`<div style="padding-top:20px"><button class="back-btn" onclick="hbBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Mes suivis</button></div>`;
   h+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><div style="flex:1;font-size:22px;font-weight:800">${hbEsc(t.emoji||'')} ${hbEsc(t.nom)}${t.private?' 🔒':''}</div><button onclick="hbEdit()" style="border:1px solid var(--border);background:var(--white);border-radius:10px;padding:6px 12px;font-size:12px;font-weight:700;font-family:var(--font);color:var(--text);cursor:pointer">Modifier</button></div>`;
-  h+=`<div style="font-size:12.5px;color:var(--text3);margin-bottom:14px">${n} jour${n>1?'s':''} rempli${n>1?'s':''}</div>`;
-  h+=`<div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:14px"><button class="cal-nav-btn" onclick="hbSetYear(-1)">‹</button><div style="font-size:16px;font-weight:800">${habitYear}</div><button class="cal-nav-btn" onclick="hbSetYear(1)">›</button></div>`;
-  h+=hbGridHtml(t);
+  h+=`<div style="font-size:12.5px;color:var(--text3);margin-bottom:14px">${st.days} jour${st.days>1?'s':''} rempli${st.days>1?'s':''} en ${habitYear}</div>`;
+  h+=`<div class="hb-views">`+[['year','Année'],['month','Mois'],['donut','Donut'],['curve','Courbe']].map(v=>`<button class="hb-vb${hbView===v[0]?' on':''}" onclick="hbSetView('${v[0]}')">${v[1]}</button>`).join('')+`</div>`;
+  if(hbView!=='month')h+=`<div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:14px"><button class="cal-nav-btn" onclick="hbSetYear(-1)">‹</button><div style="font-size:16px;font-weight:800">${habitYear}</div><button class="cal-nav-btn" onclick="hbSetYear(1)">›</button></div>`;
+  if(hbView==='year')h+=hbGridHtml(t);
+  else if(hbView==='month')h+=hbMonthHtml(t);
+  else if(hbView==='donut')h+=hbStatsBar(t,st)+hbDonutHtml(t,st);
+  else h+=hbStatsBar(t,st)+(st.days?hbLineHtml(t,st)+hbDowHtml(t,st):`<div class="hb-chart"><div class="hb-empty">Rien à montrer pour ${habitYear}.<br>Colorie quelques journées et les graphiques se rempliront.</div></div>`);
   h+=`<button class="btn-gold" onclick="hbOpenDay('${today()}')" style="margin-top:20px;margin-bottom:40px">Colorier aujourd'hui</button>`;
   document.getElementById('trackerContent').innerHTML=h;
 }
@@ -2557,6 +2582,157 @@ function hbGridHtml(t){
   h+=`<div class="hb-leg-add" onclick="hbEdit()" title="Ajouter une couleur">+</div></div></div>`;
   return h;
 }
+
+/* --- Visualisations d'un suivi : année, mois, donut, courbe ---
+   Tout est dessiné en SVG inline, comme renderChart() : pas de bibliothèque, pas de CDN.
+   Les couleurs viennent de la cliente (t.options), donc jamais de palette imposée ici ; en
+   revanche l'identité n'est jamais portée par la couleur seule (légende + libellés chiffrés),
+   les textes gardent les couleurs de texte du thème, et le texte posé SUR une couleur choisit
+   noir ou blanc selon sa luminance (hbInk). */
+const HB_MONTHS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const HB_MSHORT=['J','F','M','A','M','J','J','A','S','O','N','D'];
+const HB_DOW=['L','M','M','J','V','S','D'];
+function hbInk(hex){
+  const c=String(hex||'').replace('#','');
+  if(c.length!==6)return '#fff';
+  const f=i=>{const v=parseInt(c.substr(i,2),16)/255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);};
+  return (.2126*f(0)+.7152*f(2)+.0722*f(4))>.45?'#12100e':'#ffffff';
+}
+function hbStats(t){
+  const ent=habitEntries[t.id]||{},counts={},byMonth={},byDow={};
+  let days=0;
+  (t.options||[]).forEach(o=>{counts[o.key]=0;byMonth[o.key]=new Array(12).fill(0);byDow[o.key]=new Array(7).fill(0);});
+  Object.keys(ent).forEach(ds=>{
+    const keys=(ent[ds]||[]).filter(k=>counts[k]!==undefined);
+    if(!keys.length)return;
+    days++;
+    const d=new Date(ds+'T12:00:00'),m=d.getMonth(),w=(d.getDay()+6)%7;
+    keys.forEach(k=>{counts[k]++;byMonth[k][m]++;byDow[k][w]++;});
+  });
+  return{counts:counts,byMonth:byMonth,byDow:byDow,days:days};
+}
+// Semaines et mois réellement écoulés dans l'année affichée (pour des moyennes honnêtes :
+// en septembre on divise par 38 semaines, pas par 52).
+function hbElapsed(){
+  const now=new Date();
+  if(habitYear<now.getFullYear())return{w:52.18,m:12};
+  if(habitYear>now.getFullYear())return{w:1,m:1};
+  const days=Math.floor((now-new Date(habitYear,0,1))/86400000)+1;
+  return{w:Math.max(days/7,1),m:now.getMonth()+1};
+}
+function hbNum(v){return (Math.round(v*10)/10).toString().replace('.',',');}
+
+function hbStatsBar(t,st){
+  const el=hbElapsed();
+  return `<div class="hb-stats"><div class="hb-stat"><div class="hb-stat-v">${st.days}</div><div class="hb-stat-l">jours remplis</div></div>`+
+    `<div class="hb-stat"><div class="hb-stat-v">${hbNum(st.days/el.w)}</div><div class="hb-stat-l">par semaine<br>en moyenne</div></div>`+
+    `<div class="hb-stat"><div class="hb-stat-v">${hbNum(st.days/el.m)}</div><div class="hb-stat-l">par mois<br>en moyenne</div></div></div>`;
+}
+function hbLegend(t,st,total){
+  return (t.options||[]).map(o=>{
+    const v=st.counts[o.key]||0;
+    const pct=total?Math.round(v/total*1000)/10:0;
+    return `<div class="hb-lg"><div class="hb-lg-sw" style="background:${hbEsc(o.color)}"></div><div class="hb-lg-nm">${hbEsc(o.label)}</div><div class="hb-lg-v">${v} j · ${hbNum(pct)} %</div></div>`;
+  }).join('');
+}
+
+function hbDonutHtml(t,st){
+  const opts=(t.options||[]).filter(o=>(st.counts[o.key]||0)>0);
+  const total=opts.reduce((s,o)=>s+st.counts[o.key],0);
+  if(!total)return `<div class="hb-chart"><div class="hb-empty">Rien à montrer pour ${habitYear}.<br>Colorie quelques journées et les graphiques se rempliront.</div></div>`;
+  const R=56,SW=22,C=2*Math.PI*R,cx=80,cy=80;
+  let off=0,arcs='';
+  opts.forEach(o=>{
+    const len=st.counts[o.key]/total*C;
+    const draw=Math.max(len-2,0.6);                 // 2 px de fond entre deux parts
+    arcs+=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${hbEsc(o.color)}" stroke-width="${SW}" stroke-dasharray="${draw} ${C-draw}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    off+=len;
+  });
+  let h=`<div class="hb-chart"><div class="hb-chart-t">Répartition de l'année</div>`;
+  h+=`<svg viewBox="0 0 160 160" style="width:170px;height:170px;display:block;margin:0 auto 6px"><circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="var(--bg2)" stroke-width="${SW}"/>${arcs}<text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="26" font-weight="800" fill="var(--text)">${total}</text><text x="${cx}" y="${cy+16}" text-anchor="middle" font-size="10" fill="var(--text3)">coloriages</text></svg>`;
+  h+=hbLegend(t,st,total)+`</div>`;
+  return h;
+}
+
+function hbLineHtml(t,st){
+  const opts=(t.options||[]).filter(o=>(st.counts[o.key]||0)>0);
+  if(!opts.length)return '';
+  const W=340,H=178,pl=22,pr=8,pt=12,pb=26;
+  // L'année en cours s'arrête au mois courant : une ligne qui plonge à zéro sur des mois
+  // pas encore vécus ferait croire à un décrochage.
+  const now=new Date();
+  const last=habitYear===now.getFullYear()?now.getMonth():11;
+  let mx=1;opts.forEach(o=>st.byMonth[o.key].slice(0,last+1).forEach(v=>{if(v>mx)mx=v;}));
+  const step=Math.ceil(mx/3);mx=step*3;                 // graduations entières et régulières
+  const x=i=>pl+i*(W-pl-pr)/11, y=v=>H-pb-(v/mx)*(H-pt-pb);
+  let grid='';
+  for(let i=0;i<=3;i++){
+    const v=step*i,yy=y(v);
+    grid+=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="var(--border)" stroke-dasharray="3"/><text x="${pl-4}" y="${yy+3.5}" font-size="9" fill="var(--text3)" text-anchor="end">${v}</text>`;
+  }
+  let lines='';
+  opts.forEach(o=>{
+    const serie=st.byMonth[o.key].slice(0,last+1);
+    const pts=serie.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+    lines+=serie.length>1?`<polyline points="${pts}" fill="none" stroke="${hbEsc(o.color)}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`:'';
+    lines+=serie.map((v,i)=>v?`<circle cx="${x(i)}" cy="${y(v)}" r="2.6" fill="${hbEsc(o.color)}"/>`:'').join('');
+  });
+  const labs=HB_MSHORT.map((m,i)=>`<text x="${x(i)}" y="${H-8}" font-size="9" fill="var(--text3)" opacity="${i<=last?1:.35}" text-anchor="middle">${m}</text>`).join('');
+  return `<div class="hb-chart"><div class="hb-chart-t">Mois par mois (nombre de jours)</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${grid}${lines}${labs}</svg>${hbLegend(t,st,0).replace(/ · [\d,]+ %/g,'')}</div>`;
+}
+
+function hbDowHtml(t,st){
+  const opts=(t.options||[]).filter(o=>(st.counts[o.key]||0)>0);
+  if(!opts.length)return '';
+  const tot=HB_DOW.map((_,i)=>opts.reduce((s,o)=>s+st.byDow[o.key][i],0));
+  const mx=Math.max(1,...tot);
+  const W=340,H=150,pt=16,pb=22,bw=26;
+  const x=i=>18+i*(W-30)/7, sc=(H-pt-pb)/mx;
+  let bars='';
+  tot.forEach((total,i)=>{
+    let acc=0;
+    opts.forEach(o=>{
+      const v=st.byDow[o.key][i];if(!v)return;
+      const hgt=v*sc-2;                              // 2 px de fond entre deux segments
+      if(hgt<=0){acc+=v;return;}
+      const yy=H-pb-(acc+v)*sc+2;
+      bars+=`<rect x="${x(i)}" y="${yy}" width="${bw}" height="${hgt}" rx="4" fill="${hbEsc(o.color)}"/>`;
+      acc+=v;
+    });
+    if(total)bars+=`<text x="${x(i)+bw/2}" y="${H-pb-total*sc-4}" font-size="9.5" font-weight="700" fill="var(--text2)" text-anchor="middle">${total}</text>`;
+    bars+=`<text x="${x(i)+bw/2}" y="${H-7}" font-size="10" fill="var(--text3)" text-anchor="middle">${HB_DOW[i]}</text>`;
+  });
+  return `<div class="hb-chart"><div class="hb-chart-t">Par jour de la semaine</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><line x1="14" y1="${H-pb}" x2="${W-8}" y2="${H-pb}" stroke="var(--border)"/>${bars}</svg></div>`;
+}
+
+function hbMonthHtml(t){
+  const ent=habitEntries[t.id]||{},cmap={};
+  (t.options||[]).forEach(o=>{cmap[o.key]=o.color;});
+  const first=new Date(habitYear,hbMonth,1);
+  let start=first.getDay()-1;if(start<0)start=6;
+  const dim=new Date(habitYear,hbMonth+1,0).getDate(),td=today();
+  let h=`<div class="hb-mnav"><button class="cal-nav-btn" onclick="hbShiftMonth(-1)">‹</button><div style="font-size:15px;font-weight:800;min-width:150px;text-align:center">${HB_MONTHS[hbMonth]} ${habitYear}</div><button class="cal-nav-btn" onclick="hbShiftMonth(1)">›</button></div>`;
+  h+=`<div class="hb-mgrid">${HB_DOW.map(d=>`<div class="hb-mlb">${d}</div>`).join('')}`;
+  for(let i=0;i<start;i++)h+=`<div class="hb-mcell off"></div>`;
+  for(let d=1;d<=dim;d++){
+    const ds=habitYear+'-'+String(hbMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const keys=(ent[ds]||[]).filter(k=>cmap[k]);
+    let st='',ink='';
+    if(keys.length===1){st=`background:${cmap[keys[0]]};`;ink=`color:${hbInk(cmap[keys[0]])};`;}
+    else if(keys.length>1){st=`background:linear-gradient(135deg,${cmap[keys[0]]} 50%,${cmap[keys[1]]} 50%);`;ink=`color:${hbInk(cmap[keys[0]])};`;}
+    h+=`<div class="hb-mcell${ds===td?' today':''}" style="${st}${ink}" onclick="hbOpenDay('${ds}')">${d}</div>`;
+  }
+  h+=`</div>`;
+  h+=`<div style="margin-top:16px">${(t.options||[]).map(o=>`<div class="hb-lg"><div class="hb-lg-sw" style="background:${hbEsc(o.color)}"></div><div class="hb-lg-nm">${hbEsc(o.label)}</div></div>`).join('')}</div>`;
+  return h;
+}
+function hbShiftMonth(d){
+  hbMonth+=d;
+  if(hbMonth<0){hbMonth=11;habitYear--;loadHabits().then(renderTrackerDetail);return;}
+  if(hbMonth>11){hbMonth=0;habitYear++;loadHabits().then(renderTrackerDetail);return;}
+  renderTrackerDetail();
+}
+function hbSetView(v){hbView=v;renderTrackerDetail();}
 
 function hbOpenDay(ds){
   const t=hbCur();if(!t)return;
