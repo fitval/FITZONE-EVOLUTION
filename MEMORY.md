@@ -540,3 +540,22 @@ jour), avec des jauges d'objectifs — l'équivalent de l'app **Pixa**. Livré e
   - Règles de dataviz suivies : légende toujours présente dès 2 séries (l'identité ne repose jamais
     sur la couleur seule), textes en couleurs de texte du thème et non en couleur de série, pas de
     double axe, marques fines. Les couleurs viennent de la cliente : aucune palette imposée.
+- **Palier 3 — objectifs** (même jour) : stockés dans `habit_trackers.goals` (jsonb), un objet
+  `{key,label,emoji,option,target,period,by}`. `option:'*'` = toutes les couleurs ;
+  `period` = `year` (total sur l'année) / `month` / `week` ; `by` = `client` ou `coach`.
+  - App cliente : jauges sous chaque suivi et récapitulatif de tous les objectifs sur l'écran
+    « Mes suivis », barre à la couleur de l'option, verte + ✓ quand l'objectif est atteint.
+    Un objectif `by:'coach'` porte « fixé par ton coach » et **n'a pas de bouton Supprimer** —
+    seul le coach le retire. Les objectifs `week` / `month` ne s'affichent que sur l'année en
+    cours (`hbGoalLive`) : sur une année passée, « cette semaine » n'a pas de sens.
+  - Dashboard : nouvel onglet **🎯 Suivis** dans la fiche client (`renderSuivisTab`, préfixe `hbc*`
+    pour éviter toute collision dans un fichier de 15 000 lignes). Le coach y voit la grille
+    annuelle de chaque suivi, les compteurs par couleur, les objectifs (les siens modifiables,
+    ceux de la cliente en lecture), crée un suivi pour elle (`created_by:'coach'`) et fixe des
+    objectifs. Un suivi privé n'affiche **ni grille ni avancement** — ce n'est pas un choix
+    d'affichage, la RLS ne renvoie tout simplement pas ses journées au coach.
+  - Le bandeau orange en tête d'onglet propose d'activer la fonctionnalité si elle est encore
+    masquée : le coach peut préparer suivis et objectifs avant de l'ouvrir à la cliente.
+  - ⚠️ L'emoji de l'onglet et du hero est **🎯** : 🗓️ est déjà pris par l'onglet Roadmap.
+  - Testé au navigateur (Playwright, faux Supabase, deux pages de test reconstruites depuis les
+    fichiers réels par `build_test.py`) : app cliente et dashboard, aucune erreur console.

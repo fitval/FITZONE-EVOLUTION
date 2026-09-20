@@ -437,6 +437,19 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .hb-pick { display:flex; align-items:center; gap:12px; padding:12px; border-radius:12px; border:1px solid var(--border); margin-bottom:8px; cursor:pointer; background:var(--white); }
 .hb-pick.on { border-color:var(--text2); background:var(--bg2); }
 .hb-pick-sw { width:26px; height:26px; border-radius:8px; flex-shrink:0; }
+.hb-goal { display:flex; align-items:center; gap:11px; background:var(--white); border:1px solid var(--border); border-radius:13px; padding:12px; margin-bottom:9px; cursor:pointer; }
+.hb-goal.done { border-color:#10b981; }
+.hb-goal-emo { width:34px; height:34px; border-radius:10px; background:var(--bg2); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+.hb-goal-nm { font-size:13.5px; font-weight:700; }
+.hb-goal-sub { font-size:11px; color:var(--text3); margin-top:1px; }
+.hb-goal-bar { height:7px; border-radius:4px; background:var(--bg2); margin-top:7px; overflow:hidden; }
+.hb-goal-fill { height:100%; border-radius:4px; }
+.hb-goal-v { font-size:12.5px; font-weight:700; color:var(--text2); font-variant-numeric:tabular-nums; flex-shrink:0; }
+.hb-goal-chk { font-size:17px; color:#10b981; flex-shrink:0; }
+.hb-sec-t { font-size:13px; font-weight:800; color:var(--text3); margin:22px 0 10px; text-transform:uppercase; letter-spacing:.4px; }
+.hb-seg { display:flex; gap:6px; margin-bottom:14px; }
+.hb-seg-b { flex:1; border:1px solid var(--border); background:var(--white); border-radius:10px; padding:9px 4px; font-size:11.5px; font-weight:700; font-family:var(--font); color:var(--text3); cursor:pointer; }
+.hb-seg-b.on { border-color:var(--text2); background:var(--bg2); color:var(--text); }
 .hb-views { display:flex; gap:5px; background:var(--bg2); border-radius:11px; padding:3px; margin-bottom:16px; }
 .hb-vb { flex:1; border:none; background:none; border-radius:9px; padding:8px 4px; font-size:11.5px; font-weight:700; font-family:var(--font); color:var(--text3); cursor:pointer; }
 .hb-vb.on { background:var(--white); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.08); }
@@ -2533,6 +2546,7 @@ function renderTrackerTab(){
       h+=`<div class="hb-tpl" onclick="hbFromTemplate(${i})"><div class="hb-card-emo">${tp.emoji}</div><div style="flex:1"><div class="hb-card-nm">${hbEsc(tp.nom)}${tp.priv?' 🔒':''}</div><div class="hb-sws">${tp.options.map(o=>`<div class="hb-sw" style="background:${o.color}"></div>`).join('')}</div></div><div style="font-size:20px;color:var(--text3)">+</div></div>`;
     });
   }
+  h+=hbAllGoalsHtml();
   h+=`<button class="btn-gold" onclick="hbNew()" style="margin-top:14px;margin-bottom:40px">+ Nouveau suivi</button>`;
   el.innerHTML=h;
 }
@@ -2553,6 +2567,7 @@ function renderTrackerDetail(){
   else if(hbView==='month')h+=hbMonthHtml(t);
   else if(hbView==='donut')h+=hbStatsBar(t,st)+hbDonutHtml(t,st);
   else h+=hbStatsBar(t,st)+(st.days?hbLineHtml(t,st)+hbDowHtml(t,st):`<div class="hb-chart"><div class="hb-empty">Rien à montrer pour ${habitYear}.<br>Colorie quelques journées et les graphiques se rempliront.</div></div>`);
+  h+=hbGoalsHtml(t);
   h+=`<button class="btn-gold" onclick="hbOpenDay('${today()}')" style="margin-top:20px;margin-bottom:40px">Colorier aujourd'hui</button>`;
   document.getElementById('trackerContent').innerHTML=h;
 }
@@ -2581,6 +2596,136 @@ function hbGridHtml(t){
   opts.forEach(o=>{h+=`<div class="hb-leg-lb">${hbEsc(o.label)}</div><div class="hb-leg-sw" style="background:${hbEsc(o.color)}"></div>`;});
   h+=`<div class="hb-leg-add" onclick="hbEdit()" title="Ajouter une couleur">+</div></div></div>`;
   return h;
+}
+
+/* --- Objectifs ---
+   Un objectif vit dans habit_trackers.goals (jsonb) :
+   {key, label, emoji, option ('*' = toutes les couleurs), target (nombre), period, by}
+   period : 'year' (total sur l'année) | 'month' (chaque mois) | 'week' (chaque semaine).
+   by : 'client' ou 'coach'. Un objectif fixé par le coach n'est pas supprimable depuis l'app :
+   la cliente le voit et le remplit, seul le coach le retire depuis son dashboard. */
+const HB_PERIODS={year:'sur l\'année',month:'ce mois-ci',week:'cette semaine'};
+let hbGDraft=null;
+function hbWeekStart(d){const x=new Date(d);const k=(x.getDay()+6)%7;x.setDate(x.getDate()-k);x.setHours(12,0,0,0);return x;}
+function hbGoalRange(period){
+  const now=new Date();
+  if(period==='week'){const s=hbWeekStart(now),e=new Date(s);e.setDate(s.getDate()+6);return[localDateStr(s),localDateStr(e)];}
+  if(period==='month'){const y=now.getFullYear(),m=now.getMonth();return[localDateStr(new Date(y,m,1)),localDateStr(new Date(y,m+1,0))];}
+  return[habitYear+'-01-01',habitYear+'-12-31'];
+}
+// Les objectifs se lisent sur l'année chargée. Sur une année passée, « cette semaine » et
+// « ce mois-ci » n'ont pas de sens : on ne les affiche pas plutôt que d'afficher un faux zéro.
+function hbGoalLive(g){return g.period==='year'||habitYear===new Date().getFullYear();}
+function hbGoalProgress(t,g){
+  const ent=habitEntries[t.id]||{};
+  const r=hbGoalRange(g.period);
+  let n=0;
+  Object.keys(ent).forEach(ds=>{
+    if(ds<r[0]||ds>r[1])return;
+    const keys=ent[ds]||[];
+    if(g.option==='*'?keys.length:keys.indexOf(g.option)>=0)n++;
+  });
+  const target=Math.max(1,parseInt(g.target)||1);
+  return{n:n,target:target,pct:Math.min(100,Math.round(n/target*100)),done:n>=target};
+}
+function hbGoalColor(t,g){
+  if(g.option==='*')return 'var(--gold)';
+  const o=(t.options||[]).find(x=>x.key===g.option);
+  return o?o.color:'var(--gold)';
+}
+function hbGoalLabel(t,g){
+  if((g.label||'').trim())return g.label.trim();
+  const o=(t.options||[]).find(x=>x.key===g.option);
+  return (o?o.label:'toutes mes journées')+' · '+g.target+' fois '+HB_PERIODS[g.period];
+}
+function hbGoalHtml(t,g,i,withTracker){
+  if(!hbGoalLive(g))return '';
+  const p=hbGoalProgress(t,g),c=hbGoalColor(t,g);
+  return `<div class="hb-goal${p.done?' done':''}" onclick="hbGoalEdit('${t.id}',${i})"><div class="hb-goal-emo">${hbEsc(g.emoji||'🎯')}</div>`+
+    `<div style="flex:1;min-width:0"><div class="hb-goal-nm">${hbEsc(hbGoalLabel(t,g))}</div>`+
+    `<div class="hb-goal-sub">${[withTracker?hbEsc(t.nom):'',(g.label||'').trim()?HB_PERIODS[g.period]:'',g.by==='coach'?'fixé par ton coach':''].filter(Boolean).join(' · ')}</div>`+
+    `<div class="hb-goal-bar"><div class="hb-goal-fill" style="width:${p.pct}%;background:${p.done?'#10b981':c}"></div></div></div>`+
+    `<div class="hb-goal-v">${p.n} / ${p.target}</div>${p.done?'<div class="hb-goal-chk">✓</div>':''}</div>`;
+}
+function hbGoalsHtml(t){
+  const gs=t.goals||[];
+  let h=`<div class="hb-sec-t">Mes objectifs</div>`;
+  const rows=gs.map((g,i)=>hbGoalHtml(t,g,i,false)).join('');
+  h+=rows||`<div style="font-size:12.5px;color:var(--text3);margin-bottom:10px">Aucun objectif pour ce suivi.</div>`;
+  h+=`<button onclick="hbGoalNew('${t.id}')" style="border:1px dashed var(--border);background:none;border-radius:11px;padding:10px;width:100%;font-size:13px;font-weight:700;font-family:var(--font);color:var(--text2);cursor:pointer">+ Ajouter un objectif</button>`;
+  return h;
+}
+function hbAllGoalsHtml(){
+  let rows='';
+  habitTrackers.forEach(t=>(t.goals||[]).forEach((g,i)=>{rows+=hbGoalHtml(t,g,i,true);}));
+  return rows?`<div class="hb-sec-t">Mes objectifs</div>${rows}`:'';
+}
+function hbGoalNew(tid){
+  const t=habitTrackers.find(x=>String(x.id)===String(tid));if(!t)return;
+  hbGDraft={tid:tid,idx:-1,label:'',emoji:'🎯',option:(t.options&&t.options[0]?t.options[0].key:'*'),target:10,period:'year',by:'client'};
+  hbGoalEditor();
+}
+function hbGoalEdit(tid,i){
+  const t=habitTrackers.find(x=>String(x.id)===String(tid));if(!t)return;
+  const g=(t.goals||[])[i];if(!g)return;
+  hbGDraft={tid:tid,idx:i,label:g.label||'',emoji:g.emoji||'🎯',option:g.option||'*',target:g.target||10,period:g.period||'year',by:g.by||'client'};
+  hbGoalEditor();
+}
+function hbGSync(){
+  if(!hbGDraft)return;
+  const l=document.getElementById('hbGLab');if(l)hbGDraft.label=l.value;
+  const e=document.getElementById('hbGEmo');if(e)hbGDraft.emoji=e.value;
+  const n=document.getElementById('hbGNum');if(n)hbGDraft.target=Math.max(1,parseInt(n.value)||1);
+}
+function hbGSet(field,val){hbGSync();hbGDraft[field]=val;hbGoalEditor();}
+function hbGoalEditor(){
+  if(!hbGDraft)return;
+  const t=habitTrackers.find(x=>String(x.id)===String(hbGDraft.tid));if(!t)return;
+  const coachSet=hbGDraft.by==='coach';
+  let h=`<div style="background:var(--white);color:var(--text);border-radius:16px;padding:18px;max-width:440px;max-height:86vh;overflow:auto;margin:auto;text-align:left">`;
+  h+=`<div style="font-size:18px;font-weight:800;margin-bottom:4px">${hbGDraft.idx<0?'Nouvel objectif':'Modifier l\'objectif'}</div>`;
+  h+=`<div style="font-size:12.5px;color:var(--text3);margin-bottom:16px">${hbEsc(t.nom)}${coachSet?' · fixé par ton coach':''}</div>`;
+  h+=`<div style="display:flex;gap:10px;margin-bottom:14px"><input id="hbGEmo" class="form-input" maxlength="2" value="${hbEsc(hbGDraft.emoji)}" style="width:62px;text-align:center;font-size:18px"><input id="hbGLab" class="form-input" placeholder="Nom de l'objectif (facultatif)" value="${hbEsc(hbGDraft.label)}" style="flex:1"></div>`;
+  h+=`<div class="form-label" style="margin-bottom:8px">Je compte</div>`;
+  h+=`<div class="hb-seg" style="flex-wrap:wrap">`;
+  (t.options||[]).forEach(o=>{h+=`<button class="hb-seg-b${hbGDraft.option===o.key?' on':''}" style="flex:none;padding:8px 11px" onclick="hbGSet('option','${o.key}')"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${hbEsc(o.color)};margin-right:6px;vertical-align:-1px"></span>${hbEsc(o.label)}</button>`;});
+  h+=`<button class="hb-seg-b${hbGDraft.option==='*'?' on':''}" style="flex:none;padding:8px 11px" onclick="hbGSet('option','*')">toutes</button></div>`;
+  h+=`<div class="form-label" style="margin-bottom:8px">Combien de fois</div>`;
+  h+=`<input id="hbGNum" class="form-input" type="number" inputmode="numeric" min="1" value="${parseInt(hbGDraft.target)||1}" style="margin-bottom:14px">`;
+  h+=`<div class="form-label" style="margin-bottom:8px">Sur quelle période</div><div class="hb-seg">`;
+  [['year','Sur l\'année'],['month','Chaque mois'],['week','Chaque semaine']].forEach(pd=>{
+    h+=`<button class="hb-seg-b${hbGDraft.period===pd[0]?' on':''}" onclick="hbGSet('period','${pd[0]}')">${pd[1]}</button>`;
+  });
+  h+=`</div>`;
+  h+=`<button class="btn-gold" onclick="hbGoalSave()" style="margin-top:6px">Enregistrer</button>`;
+  if(hbGDraft.idx>=0&&!coachSet)h+=`<button onclick="hbGoalDelete()" style="width:100%;margin-top:10px;padding:12px;border-radius:12px;background:none;border:1px solid var(--border);font-size:13px;font-weight:700;font-family:var(--font);color:color-mix(in srgb,#ef4444 var(--ink,100%),var(--text));cursor:pointer">Supprimer cet objectif</button>`;
+  if(coachSet)h+=`<div style="font-size:11.5px;color:var(--text3);text-align:center;margin-top:10px">Cet objectif a été fixé par ton coach : demande-lui pour le retirer.</div>`;
+  h+=`<button onclick="closeModal()" style="width:100%;margin-top:10px;padding:12px;border-radius:12px;background:none;border:none;font-size:13px;font-weight:600;font-family:var(--font);color:var(--text3);cursor:pointer">Annuler</button></div>`;
+  openModal(h);
+}
+async function hbGoalsWrite(t,goals){
+  const{error}=await db.from('habit_trackers').update({goals:goals}).eq('id',t.id);
+  if(error){toast('Erreur : '+error.message);return false;}
+  t.goals=goals;return true;
+}
+async function hbGoalSave(){
+  hbGSync();
+  const t=habitTrackers.find(x=>String(x.id)===String(hbGDraft.tid));if(!t)return;
+  const goals=JSON.parse(JSON.stringify(t.goals||[]));
+  const g={key:hbGDraft.idx>=0&&goals[hbGDraft.idx]?goals[hbGDraft.idx].key:'g'+Date.now(),
+    label:(hbGDraft.label||'').trim(),emoji:(hbGDraft.emoji||'').trim()||'🎯',
+    option:hbGDraft.option,target:Math.max(1,parseInt(hbGDraft.target)||1),period:hbGDraft.period,by:hbGDraft.by};
+  if(hbGDraft.idx>=0)goals[hbGDraft.idx]=g;else goals.push(g);
+  if(!await hbGoalsWrite(t,goals))return;
+  hbGDraft=null;closeModal();renderTrackerTab();toast('Objectif enregistré ✓');
+}
+async function hbGoalDelete(){
+  const t=habitTrackers.find(x=>String(x.id)===String(hbGDraft.tid));if(!t)return;
+  if(!confirm('Supprimer cet objectif ?'))return;
+  const goals=JSON.parse(JSON.stringify(t.goals||[]));
+  goals.splice(hbGDraft.idx,1);
+  if(!await hbGoalsWrite(t,goals))return;
+  hbGDraft=null;closeModal();renderTrackerTab();toast('Objectif supprimé');
 }
 
 /* --- Visualisations d'un suivi : année, mois, donut, courbe ---

@@ -1509,6 +1509,7 @@ body:has(#detPage.show) .toast{bottom:54px}
       <div class="tab" onclick="swDet('galerie',this);renderGalerieTab()">📸 Galerie</div>
       <div class="tab" onclick="swDet('gamification',this);renderGamifTab()">🏆 Gamification</div>
       <div class="tab" onclick="swDet('calendar',this);renderCalendarTab()">📅 Calendrier</div>
+      <div class="tab" onclick="swDet('suivis',this);renderSuivisTab()">🎯 Suivis</div>
     </div>
     <div id="detQuickbar" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 0 12px;border-bottom:1px solid var(--border);margin-bottom:14px">
       <span style="font-size:11px;color:var(--text3);margin-right:auto">Accès rapide :</span>
@@ -1523,6 +1524,7 @@ body:has(#detPage.show) .toast{bottom:54px}
     <div class="tc" id="tc-training"></div>
     <div class="tc" id="tc-bilan"></div>
     <div class="tc" id="tc-galerie"></div>
+    <div class="tc" id="tc-suivis"></div>
     <div class="tc" id="tc-gamification"></div>
     <div class="tc" id="tc-calendar"></div>
   </div>
@@ -2896,7 +2898,7 @@ function renderDetHero(){
   }
   const contractBtn=window._perms?.isSuperAdmin?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="openClientContractsList('${c.id}')">📄 Contrat</button>`:'';
   const appBtn=(c.status==='active'||c.status==='questionnaire_done')?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:'';
-  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select>${coachSelect}<span style="font-size:11px;color:rgba(255,255,255,.4)">App :</span>${appFlagBtn('show_progress','📈 % parcours',c.show_progress!==false)}${appFlagBtn('show_chat','💬 Tchat',c.show_chat!==false)}${appFlagBtn('show_tracker','🗓️ Suivis',c.show_tracker===true)}</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${appBtn}${contractBtn}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${editBtn}${inviteBtn}${pauseBtn}${delBtn}</div>`;
+  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select>${coachSelect}<span style="font-size:11px;color:rgba(255,255,255,.4)">App :</span>${appFlagBtn('show_progress','📈 % parcours',c.show_progress!==false)}${appFlagBtn('show_chat','💬 Tchat',c.show_chat!==false)}${appFlagBtn('show_tracker','🎯 Suivis',c.show_tracker===true)}</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${appBtn}${contractBtn}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${editBtn}${inviteBtn}${pauseBtn}${delBtn}</div>`;
 }
 
 async function openClientContractsList(clientId){
@@ -2917,6 +2919,258 @@ async function openClientContractsList(clientId){
   body.innerHTML=`<div style="padding:18px 22px">${actions}<div style="font-size:13px;color:var(--text3);margin-bottom:12px">${contracts.length} contrat${contracts.length>1?'s':''} pour ce client — clique pour voir le détail</div>${list}</div>`;
   openM('mClientContract');
 }
+/* ===== SUIVIS D'HABITUDES — onglet de la fiche client =====
+   Le coach voit les suivis de sa cliente, en crée pour elle et lui fixe des objectifs.
+   Il ne colorie jamais une journée : la RLS ne lui donne que le SELECT sur habit_entries,
+   et rien du tout sur les journées d'un suivi marqué privé par la cliente. */
+const HBC_PALETTE=['#4f46e5','#818cf8','#c7e9ff','#22d3ee','#10b981','#a7f3a0','#fde047','#fb923c','#ef4444','#f43f5e','#f9a8d4','#c084fc','#a78bfa','#94a3b8','#1f2937','#d6d3cd'];
+const HBC_PERIODS={year:'sur l\'année',month:'chaque mois',week:'chaque semaine'};
+let hbcTrackers=[],hbcEntries={},hbcYear=new Date().getFullYear(),hbcDraft=null,hbcGDraft=null,hbcPalIdx=-1;
+function hbcEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function hbcDateStr(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),j=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+j;}
+
+async function renderSuivisTab(){
+  const el=document.getElementById('tc-suivis');if(!el||!curClient)return;
+  el.innerHTML=`<div style="font-size:12px;color:var(--text3);padding:14px 0">Chargement…</div>`;
+  try{
+    const{data:tr,error:e1}=await db.from('habit_trackers').select('*').eq('client_id',curClient.id).eq('archived',false).order('position',{ascending:true});
+    if(e1)throw e1;
+    hbcTrackers=tr||[];
+    hbcEntries={};
+    if(hbcTrackers.length){
+      const{data:en}=await db.from('habit_entries').select('tracker_id,date,option_key').eq('client_id',curClient.id).gte('date',hbcYear+'-01-01').lte('date',hbcYear+'-12-31');
+      (en||[]).forEach(r=>{const m=hbcEntries[r.tracker_id]=hbcEntries[r.tracker_id]||{};(m[r.date]=m[r.date]||[]).push(r.option_key);});
+    }
+    el.innerHTML=hbcHtml();
+  }catch(e){el.innerHTML=`<div style="font-size:12px;color:#ef4444;padding:14px 0">Erreur : ${hbcEsc(e.message||e)}</div>`;}
+}
+
+function hbcHtml(){
+  const on=curClient.show_tracker===true;
+  let h='';
+  if(!on){
+    h+=`<div style="background:rgba(255,160,0,.12);border:1px solid rgba(255,160,0,.3);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;align-items:center;gap:12px"><div style="flex:1;font-size:13px">Les suivis sont <b>masqués</b> dans l'app de cette cliente. Tu peux déjà lui préparer des suivis et des objectifs : ils apparaîtront dès que tu actives la fonctionnalité.</div><button class="btn btn-gold btn-sm" onclick="setClientAppFlag('show_tracker',true).then(()=>renderSuivisTab())">👁️ Activer</button></div>`;
+  }
+  h+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="font-size:13px;color:var(--text3);flex:1">${hbcTrackers.length} suivi${hbcTrackers.length>1?'s':''} · année ${hbcYear}</div><button class="btn btn-ghost btn-sm" onclick="hbcYearShift(-1)">‹</button><button class="btn btn-ghost btn-sm" onclick="hbcYearShift(1)">›</button><button class="btn btn-dark btn-sm" onclick="hbcNew()">+ Créer un suivi</button></div>`;
+  if(!hbcTrackers.length){
+    h+=`<div style="font-size:13px;color:var(--text3);padding:20px 0">Aucun suivi pour l'instant. La cliente peut créer les siens depuis l'app, et tu peux lui en préparer un ici.</div>`;
+    return h;
+  }
+  hbcTrackers.forEach(t=>{h+=hbcCardHtml(t);});
+  return h;
+}
+
+function hbcCounts(t){
+  const ent=hbcEntries[t.id]||{},c={};
+  (t.options||[]).forEach(o=>{c[o.key]=0;});
+  Object.keys(ent).forEach(d=>(ent[d]||[]).forEach(k=>{if(c[k]!==undefined)c[k]++;}));
+  return c;
+}
+function hbcCardHtml(t){
+  const c=hbcCounts(t);
+  const days=Object.keys(hbcEntries[t.id]||{}).length;
+  const mine=t.created_by==='coach';
+  let h=`<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px">`;
+  h+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="font-size:16px;font-weight:800;flex:1">${hbcEsc(t.emoji||'')} ${hbcEsc(t.nom)}</div>`;
+  if(t.private)h+=`<span style="font-size:11px;padding:3px 9px;border-radius:8px;background:var(--bg2);color:var(--text3)">🔒 privé</span>`;
+  if(mine)h+=`<span style="font-size:11px;padding:3px 9px;border-radius:8px;background:rgba(196,154,42,.15);color:var(--gold)">créé par toi</span>`;
+  h+=`<button class="btn btn-ghost btn-sm" onclick="hbcGoalNew('${t.id}')">🎯 Fixer un objectif</button>`;
+  if(mine)h+=`<button class="btn btn-ghost btn-sm" onclick="hbcEdit('${t.id}')">✏️ Modifier</button>`;
+  h+=`</div>`;
+  if(t.private){
+    h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px">Suivi privé : tu vois son existence et ses objectifs, pas les journées qu'elle colorie.</div>`;
+  }else{
+    h+=`<div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap"><div>${hbcGridHtml(t)}</div><div style="min-width:170px">`;
+    h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:8px">${days} jour${days>1?'s':''} rempli${days>1?'s':''} en ${hbcYear}</div>`;
+    (t.options||[]).forEach(o=>{h+=`<div style="display:flex;align-items:center;gap:8px;padding:3px 0"><div style="width:13px;height:13px;border-radius:4px;background:${hbcEsc(o.color)}"></div><div style="flex:1;font-size:12.5px">${hbcEsc(o.label)}</div><div style="font-size:12px;color:var(--text3)">${c[o.key]||0} j</div></div>`;});
+    h+=`</div></div>`;
+  }
+  const gs=t.goals||[];
+  if(gs.length){
+    h+=`<div style="font-size:11px;font-weight:700;color:var(--text3);margin:14px 0 8px;letter-spacing:.4px">OBJECTIFS</div>`;
+    gs.forEach((g,i)=>{h+=hbcGoalRow(t,g,i);});
+  }
+  h+=`</div>`;
+  return h;
+}
+function hbcGridHtml(t){
+  const ent=hbcEntries[t.id]||{},cmap={};
+  (t.options||[]).forEach(o=>{cmap[o.key]=o.color;});
+  const M=['J','F','M','A','M','J','J','A','S','O','N','D'];
+  let h=`<div style="display:inline-block"><div style="display:grid;grid-template-columns:repeat(12,14px);gap:2px;margin-bottom:2px">${M.map(m=>`<div style="font-size:8px;color:var(--text3);text-align:center;font-weight:700">${m}</div>`).join('')}</div>`;
+  for(let d=1;d<=31;d++){
+    h+=`<div style="display:grid;grid-template-columns:repeat(12,14px);gap:2px;margin-bottom:2px">`;
+    for(let m=0;m<12;m++){
+      if(d>new Date(hbcYear,m+1,0).getDate()){h+=`<div></div>`;continue;}
+      const ds=hbcYear+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const keys=(ent[ds]||[]).filter(k=>cmap[k]);
+      let bg='var(--bg2)';
+      if(keys.length===1)bg=cmap[keys[0]];
+      else if(keys.length>1)bg=`linear-gradient(135deg,${cmap[keys[0]]} 50%,${cmap[keys[1]]} 50%)`;
+      h+=`<div title="${ds}" style="width:14px;height:14px;border-radius:3px;background:${bg}"></div>`;
+    }
+    h+=`</div>`;
+  }
+  return h+`</div>`;
+}
+function hbcGoalProgress(t,g){
+  const ent=hbcEntries[t.id]||{};
+  const now=new Date();
+  let from=hbcYear+'-01-01',to=hbcYear+'-12-31';
+  if(g.period==='month'){from=hbcDateStr(new Date(now.getFullYear(),now.getMonth(),1));to=hbcDateStr(new Date(now.getFullYear(),now.getMonth()+1,0));}
+  else if(g.period==='week'){const s=new Date(now);s.setDate(s.getDate()-((s.getDay()+6)%7));const e=new Date(s);e.setDate(s.getDate()+6);from=hbcDateStr(s);to=hbcDateStr(e);}
+  let n=0;
+  Object.keys(ent).forEach(ds=>{
+    if(ds<from||ds>to)return;
+    const keys=ent[ds]||[];
+    if(g.option==='*'?keys.length:keys.indexOf(g.option)>=0)n++;
+  });
+  const target=Math.max(1,parseInt(g.target)||1);
+  return{n:n,target:target,pct:Math.min(100,Math.round(n/target*100)),done:n>=target};
+}
+function hbcGoalRow(t,g,i){
+  const p=hbcGoalProgress(t,g);
+  const o=(t.options||[]).find(x=>x.key===g.option);
+  const col=g.option==='*'?'var(--gold)':(o?o.color:'var(--gold)');
+  const name=(g.label||'').trim()||((o?o.label:'toutes ses journées')+' · '+g.target+' fois '+HBC_PERIODS[g.period]);
+  const mine=g.by==='coach';
+  let h=`<div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-top:1px solid var(--border)">`;
+  h+=`<div style="font-size:15px">${hbcEsc(g.emoji||'🎯')}</div><div style="flex:1;min-width:0">`;
+  h+=`<div style="font-size:12.5px;font-weight:700">${hbcEsc(name)}</div>`;
+  h+=`<div style="font-size:11px;color:var(--text3);margin-top:1px">${HBC_PERIODS[g.period]}${mine?' · fixé par toi':' · fixé par elle'}${t.private?' · avancement masqué (suivi privé)':''}</div>`;
+  if(!t.private)h+=`<div style="height:6px;border-radius:4px;background:var(--bg2);margin-top:6px;overflow:hidden"><div style="height:100%;width:${p.pct}%;border-radius:4px;background:${p.done?'#10b981':col}"></div></div>`;
+  h+=`</div>`;
+  if(!t.private)h+=`<div style="font-size:12px;font-weight:700;color:var(--text2)">${p.n} / ${p.target}</div>`;
+  if(!t.private&&p.done)h+=`<div style="font-size:15px;color:#10b981">✓</div>`;
+  if(mine)h+=`<button class="btn btn-ghost btn-sm" onclick="hbcGoalEdit('${t.id}',${i})">✏️</button><button class="btn btn-ghost btn-sm" onclick="hbcGoalDelete('${t.id}',${i})">🗑️</button>`;
+  h+=`</div>`;
+  return h;
+}
+async function hbcYearShift(d){hbcYear+=d;await renderSuivisTab();}
+
+/* --- créer / modifier un suivi (côté coach) --- */
+function hbcNew(){hbcDraft={id:null,nom:'',emoji:'',options:[{key:'o1',label:'',color:HBC_PALETTE[0]}]};hbcPalIdx=-1;hbcEditor();}
+function hbcEdit(id){
+  const t=hbcTrackers.find(x=>String(x.id)===String(id));if(!t)return;
+  hbcDraft={id:t.id,nom:t.nom||'',emoji:t.emoji||'',options:JSON.parse(JSON.stringify(t.options||[]))};
+  hbcPalIdx=-1;hbcEditor();
+}
+function hbcSync(){
+  if(!hbcDraft)return;
+  const n=document.getElementById('hbcNom');if(n)hbcDraft.nom=n.value;
+  const e=document.getElementById('hbcEmo');if(e)hbcDraft.emoji=e.value;
+  hbcDraft.options.forEach((o,i)=>{const el=document.getElementById('hbcOpt'+i);if(el)o.label=el.value;});
+}
+function hbcPal(i){hbcSync();hbcPalIdx=hbcPalIdx===i?-1:i;hbcEditor();}
+function hbcSetColor(i,c){hbcSync();hbcDraft.options[i].color=c;hbcPalIdx=-1;hbcEditor();}
+function hbcAddOpt(){hbcSync();const keys=hbcDraft.options.map(o=>o.key);let n=1;while(keys.indexOf('o'+n)>=0)n++;hbcDraft.options.push({key:'o'+n,label:'',color:HBC_PALETTE[(hbcDraft.options.length*3)%HBC_PALETTE.length]});hbcEditor();}
+function hbcDelOpt(i){hbcSync();hbcDraft.options.splice(i,1);hbcEditor();}
+function hbcEditor(){
+  if(!hbcDraft)return;
+  let h=`<div class="modal" style="max-width:520px"><div class="mh"><div class="mt">${hbcDraft.id?'Modifier le suivi':'Créer un suivi pour cette cliente'}</div><button class="mc" onclick="closeModal()">✕</button></div><div class="mb" style="max-height:70vh;overflow-y:auto">`;
+  h+=`<div style="display:flex;gap:10px;margin-bottom:14px"><div><label class="fl">Emoji</label><input id="hbcEmo" class="fi" maxlength="2" value="${hbcEsc(hbcDraft.emoji)}" style="width:62px;text-align:center"></div><div style="flex:1"><label class="fl">Nom du suivi</label><input id="hbcNom" class="fi" placeholder="ex. Salle & repos" value="${hbcEsc(hbcDraft.nom)}" style="width:100%"></div></div>`;
+  h+=`<label class="fl">Les couleurs et ce qu'elles veulent dire</label>`;
+  hbcDraft.options.forEach((o,i)=>{
+    h+=`<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px"><div onclick="hbcPal(${i})" style="width:30px;height:30px;border-radius:9px;background:${hbcEsc(o.color)};cursor:pointer;flex-shrink:0;border:1px solid rgba(0,0,0,.1)"></div><input id="hbcOpt${i}" class="fi" placeholder="Libellé (ex. salle)" value="${hbcEsc(o.label)}" style="flex:1"><button class="btn btn-ghost btn-sm" onclick="hbcDelOpt(${i})">×</button></div>`;
+    if(hbcPalIdx===i)h+=`<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin:0 0 10px 39px">${HBC_PALETTE.map(c=>`<div onclick="hbcSetColor(${i},'${c}')" style="aspect-ratio:1;border-radius:7px;background:${c};cursor:pointer;border:2px solid ${c===o.color?'var(--text)':'transparent'}"></div>`).join('')}</div>`;
+  });
+  h+=`<button class="btn btn-ghost btn-sm" onclick="hbcAddOpt()" style="margin-top:4px">+ Ajouter une couleur</button>`;
+  h+=`<div style="font-size:11.5px;color:var(--text3);margin-top:14px">La cliente pourra renommer ce suivi, changer les couleurs ou le passer en privé : c'est son journal.</div>`;
+  h+=`</div><div class="mf">`;
+  if(hbcDraft.id)h+=`<button class="btn btn-ghost" onclick="hbcDelete()" style="margin-right:auto">Supprimer ce suivi</button>`;
+  h+=`<button class="btn btn-ghost" onclick="closeModal()">Annuler</button><button class="btn btn-gold" onclick="hbcSave()">Enregistrer</button></div></div>`;
+  openModal(h);
+}
+async function hbcSave(){
+  hbcSync();
+  const nom=(hbcDraft.nom||'').trim();
+  if(!nom){toast('Donne un nom au suivi');return;}
+  const opts=hbcDraft.options.filter(o=>(o.label||'').trim()).map(o=>({key:o.key,label:o.label.trim(),color:o.color}));
+  if(!opts.length){toast('Ajoute au moins une couleur avec son libellé');return;}
+  const row={nom:nom,emoji:(hbcDraft.emoji||'').trim()||null,options:opts};
+  try{
+    if(hbcDraft.id){
+      const{error}=await db.from('habit_trackers').update(row).eq('id',hbcDraft.id);
+      if(error)throw error;
+    }else{
+      row.client_id=curClient.id;row.coach_id=curClient.coach_id||null;row.position=hbcTrackers.length;row.created_by='coach';
+      const{error}=await db.from('habit_trackers').insert(row);
+      if(error)throw error;
+    }
+    hbcDraft=null;closeModal();await renderSuivisTab();toast('Suivi enregistré ✓');
+  }catch(e){toast('Erreur : '+(e.message||e));}
+}
+async function hbcDelete(){
+  const t=hbcTrackers.find(x=>String(x.id)===String(hbcDraft.id));if(!t)return;
+  const days=Object.keys(hbcEntries[t.id]||{}).length;
+  if(!confirm('Supprimer « '+t.nom+' » ?'+(days?'\n\nAttention : les '+days+' journée(s) que ta cliente a coloriées seront supprimées avec lui.':'')))return;
+  try{
+    const{error}=await db.from('habit_trackers').delete().eq('id',t.id);
+    if(error)throw error;
+    hbcDraft=null;closeModal();await renderSuivisTab();toast('Suivi supprimé');
+  }catch(e){toast('Erreur : '+(e.message||e));}
+}
+
+/* --- fixer un objectif (côté coach) --- */
+function hbcGoalNew(tid){
+  const t=hbcTrackers.find(x=>String(x.id)===String(tid));if(!t)return;
+  hbcGDraft={tid:tid,idx:-1,label:'',emoji:'🎯',option:(t.options&&t.options[0]?t.options[0].key:'*'),target:10,period:'year'};
+  hbcGoalEditor();
+}
+function hbcGoalEdit(tid,i){
+  const t=hbcTrackers.find(x=>String(x.id)===String(tid));if(!t)return;
+  const g=(t.goals||[])[i];if(!g)return;
+  hbcGDraft={tid:tid,idx:i,label:g.label||'',emoji:g.emoji||'🎯',option:g.option||'*',target:g.target||10,period:g.period||'year'};
+  hbcGoalEditor();
+}
+function hbcGSync(){
+  if(!hbcGDraft)return;
+  const l=document.getElementById('hbcGLab');if(l)hbcGDraft.label=l.value;
+  const e=document.getElementById('hbcGEmo');if(e)hbcGDraft.emoji=e.value;
+  const n=document.getElementById('hbcGNum');if(n)hbcGDraft.target=Math.max(1,parseInt(n.value)||1);
+}
+function hbcGSet(f,v){hbcGSync();hbcGDraft[f]=v;hbcGoalEditor();}
+function hbcGoalEditor(){
+  const t=hbcTrackers.find(x=>String(x.id)===String(hbcGDraft.tid));if(!t)return;
+  let h=`<div class="modal" style="max-width:520px"><div class="mh"><div class="mt">${hbcGDraft.idx<0?'Fixer un objectif':'Modifier l\'objectif'} — ${hbcEsc(t.nom)}</div><button class="mc" onclick="closeModal()">✕</button></div><div class="mb" style="max-height:70vh;overflow-y:auto">`;
+  h+=`<div style="display:flex;gap:10px;margin-bottom:14px"><div><label class="fl">Emoji</label><input id="hbcGEmo" class="fi" maxlength="2" value="${hbcEsc(hbcGDraft.emoji)}" style="width:62px;text-align:center"></div><div style="flex:1"><label class="fl">Nom de l'objectif (facultatif)</label><input id="hbcGLab" class="fi" placeholder="ex. Salle 3 fois par semaine" value="${hbcEsc(hbcGDraft.label)}" style="width:100%"></div></div>`;
+  h+=`<label class="fl">On compte les journées</label><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">`;
+  (t.options||[]).forEach(o=>{h+=`<button class="btn btn-sm ${hbcGDraft.option===o.key?'btn-dark':'btn-ghost'}" onclick="hbcGSet('option','${o.key}')"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${hbcEsc(o.color)};margin-right:6px"></span>${hbcEsc(o.label)}</button>`;});
+  h+=`<button class="btn btn-sm ${hbcGDraft.option==='*'?'btn-dark':'btn-ghost'}" onclick="hbcGSet('option','*')">toutes</button></div>`;
+  h+=`<label class="fl">Combien de fois</label><input id="hbcGNum" class="fi" type="number" min="1" value="${parseInt(hbcGDraft.target)||1}" style="width:120px;margin-bottom:14px">`;
+  h+=`<label class="fl">Sur quelle période</label><div style="display:flex;gap:6px;margin-bottom:6px">`;
+  [['year','Sur l\'année'],['month','Chaque mois'],['week','Chaque semaine']].forEach(p=>{
+    h+=`<button class="btn btn-sm ${hbcGDraft.period===p[0]?'btn-dark':'btn-ghost'}" onclick="hbcGSet('period','${p[0]}')">${p[1]}</button>`;
+  });
+  h+=`</div><div style="font-size:11.5px;color:var(--text3);margin-top:12px">Elle verra cet objectif dans son app avec la mention « fixé par ton coach », et ne pourra pas le supprimer.</div>`;
+  h+=`</div><div class="mf"><button class="btn btn-ghost" onclick="closeModal()">Annuler</button><button class="btn btn-gold" onclick="hbcGoalSave()">Enregistrer</button></div></div>`;
+  openModal(h);
+}
+async function hbcGoalsWrite(t,goals){
+  const{error}=await db.from('habit_trackers').update({goals:goals}).eq('id',t.id);
+  if(error){toast('Erreur : '+error.message);return false;}
+  return true;
+}
+async function hbcGoalSave(){
+  hbcGSync();
+  const t=hbcTrackers.find(x=>String(x.id)===String(hbcGDraft.tid));if(!t)return;
+  const goals=JSON.parse(JSON.stringify(t.goals||[]));
+  const g={key:hbcGDraft.idx>=0&&goals[hbcGDraft.idx]?goals[hbcGDraft.idx].key:'g'+Date.now(),
+    label:(hbcGDraft.label||'').trim(),emoji:(hbcGDraft.emoji||'').trim()||'🎯',
+    option:hbcGDraft.option,target:Math.max(1,parseInt(hbcGDraft.target)||1),period:hbcGDraft.period,by:'coach'};
+  if(hbcGDraft.idx>=0)goals[hbcGDraft.idx]=g;else goals.push(g);
+  if(!await hbcGoalsWrite(t,goals))return;
+  hbcGDraft=null;closeModal();await renderSuivisTab();toast('Objectif enregistré ✓');
+}
+async function hbcGoalDelete(tid,i){
+  const t=hbcTrackers.find(x=>String(x.id)===String(tid));if(!t)return;
+  if(!confirm('Retirer cet objectif ?'))return;
+  const goals=JSON.parse(JSON.stringify(t.goals||[]));
+  goals.splice(i,1);
+  if(!await hbcGoalsWrite(t,goals))return;
+  await renderSuivisTab();toast('Objectif retiré');
+}
+
 /* Éléments de l'app client activables par client (colonnes clients.show_progress / show_chat, true par défaut ;
    clients.show_tracker = suivis d'habitudes, FALSE par défaut — passer c.show_tracker===true comme état) */
 function appFlagBtn(field,label,on){
