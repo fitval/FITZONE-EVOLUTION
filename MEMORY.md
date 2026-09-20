@@ -491,3 +491,35 @@ Objectif : retrouver la lisibilité / simplicité de l'ancien Google Sheet de co
 - Edge Functions : avant tout redéploiement, relever `npx supabase functions list` et redéployer chaque fonction **avec son réglage `verify_jwt` actuel** et **sous son adresse réelle** (le dossier `notify-discord` est déployé sous `bright-handler`). Détail dans « Supabase Edge Functions ».
 - Inputs mobiles : toujours `oninput` (pas `onchange`) pour capturer les valeurs en temps réel
 - Ne pas appeler `renderActiveWorkout()` depuis les handlers d'input (re-render complet = perte de focus)
+
+### Session 2026-09-20 — Suivis d'habitudes (journal quotidien libre) dans l'app cliente
+Demande d'une cliente : suivre ses journées sous plusieurs angles (salle/repos, règles, note du
+jour), avec des jauges d'objectifs — l'équivalent de l'app **Pixa**. Livré en 3 paliers, palier 1 ici.
+- **Base** : migration `20260920180000_habit_trackers.sql` → `habit_trackers` (nom, emoji, `options`
+  jsonb `[{key,label,color}]`, `goals` jsonb pour le palier 3, `position`, `private`, `archived`,
+  `created_by`) et `habit_entries` (une ligne = `tracker_id` + `date` + `option_key`). **Plusieurs
+  couleurs le même jour sont permises** (index unique sur les trois colonnes) → case bicolore en
+  dégradé 135°, comme le « training log » de Pixa.
+- **RLS** fondée sur `get_my_client_id()` / `get_my_coach_id()` : la cliente lit et écrit ses suivis
+  et ses journées ; le coach crée des suivis pour ses clientes mais **ne lit les journées qu'en
+  SELECT**, et **jamais celles d'un suivi `private=true`** (règles de santé, humeur). Le cadenas est
+  donc verrouillé en base, pas seulement masqué à l'écran.
+- **Activation par cliente** : `clients.show_tracker` (bool). ⚠️ Contrairement à `show_progress` /
+  `show_chat`, le défaut est **FALSE** → côté dashboard on passe `c.show_tracker===true` à
+  `appFlagBtn` (et non `!==false`). Bouton « 🗓️ Suivis » dans le hero de la fiche client.
+- **App cliente** : **6e onglet « Suivis »** (`#btnTracker` / `#tabTracker`), `display:none` par
+  défaut, affiché seulement si `trackerAllowed()`. La `.tab-bar` reçoit alors la classe `six`
+  (libellés 9 px, icônes 21 px) — les autres clientes gardent leurs 5 onglets **et le calendrier des
+  séances intact** (on avait envisagé de le remplacer : abandonné, c'est le seul endroit où une
+  cliente peut corriger une activité libre).
+- Écran d'un suivi : grille **12 mois × 31 jours** (`hbGridHtml`, CSS grid `17px repeat(12,1fr)`),
+  légende à droite, sélecteur d'année, tap sur une case → fiche du jour multi-choix (`hbOpenDay` /
+  `hbToggle`), éditeur de suivi (`hbRenderEditor`, palette de 16 couleurs, cadenas privé), 3 modèles
+  prêts à l'emploi (`HB_TEMPLATES`) quand la liste est vide.
+- ⚠️ **Piège des modales** : `#modalContent` n'a **aucun fond** (l'overlay `.modal-overlay` est noir
+  à 85 %). Tout contenu passé à `openModal()` doit porter sa propre carte
+  `background:var(--white);color:var(--text);border-radius:16px;max-height:86vh;overflow:auto`,
+  sinon texte sombre sur fond noir. `openCalendarDay()` a ce défaut de longue date.
+- Testé au navigateur (Playwright) sur une **copie instrumentée avec un faux Supabase** : création
+  depuis un modèle, grille (372 cases), saisie, case bicolore, éditeur, suivi privé, suppression —
+  aucune erreur console. `version.json` bumpé.
