@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-09-22 (notes de séance individuelles par exercice et par séance dans la vue Tableau cliente)
+**Dernière mise à jour** : 2026-09-22 (notes de séance par exercice et par séance côté cliente ; comparaison avec le programme actuel dans le builder coach)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -78,6 +78,16 @@
 - **⚠️ Nom du dossier ≠ adresse déployée** : `supabase/functions/notify-discord` est publiée sous l'adresse **`bright-handler`** (nom affiché `notify-discord`, créée le 2026-05-02, v2, secret `DISCORD_RECRUITMENT_WEBHOOK`). Un `functions deploy notify-discord` **créerait un doublon** au lieu de la mettre à jour. Aucun appelant (ni pages, ni triggers, ni cron, 0 webhook de base) : `recruitment.html` visait `/functions/v1/notify-discord`, adresse qui n'a jamais existé, remplacée le même jour par `notify-webhook`. Laissée en place le 16/09, décision (supprimer ou redéployer proprement) à prendre à froid.
 
 ### Points techniques importants
+- **Comparer avec le programme actuel (builder coach)** : « + Nouveau programme » depuis une fiche client
+  (`openProgBuilderForClient(null)`) affiche le programme déjà en place dans une 3e colonne du builder
+  (`#progRefPanel`, classe `.prog-ref`, grille `.prog-builder.has-ref` = `1fr 360px 300px` ; sous 1500px la colonne
+  passe sous le builder via placement explicite en media query). État : `progRefId` / `progRefDayIdx` / `progRefOpen`,
+  rendu par `progRenderRef()`, contenu en LECTURE SEULE via `_renderClientProgDay`. Remis à null par `openProgBuilder`,
+  `closeProgBuilder` et `_maybeReturnToClientFromProg` — sinon la 3e colonne survivrait sur la page Programmes.
+  `_renderVolumeChart(prog, ref)` accepte un 2e programme : barre dorée = en création, barre grise = actuel, écart
+  chiffré par groupe (`+3` / `-2` / `=`), union des groupes des deux programmes. Calcul du volume extrait dans
+  `_progVolMap` / `_progSetsTotal`, programmes d'un client dans `clientProgsSorted(cid)`. Le graphe de volume a été
+  RETIRÉ de l'accueil de l'onglet Entraînement (doublon : il est déjà dans l'aperçu du programme et dans le builder).
 - **Notes de séance par exercice ET par séance (app cliente, vue Tableau)** : la ligne « 📝 Notes » du tableau
   (`renderWoTable`) a désormais une cellule par colonne, comme les perfs — chaque séance passée affiche sa propre
   note en gris (`.pf2-noteOld`, clic = note entière dans un toast), la colonne du jour porte le seul champ de saisie

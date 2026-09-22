@@ -529,6 +529,17 @@ body:has(#detPage.show) .toast{bottom:54px}
 .prog-builder{display:grid;grid-template-columns:1fr 300px;min-height:calc(100vh - 120px);background:var(--white);border-radius:var(--radius);border:1.5px solid var(--border);overflow:hidden}
 .prog-main{padding:22px;overflow-y:auto;border-right:1.5px solid var(--border)}
 .prog-side{background:var(--bg);padding:16px;overflow-y:auto}
+/* Colonne « programme actuel » à côté du builder : seulement quand on crée un
+   programme pour un client qui en a déjà un (classe .has-ref posée en JS). */
+.prog-builder.has-ref{grid-template-columns:minmax(0,1fr) 360px 300px}
+.prog-ref{background:var(--bg);padding:16px;overflow-y:auto;border-right:1.5px solid var(--border);align-self:start;position:sticky;top:0;max-height:calc(100vh - 90px)}
+.prog-ref-hd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+@media (max-width:1500px){
+  .prog-builder.has-ref{grid-template-columns:minmax(0,1fr) 300px}
+  .prog-builder.has-ref .prog-main{grid-column:1;grid-row:1}
+  .prog-builder.has-ref .prog-side{grid-column:2;grid-row:1/3}
+  .prog-builder.has-ref .prog-ref{grid-column:1;grid-row:2;position:static;max-height:560px;border-right:none;border-top:1.5px solid var(--border)}
+}
 .prog-days-row{display:flex;align-items:center;gap:5px;margin-bottom:18px;flex-wrap:wrap}
 .prog-day-tab{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border2);background:var(--white);color:var(--text2);transition:all .12s;white-space:nowrap}
 .prog-day-tab.active{background:var(--dark);color:white;border-color:var(--dark)}
@@ -1012,10 +1023,12 @@ body:has(#detPage.show) .toast{bottom:54px}
           </div>
           <div class="fg" style="margin-bottom:12px"><label class="fl">Description</label><textarea class="fta" id="progDesc" placeholder="Vue d'ensemble du programme…" style="min-height:50px"></textarea></div>
           <div id="progDeloadBox" style="margin-bottom:12px"></div>
+          <div id="progRefBar" style="margin-bottom:10px"></div>
           <div class="prog-days-row" id="progDaysTabs"></div>
           <div id="progDayContent"></div>
           <div id="progVolChart" style="margin-top:14px"></div>
         </div>
+        <div class="prog-ref" id="progRefPanel" style="display:none"></div>
         <div class="prog-side">
           <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:9px">Choisir un exercice</div>
           <div class="ss-wrap" style="margin-bottom:9px">
@@ -5187,8 +5200,7 @@ function _renderTrainingContent(el,logs){
 
   // Tous les programmes du client, du plus récent au plus ancien.
   // Le plus récent est ouvert par défaut, les autres forment l'historique.
-  const clientProgs=progs.filter(p=>p.clientId===curClient.id||(p.clientIds||[]).includes(curClient.id))
-    .slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  const clientProgs=clientProgsSorted(curClient.id);
   window._cliProgOpen=window._cliProgOpen||{};
   window._cliProgDay=window._cliProgDay||{};
   const nbVisibles=clientProgs.filter(isVisibleToClient).length;
@@ -5264,7 +5276,6 @@ function _renderTrainingContent(el,logs){
   el.innerHTML=`
     ${progHtml}
     ${perfCard}
-    ${_renderVolumeChart(clientProgs[0])}
     <div style="display:flex;align-items:center;gap:10px;margin:16px 0;flex-wrap:wrap">
       <button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:700" onclick="openGenTrainPlanModal()">🤖 Programme IA</button>
       <button class="btn btn-ghost btn-sm" onclick="swDet('calendar',document.querySelector('#detTabs .tab:last-child'));renderCalendarTab()">📅 Calendrier</button>
@@ -5512,10 +5523,9 @@ function _perfTable(nom,prescrits,faites){
    Une seule mesure (nb de séries prévues) → barres horizontales triées, pas de
    légende (le titre nomme la série), valeur écrite au bout de chaque barre.
    Horizontal parce que les noms de groupes sont longs en français. */
-function _renderVolumeChart(prog){
-  if(!prog)return'';
+function _progVolMap(prog){
   const vol={};
-  (prog.jours||[]).forEach(day=>['warmup','workout','cooldown'].forEach(sec=>(day[sec]||[]).forEach(e=>{
+  ((prog&&prog.jours)||[]).forEach(day=>['warmup','workout','cooldown'].forEach(sec=>(day[sec]||[]).forEach(e=>{
     const exos=e.superset?(e.exercises||[]):[e];
     exos.forEach(ex=>{
       const m=(ex.muscle||'Autre').trim()||'Autre';
@@ -5523,23 +5533,46 @@ function _renderVolumeChart(prog){
       if(s>0)vol[m]=(vol[m]||0)+s;
     });
   })));
-  const rows=Object.entries(vol).sort((a,b)=>b[1]-a[1]);
+  return vol;
+}
+function _progSetsTotal(prog){const v=_progVolMap(prog);return Object.values(v).reduce((n,x)=>n+x,0);}
+// `ref` (optionnel) = programme déjà en place : deuxième barre grise + écart par groupe
+function _renderVolumeChart(prog,ref){
+  if(!prog)return'';
+  const vol=_progVolMap(prog),rvol=ref?_progVolMap(ref):null;
+  const keys=Object.keys(vol);
+  if(rvol)Object.keys(rvol).forEach(m=>{if(keys.indexOf(m)<0)keys.push(m);});
+  const rows=keys.map(m=>[m,vol[m]||0,rvol?(rvol[m]||0):0])
+    .sort((a,b)=>Math.max(b[1],b[2])-Math.max(a[1],a[2]));
   if(!rows.length)return'';
-  const max=rows[0][1],total=rows.reduce((n,r)=>n+r[1],0);
+  const max=rows.reduce((n,r)=>Math.max(n,r[1],r[2]),0)||1;
+  const total=rows.reduce((n,r)=>n+r[1],0),rtotal=rows.reduce((n,r)=>n+r[2],0);
+  const nbJ=(prog.jours||[]).length;
+  const bar=(n,color)=>`<div style="flex:1;min-width:60px;height:${rvol?10:16}px;background:var(--bg2);border-radius:4px;overflow:hidden">
+    <div style="height:100%;width:${n>0?Math.max(2,Math.round(n/max*100)):0}%;background:${color};border-radius:0 4px 4px 0"></div></div>`;
+  const ligne=([m,n,r])=>{
+    const d=n-r;
+    const delta=rvol?`<span style="font-size:10.5px;font-weight:800;color:${d>0?'#16a34a':d<0?'#dc2626':'var(--text3)'}">${d>0?'+':''}${d||'='}</span>`:'';
+    return`<div style="display:flex;align-items:center;gap:10px" title="${esc(m)} : ${n} série${n>1?'s':''}${rvol?' (actuel : '+r+')':''}">
+      <div style="width:150px;flex-shrink:0;font-size:11.5px;font-weight:600;color:var(--text2);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m)}</div>
+      <div style="flex:1;min-width:60px;display:flex;flex-direction:column;gap:3px">${bar(n,'var(--gold)')}${rvol?bar(r,'var(--text3)'):''}</div>
+      <div style="width:${rvol?78:34}px;flex-shrink:0;font-size:12px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:5px">
+        <span>${n}</span>${rvol?`<span style="font-size:11px;font-weight:600;color:var(--text3)">/ ${r}</span>${delta}`:''}
+      </div>
+    </div>`;
+  };
   return`<div class="card" style="padding:16px;margin-bottom:12px">
     <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px;flex-wrap:wrap">
       <span style="font-size:13px;font-weight:800">Séries par groupe musculaire</span>
-      <span style="font-size:11px;color:var(--text3)">${esc(prog.nom||'Programme')} · ${total} séries sur ${(prog.jours||[]).length} séance${(prog.jours||[]).length>1?'s':''}</span>
+      <span style="font-size:11px;color:var(--text3)">${esc(prog.nom||'Programme')} · ${total} séries sur ${nbJ} séance${nbJ>1?'s':''}</span>
     </div>
-    <div style="font-size:10.5px;color:var(--text3);margin-bottom:12px">Volume prévu par le programme, pas les séances réalisées.</div>
-    <div style="display:flex;flex-direction:column;gap:7px">
-      ${rows.map(([m,n])=>`<div style="display:flex;align-items:center;gap:10px" title="${esc(m)} : ${n} séries">
-        <div style="width:150px;flex-shrink:0;font-size:11.5px;font-weight:600;color:var(--text2);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m)}</div>
-        <div style="flex:1;min-width:60px;height:16px;background:var(--bg2);border-radius:4px;overflow:hidden">
-          <div style="height:100%;width:${Math.max(2,Math.round(n/max*100))}%;background:var(--gold);border-radius:0 4px 4px 0"></div>
-        </div>
-        <div style="width:34px;flex-shrink:0;font-size:12px;font-weight:800;color:var(--text)">${n}</div>
-      </div>`).join('')}
+    <div style="font-size:10.5px;color:var(--text3);margin-bottom:${rvol?8:12}px">Volume prévu par le programme, pas les séances réalisées.</div>
+    ${rvol?`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:10.5px;color:var(--text3);margin-bottom:12px">
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:8px;border-radius:3px;background:var(--gold)"></span>En cours de création · ${total} séries</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:8px;border-radius:3px;background:var(--text3)"></span>${esc(ref.nom||'Programme actuel')} · ${rtotal} séries</span>
+    </div>`:''}
+    <div style="display:flex;flex-direction:column;gap:${rvol?9:7}px">
+      ${rows.map(ligne).join('')}
     </div>
   </div>`;
 }
@@ -7749,6 +7782,7 @@ function openProgBuilder(id){
     progDeload=(p.deload&&typeof p.deload==='object')?JSON.parse(JSON.stringify(p.deload)):null;
   }
   else{progEditId=null;progDays=[{nom:'Jour 1',warmup:[],workout:[],cooldown:[]}];progDayIdx=0;document.getElementById('progNom').value='';document.getElementById('progTags').value='';document.getElementById('progDesc').value='';document.getElementById('progBuilderTitle').textContent='Nouveau programme';progClients=[];progDeload=null;}
+  progSetRef(null);   // pas de comparaison par défaut (openProgBuilderForClient la rallume)
   document.getElementById('progClIn').value='';renderClientBadges(progClients,'progClBadges','progRemoveClient');
   const importSel=document.getElementById('progImportSel');
   if(importSel)importSel.innerHTML='<option value="">— Choisir une séance —</option>'+seances.map(s=>`<option value="${s.id}">${s.nom}</option>`).join('');
@@ -7757,6 +7791,7 @@ function openProgBuilder(id){
   document.getElementById('tbActs').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="closeProgBuilder()">← Retour</button><button class="btn btn-gold btn-sm" onclick="saveProg()">💾 Enregistrer</button>`;
 }
 function closeProgBuilder(){
+  progSetRef(null);
   if(_maybeReturnToClientFromProg())return;
   const wrap=document.getElementById('progBuilderWrap');
   const wasOpen=wrap&&wrap.style.display!=='none';
@@ -7778,6 +7813,11 @@ function openProgBuilderForClient(progId){
     try{renderClientBadges(progClients,'progClBadges','progRemoveClient');}catch(e){}
   }
   progFromClientId=cl.id;
+  // Création d'un programme : celui déjà en place reste affiché à côté, pour comparer
+  if(!progId){
+    const actuel=clientProgsSorted(cl.id)[0];
+    if(actuel)progSetRef(actuel.id);
+  }
   bldMount('progBuilderWrap','progSlot');
   setClientTopActions();
 }
@@ -7797,7 +7837,7 @@ function editClientProgram(progId){openProgBuilderForClient(progId);}
 function _maybeReturnToClientFromProg(){
   // Builder monté dans la fiche client : on démonte sur place, aucune navigation
   if(bldIsInline('progBuilderWrap')){
-    progFromClientId=null;
+    progFromClientId=null;progSetRef(null);
     document.getElementById('progBuilderWrap').style.display='none';
     bldUnmount('progBuilderWrap');
     document.getElementById('progListWrap').style.display='block';
@@ -7815,10 +7855,53 @@ function _maybeReturnToClientFromProg(){
   setTimeout(()=>{if(typeof openDet==='function')openDet(c.id);},80);
   return true;
 }
+/* ===== COMPARER AVEC LE PROGRAMME ACTUEL =====
+   En créant un programme depuis la fiche d'un client qui en a déjà un, le
+   programme en place s'affiche dans une colonne à côté du builder : navigation
+   par séance, et le graphe de volume en bas du builder compare les deux.
+   Lecture seule — rien de ce qui est affiché là n'est modifiable. */
+let progRefId=null;        // programme montré en référence (null = aucun, builder normal)
+let progRefDayIdx=0;       // séance affichée dans la colonne de référence
+let progRefOpen=true;      // colonne dépliée ou réduite au bouton de réouverture
+// Programmes d'un client, du plus récent au plus ancien (le 1er = programme actuel)
+function clientProgsSorted(cid){
+  return progs.filter(p=>p.clientId===cid||(p.clientIds||[]).includes(cid))
+    .slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+}
+function progRefProg(){return progRefId!=null?(progs.find(p=>String(p.id)===String(progRefId))||null):null;}
+function progSetRef(progId){progRefId=(progId==null?null:progId);progRefDayIdx=0;progRefOpen=true;progRenderRef();}
+function progToggleRef(on){progRefOpen=!!on;progRenderRef();}
+function progRefSetDay(i){progRefDayIdx=i;progRenderRef();}
+function progRenderRef(){
+  const panel=document.getElementById('progRefPanel');
+  const bar=document.getElementById('progRefBar');
+  const grid=document.querySelector('#progBuilderWrap .prog-builder');
+  if(!panel)return;
+  const p=progRefProg();
+  if(grid)grid.classList.toggle('has-ref',!!p&&progRefOpen);
+  if(bar)bar.innerHTML=(p&&!progRefOpen)
+    ?`<button class="btn btn-ghost btn-sm" onclick="progToggleRef(true)">\u{1F4CC} Revoir le programme actuel · ${esc(p.nom||'Programme')}</button>`:'';
+  if(!p||!progRefOpen){panel.style.display='none';panel.innerHTML='';_progRenderVolChart();return;}
+  const jours=p.jours||[];
+  if(progRefDayIdx>=jours.length)progRefDayIdx=0;
+  const tabs=jours.map((d,i)=>`<div class="prog-day-tab${i===progRefDayIdx?' active':''}" onclick="progRefSetDay(${i})">${esc(d.nom||'Jour '+(i+1))}</div>`).join('');
+  panel.style.display='block';
+  panel.innerHTML=`<div class="prog-ref-hd">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:800">\u{1F4CC} Programme actuel</div>
+        <div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.nom||'Programme')} · ${jours.length} séance${jours.length>1?'s':''} · ${_progSetsTotal(p)} séries</div>
+      </div>
+      <button class="btn btn-ghost btn-xs" title="Réduire cette colonne" onclick="progToggleRef(false)">✕</button>
+    </div>
+    <div style="font-size:10.5px;color:var(--text3);margin-bottom:10px;line-height:1.4">Ce que le client suit aujourd'hui, en lecture seule.</div>
+    <div class="prog-days-row" style="margin-bottom:12px">${tabs}</div>
+    <div>${_renderClientProgDay(jours[progRefDayIdx])}</div>`;
+  _progRenderVolChart();
+}
 // Volume du programme en cours d'édition, recalculé à chaque modif des séances
 function _progRenderVolChart(){
   const el=document.getElementById('progVolChart');if(!el)return;
-  el.innerHTML=_renderVolumeChart({nom:(document.getElementById('progNom')||{}).value||'Programme',jours:progDays});
+  el.innerHTML=_renderVolumeChart({nom:(document.getElementById('progNom')||{}).value||'Programme',jours:progDays},progRefProg());
 }
 function progRenderDays(){
   _progRenderVolChart();
