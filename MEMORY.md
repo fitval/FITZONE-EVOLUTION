@@ -578,3 +578,33 @@ jour), avec des jauges d'objectifs — l'équivalent de l'app **Pixa**. Livré e
   - ⚠️ L'emoji de l'onglet et du hero est **🎯** : 🗓️ est déjà pris par l'onglet Roadmap.
   - Testé au navigateur (Playwright, faux Supabase, deux pages de test reconstruites depuis les
     fichiers réels par `build_test.py`) : app cliente et dashboard, aucune erreur console.
+
+### Session 2026-09-22 — Comparer le volume de deux programmes (builder de programme)
+Le bloc « Séries par groupe musculaire » en bas du builder ne montrait qu'un programme.
+Il compare maintenant **deux programmes côte à côte**, chacun avec son sélecteur.
+- **Deux cartes** (`.vol-cmp`, grille 1fr/1fr, une seule colonne sous 1100px) rendues par
+  `_renderVolumeCompare()` → `_volCmpCard(side,…)`. Gauche = programme le plus récent du
+  client par défaut, droite = ⚡ **en cours de construction** (`progDays`, non enregistré).
+  État dans `progVolA` / `progVolB` (`null` = valeur par défaut, `''` = aucun), remis à `null`
+  à chaque `openProgBuilder()`.
+- **Liste des sélecteurs** : `_volCmpChoices()` = programmes du **premier client assigné**
+  (`progClients[0]`), du plus récent au plus ancien, **sans celui qu'on édite** (`progEditId`) —
+  il ferait doublon avec « en cours de construction ». Client sans autre programme ou sans
+  client assigné : on retombe sur `_renderVolumeChart()`, l'affichage d'avant.
+- **Échelle des barres commune aux deux cartes** (`max` calculé sur les deux volumes). C'est ce
+  qui rend les longueurs comparables d'une carte à l'autre. ⚠️ Corollaire : la colonne d'écart
+  fait **44px des deux côtés**, vide à gauche. Sans cette réserve, les barres de droite seraient
+  plus courtes à volume égal et la comparaison mentirait.
+- **Écart flagrant sur la carte de droite** : la barre est en deux segments — la part commune
+  dans la couleur du programme, puis les séries **en plus en vert** (`#16a34a`) ou les séries
+  **en moins en rouge pâle** (`rgba(220,38,38,.34)`) à la suite, jusqu'à la longueur qu'avait
+  l'autre programme. Plus une pastille `▲ +3` / `▼ −3` / `=` sur fond teinté. Légende sous le titre.
+- **Mise à jour en direct** : `progRenderDay()` est devenu un wrapper
+  (`_progRenderDayBody()` puis `_progRenderVolChart()`). Le graphe ne se redessinait qu'à
+  `progRenderDays()`, la barre d'onglets — donc il ne bougeait qu'en changeant de séance.
+  Tous les gestes d'édition (`progSheetSets`, `progChangeNbSets`, `progChangeSupersetNbSets`,
+  `progUpdExoMuscle`, `progDelExo`, `progSetView`, `progSetDayType`) passent par `progRenderDay`,
+  donc les jauges suivent la frappe sans enregistrement.
+- Testé hors navigateur (harnais node sur les fonctions extraites) : 41 assertions — sélecteurs,
+  tri, échelle commune, segments vert/rouge, pastilles, cas limites, et l'enchaînement
+  ＋ / − / changement de muscle / suppression, avec le programme enregistré laissé intact.
