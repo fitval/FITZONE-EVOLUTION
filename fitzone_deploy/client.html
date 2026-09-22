@@ -647,11 +647,14 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .pf2-x small { font-size:9.5px; font-weight:700; color:var(--text3); line-height:1.1; }
 /* Rappel de la consigne du coach sous chaque série (la colonne "Prévu" est loin à gauche) */
 .pf2-x .pf2-goal { max-width:100%; color:var(--gold-deep); font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-/* Ligne de note par exercice : la cellule reste collée au bord gauche quand on fait
-   défiler les séances passées (largeur fixée en JS = largeur visible du tableau) */
-.pf2-nr { height:44px; }
-.pf2-note { flex:0 0 auto; position:sticky; left:0; z-index:1; box-sizing:border-box; display:flex; align-items:center; padding:5px 7px; background:var(--white); border-bottom:1px solid var(--border); border-right:1px solid var(--border); }
-.pf2-nt { width:100%; height:34px; padding:6px 9px; border:1.5px solid var(--border); border-radius:8px; font-size:12px; font-family:var(--font); background:var(--white); color:var(--text); resize:none; outline:none; }
+/* Ligne de notes par exercice : une cellule par séance, comme les perfs. Les notes
+   des séances passées restent lisibles en gris (clic = la note entière), seule la
+   colonne du jour se saisit — écrire aujourd'hui n'efface jamais les précédentes. */
+.pf2-nr { height:52px; }
+.pf2-noteOld { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; padding:4px 7px; font-size:10.5px; font-weight:600; line-height:1.25; text-align:left; color:var(--text3); white-space:normal; cursor:default; }
+.pf2-noteOld.has { cursor:pointer; }
+.pf2-note { padding:5px 6px; }
+.pf2-nt { width:100%; height:40px; padding:5px 8px; border:1.5px solid var(--border); border-radius:8px; font-size:11.5px; line-height:1.3; font-family:var(--font); background:var(--white); color:var(--text); resize:none; outline:none; }
 .pf2-nt:focus { border-color:var(--gold-border); }
 
 /* ===== CHAT AVEC LE COACH =====
@@ -3513,7 +3516,7 @@ function startWorkout(){
     const prevNote=prev&&prev.note?prev.note:'';
     const prevVideoUrl=prev&&prev.videoUrl?prev.videoUrl:'';
     const wasUnilateral=prev&&prev.unilateral?true:false;
-    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],_pool:exoPool({nom:ex.nom,video:ex.video,muscle:ex.muscle,replacements:ex.replacements||[]}),bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,videoUrl:null,note:prevNote,prevNote,prevVideoUrl,supersetId:ex.supersetId||null,supersetLetter:ex.supersetLetter||'',supersetPosition:ex.supersetPosition||0,supersetTotal:ex.supersetTotal||0,supersetRest:ex.supersetRest||[]});
+    workoutData.push({nom:ex.nom,muscle:ex.muscle,video:ex.video,section:ex.section,replacements:ex.replacements||[],_pool:exoPool({nom:ex.nom,video:ex.video,muscle:ex.muscle,replacements:ex.replacements||[]}),bw:false,unilateral:wasUnilateral,sets:setsArr,showSwap:false,videoFile:null,videoUrl:null,note:'',prevNote,prevVideoUrl,supersetId:ex.supersetId||null,supersetLetter:ex.supersetLetter||'',supersetPosition:ex.supersetPosition||0,supersetTotal:ex.supersetTotal||0,supersetRest:ex.supersetRest||[]});
   });
 
   // Start elapsed timer
@@ -3734,6 +3737,7 @@ function _renderWoExoFooter(ex,ei){
   if(uploaded)h+=`<svg viewBox="0 0 24 24" fill="#2e7d32" width="22" height="22"><circle cx="12" cy="12" r="12" fill="#2e7d32"/><polyline points="7 13 10 16 17 9" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   h+=`</div>`;
   if(ex.prevVideoUrl)h+=`<a href="${ex.prevVideoUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:color-mix(in srgb,#e8f5e9 var(--tint,100%),var(--white));border:1px solid #4caf50;border-radius:var(--r-xs);font-size:12px;font-weight:700;color:color-mix(in srgb,#2e7d32 var(--ink,100%),var(--text));text-decoration:none">▶ Voir ma vidéo précédente</a>`;
+  if(ex.prevNote)h+=`<div style="margin-top:8px;padding:9px 12px;background:var(--bg2);border-radius:var(--r-xs);font-size:12px;line-height:1.4;color:var(--text3)">\u{1F4DD} Séance précédente : ${rmEsc(ex.prevNote)}</div>`;
   h+=`<textarea placeholder="Notes, réglages, feedback..." style="width:100%;margin-top:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-xs);font-size:13px;font-family:var(--font);background:var(--white);color:var(--text);min-height:44px;resize:vertical;outline:none" oninput="workoutData[${ei}].note=this.value">${ex.note||''}</textarea>`;
   return h;
 }
@@ -3855,7 +3859,6 @@ function woCell(el,ei,si,field){
   if(v)v.textContent=_woTodayVolume().toLocaleString('fr-FR');
 }
 let _woTbl={x:null,y:0};   // position de défilement du tableau, conservée entre 2 rendus
-let _woNoteFit=null;       // handler resize qui recale la largeur des champs de note
 function setWoView(v){
   woView=(v==='table')?'table':'cards';
   try{localStorage.setItem('fz_woView',woView);}catch(e){}
@@ -3936,9 +3939,15 @@ function renderWoTable(){
         body+=`</div>`;
       });
     });
-    // ---- Note libre de l'exercice (même champ que la vue Fiches)
-    left+=`<div class="pf2-row pf2-nr"><div class="pf2-c pf2-x" style="width:var(--pf-w)"><small>\u{1F4DD} Note</small></div></div>`;
-    body+=`<div class="pf2-row pf2-nr"><div class="pf2-note"><textarea class="pf2-nt" placeholder="Notes, réglages, feedback..." oninput="workoutData[${ei}].note=this.value">${rmEsc(ex.note||'')}</textarea></div></div>`;
+    // ---- Notes de l'exercice : une par séance, les anciennes en gris, la saisie sur AUJ.
+    left+=`<div class="pf2-row pf2-nr"><div class="pf2-c pf2-x" style="width:var(--pf-w)"><small>\u{1F4DD} Notes</small><small class="pf2-goal">par séance</small></div></div>`;
+    body+=`<div class="pf2-row pf2-nr"><div class="pf2-c pf2-grp" style="width:${PF_W_REPS+PF_W_RIR}px"></div>`;
+    pastEx.forEach(pe=>{
+      const n=pe&&pe.note?String(pe.note):'';
+      body+=`<div class="pf2-c pf2-grp pf2-noteOld${n?' has':''}" style="width:${PF_W_REPS+PF_W_KG+PF_W_RIR}px"${n?` onclick="toast(this.textContent)" title="${rmEsc(n)}"`:''}>${n?rmEsc(n):''}</div>`;
+    });
+    body+=`<div class="pf2-c pf2-grp pf2-now pf2-note" style="width:${PF_W_KG_NOW+PF_W_REPS_NOW+PF_W_RIR_NOW+PF_W_CHK}px"><textarea class="pf2-nt" placeholder="Tes notes du jour…" oninput="workoutData[${ei}].note=this.value">${rmEsc(ex.note||'')}</textarea></div>`;
+    body+=`</div>`;
   });
 
   // ---- Pied : volume soulevé
@@ -3964,10 +3973,6 @@ function renderWoTable(){
     if(!sc||!hd)return;
     sc.addEventListener('scroll',()=>{hd.scrollLeft=sc.scrollLeft;_woTbl.x=sc.scrollLeft;},{passive:true});
     if(bd)bd.addEventListener('scroll',()=>{_woTbl.y=bd.scrollTop;},{passive:true});
-    const fitNotes=()=>{sc.querySelectorAll('.pf2-note').forEach(n=>{n.style.width=sc.clientWidth+'px';});};
-    fitNotes();
-    if(_woNoteFit)window.removeEventListener('resize',_woNoteFit);
-    _woNoteFit=fitNotes;window.addEventListener('resize',_woNoteFit);
     sc.scrollLeft=(_woTbl.x!=null?_woTbl.x:sc.scrollWidth);   // par défaut : sur la colonne du jour
     hd.scrollLeft=sc.scrollLeft;
     if(bd&&_woTbl.y)bd.scrollTop=_woTbl.y;
@@ -3983,7 +3988,7 @@ function renderWoTable(){
         <div class="pf2-right" id="pfScroll"><div class="pf2-inner">${body}</div></div>
       </div>
     </div>
-    <div class="rm-hint"><span style="font-size:13px">↔</span><span>La colonne dorée à droite, c'est ta séance du jour. Fais défiler vers la gauche pour revoir les précédentes. Sous chaque série tu retrouves la consigne du coach, et sous chaque exercice un champ pour tes notes. Pour changer d'exercice ou te filmer, repasse en <b>☰ Fiches</b>.</span></div>`;
+    <div class="rm-hint"><span style="font-size:13px">↔</span><span>La colonne dorée à droite, c'est ta séance du jour. Fais défiler vers la gauche pour revoir les précédentes. Sous chaque série tu retrouves la consigne du coach. La ligne <b>\u{1F4DD} Notes</b> marche comme tes perfs : une note par séance — celles des semaines passées restent en gris (touche-les pour les lire en entier), tu écris celle du jour dans la colonne dorée. Pour changer d'exercice ou te filmer, repasse en <b>☰ Fiches</b>.</span></div>`;
 }
 function validateSupersetSet(ssId,si){
   const eis=workoutData.map((x,i)=>x.supersetId===ssId?i:-1).filter(i=>i>=0);

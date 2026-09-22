@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-09-19 (fiabilisation des enregistrements Supabase : plus de « enregistré ✓ » mensonger)
+**Dernière mise à jour** : 2026-09-22 (notes de séance individuelles par exercice et par séance dans la vue Tableau cliente)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -78,6 +78,15 @@
 - **⚠️ Nom du dossier ≠ adresse déployée** : `supabase/functions/notify-discord` est publiée sous l'adresse **`bright-handler`** (nom affiché `notify-discord`, créée le 2026-05-02, v2, secret `DISCORD_RECRUITMENT_WEBHOOK`). Un `functions deploy notify-discord` **créerait un doublon** au lieu de la mettre à jour. Aucun appelant (ni pages, ni triggers, ni cron, 0 webhook de base) : `recruitment.html` visait `/functions/v1/notify-discord`, adresse qui n'a jamais existé, remplacée le même jour par `notify-webhook`. Laissée en place le 16/09, décision (supprimer ou redéployer proprement) à prendre à froid.
 
 ### Points techniques importants
+- **Notes de séance par exercice ET par séance (app cliente, vue Tableau)** : la ligne « 📝 Notes » du tableau
+  (`renderWoTable`) a désormais une cellule par colonne, comme les perfs — chaque séance passée affiche sa propre
+  note en gris (`.pf2-noteOld`, clic = note entière dans un toast), la colonne du jour porte le seul champ de saisie
+  (`.pf2-note` / `.pf2-nt`). Avant : un unique champ collé à gauche (`position:sticky` + largeur recalée en JS par
+  `fitNotes`/`_woNoteFit`, tous deux supprimés). Les notes étaient **déjà** stockées séance par séance dans
+  `train_logs.exercises[].note` : rien à changer en base, elles n'étaient jamais réaffichées. `startWorkout` ne
+  recopie plus la note précédente dans le champ du jour (`note:''` au lieu de `note:prevNote` ; `prevNote` reste dans
+  l'objet) — en vue Fiches, elle est rappelée en gris au-dessus du champ (`_renderWoExoFooter`). Les colonnes
+  antérieures au 22/09/2026 peuvent répéter le même texte : c'est l'ancien recopiage, pas un bug.
 - **Superset en vue Tableur du programme** : la fonctionnalité existait déjà (`progMkSuperset` / `progAddToSuperset`)
   mais son bouton était introuvable — `.gs-x` gris sans fond ni bordure, 12px, dans une colonne de 46px partagée avec
   ＋ − 🗑. Depuis le 19/09/2026 : classe `.gs-ssbtn` (violet #d946ef, encadré, `flex:0 0 100%` donc sur sa propre
