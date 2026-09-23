@@ -608,3 +608,25 @@ Il compare maintenant **deux programmes côte à côte**, chacun avec son sélec
 - Testé hors navigateur (harnais node sur les fonctions extraites) : 41 assertions — sélecteurs,
   tri, échelle commune, segments vert/rouge, pastilles, cas limites, et l'enchaînement
   ＋ / − / changement de muscle / suppression, avec le programme enregistré laissé intact.
+
+### Session 2026-09-23 — Hermès peut modifier l'application depuis Telegram
+Valentin demande une modification par message, Hermès la réalise, **mais rien n'atteint la
+production sans sa validation explicite**.
+- **Clone dédié** sur le Mac mini : `~/Partage/FITZONE-EVOLUTION`, jeton GitHub
+  *fine-grained* limité à ce seul dépôt (Contents + Pull requests, expiration 90 jours).
+  Le jeton n'est **pas** écrit dans `.git/config` : un `credential.helper` local le lit
+  dans `~/.hermes/.env` au moment du push, sans dépendre des variables d'environnement.
+- 🔴 **Le garde-fou est technique, pas une consigne de fiche** : un hook `pre-push` sur ce
+  clone **refuse tout envoi direct sur `main`**. Le seul chemin vers la production est une
+  Pull Request fusionnée après un « oui » de Valentin. Vérifié : envoi sur `main` refusé
+  (code 1), envoi sur une branche accepté.
+- **Skill `app-fitzone`** (`~/.hermes/skills/fitzone/app-fitzone/`) : repartir de `main`,
+  branche `hermes/<sujet>`, modification au plus juste, `verif.py`, envoi, `pr.py ouvrir`,
+  `apercu.py`, compte rendu, puis `pr.py fusionner` ou `pr.py annuler` selon sa réponse.
+- **Aperçu avant production** : GitHub Pages ne sert que `main`, donc Valentin validerait
+  à l'aveugle. `apercu.py` sert la branche depuis le Mac mini sur le port 8787 (adresse
+  Tailscale) — il voit la vraie page avant de décider.
+- ⚠️ **Aucune vérification syntaxique du JavaScript** : ni node ni npm sur le Mac mini.
+  `verif.py` ne contrôle que l'équilibre des balises `<script>`/`<style>`, la troncature
+  et une chute anormale de taille. **L'aperçu au navigateur reste le seul vrai test.**
+- ⚠️ Le modèle qui écrit ce code est **DeepSeek** depuis le 23/09/2026, plus Claude.
