@@ -604,6 +604,10 @@ body:has(#detPage.show) .toast{bottom:54px}
 .food-row{display:grid;grid-template-columns:1fr 24px 58px 60px 48px 48px 48px 18px;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
 .food-row.pf-food-over{box-shadow:inset 0 2px 0 var(--gold);background:var(--gold-pale)}
 .meal-block.pf-meal-over{outline:2px dashed var(--gold);outline-offset:-2px}
+.gs tbody tr.pf-food-over td{background:var(--gold-pale);box-shadow:inset 0 2px 0 var(--gold)}
+.plan-card.plan-over{outline:2px dashed var(--gold);outline-offset:-2px}
+.plan-drag{cursor:grab;color:var(--text3);font-size:13px;user-select:none;flex-shrink:0;padding:2px}
+.plan-drag:active{cursor:grabbing}
 .meal-drag{cursor:grab}
 .meal-drag:active{cursor:grabbing}
 .eq-btn{background:none;border:1px solid var(--border2);border-radius:5px;cursor:pointer;font-size:11px;padding:2px 4px;color:var(--text3);transition:all .12s;position:relative}
@@ -6695,7 +6699,7 @@ function pfRenderSheet(){
     const n=pfMealRows(r),mt=pfCalcMeal(r);
     for(let i=0;i<n;i++){
       const a=(r.alims||[])[i];
-      rows+='<tr>';
+      rows+=`<tr ondragover="pfFoodOver(event,this)" ondragleave="pfFoodLeave(this)" ondrop="pfDropFood(event,${ri},${i})">`;
       if(i===0)rows+=`<td class="gs-lbl" rowspan="${n}" style="min-width:118px">
         <input class="gi gi-nm" style="text-align:center;font-size:10px;text-transform:uppercase" value="${esc(r.nom||'')}" oninput="pfSheetMealName(${ri},this.value)" title="Nom du repas">
         <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:2px">
@@ -6703,7 +6707,7 @@ function pfRenderSheet(){
           <button class="gs-x" onclick="pfDelMeal(${ri})" title="Supprimer ce repas">🗑</button>
         </div></td>`;
       if(a){
-        rows+=`<td><input class="gi gi-nm" value="${esc(a.nom||'')}" oninput="pfSheetName(${ri},${i},this.value);pfSheetFind(this,${ri},${i})" onfocus="pfSheetFind(this,${ri},${i})" onblur="setTimeout(pfMenuClose,180)" title="Clique pour remplacer l'aliment"></td>
+        rows+=`<td><div style="display:flex;align-items:center;gap:3px"><span class="plan-drag" draggable="true" ondragstart="pfDragStart(event,${ri},${i})" ondragend="pfDragEnd()" title="Glisser pour déplacer cet aliment">⠿</span><input class="gi gi-nm" style="flex:1" value="${esc(a.nom||'')}" oninput="pfSheetName(${ri},${i},this.value);pfSheetFind(this,${ri},${i})" onfocus="pfSheetFind(this,${ri},${i})" onblur="setTimeout(pfMenuClose,180)" title="Clique pour remplacer l'aliment"></div></td>
         <td><input class="gi" type="number" step="5" min="0" value="${a.qte}" oninput="pfSheetQte(${ri},${i},this.value)"></td>
         <td style="color:var(--text3);font-size:10px">g</td>
         <td class="gs-calc" id="pfs_k_${ri}_${i}">${Math.round(a.kcal*a.qte/100)}</td>
@@ -7024,6 +7028,33 @@ function _planSearchText(p){
   (p.jours||[]).forEach(j=>{parts.push(j.nom);(j.repas||[]).forEach(r=>{parts.push(r.nom);(r.alims||[]).forEach(a=>parts.push(a.nom));});});
   return parts.filter(Boolean).join(' ').toLowerCase();
 }
+function pfPlansOrdered(){
+  const ord=lsGet('fz_plans_order',null);
+  if(!Array.isArray(ord)||!ord.length)return plans.slice().reverse();
+  const byId=new Map(plans.map(p=>[p.id,p]));
+  const seen=new Set();
+  const out=[];
+  ord.forEach(id=>{const p=byId.get(id);if(p&&!seen.has(id)){out.push(p);seen.add(id);}});
+  // Plans non encore ordonnés (nouveaux) : en tête, le plus récent d'abord.
+  plans.slice().reverse().forEach(p=>{if(!seen.has(p.id)){out.push(p);seen.add(p.id);}});
+  return out;
+}
+let pfPlanDragIdx=null;
+function pfPlanDragStart(e,idx){pfPlanDragIdx=idx;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain','p');}catch(_){}e.stopPropagation();}
+function pfPlanDragEnd(){pfPlanDragIdx=null;document.querySelectorAll('.plan-over').forEach(el=>el.classList.remove('plan-over'));}
+function pfPlanOver(e,el){if(pfPlanDragIdx===null)return;e.preventDefault();e.stopPropagation();el.classList.add('plan-over');}
+function pfPlanLeave(el){el.classList.remove('plan-over');}
+function pfPlanDrop(e,targetIdx){
+  e.preventDefault();e.stopPropagation();
+  document.querySelectorAll('.plan-over').forEach(el=>el.classList.remove('plan-over'));
+  if(pfPlanDragIdx===null||pfPlanDragIdx===targetIdx){pfPlanDragIdx=null;return;}
+  const ordered=pfPlansOrdered();
+  const moved=ordered.splice(pfPlanDragIdx,1)[0];
+  ordered.splice(targetIdx,0,moved);
+  lsSave('fz_plans_order',ordered.map(p=>p.id));
+  pfPlanDragIdx=null;
+  renderPlansListPage();
+}
 function renderPlansListPage(){
   const el=document.getElementById('plansPageList');if(!el)return;
   // Barre de création visible DANS la page (les boutons de la barre du haut
@@ -7035,10 +7066,11 @@ function renderPlansListPage(){
   </div>`;
   if(!plans.length){el.innerHTML=newBar+`<div class="empty"><div class="ei">🥗</div><div class="et">Aucun plan alimentaire</div><div class="es">Crée un plan macros ou un plan complet</div></div>`;return;}
   const q=(document.getElementById('planSearch')?.value||'').trim().toLowerCase();
-  const list=q?plans.filter(p=>_planSearchText(p).includes(q)):plans;
+  const list=q?plans.filter(p=>_planSearchText(p).includes(q)):pfPlansOrdered();
   if(!list.length){el.innerHTML=newBar+`<div class="empty"><div class="ei">🔍</div><div class="et">Aucun plan trouvé</div><div class="es">Aucun résultat pour « ${esc(q)} »</div></div>`;return;}
-  el.innerHTML=newBar+list.slice().reverse().map(p=>{const avg=_planDailyAvg(p);return`<div class="plan-card">
-    <div class="plan-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
+  el.innerHTML=newBar+list.map((p,idx)=>{const avg=_planDailyAvg(p);const dh=q?'':` ondragover="pfPlanOver(event,this)" ondragleave="pfPlanLeave(this)" ondrop="pfPlanDrop(event,${idx})"`;return`<div class="plan-card">
+    <div class="plan-hdr"${dh} onclick="this.nextElementSibling.classList.toggle('open')">
+      ${q?'':`<span class="plan-drag" draggable="true" ondragstart="pfPlanDragStart(event,${idx})" ondragend="pfPlanDragEnd()" title="Glisser pour réordonner">⠿</span>`}
       <div style="width:38px;height:38px;border-radius:10px;background:${p.type==='full'?'var(--dark)':'var(--gold-pale)'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${p.type==='full'?'🍽️':'📊'}</div>
       <div style="flex:1">
         <div style="font-size:14px;font-weight:700;color:var(--text)">${p.nom}${hiddenBadge(isVisibleToClient(p))}</div>
