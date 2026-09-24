@@ -588,6 +588,7 @@ body:has(#detPage.show) .toast{bottom:54px}
 .day-tab{padding:5px 13px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border2);background:var(--white);color:var(--text2);white-space:nowrap;flex-shrink:0}
 .day-tab.active{background:var(--dark);color:white;border-color:var(--dark)}
 .day-tab:hover:not(.active){border-color:var(--gold-border)}
+.day-tab-over{outline:2px dashed var(--gold);outline-offset:-2px}
 .day-tab-del{margin-left:5px;font-size:10px;color:rgba(255,255,255,.5);cursor:pointer;display:none}
 .day-tab.active .day-tab-del{display:inline;color:rgba(255,255,255,.6)}
 .day-tab.active .day-tab-del:hover{color:color-mix(in srgb,#ef4444 var(--ink,100%),var(--text))}
@@ -604,6 +605,9 @@ body:has(#detPage.show) .toast{bottom:54px}
 .food-row{display:grid;grid-template-columns:1fr 24px 58px 60px 48px 48px 48px 18px;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
 .food-row.pf-food-over{box-shadow:inset 0 2px 0 var(--gold);background:var(--gold-pale)}
 .meal-block.pf-meal-over{outline:2px dashed var(--gold);outline-offset:-2px}
+.gs tbody tr.pf-food-over td{background:var(--gold-pale);box-shadow:inset 0 2px 0 var(--gold)}
+.plan-drag{cursor:grab;color:var(--text3);font-size:13px;user-select:none;flex-shrink:0;padding:2px}
+.plan-drag:active{cursor:grabbing}
 .meal-drag{cursor:grab}
 .meal-drag:active{cursor:grabbing}
 .eq-btn{background:none;border:1px solid var(--border2);border-radius:5px;cursor:pointer;font-size:11px;padding:2px 4px;color:var(--text3);transition:all .12s;position:relative}
@@ -6581,7 +6585,7 @@ function saveMacrosPlan(){
 /* Plan complet */
 function pfRenderDays(){
   const c=document.getElementById('pfDayTabs');if(!c)return;
-  c.innerHTML=pfDays.map((d,i)=>`<div class="day-tab${i===pfDayIdx?' active':''}" onclick="pfSelDay(${i})">${d.nom}<span style="cursor:pointer;opacity:.5;font-size:10px;margin-left:4px" onclick="event.stopPropagation();pfRenameDay(${i})" title="Renommer">✏️</span>${pfDays.length>1?`<span class="day-tab-del" onclick="event.stopPropagation();pfDelDay(${i})" title="Supprimer ce jour">✕</span>`:''}</div>`).join('')+`<div class="add-day-btn" onclick="pfAddDay()">+</div>`+`<div class="add-day-btn" onclick="pfRoundAll()" title="Arrondir toutes les quantités (valeurs rondes)" style="background:var(--gold-pale);color:var(--gold);font-size:10px;padding:4px 8px">⊙ Arrondir</div>`;
+  c.innerHTML=pfDays.map((d,i)=>`<div class="day-tab${i===pfDayIdx?' active':''}" draggable="true" ondragstart="pfDayDragStart(event,${i})" ondragend="pfDayDragEnd()" ondragover="pfDayOver(event,this)" ondragleave="pfDayLeave(this)" ondrop="pfDayDrop(event,${i})" onclick="pfSelDay(${i})">${d.nom}<span style="cursor:pointer;opacity:.5;font-size:10px;margin-left:4px" onclick="event.stopPropagation();pfRenameDay(${i})" title="Renommer">✏️</span>${pfDays.length>1?`<span class="day-tab-del" onclick="event.stopPropagation();pfDelDay(${i})" title="Supprimer ce jour">✕</span>`:''}</div>`).join('')+`<div class="add-day-btn" onclick="pfAddDay()">+</div>`+`<div class="add-day-btn" onclick="pfRoundAll()" title="Arrondir toutes les quantités (valeurs rondes)" style="background:var(--gold-pale);color:var(--gold);font-size:10px;padding:4px 8px">⊙ Arrondir</div>`;
   pfRenderTotals();
 }
 function pfSelDay(i){pfDayIdx=i;pfMealIdx=null;pfRenderDays();pfRenderMeals();}
@@ -6695,7 +6699,7 @@ function pfRenderSheet(){
     const n=pfMealRows(r),mt=pfCalcMeal(r);
     for(let i=0;i<n;i++){
       const a=(r.alims||[])[i];
-      rows+='<tr>';
+      rows+=`<tr ondragover="pfFoodOver(event,this)" ondragleave="pfFoodLeave(this)" ondrop="pfDropFood(event,${ri},${i})">`;
       if(i===0)rows+=`<td class="gs-lbl" rowspan="${n}" style="min-width:118px">
         <input class="gi gi-nm" style="text-align:center;font-size:10px;text-transform:uppercase" value="${esc(r.nom||'')}" oninput="pfSheetMealName(${ri},this.value)" title="Nom du repas">
         <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:2px">
@@ -6703,7 +6707,7 @@ function pfRenderSheet(){
           <button class="gs-x" onclick="pfDelMeal(${ri})" title="Supprimer ce repas">🗑</button>
         </div></td>`;
       if(a){
-        rows+=`<td><input class="gi gi-nm" value="${esc(a.nom||'')}" oninput="pfSheetName(${ri},${i},this.value);pfSheetFind(this,${ri},${i})" onfocus="pfSheetFind(this,${ri},${i})" onblur="setTimeout(pfMenuClose,180)" title="Clique pour remplacer l'aliment"></td>
+        rows+=`<td><div style="display:flex;align-items:center;gap:3px"><span class="plan-drag" draggable="true" ondragstart="pfDragStart(event,${ri},${i})" ondragend="pfDragEnd()" title="Glisser pour déplacer cet aliment">⠿</span><input class="gi gi-nm" style="flex:1" value="${esc(a.nom||'')}" oninput="pfSheetName(${ri},${i},this.value);pfSheetFind(this,${ri},${i})" onfocus="pfSheetFind(this,${ri},${i})" onblur="setTimeout(pfMenuClose,180)" title="Clique pour remplacer l'aliment"></div></td>
         <td><input class="gi" type="number" step="5" min="0" value="${a.qte}" oninput="pfSheetQte(${ri},${i},this.value)"></td>
         <td style="color:var(--text3);font-size:10px">g</td>
         <td class="gs-calc" id="pfs_k_${ri}_${i}">${Math.round(a.kcal*a.qte/100)}</td>
@@ -7023,6 +7027,26 @@ function _planSearchText(p){
   (p.clientNoms||p.client_noms||[]).forEach(n=>parts.push(n));
   (p.jours||[]).forEach(j=>{parts.push(j.nom);(j.repas||[]).forEach(r=>{parts.push(r.nom);(r.alims||[]).forEach(a=>parts.push(a.nom));});});
   return parts.filter(Boolean).join(' ').toLowerCase();
+}
+let pfDayDragIdx=null;
+function pfDayDragStart(e,i){
+  if(e.target&&e.target.tagName==='SPAN'){e.preventDefault();return;}
+  pfDayDragIdx=i;e.dataTransfer.effectAllowed='move';
+  try{e.dataTransfer.setData('text/plain','d');}catch(_){}
+  e.stopPropagation();
+}
+function pfDayDragEnd(){pfDayDragIdx=null;document.querySelectorAll('.day-tab-over').forEach(el=>el.classList.remove('day-tab-over'));}
+function pfDayOver(e,el){if(pfDayDragIdx===null)return;e.preventDefault();e.stopPropagation();el.classList.add('day-tab-over');}
+function pfDayLeave(el){el.classList.remove('day-tab-over');}
+function pfDayDrop(e,targetIdx){
+  e.preventDefault();e.stopPropagation();
+  document.querySelectorAll('.day-tab-over').forEach(el=>el.classList.remove('day-tab-over'));
+  if(pfDayDragIdx===null||pfDayDragIdx===targetIdx){pfDayDragIdx=null;return;}
+  const moved=pfDays.splice(pfDayDragIdx,1)[0];
+  pfDays.splice(targetIdx,0,moved);
+  pfDayIdx=targetIdx;
+  pfDayDragIdx=null;
+  pfRenderDays();pfRenderMeals();
 }
 function renderPlansListPage(){
   const el=document.getElementById('plansPageList');if(!el)return;
