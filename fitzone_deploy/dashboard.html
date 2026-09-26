@@ -592,6 +592,8 @@ body:has(#detPage.show) .toast{bottom:54px}
 .day-tab-del{margin-left:5px;font-size:10px;color:rgba(255,255,255,.5);cursor:pointer;display:none}
 .day-tab.active .day-tab-del{display:inline;color:rgba(255,255,255,.6)}
 .day-tab.active .day-tab-del:hover{color:color-mix(in srgb,#ef4444 var(--ink,100%),var(--text))}
+.day-tab-dup{margin-left:5px;font-size:10px;cursor:pointer;opacity:.55}
+.day-tab-dup:hover{opacity:1}
 .day-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px}
 .dtot{background:var(--bg);border-radius:10px;padding:9px 7px;text-align:center}
 .dtot-val{font-size:17px;font-weight:800}
@@ -6585,11 +6587,12 @@ function saveMacrosPlan(){
 /* Plan complet */
 function pfRenderDays(){
   const c=document.getElementById('pfDayTabs');if(!c)return;
-  c.innerHTML=pfDays.map((d,i)=>`<div class="day-tab${i===pfDayIdx?' active':''}" draggable="true" ondragstart="pfDayDragStart(event,${i})" ondragend="pfDayDragEnd()" ondragover="pfDayOver(event,this)" ondragleave="pfDayLeave(this)" ondrop="pfDayDrop(event,${i})" onclick="pfSelDay(${i})">${d.nom}<span style="cursor:pointer;opacity:.5;font-size:10px;margin-left:4px" onclick="event.stopPropagation();pfRenameDay(${i})" title="Renommer">✏️</span>${pfDays.length>1?`<span class="day-tab-del" onclick="event.stopPropagation();pfDelDay(${i})" title="Supprimer ce jour">✕</span>`:''}</div>`).join('')+`<div class="add-day-btn" onclick="pfAddDay()">+</div>`+`<div class="add-day-btn" onclick="pfRoundAll()" title="Arrondir toutes les quantités (valeurs rondes)" style="background:var(--gold-pale);color:var(--gold);font-size:10px;padding:4px 8px">⊙ Arrondir</div>`;
+  c.innerHTML=pfDays.map((d,i)=>`<div class="day-tab${i===pfDayIdx?' active':''}" draggable="true" ondragstart="pfDayDragStart(event,${i})" ondragend="pfDayDragEnd()" ondragover="pfDayOver(event,this)" ondragleave="pfDayLeave(this)" ondrop="pfDayDrop(event,${i})" onclick="pfSelDay(${i})">${d.nom}<span class="day-tab-dup" onclick="event.stopPropagation();pfDupDay(${i})" title="Dupliquer ce menu">⧉</span><span style="cursor:pointer;opacity:.5;font-size:10px;margin-left:4px" onclick="event.stopPropagation();pfRenameDay(${i})" title="Renommer">✏️</span>${pfDays.length>1?`<span class="day-tab-del" onclick="event.stopPropagation();pfDelDay(${i})" title="Supprimer ce jour">✕</span>`:''}</div>`).join('')+`<div class="add-day-btn" onclick="pfAddDay()">+</div>`+`<div class="add-day-btn" onclick="pfRoundAll()" title="Arrondir toutes les quantités (valeurs rondes)" style="background:var(--gold-pale);color:var(--gold);font-size:10px;padding:4px 8px">⊙ Arrondir</div>`;
   pfRenderTotals();
 }
 function pfSelDay(i){pfDayIdx=i;pfMealIdx=null;pfRenderDays();pfRenderMeals();}
 function pfAddDay(){pfDays.push({nom:'Jour '+(pfDays.length+1),repas:[{nom:'Repas 1',alims:[]}]});pfSelDay(pfDays.length-1);}
+function pfDupDay(i){const src=pfDays[i];if(!src)return;const copy=JSON.parse(JSON.stringify(src));copy.nom=(copy.nom||'Jour')+' (copie)';pfDays.splice(i+1,0,copy);pfDayIdx=i+1;pfRenderDays();pfRenderMeals();toast('Menu dupliqué ✓');}
 function pfDelDay(i){if(pfDays.length<=1){toast('Il faut au moins 1 jour');return;}pfDays.splice(i,1);if(pfDayIdx>=pfDays.length)pfDayIdx=pfDays.length-1;pfRenderDays();pfRenderMeals();toast('Jour supprimé');}
 function pfRenameDay(i){
   const tab=document.querySelectorAll('#pfDayTabs .day-tab')[i];if(!tab)return;
