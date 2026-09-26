@@ -6239,7 +6239,7 @@ function showBilanForm(editBilanId){
   h+=`<div class="form-group"><label class="form-label">Date du bilan</label><input type="date" class="form-input" id="bilanDate" value="${editing?editing.date.slice(0,10):today()}"></div>`;
 
   // Photos
-  h+=`<div class="form-group"><label class="form-label">Photos (max 8)</label><div class="photo-grid" id="photoGrid"></div></div>`;
+  h+=`<div class="form-group"><label class="form-label">Photos (max 15)</label><div class="photo-grid" id="photoGrid"></div></div>`;
 
   // Q1 - Attitude gauge
   h+=`<div class="bilan-section-title"><i class="fas fa-brain"></i> ATTITUDE</div>`;
@@ -6280,14 +6280,14 @@ function setGauge(val){
   });
 }
 function addBilanPhoto(){
-  if(bilanPhotos.length>=8)return;
+  if(bilanPhotos.length>=15)return;
   const inp=document.getElementById('photoInput');
   inp.onchange=function(e){
     const files=Array.from(e.target.files||[]);
     if(!files.length)return;
-    const slotsLeft=8-bilanPhotos.length;
+    const slotsLeft=15-bilanPhotos.length;
     const toProcess=files.slice(0,slotsLeft);
-    if(files.length>slotsLeft)toast('Seulement '+slotsLeft+' photo'+(slotsLeft>1?'s':'')+' ajoutée'+(slotsLeft>1?'s':'')+' (max 8)');
+    if(files.length>slotsLeft)toast('Seulement '+slotsLeft+' photo'+(slotsLeft>1?'s':'')+' ajoutée'+(slotsLeft>1?'s':'')+' (max 15)');
     let done=0;
     toProcess.forEach(f=>{
       const r=new FileReader();
@@ -6305,7 +6305,7 @@ function addBilanPhoto(){
   inp.click();
 }
 function resizeImg(du,mw,q,cb){const img=new Image();img.onload=function(){let w=img.width,h=img.height;if(w>mw){h=h*(mw/w);w=mw;}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);cb(c.toDataURL('image/jpeg',q));};img.src=du;}
-function renderPhotoGrid(){let h='';bilanPhotos.forEach((p,i)=>{h+=`<div class="photo-slot"><img src="${p}"><div class="photo-remove" onclick="event.stopPropagation();bilanPhotos.splice(${i},1);renderPhotoGrid()">✕</div></div>`;});if(bilanPhotos.length<8)h+=`<div class="photo-slot" onclick="addBilanPhoto()"><div class="photo-add">+</div></div>`;document.getElementById('photoGrid').innerHTML=h;}
+function renderPhotoGrid(){let h='';bilanPhotos.forEach((p,i)=>{h+=`<div class="photo-slot"><img src="${p}"><div class="photo-remove" onclick="event.stopPropagation();bilanPhotos.splice(${i},1);renderPhotoGrid()">✕</div></div>`;});if(bilanPhotos.length<15)h+=`<div class="photo-slot" onclick="addBilanPhoto()"><div class="photo-add">+</div></div>`;document.getElementById('photoGrid').innerHTML=h;}
 let _bilanSubmitting=false;
 async function submitBilan(){
   if(_bilanSubmitting)return; // Anti-double-tap : évite les soumissions multiples
