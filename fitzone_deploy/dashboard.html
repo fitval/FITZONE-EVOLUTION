@@ -43,6 +43,12 @@
 })();
 </script>
 <meta name="theme-color" content="#f0ede8">
+<script>
+/* ===== MOBILE =====
+   Marqué avant le rendu : sur téléphone, la barre latérale est fermée d'entrée
+   (sinon elle s'affiche puis se referme, ce qui fait un flash à l'ouverture). */
+if(window.matchMedia('(max-width:820px)').matches)document.documentElement.classList.add('fz-mobile');
+</script>
 <style>
 :root{
   --bg:#f0ede8;--bg2:#e8e4de;--white:#fff;--dark:#1a1916;--dark2:#2c2a26;
@@ -685,6 +691,54 @@ body:has(#detPage.show) .toast{bottom:54px}
 /* EXO LIBRARY PAGE */
 .exo-card{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:7px;display:flex;align-items:center;gap:12px;transition:box-shadow .15s}
 .exo-card:hover{box-shadow:var(--shadow-md)}
+
+/* ===== MOBILE / RESPONSIVE =====
+   Ajouté pour que le dashboard soit utilisable sur téléphone.
+   Tout est sous media query ou sous html.fz-mobile : au-dessus de 1024px,
+   la version PC est strictement identique à avant. Aucune fonctionnalité n'est
+   retirée : seuls la mise en page, les tailles et les espacements changent. */
+@media (max-width:1024px){
+  .g4{grid-template-columns:repeat(2,1fr)}
+  .qa-grid{grid-template-columns:repeat(2,1fr)}
+  .exo-block-fields{grid-template-columns:repeat(2,1fr)}
+  .prog-builder,.prog-builder.has-ref,.pf-builder{grid-template-columns:1fr}
+}
+@media (max-width:820px){
+  /* --- Structure : la barre latérale devient un panneau qui glisse --- */
+  .main{margin-left:0}
+  .sb{width:min(84vw,300px);box-shadow:var(--shadow-lg)}
+  html.fz-mobile .sb{transform:translateX(-100%)}
+  html.fz-mobile .sb:not(.hidden){transform:none}
+  .sb-toggle{top:10px;left:10px}
+  .sb-toggle.shifted{left:auto;right:10px}
+  html.fz-mobile .sb:not(.hidden)+.sb-overlay{display:block}
+  /* --- Barre du haut --- */
+  .topbar{padding:0 10px 0 56px;height:54px}
+  .tb-title{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tb-acts{gap:6px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
+  .tb-acts::-webkit-scrollbar{display:none}
+  .tb-acts .btn{padding:8px 10px;font-size:12px;white-space:nowrap}
+  .page,.det{padding:12px}
+  /* --- Grilles : une seule colonne --- */
+  .g2,.g3,.g4,.fr2,.fr3,.qgrid,.fin-grid,.vol-cmp,.day-totals{grid-template-columns:1fr}
+  .qa-grid{grid-template-columns:repeat(2,1fr)}
+  .exo-block-fields{grid-template-columns:repeat(2,1fr)}
+  /* --- Aucun débordement horizontal : les tableaux larges défilent --- */
+  html,body{overflow-x:hidden}
+  img,video,canvas{max-width:100%}
+  .tw,.mk-table,.gs-wrap,.road-table{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  /* --- Modales et fiches : plein écran --- */
+  .overlay{align-items:stretch;padding:0}
+  .modal,.modal-lg,.modal-xl{max-width:100%;max-height:100dvh;height:100dvh;border-radius:0}
+  /* --- Confort sur écran tactile --- */
+  .fi,select.fi,textarea.fi,input.fi{font-size:16px}
+  .btn{min-height:40px}
+  .sb-item{padding:11px 10px;font-size:14px}
+  .sb-item.sub{font-size:13px;padding-left:28px}
+  .sh-tabs{left:0}
+  .toast{left:12px;right:12px}
+  .prog-builder,.pf-builder{min-height:auto}
+}
 </style>
 </head>
 <body>
@@ -769,6 +823,9 @@ body:has(#detPage.show) .toast{bottom:54px}
     </div>
   </div>
 </aside>
+<!-- Rideau sombre derrière la barre latérale quand elle est ouverte sur téléphone.
+     Un appui dessus referme le panneau (il ne s'affiche jamais sur PC). -->
+<div class="sb-overlay" onclick="toggleSidebar()"></div>
 
 <main class="main">
   <div class="topbar">
@@ -2692,6 +2749,34 @@ function toggleSidebar(){
     btn.innerHTML='☰';
   }
 }
+/* ===== MOBILE =====
+   Sur téléphone (largeur <= 820px), la barre latérale s'ouvre en panneau et se
+   referme toute seule dès qu'une page est choisie. Sur PC, rien de tout ça :
+   le comportement d'avant est conservé à l'identique. */
+function fzIsMobile(){return window.matchMedia('(max-width:820px)').matches;}
+let fzMobileAvant=null;
+function fzSyncMobile(){
+  const sb=document.querySelector('.sb'),main=document.querySelector('.main'),btn=document.querySelector('.sb-toggle');
+  if(!sb||!main||!btn)return;
+  const m=fzIsMobile();
+  document.documentElement.classList.toggle('fz-mobile',m);
+  if(fzMobileAvant===m)return;
+  fzMobileAvant=m;
+  if(m){
+    sb.classList.add('hidden');main.classList.add('full');btn.classList.remove('shifted');btn.innerHTML='☰';
+  }else{
+    sb.classList.remove('hidden');main.classList.remove('full');btn.classList.add('shifted');btn.innerHTML='✕';
+  }
+}
+window.addEventListener('resize',fzSyncMobile);
+document.addEventListener('click',e=>{
+  if(!fzIsMobile())return;
+  const item=e.target.closest('.sb-item[onclick*="showPage"]');
+  if(!item)return;
+  const sb=document.querySelector('.sb');
+  if(sb&&!sb.classList.contains('hidden'))toggleSidebar();
+});
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',fzSyncMobile);}else{fzSyncMobile();}
 function toggleSub(subId,el,arrId){
   const sub=document.getElementById(subId);const arr=document.getElementById(arrId);
   const open=sub.classList.toggle('open');arr.classList.toggle('open',open);
