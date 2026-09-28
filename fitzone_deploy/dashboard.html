@@ -719,10 +719,48 @@ body:has(#detPage.show) .toast{bottom:54px}
   .tb-acts::-webkit-scrollbar{display:none}
   .tb-acts .btn{padding:8px 10px;font-size:12px;white-space:nowrap}
   .page,.det{padding:12px}
-  /* --- Grilles : une seule colonne --- */
-  .g2,.g3,.g4,.fr2,.fr3,.qgrid,.fin-grid,.vol-cmp,.day-totals{grid-template-columns:1fr}
-  .qa-grid{grid-template-columns:repeat(2,1fr)}
+  /* --- La cause du « c'est trop zoomé » : le corps de page était en flex et
+         le contenu ne pouvait pas descendre sous sa largeur minimale (1264px à
+         cause des tableaux). Tout était donc dessiné pour 1264px puis coupé à
+         l'écran. On rend la largeur de l'écran au contenu. --- */
+  body{display:block}
+  .main{min-width:0;width:auto;margin-left:0}
+  .page,.det,.det-hero,#detTabs,.tabs,.gs-bar,.road-panels{max-width:100%}
+  /* --- Grilles : une seule colonne, sauf les cartes de chiffres qui restent deux par ligne --- */
+  .g2,.g3,.fr2,.fr3,.qgrid,.fin-grid,.vol-cmp,.day-totals{grid-template-columns:1fr}
+  .g4,.qa-grid{grid-template-columns:repeat(2,1fr)}
   .exo-block-fields{grid-template-columns:repeat(2,1fr)}
+  /* --- Densité des tableaux : sur téléphone, 11px de marge par cellule
+         faisaient des lignes énormes, la page paraissait zoomée --- */
+  .cp{padding:11px 12px}
+  .cp div[style*="font-size:30px"]{font-size:21px!important;line-height:1.15}
+  .cl{margin-bottom:5px}
+  th{padding:7px 9px;font-size:9.5px;letter-spacing:1px}
+  td{padding:9px 9px;font-size:12.5px}
+  .tf{padding:9px 10px;gap:6px}
+  .c-cell{gap:8px}
+  .c-av{width:28px;height:28px}
+  /* --- Fiche client : les onglets passent en haut, sur une seule ligne qui
+         défile au doigt. La barre du bas (style feuilles Google) n'est pas
+         attrapable sur téléphone : elle est remplacée, pas dupliquée. --- */
+  body.sheet-nav #detTabs{display:flex}
+  body:has(#detPage.show) .sh-tabs{display:none!important}
+  body:has(#detPage.show) .det{padding-bottom:14px}
+  body:has(#detPage.show) .toast{bottom:14px}
+  #detTabs{flex-wrap:nowrap!important;position:sticky;top:54px;z-index:35;overflow-x:auto;scroll-snap-type:x proximity;padding:4px;-webkit-overflow-scrolling:touch}
+  #detTabs .tab{flex:0 0 auto;scroll-snap-align:start;padding:8px 12px;font-size:12.5px}
+  /* --- Bandeau du dossier client : photo et nom d'abord, boutons en dessous --- */
+  .det-hero{padding:14px;gap:10px;border-radius:16px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-start}
+  .det-hero .det-av{width:42px;height:42px;font-size:15px}
+  .det-hero .det-nm{font-size:16.5px;line-height:1.2}
+  .det-hero>div:last-child{width:100%;flex-wrap:nowrap!important;overflow-x:auto;gap:6px;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .det-hero>div:last-child::-webkit-scrollbar{display:none}
+  .det-hero>div:last-child .btn{flex:0 0 auto;min-height:34px;font-size:11.5px;padding:6px 9px}
+  .det-hero>div:nth-child(2)>div:last-child{flex-wrap:nowrap!important;overflow-x:auto;gap:7px;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .det-hero>div:nth-child(2)>div:last-child::-webkit-scrollbar{display:none}
+  .det-hero>div:nth-child(2)>div:last-child>*{flex:0 0 auto}
+  .det-hero>div:nth-child(2)>div:last-child .btn{min-height:32px;font-size:11px;padding:5px 8px}
+  #detQuickbar{flex-wrap:wrap;justify-content:flex-start!important;gap:6px}
   /* --- Aucun débordement horizontal : les tableaux larges défilent --- */
   html,body{overflow-x:hidden}
   img,video,canvas{max-width:100%}
@@ -735,8 +773,31 @@ body:has(#detPage.show) .toast{bottom:54px}
   .btn{min-height:40px}
   .sb-item{padding:11px 10px;font-size:14px}
   .sb-item.sub{font-size:13px;padding-left:28px}
-  .sh-tabs{left:0}
   .toast{left:12px;right:12px}
+  /* --- Builder alimentaire : la fiche, une ligne par aliment ---
+         Le nom passe sur sa propre ligne, les macros en dessous : c'est ce qui
+         rendait la fiche illisible, le nom était écrasé dans une colonne de 0px. --- */
+  .food-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:9px 0;font-size:12.5px}
+  .food-row>div:first-child{flex:1 1 100%;min-width:0}
+  .food-row .food-qte{width:68px;font-size:14px;padding:6px 6px}
+  .food-row .eq-btn{font-size:13px;padding:5px 7px}
+  .food-row .macro-k,.food-row .macro-p,.food-row .macro-g,.food-row .macro-l{font-size:11px;padding:3px 6px}
+  .meal-block{margin-bottom:10px}
+  .plan-drag{width:34px!important;height:34px!important;font-size:16px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:8px;background:var(--bg2)}
+  .meal-drag{width:32px!important;height:32px!important;font-size:13px!important}
+  /* --- Builder alimentaire : le tableur, première colonne toujours visible --- */
+  .gs-bar{position:sticky;top:0;z-index:6;background:var(--bg);padding:4px 0}
+  .gs-btn{padding:8px 12px;font-size:12px}
+  .gs thead th:first-child,.gs tbody td:first-child{position:sticky;left:0;z-index:3}
+  .gs td{height:34px;font-size:11.5px;padding:0 4px}
+  .gs td.gs-lbl{padding:4px 7px}
+  .gs .gi{font-size:13px;min-height:30px;padding:4px 5px}
+  /* --- Onglet Roadmap : lignes plus hautes, cases attrapables au doigt --- */
+  .road-wrap{max-height:calc(100dvh - 200px)}
+  .road-table tbody td{height:34px;font-size:11.5px;padding:1px 3px}
+  .road-table textarea.rin,.road-table input.rin{font-size:12px;height:26px;min-height:26px;padding:3px 5px}
+  .road-panels{gap:5px;margin-bottom:8px}
+  .road-panels .rbtn{padding:8px 11px;font-size:11.5px}
   .prog-builder,.pf-builder{min-height:auto}
 }
 </style>
@@ -2777,6 +2838,70 @@ document.addEventListener('click',e=>{
   if(sb&&!sb.classList.contains('hidden'))toggleSidebar();
 });
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',fzSyncMobile);}else{fzSyncMobile();}
+
+/* ===== GLISSER-DÉPOSER AU DOIGT =====
+   Le glisser-déposer du navigateur ne répond pas au doigt. Ici on ne réécrit
+   aucun déplacement : on rejoue les gestionnaires du bureau (ondragstart,
+   ondragover, ondrop) avec un évènement fabriqué. Ce sont donc les mêmes
+   fonctions qui réordonnent les aliments et les repas — impossible que les deux
+   versions divergent.
+   Poignée (⠿, numéro de repas) : le glisser part tout de suite.
+   Ailleurs sur la ligne : appui long de 220 ms, sinon c'est un défilement. */
+function fzEvt(){return{preventDefault(){},stopPropagation(){},dataTransfer:{effectAllowed:'',setData(){},getData(){return '';}}};}
+let fzTD=null;
+function fzTDStop(){
+  if(!fzTD)return;
+  clearTimeout(fzTD.minuteur);
+  if(fzTD.cible&&fzTD.cible.classList)fzTD.cible.classList.remove('pf-food-over','pf-meal-over');
+  if(fzTD.el&&fzTD.el.style){fzTD.el.style.opacity='';fzTD.el.style.pointerEvents='';}
+  const fin=fzTD.ed;fzTD=null;
+  if(fin&&fin.ondragend){try{fin.ondragend(fzEvt());}catch(_){}}
+}
+function fzTDCible(x,y){
+  const e=document.elementFromPoint(x,y);
+  return (e&&e.closest)?e.closest('[ondrop]'):null;
+}
+function fzTDAttrape(){
+  const d=fzTD;if(!d||d.actif)return;
+  d.actif=true;
+  d.el.style.pointerEvents='none';
+  d.el.style.opacity='.4';
+  try{if(d.ed.ondragstart)d.ed.ondragstart(fzEvt());}catch(_){}
+}
+document.addEventListener('touchstart',e=>{
+  if(!fzIsMobile()||e.touches.length!==1)return;
+  const el=(e.target&&e.target.closest)?e.target.closest('[draggable="true"]'):null;
+  if(!el)return;
+  const t=e.touches[0];
+  fzTD={el,ed:el,cible:null,actif:false,minuteur:null,x:t.clientX,y:t.clientY};
+  if(/drag/i.test(String((e.target.className||''))))fzTDAttrape();
+  else fzTD.minuteur=setTimeout(fzTDAttrape,220);
+},{passive:true});
+document.addEventListener('touchmove',e=>{
+  const d=fzTD;if(!d)return;
+  const t=e.touches[0];if(!t)return;
+  if(!d.actif){
+    if(Math.abs(t.clientX-d.x)>10||Math.abs(t.clientY-d.y)>10)fzTDStop();
+    return;
+  }
+  e.preventDefault();
+  const c=fzTDCible(t.clientX,t.clientY);
+  if(c!==d.cible){
+    if(d.cible&&d.cible.ondragleave){try{d.cible.ondragleave(fzEvt());}catch(_){}}
+    d.cible=c;
+    if(c&&c.ondragover){try{c.ondragover(fzEvt());}catch(_){}}
+  }
+},{passive:false});
+document.addEventListener('touchend',e=>{
+  const d=fzTD;if(!d)return;
+  if(!d.actif){fzTDStop();return;}
+  const t=(e.changedTouches&&e.changedTouches[0])||null;
+  const c=(t?fzTDCible(t.clientX,t.clientY):null)||d.cible;
+  if(c&&c.ondrop){try{c.ondrop(fzEvt());}catch(_){}}
+  fzTDStop();
+});
+document.addEventListener('touchcancel',()=>fzTDStop());
+
 function toggleSub(subId,el,arrId){
   const sub=document.getElementById(subId);const arr=document.getElementById(arrId);
   const open=sub.classList.toggle('open');arr.classList.toggle('open',open);
