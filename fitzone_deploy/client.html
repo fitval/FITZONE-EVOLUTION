@@ -5693,17 +5693,20 @@ function renderPlanDetail(){
     avgK/=jours.length;avgP/=jours.length;avgC/=jours.length;avgF/=jours.length;
   } else { avgK=p.kcal||0;avgP=p.prot||0;avgC=p.carb||0;avgF=p.fat||0; }
 
-  if(!hideMacros){
-    // En-tête = objectif fixé par le coach (calcul macros) si défini, sinon moyenne du plan repas.
-    const _co=_coachObj();
-    const objK=_co?_co.k:avgK,objP=_co?_co.prot:avgP,objC=_co?_co.carb:avgC,objF=_co?_co.fat:avgF;
-    const headLabel=_co?'TON OBJECTIF JOURNALIER':'MOYENNE JOURNALIÈRE';
+  // Réglage du coach sur ce plan (client_header) : null = objectif du calcul macros si défini,
+  // sinon moyenne du plan · plan = moyenne du plan · manual = valeurs saisies · hidden = pas d'en-tête.
+  const head=p.client_header||null,headMode=head?.mode||'auto';
+  if(!hideMacros&&headMode!=='hidden'){
+    const _co=headMode==='auto'?_coachObj():null;
+    const man=headMode==='manual'?head:null;
+    const objK=man?(+man.kcal||0):_co?_co.k:avgK,objP=man?(+man.prot||0):_co?_co.prot:avgP,objC=man?(+man.carb||0):_co?_co.carb:avgC,objF=man?(+man.fat||0):_co?_co.fat:avgF;
+    const headLabel=(man||_co)?'TON OBJECTIF JOURNALIER':'MOYENNE JOURNALIÈRE';
     // Macro summary card
     const totalK=Math.round(objK),pPct=totalK?Math.round(objP*4/totalK*100):0,cPct=totalK?Math.round(objC*4/totalK*100):0,fPct=totalK?Math.round(objF*9/totalK*100):0;
     h+=`<div class="card" style="margin-bottom:16px;padding:20px">
       <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">${headLabel}</div>
       <div style="text-align:center;margin-bottom:14px"><span style="font-size:32px;font-weight:900;color:var(--gold)">${totalK}</span><span style="font-size:14px;color:var(--text3);margin-left:4px">kcal</span></div>
-      <div style="display:flex;gap:3px;height:8px;border-radius:4px;overflow:hidden;margin-bottom:14px">
+      ${(objP||objC||objF)?`<div style="display:flex;gap:3px;height:8px;border-radius:4px;overflow:hidden;margin-bottom:14px">
         <div style="flex:${pPct};background:#4a90d9;border-radius:4px 0 0 4px"></div>
         <div style="flex:${cPct};background:var(--gold)"></div>
         <div style="flex:${fPct};background:#e07c5a;border-radius:0 4px 4px 0"></div>
@@ -5712,7 +5715,7 @@ function renderPlanDetail(){
         <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${Math.round(objP)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Protéines</div></div>
         <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(objC)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Glucides</div></div>
         <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${Math.round(objF)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Lipides</div></div>
-      </div>
+      </div>`:''}
     </div>`;
   }
   if(p.type==='macros'||!jours.length){if(p.notes)h+=`<div class="card"><div style="font-size:14px;color:var(--text2);line-height:1.5">${p.notes}</div></div>`;h+=renderWaterCard(today());h+=renderSaltCard(today());document.getElementById('nutriContent').innerHTML=h;return;}
