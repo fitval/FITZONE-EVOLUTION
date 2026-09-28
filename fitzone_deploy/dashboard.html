@@ -612,6 +612,11 @@ body:has(#detPage.show) .toast{bottom:54px}
 .meal-body{padding:10px 13px}
 .food-row{display:grid;grid-template-columns:1fr 24px 58px 60px 48px 48px 48px 18px;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
 .food-row.pf-food-over{box-shadow:inset 0 2px 0 var(--gold);background:var(--gold-pale)}
+/* Ajouter un aliment depuis un repas, en mode fiche : même recherche, même menu
+   que la ligne « + aliment… » du tableur — une seule mécanique pour les deux modes. */
+.food-add{margin-top:6px}
+.food-add-inp{width:100%;height:34px;text-align:left;padding:0 10px;font-size:13px;background:var(--bg);border:1.5px dashed var(--border2);color:var(--text2);box-sizing:border-box}
+.food-add-inp:focus{border-style:solid;border-color:var(--gold);background:var(--white);color:var(--text)}
 .meal-block.pf-meal-over{outline:2px dashed var(--gold);outline-offset:-2px}
 .gs tbody tr.pf-food-over td{background:var(--gold-pale);box-shadow:inset 0 2px 0 var(--gold)}
 .plan-drag{cursor:grab;color:var(--text3);font-size:13px;user-select:none;flex-shrink:0;padding:2px}
@@ -782,6 +787,10 @@ body:has(#detPage.show) .toast{bottom:54px}
   .food-row .food-qte{width:68px;font-size:14px;padding:6px 6px}
   .food-row .eq-btn{font-size:13px;padding:5px 7px}
   .food-row .macro-k,.food-row .macro-p,.food-row .macro-g,.food-row .macro-l{font-size:11px;padding:3px 6px}
+  .food-row>button:last-child{width:34px;height:34px;font-size:15px;color:var(--text2)!important}
+  .food-add-inp{height:42px;font-size:14px;border-radius:9px}
+  .gs-menu{max-height:44dvh;font-size:13px;min-width:min(330px,92vw)}
+  .gs-menu div{padding:11px 12px}
   .meal-block{margin-bottom:10px}
   .plan-drag{width:34px!important;height:34px!important;font-size:16px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:8px;background:var(--bg2)}
   .meal-drag{width:32px!important;height:32px!important;font-size:13px!important}
@@ -6979,7 +6988,9 @@ function pfRenderMeals(){
         <span class="macro-l" id="pf_l_${ri}_${ai}">${Math.round(a.fat*a.qte/100)}g L</span>
         <button onclick="pfDelFood(${ri},${ai})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px">✕</button>
       </div>`).join('')}
-      ${!r.alims.length?`<div style="font-size:12px;color:var(--text3);padding:5px 0;text-align:center;border:1.5px dashed var(--border2);border-radius:8px;padding:9px">Clique sur ce repas, puis cherche un aliment →<br><span style="font-size:10px">ou fais glisser un aliment depuis un autre repas</span></div>`:''}
+      <div class="food-add" onclick="event.stopPropagation()">
+        <input class="gi food-add-inp" placeholder="+ Ajouter un aliment…" oninput="pfSheetFind(this,${ri},-1)" onfocus="pfSheetFind(this,${ri},-1)" onblur="setTimeout(pfMenuClose,180)" autocomplete="off">
+      </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
         <label style="display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">📝 Instructions de préparation <span style="font-weight:400;text-transform:none;letter-spacing:0">— pas de quantités, elles sont gérées par les aliments ci-dessus</span></label>
         <textarea onclick="event.stopPropagation()" oninput="pfUpdInstr(${ri},this.value)" placeholder="Ex: 1. Cuire le poulet à la poêle 6-8 min de chaque côté. 2. Cuire le riz selon les indications. 3. Servir." rows="${r.instructions?Math.min(8,Math.max(2,r.instructions.split('\n').length+1)):2}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;line-height:1.4;resize:vertical;background:var(--white);box-sizing:border-box">${esc(r.instructions||'')}</textarea>
