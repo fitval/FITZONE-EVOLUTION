@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-09-28 (total affiché en haut du plan alimentaire réglable par plan : objectif, moyenne, saisie manuelle ou masqué)
+**Dernière mise à jour** : 2026-09-29 (option « Apports du premier menu » pour le total affiché en haut du plan alimentaire)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -53,7 +53,7 @@
 - [x] **UI nutrition améliorée** (barre macros colorée P/G/L, icônes repas, pastilles source macro, instructions affichées)
 - [x] **Affichage par client dans l'app** (2026-09-15) : colonnes `clients.show_progress` / `clients.show_chat` (bool, défaut true, migration `20260915120000_clients_app_toggles.sql`). Boutons « 👁️/🙈 📈 % parcours » et « 💬 Tchat » dans le hero de la fiche client (`appFlagBtn` / `setClientAppFlag`). Côté `client.html` : `show_progress===false` → pas de carte « Mon parcours » (`renderRoadmapVisual`) ; `chatAllowed()` faux → pas de carte tchat, pas d'icône `#chatBell`, `loadChat` non lancé, `switchTab('Chat')` redirige vers Home. Colonne absente = affiché (rétrocompatible). ⚠️ Masquage d'interface uniquement : la RLS de `messages` n'est pas modifiée.
 - [x] **Notifications webhooks par formulaire de recrutement** : éditeur de webhook liste tous les `recruitment_forms` du coach comme cases à cocher individuelles (clé `recruitment_response:<form_id>`), filtrage côté Edge Function `notify-webhook`
-- [x] **Total affiché en haut du plan alimentaire** (2026-09-28) : colonne `plans_full.client_header` (jsonb, null par défaut, migration `20260928120000_plans_full_client_header.sql`). `null` = comportement historique (objectif du calcul macros `_coachObj()`, sinon moyenne du plan) ; `{mode:"plan"}` = moyenne réelle ; `{mode:"manual",kcal,prot,carb,fat}` = valeurs saisies (barre macros cachée si seules les kcal sont saisies) ; `{mode:"hidden"}` = pas de cadre. Réglage dans le builder de plan complet (`#pfHeadMode`, `pfSetHead`/`pfGetHead`/`pfHeadFromPlan`), lu dans `renderPlanDetail` de `client.html`. Le suivi alimentaire garde l'objectif du calcul macros.
+- [x] **Total affiché en haut du plan alimentaire** (2026-09-28) : colonne `plans_full.client_header` (jsonb, null par défaut, migration `20260928120000_plans_full_client_header.sql`). `null` = comportement historique (objectif du calcul macros `_coachObj()`, sinon moyenne du plan) ; `{mode:"plan"}` = moyenne réelle ; `{mode:"first"}` = totaux du premier menu (Jour 1, calculés en direct, sans les portions de la cliente) ; `{mode:"manual",kcal,prot,carb,fat}` = valeurs saisies (barre macros cachée si seules les kcal sont saisies) ; `{mode:"hidden"}` = pas de cadre. Réglage dans le builder de plan complet (`#pfHeadMode`, `pfSetHead`/`pfGetHead`/`pfHeadFromPlan`), lu dans `renderPlanDetail` de `client.html`. Le suivi alimentaire garde l'objectif du calcul macros.
 - [x] **Scan code-barres app client (Nutrition)** : lib `html5-qrcode` + lookup OpenFoodFacts (~3M produits), preview macros+micros (sucre/fibres/sat_fat/sel), insert `food_logs` avec colonne JSONB `extra` (migration `food_logs_extra.sql`). Visible coach via les requêtes food_logs existantes (pas de duplication daily_logs)
 
 ### Ce qui reste à faire (prochaines priorités)

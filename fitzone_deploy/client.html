@@ -5694,11 +5694,13 @@ function renderPlanDetail(){
   } else { avgK=p.kcal||0;avgP=p.prot||0;avgC=p.carb||0;avgF=p.fat||0; }
 
   // Réglage du coach sur ce plan (client_header) : null = objectif du calcul macros si défini,
-  // sinon moyenne du plan · plan = moyenne du plan · manual = valeurs saisies · hidden = pas d'en-tête.
+  // sinon moyenne du plan · plan = moyenne du plan · first = totaux du premier menu (Jour 1, sans portions)
+  // · manual = valeurs saisies · hidden = pas d'en-tête.
   const head=p.client_header||null,headMode=head?.mode||'auto';
   if(!hideMacros&&headMode!=='hidden'){
     const _co=headMode==='auto'?_coachObj():null;
-    const man=headMode==='manual'?head:null;
+    let man=headMode==='manual'?head:null;
+    if(headMode==='first'&&jours[0]){const f=calcDayMacros(jours[0]);man={kcal:f.kcal,prot:f.prot,carb:f.carb,fat:f.fat};}
     const objK=man?(+man.kcal||0):_co?_co.k:avgK,objP=man?(+man.prot||0):_co?_co.prot:avgP,objC=man?(+man.carb||0):_co?_co.carb:avgC,objF=man?(+man.fat||0):_co?_co.fat:avgF;
     const headLabel=(man||_co)?'TON OBJECTIF JOURNALIER':'MOYENNE JOURNALIÈRE';
     // Macro summary card

@@ -1031,6 +1031,7 @@ body:has(#detPage.show) .toast{bottom:54px}
               <select id="pfHeadMode" class="fi" style="width:auto;min-width:220px" onchange="pfHeadModeChange()">
                 <option value="auto">Objectif du calcul macros</option>
                 <option value="plan">Moyenne réelle du plan</option>
+                <option value="first">Apports du premier menu</option>
                 <option value="manual">Valeurs saisies à la main</option>
                 <option value="hidden">Masqué</option>
               </select>
@@ -7256,7 +7257,7 @@ function pfHeadFromPlan(){
 }
 function pfSetHead(h){
   const sel=document.getElementById('pfHeadMode');if(!sel)return;
-  sel.value=h&&['plan','manual','hidden'].includes(h.mode)?h.mode:'auto';
+  sel.value=h&&['plan','first','manual','hidden'].includes(h.mode)?h.mode:'auto';
   const m=h&&h.mode==='manual'?h:{};
   document.getElementById('pfHeadK').value=m.kcal??'';
   document.getElementById('pfHeadP').value=m.prot??'';
