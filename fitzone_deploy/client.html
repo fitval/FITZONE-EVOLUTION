@@ -4974,15 +4974,43 @@ async function confirmAddSelected(){
   renderFoodTracker();
 }
 let _pfaCurrent=null;let _pfaMode='select';let _pfaEditId=null;
+let _pfaUnit='g';                  // unité de saisie : 'g' ou 'portion'
+/* Portion d'un aliment (poids + nom). Si l'aliment vient du journal ou de la
+   liste des récents, il n'a pas les colonnes portion_* : on les reprend de la
+   base du coach grâce à l'id. */
+function _ftPortionOf(a){
+  if(!a)return{pg:0,pl:'portion'};
+  let pg=parseFloat(a.portion_g)||0,pl=String(a.portion_label||'').trim();
+  if((!pg||!pl)&&a.id!=null){
+    const c=coachAlims.find(x=>String(x.id)===String(a.id));
+    if(c){if(!pg)pg=parseFloat(c.portion_g)||0;if(!pl)pl=String(c.portion_label||'').trim();}
+  }
+  return {pg:pg>0?pg:0,pl:pl.replace(/[<>&"]/g,'').slice(0,24)||'portion'};
+}
 function pickFoodAliment(a){
-  _pfaCurrent=a;_pfaMode='select';_pfaEditId=null;
+  _pfaCurrent=a;_pfaMode='select';_pfaEditId=null;_pfaUnit='g';
   const sel=_ftSelected[_ftKey(a)];
   renderPickFoodQty(sel?sel.qte_g:100);
+}
+function _pfaSetUnit(u){
+  if(!_pfaCurrent)return;
+  const P=_ftPortionOf(_pfaCurrent);
+  if(u==='portion'&&!P.pg)return;
+  const cur=_ftNum(document.getElementById('pfaQty')?.value);
+  const grams=(_pfaUnit==='portion')?cur*P.pg:cur;
+  _pfaUnit=u;
+  renderPickFoodQty(grams);
 }
 function renderPickFoodQty(defaultQty){
   const a=_pfaCurrent;if(!a)return;
   _ftClearSaveBar();
   const isEdit=_pfaMode==='edit';
+  const _P=_ftPortionOf(a),hasP=_P.pg>0;
+  if(!hasP)_pfaUnit='g';
+  // la quantité reçue est toujours en grammes ; en portion on l'affiche en portions
+  const shownQty=(_pfaUnit==='portion')
+    ?_ftG(Math.max(0.5,Math.round((parseFloat(defaultQty)||0)/_P.pg*2)/2))
+    :defaultQty;
   const k=parseFloat(a.kcal)||0,p=parseFloat(a.prot)||0,c=parseFloat(a.carb)||0,f=parseFloat(a.fat)||0;
   let h=`<button class="back-btn" onclick="${isEdit?'renderFoodTracker()':'renderAddFoodPage()'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">${a.nom}</div>`;
@@ -5001,13 +5029,19 @@ function renderPickFoodQty(defaultQty){
     <select id="pfaMeal" oninput="_ftCurrentMeal=this.value" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none;background:var(--white);font-weight:600;margin-bottom:14px">
       ${FT_MEALS.map(m=>`<option value="${m}" ${m===_ftCurrentMeal?'selected':''}>${m}</option>`).join('')}
     </select>
+    ${hasP?`<label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Unité</label>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button type="button" onclick="_pfaSetUnit('g')" style="${_mfSegStyle(_pfaUnit!=='portion')}">Grammes</button>
+      <button type="button" onclick="_pfaSetUnit('portion')" style="${_mfSegStyle(_pfaUnit==='portion')}">${_P.pl}</button>
+    </div>`:''}
     <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Quantité consommée</label>
     <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="_pfaStep(-10)" aria-label="Diminuer" style="width:44px;height:46px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:22px;font-weight:800;cursor:pointer;line-height:1;padding:0;flex-shrink:0;font-family:var(--font)">−</button>
-      <input type="text" id="pfaQty" value="${defaultQty}" inputmode="decimal" style="flex:1;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;text-align:center;font-weight:700;min-width:0" oninput="_pfaUpdateTotals()">
-      <button onclick="_pfaStep(10)" aria-label="Augmenter" style="width:44px;height:46px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:22px;font-weight:800;cursor:pointer;line-height:1;padding:0;flex-shrink:0;font-family:var(--font)">+</button>
-      <span style="font-size:14px;font-weight:700;color:var(--text3);flex-shrink:0">g</span>
+      <button onclick="_pfaStep(-1)" aria-label="Diminuer" style="width:44px;height:46px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:22px;font-weight:800;cursor:pointer;line-height:1;padding:0;flex-shrink:0;font-family:var(--font)">−</button>
+      <input type="text" id="pfaQty" value="${shownQty}" inputmode="decimal" style="flex:1;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;text-align:center;font-weight:700;min-width:0" oninput="_pfaUpdateTotals()">
+      <button onclick="_pfaStep(1)" aria-label="Augmenter" style="width:44px;height:46px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);font-size:22px;font-weight:800;cursor:pointer;line-height:1;padding:0;flex-shrink:0;font-family:var(--font)">+</button>
+      <span style="font-size:14px;font-weight:700;color:var(--text3);flex-shrink:0;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_pfaUnit==='portion'?_P.pl:'g'}</span>
     </div>
+    ${hasP?`<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">1 ${_P.pl} = ${_ftG(_P.pg)} g</div>`:''}
     <div id="pfaTotals" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);text-align:center"></div>
   </div>`;
   h+=`<button class="btn-gold" style="width:100%;padding:14px;font-size:15px" onclick="confirmPickFoodAliment()">${isEdit?'Mettre à jour':'Sélectionner'}</button>`;
@@ -5018,10 +5052,16 @@ function renderPickFoodQty(defaultQty){
 function _pfaUpdateTotals(){
   if(!_pfaCurrent)return;
   const el=document.getElementById('pfaTotals');if(!el)return;
-  const q=_ftNum(document.getElementById('pfaQty')?.value);
-  const r=q/100;
   const a=_pfaCurrent;
-  el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">POUR ${_ftG(q)}g</div>
+  const P=_ftPortionOf(a);
+  const saisie=_ftNum(document.getElementById('pfaQty')?.value);
+  // tout est ramené en grammes : c'est ce qui part dans le journal et dans les totaux
+  const q=(P.pg>0&&_pfaUnit==='portion')?Math.round(saisie*P.pg*10)/10:saisie;
+  const r=q/100;
+  const titre=(P.pg>0&&_pfaUnit==='portion')
+    ?`POUR ${_ftG(saisie)} ${P.pl} · ${_ftG(q)} g`
+    :`POUR ${_ftG(q)} g`;
+  el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">${titre}</div>
     <div style="display:flex;justify-content:space-around;font-size:13px;font-weight:700">
       <span style="color:var(--gold)">${Math.round((parseFloat(a.kcal)||0)*r)} kcal</span>
       <span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P${((parseFloat(a.prot)||0)*r).toFixed(1)}</span>
@@ -5031,15 +5071,21 @@ function _pfaUpdateTotals(){
 }
 function _pfaStep(delta){
   const el=document.getElementById('pfaQty');if(!el)return;
-  let v=_ftNum(el.value)+delta;
-  if(v<1)v=1;
+  const P=_ftPortionOf(_pfaCurrent);
+  const parPortion=(_pfaUnit==='portion'&&P.pg>0);
+  let v=_ftNum(el.value)+delta*(parPortion?0.5:10);
+  const mini=parPortion?0.5:1;
+  if(v<mini)v=mini;
   v=Math.round(v*10)/10;
   el.value=_ftG(v);
   _pfaUpdateTotals();
 }
 async function confirmPickFoodAliment(){
   const a=_pfaCurrent;if(!a){toast('Aliment introuvable');return;}
-  const q=_ftNum(document.getElementById('pfaQty')?.value);
+  const saisie=_ftNum(document.getElementById('pfaQty')?.value);
+  const P=_ftPortionOf(a);
+  // en portion : on convertit en grammes avant d'enregistrer, le journal ne change pas
+  const q=(P.pg>0&&_pfaUnit==='portion')?Math.round(saisie*P.pg*10)/10:saisie;
   if(!q||q<=0){toast('Quantité invalide');return;}
   const meal=document.getElementById('pfaMeal')?.value;
   if(meal&&FT_MEALS.includes(meal))_ftCurrentMeal=meal;
@@ -5600,7 +5646,7 @@ function editFoodLog(id){
   if(!log)return;
   // Les macros stockées dans food_logs sont pour 100g → on reconstruit l'aliment pour l'écran quantité
   _pfaCurrent={id:log.aliment_id,nom:log.aliment_nom,kcal:log.kcal,prot:log.prot,carb:log.carb,fat:log.fat};
-  _pfaMode='edit';_pfaEditId=id;_ftCurrentMeal=log.meal;
+  _pfaMode='edit';_pfaEditId=id;_ftCurrentMeal=log.meal;_pfaUnit='g';
   renderPickFoodQty(parseFloat(log.qte_g)||100);
 }
 // Dernier jour/menu sélectionné par plan (persistant entre sessions)
