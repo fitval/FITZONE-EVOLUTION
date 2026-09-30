@@ -2568,7 +2568,68 @@ function restorePending(){
     window[m.arr]=arr;lsSave(m.ls,arr);
   });
   if(n)setTimeout(()=>toast('\u26a0\ufe0f '+n+' element(s) jamais enregistre(s) dans le cloud \u2014 rouvre-les et enregistre a nouveau'),1500);
+  setTimeout(pendingRefreshBar,1800);
   return n;
+}
+
+/* ===== ENREGISTREMENTS EN ATTENTE : les voir et les renvoyer d'un coup =====
+   restorePending() remet dans le navigateur les elements dont l'enregistrement a
+   echoue, mais Valentin n'avait qu'un compteur : il devait rouvrir chaque element
+   et le sauver a la main. Ici, une pastille en bas a gauche les liste (module +
+   nom) et les renvoie toutes a Supabase d'un coup. */
+const PENDING_LABEL={exercises:'Exercices',programs:'Programmes',seances:'Séances',aliments:'Aliments',repas:'Repas',plans_full:'Plans alimentaires',modules:'Modules',team:'Équipe'};
+function pendingNom(it){return String((it&&(it.nom||it.titre||it.title||it.name))||'(sans nom)');}
+function pendingListHtml(){
+  const p=pendingGet(),tables=Object.keys(p).filter(t=>(p[t]||[]).length);
+  if(!tables.length)return '<div style="padding:6px 2px 10px;color:var(--text2);font-size:13px">Rien en attente : tout est dans le cloud ✓</div>';
+  return tables.map(t=>`<div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:4px">${PENDING_LABEL[t]||t} · ${p[t].length}</div>
+      ${p[t].map(it=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(pendingNom(it))}</span>
+        <button class="btn btn-sm btn-ghost" onclick="pendingRetryOne('${t}','${String(it.id).replace(/'/g,'')}')">Renvoyer</button>
+      </div>`).join('')}
+    </div>`).join('');
+}
+function pendingOpenList(){
+  openModal(`<div class="modal" style="max-width:560px" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt">☁️ Enregistrements en attente</div><button class="mc" onclick="closeModal()">✕</button></div>
+    <div class="mb">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Ces éléments ne sont pour l'instant que dans ce navigateur : la base et l'app cliente ne les ont pas encore. « Renvoyer » réessaie de les enregistrer maintenant.</div>
+      <div id="pendList">${pendingListHtml()}</div>
+    </div>
+    <div class="mf"><button class="btn btn-ghost" onclick="closeModal()">Fermer</button><button class="btn btn-gold" onclick="pendingRetryAll()">Tout renvoyer</button></div>
+  </div>`);
+}
+async function pendingRetryOne(table,id){
+  const p=pendingGet();const it=(p[table]||[]).find(x=>String(x.id)===String(id));
+  if(!it){toast('Déjà renvoyé ✓');return;}
+  const r=await dbSave(table,it);
+  toast(r&&r.ok?'Enregistré ✓':'Échec : '+((r&&r.message)||''));
+  pendingRefreshBar();
+  const l=document.getElementById('pendList');if(l)l.innerHTML=pendingListHtml();
+}
+async function pendingRetryAll(){
+  const p=pendingGet();const taches=[];
+  Object.keys(p).forEach(t=>(p[t]||[]).forEach(it=>taches.push([t,it])));
+  if(!taches.length){toast('Rien en attente ✓');return;}
+  let ok=0,ko=0,msg='';
+  for(const [t,it] of taches){
+    const r=await dbSave(t,it);
+    if(r&&r.ok)ok++;else{ko++;if(!msg)msg=(r&&r.message)||'';}
+  }
+  toast(ko?(ok+' enregistré(s), '+ko+' en échec — '+(msg||'erreur')):(ok+' enregistré(s) ✓'));
+  pendingRefreshBar();
+  const l=document.getElementById('pendList');if(l)l.innerHTML=pendingListHtml();
+}
+function pendingRefreshBar(){
+  const n=pendingCount();let b=document.getElementById('pendBar');
+  if(!n){if(b)b.remove();return;}
+  if(!b){b=document.createElement('div');b.id='pendBar';document.body.appendChild(b);}
+  b.style.cssText='position:fixed;left:16px;bottom:16px;z-index:400;background:var(--white);border:1.5px solid var(--gold);border-radius:12px;box-shadow:var(--shadow-md);padding:10px 12px;display:flex;align-items:center;gap:8px;font-size:12.5px;max-width:92vw;flex-wrap:wrap';
+  b.innerHTML=`<span>⚠️ <b>${n}</b> élément(s) pas encore dans le cloud</span>
+    <button class="btn btn-gold btn-sm" onclick="pendingRetryAll()">Tout renvoyer</button>
+    <button class="btn btn-ghost btn-sm" onclick="pendingOpenList()">Voir</button>
+    <button class="btn btn-ghost btn-sm" title="Masquer jusqu au prochain chargement" onclick="this.closest('#pendBar').remove()">✕</button>`;
 }
 
 async function dbSave(table,item){
