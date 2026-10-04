@@ -4583,32 +4583,47 @@ function ftShiftDate(delta){
   ftDate=_ftIsoOf(d);renderFoodTracker();
 }
 // Choix de l'affichage du tracking : fiche (cartes, comme avant) ou tableau.
-function setFtAffichage(v){ftAffichage=(v==='tableau')?'tableau':'fiche';try{localStorage.setItem('fz_ftAffichage',ftAffichage);}catch(e){}renderFoodTracker();}
-// Affichage "tableau" : les memes repas, les memes aliments et les memes actions que les fiches
-// (toucher un aliment pour le modifier, ✕ pour le supprimer, + ajouter, dupliquer, enregistrer).
+function setFtAffichage(v){ftAffichage=(v==='tableau')?'tableau':'fiche';try{localStorage.setItem('fz_ftAffichage',ftAffichage);}catch(e){}(nutriView==='plan')?renderPlanDetail():renderFoodTracker();}
+// La ligne "Choisis ton affichage" : la meme sur le tracking alimentaire et sur un plan du coach.
+function affichageSwitchHTML(){
+  const on='border:none;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:800;padding:7px 12px;border-radius:9px;background:var(--gold);color:#fff';
+  const off='border:none;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:800;padding:7px 12px;border-radius:9px;background:transparent;color:var(--text3)';
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:20px 0 10px">
+    <div><div style="font-size:13px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;gap:7px"><span>🍽️</span><span>Choisis ton affichage</span></div><div style="font-size:11px;color:var(--text3);margin-top:2px">Fiche = tes repas en cartes · Tableau = tes repas en grille</div></div>
+    <div style="display:flex;background:var(--bg2);border-radius:11px;padding:3px;gap:3px">
+      <button type="button" onclick="setFtAffichage('fiche')" style="${ftAffichage==='fiche'?on:off}">📋 Fiche</button>
+      <button type="button" onclick="setFtAffichage('tableau')" style="${ftAffichage==='tableau'?on:off}">📊 Tableau</button>
+    </div>
+  </div>`;
+}
+// Affichage "tableau" : le visuel des tableaux du coach (barre doree par repas, en-tetes
+// dorees, quadrillage) et les memes actions que les fiches (toucher un aliment pour le
+// modifier, ✕ pour le supprimer, + ajouter, ⧉ dupliquer, 💾 enregistrer).
 function _ftTableauHTML(dayLogs){
-  const cell='padding:8px 7px;border-bottom:1px solid var(--border);font-size:12px';
-  const th='padding:8px 6px;font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--gold-deep);background:rgba(var(--gold-rgb),.10);border-bottom:1px solid var(--gold-border);text-align:center';
-  const mini='width:30px;height:30px;border-radius:8px;border:1.5px solid var(--gold-border);background:var(--white);color:var(--gold-dk);font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font);padding:0;touch-action:manipulation';
+  const cell='padding:5px 7px;border:1px solid #e8e4dc;font-size:11px;vertical-align:middle';
+  const th='padding:6px 6px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--gold-deep);background:var(--gold-pale);border:1px solid var(--gold-border);text-align:center';
+  const gcell=cell+';color:#fff;font-weight:800;border:1px solid var(--gold-dk)';
+  const mini='width:28px;height:28px;border-radius:7px;border:1.5px solid var(--gold-border);background:var(--white);color:var(--gold-deep);font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);padding:0;touch-action:manipulation';
+  const miniGold=mini+';border-color:rgba(255,255,255,.55);background:rgba(255,255,255,.18);color:#fff';
   let tK=0,tP=0,tC=0,tF=0;
-  let h=`<div style="background:var(--white);border:1.5px solid var(--border);border-radius:14px;overflow:hidden"><table style="width:100%;border-collapse:collapse;table-layout:fixed">`;
-  h+=`<thead><tr><th style="${th};text-align:left">Aliment</th><th style="${th};width:58px">Qté</th><th style="${th};width:48px">Kcal</th><th style="${th};width:38px">P</th><th style="${th};width:38px">G</th><th style="${th};width:38px">L</th><th style="${th};width:96px"></th></tr></thead><tbody>`;
+  let h=`<div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--white)"><table style="width:100%;border-collapse:collapse;table-layout:fixed">`;
+  h+=`<thead><tr><th style="${th};text-align:left">Aliment</th><th style="${th};width:52px">Qté</th><th style="${th};width:44px">Kcal</th><th style="${th};width:30px">P</th><th style="${th};width:30px">G</th><th style="${th};width:30px">L</th><th style="${th};width:100px"></th></tr></thead><tbody>`;
   FT_MEALS.forEach(m=>{
     const items=dayLogs.filter(l=>l.meal===m);
     const escMeal=m.replace(/'/g,"\\'");
     let mK=0,mP=0,mC=0,mF=0;
     items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;mP+=(parseFloat(l.prot)||0)*q;mC+=(parseFloat(l.carb)||0)*q;mF+=(parseFloat(l.fat)||0)*q;});
     tK+=mK;tP+=mP;tC+=mC;tF+=mF;
-    h+=`<tr style="background:linear-gradient(135deg,rgba(var(--gold-rgb),.10),rgba(var(--gold-rgb),.02))">
-      <td style="${cell};font-weight:800" colspan="2">${FT_MEAL_ICONS[m]||'🍽️'} ${m}</td>
-      <td style="${cell};text-align:center;font-weight:800;color:${items.length?'var(--gold)':'var(--text3)'}">${Math.round(mK)}</td>
-      <td style="${cell};text-align:center;font-weight:700">${Math.round(mP)}</td>
-      <td style="${cell};text-align:center;font-weight:700">${Math.round(mC)}</td>
-      <td style="${cell};text-align:center;font-weight:700">${Math.round(mF)}</td>
-      <td style="${cell};text-align:right;white-space:nowrap">
-        <button type="button" onclick="openAddFood('${escMeal}')" title="Ajouter un aliment" style="${mini}">+</button>
-        <button type="button" onclick="openDuplicateMeal('${escMeal}')" title="Dupliquer ce repas" style="${mini};margin-left:4px">⧉</button>
-        <button type="button" onclick="openSaveRecipe('${escMeal}')" title="Enregistrer ce repas" style="${mini};margin-left:4px">💾</button>
+    h+=`<tr style="background:var(--gold)">
+      <td style="${gcell};font-size:10px;letter-spacing:1.5px;text-transform:uppercase" colspan="2">${FT_MEAL_ICONS[m]||'🍽️'} ${m}</td>
+      <td style="${gcell};text-align:center;font-size:12px">${items.length?Math.round(mK):''}</td>
+      <td style="${gcell};text-align:center">${items.length?Math.round(mP):''}</td>
+      <td style="${gcell};text-align:center">${items.length?Math.round(mC):''}</td>
+      <td style="${gcell};text-align:center">${items.length?Math.round(mF):''}</td>
+      <td style="${gcell};text-align:right;white-space:nowrap">
+        <button type="button" onclick="openAddFood('${escMeal}')" title="Ajouter un aliment" style="${miniGold}">+</button>
+        <button type="button" onclick="openDuplicateMeal('${escMeal}')" title="Dupliquer ce repas" style="${miniGold};margin-left:4px">⧉</button>
+        <button type="button" onclick="openSaveRecipe('${escMeal}')" title="Enregistrer ce repas" style="${miniGold};margin-left:4px">💾</button>
       </td></tr>`;
     if(!items.length){
       h+=`<tr><td style="${cell};color:var(--text3);font-style:italic" colspan="7">Aucun aliment</td></tr>`;
@@ -4628,7 +4643,8 @@ function _ftTableauHTML(dayLogs){
       });
     }
   });
-  h+=`<tr style="background:rgba(var(--gold-rgb),.10)"><td style="${cell};font-weight:800" colspan="2">Total du jour</td><td style="${cell};text-align:center;font-weight:900">${Math.round(tK)}</td><td style="${cell};text-align:center;font-weight:800">${Math.round(tP)}</td><td style="${cell};text-align:center;font-weight:800">${Math.round(tC)}</td><td style="${cell};text-align:center;font-weight:800">${Math.round(tF)}</td><td style="${cell}"></td></tr>`;
+  const dcell=cell+';color:#fff;border:1px solid #2c2a26';
+  h+=`<tr style="background:var(--dark)"><td style="${dcell};font-weight:800;font-size:10px;letter-spacing:1.5px;text-transform:uppercase" colspan="2">Total du jour</td><td style="${dcell};text-align:center;font-weight:900;font-size:12px">${Math.round(tK)}</td><td style="${dcell};text-align:center;font-weight:800">${Math.round(tP)}</td><td style="${dcell};text-align:center;font-weight:800">${Math.round(tC)}</td><td style="${dcell};text-align:center;font-weight:800">${Math.round(tF)}</td><td style="${dcell}"></td></tr>`;
   h+=`</tbody></table></div>`;
   return h;
 }
@@ -4692,13 +4708,7 @@ function renderFoodTracker(){
     </div>
   </div>`;
   // Choix de l'affichage des repas : fiche (cartes) ou tableau
-  h+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:20px 0 10px">
-    <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase">Choisis ton affichage</div>
-    <div style="display:flex;background:var(--bg2);border-radius:11px;padding:3px;gap:3px">
-      <button type="button" onclick="setFtAffichage('fiche')" style="border:none;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:800;padding:7px 12px;border-radius:9px;${ftAffichage==='fiche'?'background:var(--gold);color:#fff':'background:transparent;color:var(--text3)'}">📋 Fiche</button>
-      <button type="button" onclick="setFtAffichage('tableau')" style="border:none;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:800;padding:7px 12px;border-radius:9px;${ftAffichage==='tableau'?'background:var(--gold);color:#fff':'background:transparent;color:var(--text3)'}">📊 Tableau</button>
-    </div>
-  </div>`;
+  h+=affichageSwitchHTML();
   // Meals — cartes dépliables (état persistant par repas, ouvert par défaut)
   if(ftAffichage==='tableau'){
     h+=_ftTableauHTML(dayLogs);
@@ -5794,6 +5804,55 @@ function calcDayMacros(day,planRefId,dayIdx){
   });
   return{kcal:dk,prot:dp,carb:dc,fat:df};
 }
+// Affichage "tableau" du plan d'un coach — meme visuel que les tableaux du coach
+// (barre doree par repas, en-tetes dorees, quadrillage). Memes repas, memes aliments,
+// memes portions et memes actions que la fiche (marquer un repas mange, equivalences).
+function _planTableauHTML(day,planRefId,dayIdx,p){
+  const hideMacros=!!(p.hide_macros||p.hideMacros);
+  const allowSwaps=p.allow_swaps!==false;
+  const cell='padding:5px 7px;border:1px solid #e8e4dc;font-size:11px;vertical-align:middle';
+  const th='padding:6px 6px;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--gold-deep);background:var(--gold-pale);border:1px solid var(--gold-border);text-align:center';
+  const gcell=cell+';color:#fff;font-weight:800;border:1px solid var(--gold-dk)';
+  const mini='width:28px;height:28px;border-radius:7px;border:1.5px solid var(--gold-border);background:var(--white);color:var(--gold-deep);font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);padding:0;touch-action:manipulation';
+  const miniTxt='height:28px;border-radius:7px;border:1.5px solid var(--gold-border);background:var(--gold-pale);color:var(--gold-deep);font-size:11px;font-weight:800;cursor:pointer;font-family:var(--font);padding:0 9px';
+  const mealIcons={'Petit-déjeuner':'🌅','Déjeuner':'🍽️','Dîner':'🌙','Goûter':'🍎','Collation':'🥤','Collation AM':'🥤','Collation PM':'🥤'};
+  const nbCols=hideMacros?3:4;
+  let h=`<div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--white)"><table style="width:100%;border-collapse:collapse;table-layout:fixed">`;
+  h+=`<thead><tr><th style="${th};text-align:left">Aliment</th><th style="${th};width:54px">Qté</th>${hideMacros?'':`<th style="${th};width:50px">Kcal</th>`}<th style="${th};width:52px"></th></tr></thead><tbody>`;
+  (day.repas||[]).forEach((meal,ri)=>{
+    const items=mealItems(meal);
+    const portion=getMealPortion(planRefId,dayIdx,ri);
+    let mk=0,mp=0,mc=0,mf=0;
+    items.forEach(it=>{const q=(it.qte||100)/100*portion;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;});
+    const done=isMealDone(planRefId,dayIdx,ri);
+    h+=`<tr style="background:var(--gold)">
+      <td style="${gcell};font-size:10px;letter-spacing:1.5px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" colspan="2">${mealIcons[meal.nom]||'🍴'} ${meal.nom||'Repas'}</td>
+      ${hideMacros?'':`<td style="${gcell};text-align:center"><div style="font-size:12px">${Math.round(mk)}</div><div style="font-size:9px;font-weight:600;opacity:.9">P${Math.round(mp)} G${Math.round(mc)} L${Math.round(mf)}</div></td>`}
+      <td style="${gcell};text-align:right;white-space:nowrap"><button type="button" onclick="toggleMealDone('${planRefId}',${dayIdx},${ri})" aria-label="${done?'Décocher repas':'Marquer mangé'}" title="${done?'Décocher repas':'Marquer mangé'}" style="${mini};border-color:rgba(255,255,255,.55);background:${done?'#fff':'rgba(255,255,255,.18)'};color:${done?'var(--gold-deep)':'#fff'}">${done?'✓':''}</button></td></tr>`;
+    h+=`<tr style="background:var(--bg)"><td colspan="${nbCols}" style="${cell};padding:6px 7px">
+      <span style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--gold-deep)">Portions cuisinées</span>
+      <button type="button" onclick="adjustMealPortion('${planRefId}',${dayIdx},${ri},-0.5)" aria-label="Diminuer les portions" style="${mini};margin:0 6px">−</button>
+      <span style="font-size:12px;font-weight:800;color:var(--gold-deep)">× ${fmtPortion(portion)}</span>
+      <button type="button" onclick="adjustMealPortion('${planRefId}',${dayIdx},${ri},0.5)" aria-label="Augmenter les portions" style="${mini};margin:0 6px">+</button>
+    </td></tr>`;
+    items.forEach((it,ai)=>{
+      const q=(it.qte||100)/100*portion;
+      const dispQty=Math.round((it.qte||100)*portion);
+      const srcColor=it.source==='proteines'?'#4a90d9':it.source==='glucides'?'#c49a2a':'#e07c5a';
+      const srcDot=it.source?`<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${srcColor};margin-right:6px"></span>`:'';
+      h+=`<tr>
+        <td style="${cell};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${srcDot}${it.nom||'Aliment'}</td>
+        <td style="${cell};text-align:center;white-space:nowrap;color:var(--text3)">${dispQty} g</td>
+        ${hideMacros?'':`<td style="${cell};text-align:center;font-weight:700">${Math.round((it.kcal||0)*q)}</td>`}
+        <td style="${cell};text-align:right">${(hideMacros||!allowSwaps)?'':`<button type="button" onclick="showFoodSwap(${currentPlanIdx},${dayIdx},${ri},${ai})" title="Équivalences" style="${miniTxt}">⇄</button>`}</td>
+      </tr>`;
+    });
+    if(!items.length)h+=`<tr><td colspan="${nbCols}" style="${cell};color:var(--text3);font-style:italic">Aucun aliment</td></tr>`;
+    if(meal.instructions)h+=`<tr><td colspan="${nbCols}" style="${cell};font-size:11px;color:var(--text2);white-space:pre-line">${meal.instructions}</td></tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  return h;
+}
 function renderPlanDetail(){
   const p=plans[currentPlanIdx],jours=p.jours||[];
   const hideMacros=!!(p.hide_macros||p.hideMacros);
@@ -5853,7 +5912,11 @@ function renderPlanDetail(){
     <div style="background:rgba(224,124,90,.12);color:color-mix(in srgb,#c05a30 var(--ink,100%),var(--text));padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">L ${Math.round(dayM.fat)}g</div>`}
     ${totalMeals?`<div style="${hideMacros?'':'margin-left:auto;'}display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:1px solid ${doneMeals===totalMeals?'var(--gold)':'var(--border)'};background:${doneMeals===totalMeals?'var(--gold-pale)':'transparent'};font-size:12px;font-weight:700;color:${doneMeals===totalMeals?'var(--gold-deep)':'var(--text2)'}"><span>✓ ${doneMeals}/${totalMeals}</span><span style="font-size:10px;font-weight:600;color:var(--text3)">repas</span></div>`:''}
   </div>`;
-  // Meals
+  // Meals — fiche (cartes) ou tableau, au choix du client
+  h+=affichageSwitchHTML();
+  if(ftAffichage==='tableau'){
+    h+=_planTableauHTML(day,planRefId,currentDayIdx,p);
+  }else{
   const mealIcons={'Petit-déjeuner':'🌅','Déjeuner':'🍽️','Dîner':'🌙','Goûter':'🍎','Collation':'🥤','Collation AM':'🥤','Collation PM':'🥤'};
   (day.repas||[]).forEach((meal,ri)=>{
     const items=mealItems(meal);
@@ -5895,6 +5958,7 @@ function renderPlanDetail(){
     });
     h+=`</div></div>`;
   });
+  }
   h+=renderWaterCard(today());
   h+=renderSaltCard(today());
   document.getElementById('nutriContent').innerHTML=h;
