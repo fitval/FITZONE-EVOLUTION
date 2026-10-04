@@ -4327,6 +4327,7 @@ let ftDate=null;
 const FT_MEALS=['Petit-déjeuner','Collation AM','Déjeuner','Goûter','Dîner','Collation nuit'];
 // État déplié/replié des repas sur la page tracking (persistant, ouvert par défaut)
 let _ftCollapsed=(()=>{try{return JSON.parse(localStorage.getItem('fz_ftCollapsed')||'{}');}catch(e){return{};}})();
+let ftAffichage=(()=>{try{return localStorage.getItem('fz_ftAffichage')==='tableau'?'tableau':'fiche';}catch(e){return 'fiche';}})();
 function _ftIsCollapsed(m){return !!_ftCollapsed[m];}
 function toggleFtMeal(m){_ftCollapsed[m]=!_ftCollapsed[m];try{localStorage.setItem('fz_ftCollapsed',JSON.stringify(_ftCollapsed));}catch(e){}renderFoodTracker();}
 async function openFoodTracker(){
@@ -4581,6 +4582,56 @@ function ftShiftDate(delta){
   const d=new Date(ftDate);d.setDate(d.getDate()+delta);
   ftDate=_ftIsoOf(d);renderFoodTracker();
 }
+// Choix de l'affichage du tracking : fiche (cartes, comme avant) ou tableau.
+function setFtAffichage(v){ftAffichage=(v==='tableau')?'tableau':'fiche';try{localStorage.setItem('fz_ftAffichage',ftAffichage);}catch(e){}renderFoodTracker();}
+// Affichage "tableau" : les memes repas, les memes aliments et les memes actions que les fiches
+// (toucher un aliment pour le modifier, ✕ pour le supprimer, + ajouter, dupliquer, enregistrer).
+function _ftTableauHTML(dayLogs){
+  const cell='padding:8px 7px;border-bottom:1px solid var(--border);font-size:12px';
+  const th='padding:8px 6px;font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--gold-deep);background:rgba(var(--gold-rgb),.10);border-bottom:1px solid var(--gold-border);text-align:center';
+  const mini='width:30px;height:30px;border-radius:8px;border:1.5px solid var(--gold-border);background:var(--white);color:var(--gold-dk);font-size:14px;font-weight:800;cursor:pointer;font-family:var(--font);padding:0;touch-action:manipulation';
+  let tK=0,tP=0,tC=0,tF=0;
+  let h=`<div style="background:var(--white);border:1.5px solid var(--border);border-radius:14px;overflow:hidden"><table style="width:100%;border-collapse:collapse;table-layout:fixed">`;
+  h+=`<thead><tr><th style="${th};text-align:left">Aliment</th><th style="${th};width:58px">Qté</th><th style="${th};width:48px">Kcal</th><th style="${th};width:38px">P</th><th style="${th};width:38px">G</th><th style="${th};width:38px">L</th><th style="${th};width:96px"></th></tr></thead><tbody>`;
+  FT_MEALS.forEach(m=>{
+    const items=dayLogs.filter(l=>l.meal===m);
+    const escMeal=m.replace(/'/g,"\\'");
+    let mK=0,mP=0,mC=0,mF=0;
+    items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;mP+=(parseFloat(l.prot)||0)*q;mC+=(parseFloat(l.carb)||0)*q;mF+=(parseFloat(l.fat)||0)*q;});
+    tK+=mK;tP+=mP;tC+=mC;tF+=mF;
+    h+=`<tr style="background:linear-gradient(135deg,rgba(var(--gold-rgb),.10),rgba(var(--gold-rgb),.02))">
+      <td style="${cell};font-weight:800" colspan="2">${FT_MEAL_ICONS[m]||'🍽️'} ${m}</td>
+      <td style="${cell};text-align:center;font-weight:800;color:${items.length?'var(--gold)':'var(--text3)'}">${Math.round(mK)}</td>
+      <td style="${cell};text-align:center;font-weight:700">${Math.round(mP)}</td>
+      <td style="${cell};text-align:center;font-weight:700">${Math.round(mC)}</td>
+      <td style="${cell};text-align:center;font-weight:700">${Math.round(mF)}</td>
+      <td style="${cell};text-align:right;white-space:nowrap">
+        <button type="button" onclick="openAddFood('${escMeal}')" title="Ajouter un aliment" style="${mini}">+</button>
+        <button type="button" onclick="openDuplicateMeal('${escMeal}')" title="Dupliquer ce repas" style="${mini};margin-left:4px">⧉</button>
+        <button type="button" onclick="openSaveRecipe('${escMeal}')" title="Enregistrer ce repas" style="${mini};margin-left:4px">💾</button>
+      </td></tr>`;
+    if(!items.length){
+      h+=`<tr><td style="${cell};color:var(--text3);font-style:italic" colspan="7">Aucun aliment</td></tr>`;
+    }else{
+      items.forEach(it=>{
+        const q=(parseFloat(it.qte_g)||0)/100;
+        const k=(parseFloat(it.kcal)||0)*q,p2=(parseFloat(it.prot)||0)*q,c2=(parseFloat(it.carb)||0)*q,f2=(parseFloat(it.fat)||0)*q;
+        h+=`<tr onclick="editFoodLog('${it.id}')" style="cursor:pointer">
+          <td style="${cell};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.aliment_nom}</td>
+          <td style="${cell};text-align:center;white-space:nowrap;color:var(--text3)">${_ftG(it.qte_g)} g</td>
+          <td style="${cell};text-align:center;font-weight:700">${Math.round(k)}</td>
+          <td style="${cell};text-align:center">${Math.round(p2)}</td>
+          <td style="${cell};text-align:center">${Math.round(c2)}</td>
+          <td style="${cell};text-align:center">${Math.round(f2)}</td>
+          <td style="${cell};text-align:right"><button type="button" onclick="event.stopPropagation();deleteFoodLog('${it.id}')" aria-label="Supprimer" title="Supprimer" style="${mini};border-color:rgba(224,92,74,.4);color:#e05c4a">✕</button></td>
+        </tr>`;
+      });
+    }
+  });
+  h+=`<tr style="background:rgba(var(--gold-rgb),.10)"><td style="${cell};font-weight:800" colspan="2">Total du jour</td><td style="${cell};text-align:center;font-weight:900">${Math.round(tK)}</td><td style="${cell};text-align:center;font-weight:800">${Math.round(tP)}</td><td style="${cell};text-align:center;font-weight:800">${Math.round(tC)}</td><td style="${cell};text-align:center;font-weight:800">${Math.round(tF)}</td><td style="${cell}"></td></tr>`;
+  h+=`</tbody></table></div>`;
+  return h;
+}
 function renderFoodTracker(){
   nutriView='tracker';toggleFab();_ftClearSaveBar();
   const dayLogs=foodLogs.filter(l=>l.date===ftDate);
@@ -4640,7 +4691,18 @@ function renderFoodTracker(){
       ${_ftMacroBar('L',tF,tgtF,'#e07c5a')}
     </div>
   </div>`;
+  // Choix de l'affichage des repas : fiche (cartes) ou tableau
+  h+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:20px 0 10px">
+    <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase">Choisis ton affichage</div>
+    <div style="display:flex;background:var(--bg2);border-radius:11px;padding:3px;gap:3px">
+      <button type="button" onclick="setFtAffichage('fiche')" style="border:none;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:800;padding:7px 12px;border-radius:9px;${ftAffichage==='fiche'?'background:var(--gold);color:#fff':'background:transparent;color:var(--text3)'}">📋 Fiche</button>
+      <button type="button" onclick="setFtAffichage('tableau')" style="border:none;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:800;padding:7px 12px;border-radius:9px;${ftAffichage==='tableau'?'background:var(--gold);color:#fff':'background:transparent;color:var(--text3)'}">📊 Tableau</button>
+    </div>
+  </div>`;
   // Meals — cartes dépliables (état persistant par repas, ouvert par défaut)
+  if(ftAffichage==='tableau'){
+    h+=_ftTableauHTML(dayLogs);
+  }else{
   FT_MEALS.forEach(m=>{
     const items=dayLogs.filter(l=>l.meal===m);
     let mK=0,mP=0,mC=0,mF=0;
@@ -4700,6 +4762,7 @@ function renderFoodTracker(){
     }
     h+=`</div>`;
   });
+  }
   h+=renderWaterCard(ftDate);
   h+=renderSaltCard(ftDate);
   document.getElementById('nutriContent').innerHTML=h;
