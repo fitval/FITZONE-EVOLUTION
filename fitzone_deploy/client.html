@@ -297,6 +297,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 .bilan-gauge-dot { width:36px; height:36px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:var(--text3); cursor:pointer; transition:all .2s; }
 .bilan-gauge-dot.active { border-color:var(--gold); background:var(--gold); color:white; }
 .rate-dots { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.jauge-legende { font-size:11px; color:var(--text3); margin-top:6px; line-height:1.45; }
 .rate-dot { width:38px; height:38px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--text3); cursor:pointer; transition:all .15s; user-select:none; background:var(--white); }
 .rate-dot.active { border-color:var(--gold); background:var(--gold); color:white; transform:scale(1.05); }
 .rate-dot:active { transform:scale(.95); }
@@ -2143,6 +2144,7 @@ function openActivityModal(){
   for(let i=1;i<=10;i++)h+=`<div class="bilan-gauge-dot" onclick="setActRating(${i})" data-val="${i}">${i}</div>`;
   h+=`</div>`;
   h+=`<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text3)"><span>Facile</span><span>Intense</span></div>`;
+  h+=jaugeLegendeHTML('intensité de la séance',10);
   h+=`</div>`;
 
   // 6 — Commentaire
@@ -2467,7 +2469,7 @@ function editActivity(logId){
   h+=`<div class="bilan-section-title"><i class="fas fa-fire"></i> EFFORT RESSENTI</div>`;
   h+=`<div class="form-group"><div class="bilan-gauge" id="editActGauge">`;
   for(let i=1;i<=10;i++)h+=`<div class="bilan-gauge-dot${i<=actRating?' active':''}" onclick="setEditActRating(${i})" data-val="${i}">${i}</div>`;
-  h+=`</div></div>`;
+  h+=`</div>`+jaugeLegendeHTML('intensité de la séance',10)+`</div>`;
   h+=`<div class="bilan-section-title"><i class="fas fa-comment"></i> COMMENTAIRE</div>`;
   h+=`<div class="form-group"><textarea class="form-input" id="editActComment" placeholder="Sensations..." oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="min-height:70px">${log.comment||''}</textarea></div>`;
   h+=`<button class="btn-gold" onclick="saveEditActivity('${logId}')" style="margin-top:16px;margin-bottom:40px">Enregistrer les modifications</button>`;
@@ -3142,7 +3144,7 @@ function openRunDoneModal(prefilledDurMin){
       ${recap}
       <div style="margin-bottom:12px"><label style="${labelStyle}">Durée totale (min)</label><input style="${inputStyle}" id="rdDur" type="number" min="1" placeholder="45" value="${dur}" inputmode="numeric"></div>
       <div style="margin-bottom:12px"><label style="${labelStyle}">Distance (km, optionnel)</label><input style="${inputStyle}" id="rdDist" type="number" step="0.1" placeholder="8.5" inputmode="decimal"></div>
-      <div style="margin-bottom:12px"><label style="${labelStyle}">Difficulté ressentie (RPE 1-10)</label><input style="${inputStyle}" id="rdRpe" type="number" min="1" max="10" placeholder="7" inputmode="numeric"></div>
+      <div style="margin-bottom:12px"><label style="${labelStyle}">Difficulté ressentie (RPE 1-10)</label><input style="${inputStyle}" id="rdRpe" type="number" min="1" max="10" placeholder="7" inputmode="numeric">${jaugeLegendeHTML('Difficulté ressentie (RPE)',10)}</div>
       <div style="margin-bottom:14px"><label style="${labelStyle}">Commentaire (optionnel)</label><textarea style="${inputStyle};resize:vertical" id="rdComment" rows="3" placeholder="Sensations, fatigue, météo, blessure ressentie…"></textarea></div>
       <div style="display:flex;gap:8px"><button class="btn-gold" style="flex:1;background:var(--bg2);color:var(--text);font-weight:700" onclick="closeModal()">Annuler</button><button class="btn-gold" style="flex:1;font-weight:800" onclick="saveRunDone()">✓ Enregistrer</button></div>
     </div>
@@ -4017,6 +4019,7 @@ function showPostWorkout(){
   <div class="card">
     <div class="suivi-field"><div class="suivi-field-label">À quel point la séance a été dure ? <span>/10</span></div>
       <div class="slider-group"><input type="range" min="1" max="10" value="7" id="wo_rpe" oninput="document.getElementById('wo_rpe_val').textContent=this.value"><div class="slider-val" id="wo_rpe_val">7</div><span style="font-size:12px;color:var(--text3)">/10</span></div>
+      ${jaugeLegendeHTML('À quel point la séance a été dure',10)}
     </div>
     <div class="suivi-field" style="margin-top:16px"><div class="suivi-field-label">Si tu as un commentaire ou un retour à ton coach, mentionne-le ici</div>
       <textarea id="wo_comment" placeholder="Ex: Grosse séance, j'ai bien progressé sur le squat..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:14px;font-family:var(--font);background:var(--white);color:var(--text);outline:none;min-height:80px;resize:vertical"></textarea>
@@ -6228,7 +6231,7 @@ function _renderDynQuestionInput(q,inpId,value){
       const scale=q.scale||5;const cur=parseInt(v)||0;
       let h=`<input type="hidden" id="${inpId}" value="${cur||''}"><div class="rate-dots" data-val="${cur}" data-max="${scale}" id="${inpId}_dots">`;
       for(let i=1;i<=scale;i++)h+=`<div class="rate-dot${i<=cur?' active':''}" data-val="${i}" onclick="setRateDot('${inpId}',${i})">${i}</div>`;
-      h+=`</div>`;return h;
+      h+=`</div>`+jaugeLegendeHTML(q.label,scale);return h;
     }
     case 'percent':{
       const cur=v===''||v==null?70:parseInt(v);
@@ -6304,7 +6307,7 @@ function showBilanForm(editBilanId){
   h+=`<div class="form-group"><div class="bilan-q-label">Ton attitude cette semaine a-t-elle été le reflet de tes objectifs ?</div>`;
   h+=`<div class="bilan-gauge" id="gaugeAttitude">`;
   for(let i=1;i<=10;i++)h+=`<div class="bilan-gauge-dot${rep.attitude&&i<=rep.attitude?' active':''}" onclick="setGauge(${i})" data-val="${i}">${i}</div>`;
-  h+=`</div></div>`;
+  h+=`</div>`+jaugeLegendeHTML('attitude cette semaine',10)+`</div>`;
 
   // Questions dynamiques (bilan)
   bilanQuestions.forEach(q=>{
@@ -6473,6 +6476,48 @@ async function submitBilan(){
 
 /* ===== SUIVI ===== */
 function _slug(s){return String(s||'').replace(/[^a-zA-Z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'').slice(0,40)||'x';}
+/* Fourchettes de note affichees sous les jauges /5 et /10 (04/10/2026).
+   Le texte suit la question posee ; une question ajoutee plus tard prend le texte neutre. */
+function _jaugeSansAcc(s){return String(s||'').replace(/<[^>]*>/g,' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+const JAUGE_PHRASES=[
+  {mots:['energie','tonus','fatigue'],
+   5:"1-2 : pas d'énergie du tout · 2-3 : pas la grande forme · 3-4 : ça va bien · 4-5 : ça va super bien",
+   10:"1-3 : pas d'énergie du tout · 3-5 : pas la grande forme · 5-7 : ça va bien · 7-10 : ça va super bien"},
+  {mots:['faim','appetit'],
+   5:"1-2 : pas faim du tout · 2-3 : petite faim · 3-4 : bonne faim · 4-5 : très faim",
+   10:"1-3 : pas faim du tout · 3-5 : petite faim · 5-7 : bonne faim · 7-10 : très faim"},
+  {mots:['stress','anxiete','nervosite'],
+   5:"1-2 : très stressé · 2-3 : plutôt stressé · 3-4 : plutôt serein · 4-5 : parfaitement serein",
+   10:"1-3 : très stressé · 3-5 : plutôt stressé · 5-7 : plutôt serein · 7-10 : parfaitement serein"},
+  {mots:['sommeil','dormi','nuit'],
+   5:"1-2 : nuit catastrophique · 2-3 : nuit moyenne · 3-4 : bonne nuit · 4-5 : excellente nuit",
+   10:"1-3 : nuit catastrophique · 3-5 : nuit moyenne · 5-7 : bonne nuit · 7-10 : excellente nuit"},
+  {mots:['humeur','moral','motivation'],
+   5:"1-2 : moral au plus bas · 2-3 : pas le moral · 3-4 : bon moral · 4-5 : moral au top",
+   10:"1-3 : moral au plus bas · 3-5 : pas le moral · 5-7 : bon moral · 7-10 : moral au top"},
+  {mots:['attitude','objectif','serieux'],
+   5:"1-2 : pas aligné du tout · 2-3 : peu aligné · 3-4 : plutôt aligné · 4-5 : parfaitement aligné",
+   10:"1-3 : pas aligné du tout · 3-5 : peu aligné · 5-7 : plutôt aligné · 7-10 : parfaitement aligné"},
+  {mots:['douleur','courbature','gene','blessure'],
+   5:"1-2 : très douloureux · 2-3 : gênant · 3-4 : léger · 4-5 : aucune gêne",
+   10:"1-3 : très douloureux · 3-5 : gênant · 5-7 : léger · 7-10 : aucune gêne"},
+  {mots:['digestion','ventre','transit'],
+   5:"1-2 : digestion catastrophique · 2-3 : difficile · 3-4 : bonne · 4-5 : parfaite",
+   10:"1-3 : digestion catastrophique · 3-5 : difficile · 5-7 : bonne · 7-10 : parfaite"},
+  {mots:['hydratation','eau','bois'],
+   5:"1-2 : très loin de l'objectif · 2-3 : en dessous · 3-4 : objectif atteint · 4-5 : objectif dépassé",
+   10:"1-3 : très loin de l'objectif · 3-5 : en dessous · 5-7 : objectif atteint · 7-10 : objectif dépassé"},
+  {mots:['seance','intensite','effort','difficulte','rpe','dure'],
+   5:"1-2 : séance facile · 2-3 : modérée · 3-4 : intense · 4-5 : très intense",
+   10:"1-3 : séance facile · 3-5 : modérée · 5-7 : intense · 7-10 : très intense"}
+];
+const JAUGE_NEUTRE={5:"1-2 : très faible · 2-3 : faible · 3-4 : bien · 4-5 : très bien",10:"1-3 : très faible · 3-5 : faible · 5-7 : bien · 7-10 : très bien"};
+function jaugeLegende(label,max){
+  const l=_jaugeSansAcc(label);const m=(parseInt(max)===10)?10:5;
+  for(const bloc of JAUGE_PHRASES){for(const mot of bloc.mots){if(l.indexOf(mot)>=0)return bloc[m];}}
+  return JAUGE_NEUTRE[m];
+}
+function jaugeLegendeHTML(label,max){return '<div class="jauge-legende">'+jaugeLegende(label,max)+'</div>';}
 function rateDotsField(id,label,max,value){
   const v=parseInt(value)||0;
   const sub=max===5?'/5':max===10?'/10':'/'+max;
@@ -6481,7 +6526,7 @@ function rateDotsField(id,label,max,value){
     dots+=`<div class="rate-dot${i<=v?' active':''}" data-val="${i}" onclick="setRateDot('${id}',${i})">${i}</div>`;
   }
   dots+=`</div>`;
-  return`<div class="suivi-field"><div class="suivi-field-label">${label} <span>${sub}</span></div><input type="hidden" id="${id}" value="${v||''}">${dots}</div>`;
+  return`<div class="suivi-field"><div class="suivi-field-label">${label} <span>${sub}</span></div><input type="hidden" id="${id}" value="${v||''}">${dots}${jaugeLegendeHTML(label,max)}</div>`;
 }
 function setRateDot(id,val){
   const hid=document.getElementById(id);if(hid)hid.value=val;
