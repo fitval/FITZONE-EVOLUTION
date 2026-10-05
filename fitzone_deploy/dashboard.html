@@ -809,6 +809,44 @@ body:has(#detPage.show) .toast{bottom:54px}
   .road-panels .rbtn{padding:8px 11px;font-size:11.5px}
   .prog-builder,.pf-builder{min-height:auto}
 }
+/* ===== CREATION DE PROGRAMME AU TELEPHONE =====
+   Le builder programme se monte aussi dans l'onglet Training de la fiche client.
+   Sur telephone : le tableur defile horizontalement et la colonne de l'exercice
+   reste collee a gauche, sinon on ne sait plus quelle ligne on modifie ; la
+   bibliotheque d'exercices remonte au-dessus du tableur pour etre atteignable
+   sans faire 2000 px de defilement. Rien ne change au-dessus de 820 px. */
+@media (max-width:820px){
+  .prog-builder,.prog-builder.has-ref{grid-template-columns:1fr;min-height:0;overflow:visible}
+  /* le bloc « programme actuel » et la bibliotheque etaient places en colonnes 1/2
+     par la regle 1500 px : sur telephone on remet tout dans le flux, une colonne */
+  .prog-builder.has-ref .prog-main,.prog-builder.has-ref .prog-side,.prog-builder.has-ref .prog-ref{grid-column:auto;grid-row:auto}
+  .prog-builder>*{min-width:0}
+  .prog-ref{order:3}
+  .prog-main{padding:14px;border-right:none;min-width:0;overflow:visible;order:2}
+  .prog-side{padding:12px;min-width:0;overflow:visible;border-top:1.5px solid var(--border);order:1}
+  .prog-ref{position:static;max-height:none;border-right:none;overflow:visible}
+  #progDayContent,.gs-blk,.gs-wrap{min-width:0;max-width:100%}
+  /* en-tetes du tableur : sur telephone ils se replient au lieu d'etre coupes */
+  .gs thead th{white-space:normal;font-size:8px;letter-spacing:.4px;padding:5px 3px;line-height:1.15}
+  #libList{max-height:30vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .gs-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .gs thead th:nth-child(1){position:sticky;left:0;top:0;z-index:6}
+  .gs thead th:nth-child(2){position:sticky;left:34px;top:0;z-index:6}
+  .gs tbody td.gs-num{position:sticky;left:0;z-index:5}
+  .gs tbody td.gs-lbl{position:sticky;left:34px;z-index:5;box-shadow:2px 0 4px rgba(0,0,0,.06)}
+  .gs thead th[style*="min-width:150px"],.gs td[style*="min-width:150px"]{min-width:104px!important}
+  .gs thead th[style*="min-width:92px"],.gs td[style*="min-width:92px"]{min-width:72px!important}
+  .gs thead th[style*="min-width:74px"],.gs td[style*="min-width:74px"]{min-width:62px!important}
+  .gs thead th[style*="min-width:118px"],.gs td[style*="min-width:118px"]{min-width:96px!important}
+  .gs thead th[style*="min-width:130px"],.gs td[style*="min-width:130px"]{min-width:104px!important}
+  .gs thead th[style*="min-width:48px"],.gs td[style*="min-width:48px"]{min-width:44px!important}
+  .gs thead th[style*="width:92px"],.gs td[style*="width:92px"]{width:104px!important;min-width:104px!important}
+  /* les petits boutons du tableur (ajouter/retirer une serie, superset, supprimer)
+     doivent etre attrapables au doigt */
+  .gs .gs-x{padding:5px 7px;font-size:12px;min-height:26px}
+  .gs .gi{height:26px;font-size:12px}
+}
+
 </style>
 </head>
 <body>
