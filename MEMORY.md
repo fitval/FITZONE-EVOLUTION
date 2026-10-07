@@ -3,7 +3,7 @@
 > Ce fichier est la mémoire vivante du projet. Claude doit le lire au début de chaque session et le mettre à jour après chaque changement significatif.
 
 ## État actuel du projet
-**Dernière mise à jour** : 2026-09-29 (option « Apports du premier menu » pour le total affiché en haut du plan alimentaire)
+**Dernière mise à jour** : 2026-10-07 (API en lecture seule par client : code écrit, pas encore en production)
 
 ### Ce qui fonctionne (en production)
 - [x] Page de login/register coach (Supabase Auth)
@@ -57,6 +57,7 @@
 - [x] **Scan code-barres app client (Nutrition)** : lib `html5-qrcode` + lookup OpenFoodFacts (~3M produits), preview macros+micros (sucre/fibres/sat_fat/sel), insert `food_logs` avec colonne JSONB `extra` (migration `food_logs_extra.sql`). Visible coach via les requêtes food_logs existantes (pas de duplication daily_logs)
 
 ### Ce qui reste à faire (prochaines priorités)
+- [ ] **API en lecture seule par client** (branche `claude/api-lecture-session_9955368a`, 2026-10-07) : fonction Edge `api` (`supabase/functions/api/`, 14 tests `deno test supabase/functions/api/`), migration `20261007120000_api_keys.sql`, bouton « 🔑 API » dans le hero de la fiche client (`openApiKeys` / `createApiKey` / `revokeApiKey`), `docs/api.md`. Reste : appliquer la migration, déployer `api` en `--no-verify-jwt`, test réel, fusion. Choix : `day` du programme = null (séances numérotées, pas de jour de semaine), `status` = toujours `done`, RIR au lieu de RPE, pas de charge cible dans les programmes.
 - [ ] **Amélioration UX** : responsive, animations, feedback visuel
 - [ ] **Multi-coach** : isolation des données par coach (RLS Supabase)
 - [ ] **Domaine personnalisé** : configurer un nom de domaine propre
@@ -68,6 +69,7 @@
 - **`generate-meal-plan`** : génère un plan alimentaire via Claude Haiku 4.5 (`claude-haiku-4-5-20251001`), streaming, max_tokens=20000, food_database capée à 200 items, déployée avec `--no-verify-jwt` (sinon erreur 401). Modèle bumpé depuis Sonnet 4 — Haiku passe ~30-60s, sous la limite 150s (sinon erreur 546). **Structure stricte des repas** : recette du coach EN PRIORITÉ, sinon repas simple = 4 briques (protéine + glucide + fibre + lipide) + 1-2 condiments (sauce tomate, crème fraîche, citron…) tous from coach DB ; les épices/herbes sont MENTIONNÉES dans les instructions, pas dans alims (macros négligeables) ; MAX 5 alims par repas. **Matériel cuisine** (`config.equipment`) et **préférences** (`config.preferences`) injectés dans le prompt. **Cibles macros par créneau** calculées server-side (`kcal/mealsPerDay`) + RESCALE FORCÉ post-génération (`a.qte *= perSlotKcal / mealKcal`, borné [0.5×, 2×]) → kcal par créneau identique chaque jour. **Instructions** obligatoires, sans quantités (ni grammes, ni ml même pour les liquides de cuisson) — vérifié 21/21.
 - **`generate-training-plan`** : génère un programme d'entraînement via Claude Sonnet (streaming), `--no-verify-jwt`. Méthode coach encodée : `priority_muscles` pilote ordre/volume(6-16 séries/sem)/fréquence/split, repos 90s petits muscles → 180-240s gros polyart borné par durée séance. **Fourchettes de reps** strictement limitées à `"5-8" / "9-12" / "10-15" / "13-16" / "MAX"` (tiret, jamais slash) + durées warmup/cooldown ; 2 fourchettes possibles sur un même exo, la PLUS COURTE en premier (heavy d'abord). **Match flexible des exos** (server + dashboard) : (1) normalisation lowercase + suppression accents + ponctuation → espace ; (2) si pas de match exact normalisé, **match par tokens** avec stopwords filtrés (a/la/le/avec/de/du/des/à…) — les tokens de la BIBLIO doivent tous être présents dans le nom IA, sinon drop ; (3) **renommage automatique** vers le nom exact de la biblio pour que tous les enrichissements (vidéo, équipement, notes, replacements) propagent. Le strict equality d'avant droppait tout. La biblio coach est désormais autoritative sur les enrichments (`m.video||ex.video`, pas l'inverse). **Normalisation reps** vers les 5 fourchettes autorisées par midpoint. Form : modal `mGenTrainPlan`, champ `gtpPriority`. Rendu dashboard : `s.reps==='MAX'` matché en regex `/^max$/i` (insensible à la casse).
 - **`analyze-recipe`** : analyse screenshot de recette via Claude Vision, déployée avec `--no-verify-jwt`
+- **`api`** (à déployer, `--no-verify-jwt`) : API en lecture seule appelée de serveur à serveur avec une clé `fzk_…` par client (table `api_keys`, empreinte SHA-256, révocation par `revoked_at`, débit 60/min compté par la fonction SQL `api_key_use`, exécutable par la seule clé secrète). Adresse : `/functions/v1/api/v1/{me,program,sessions,diet,bodyweight}`. Contrat JSON dans `docs/api.md` : ne pas renommer les champs, une application externe les lit.
 - **Secret** : `ANTHROPIC_API_KEY` configuré sur Supabase
 - **Clé publishable** : `sb_publishable_...` (pas un JWT standard → raison historique du `--no-verify-jwt`, voir ci-dessous)
 - **Project ref** : `wsrykmutyhjxdnhnyexl`

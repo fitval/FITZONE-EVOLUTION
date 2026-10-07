@@ -34,6 +34,9 @@ Application SaaS de coaching sportif et nutritionnel.
   `SUPABASE_SERVICE_ROLE_KEY`. Exceptions voulues, sans contrôle d'appelant : `send-email` (restreinte hors
   session coach), `submit-questionnaire` (jeton de fiche), `notify-webhook` (publique). Toute nouvelle fonction
   vérifie son appelant.
+- **Fonction `api`** (lecture seule, `docs/api.md`) : appelant vérifié par une clé `fzk_…` propre au client (table
+  `api_keys`, empreinte SHA-256 seulement), pas par une session — déployée en `--no-verify-jwt`. Uniquement des GET ;
+  chaque lecture filtrée sur le `client_id` de la clé ; jamais `coach_notes`, bilans ni journal quotidien entier.
 - **Avant tout déploiement de fonction** : relever `npx supabase functions list`, redéployer chaque fonction
   **sous son adresse réelle** et **avec son réglage `verify_jwt` actuel**. Jamais `--prune`.
 - **Comptes** : les inscriptions publiques Supabase sont désactivées. Les comptes se créent uniquement par les

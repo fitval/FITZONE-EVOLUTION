@@ -3260,7 +3260,7 @@ function renderDetHero(){
   }
   const contractBtn=window._perms?.isSuperAdmin?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="openClientContractsList('${c.id}')">📄 Contrat</button>`:'';
   const appBtn=(c.status==='active'||c.status==='questionnaire_done')?`<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${CBASE}?token=${c.token}')">📱 App</button>`:'';
-  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select>${coachSelect}<span style="font-size:11px;color:rgba(255,255,255,.4)">App :</span>${appFlagBtn('show_progress','📈 % parcours',c.show_progress!==false)}${appFlagBtn('show_chat','💬 Tchat',c.show_chat!==false)}${appFlagBtn('show_tracker','🎯 Suivis',c.show_tracker===true)}</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${appBtn}${contractBtn}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${editBtn}${inviteBtn}${pauseBtn}${delBtn}</div>`;
+  document.getElementById('detHero').innerHTML=`<div class="det-av" style="background:${col}">${c.photo?`<img src="${c.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini}</div><div style="flex:1"><div class="det-nm">${c.first_name||''} ${c.last_name||''}</div><div style="font-size:12px;color:rgba(255,255,255,.38);margin-top:2px">${c.email||''}${q?` · ${q.age||'?'} ans · ${q.height_cm||'?'} cm · ${q.weight_kg||'?'} kg`:''}</div><div style="margin-top:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stBadge(c.status)}<span style="font-size:11px;color:rgba(255,255,255,.4)">Bilan :</span><select onchange="setBilanDay(this.value)" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:white;font-family:var(--font);cursor:pointer">${opts}</select>${coachSelect}<span style="font-size:11px;color:rgba(255,255,255,.4)">App :</span>${appFlagBtn('show_progress','📈 % parcours',c.show_progress!==false)}${appFlagBtn('show_chat','💬 Tchat',c.show_chat!==false)}${appFlagBtn('show_tracker','🎯 Suivis',c.show_tracker===true)}</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="copyT('${QBASE}?token=${c.token}')">🔗 Lien</button>${appBtn}<button class="btn btn-sm" style="background:rgba(255,255,255,.09);color:white;border:1px solid rgba(255,255,255,.18)" onclick="openApiKeys()" title="Clés d'API en lecture seule de ce client">🔑 API</button>${contractBtn}${c.status!=='active'&&c.status!=='paused'?`<button class="btn btn-gold btn-sm" onclick="valCl('${c.id}')">✅ Valider</button>`:''}${editBtn}${inviteBtn}${pauseBtn}${delBtn}</div>`;
 }
 
 async function openClientContractsList(clientId){
@@ -3546,6 +3546,53 @@ async function setClientAppFlag(field,on){
   const idx=allClients.findIndex(c=>c.id===curClient.id);if(idx>=0)allClients[idx][field]=on;
   renderDetHero();
   toast(on?'Affiché dans l\'app client ✓':'Masqué dans l\'app client 🙈');
+}
+
+/* ===== ACCÈS API (lecture seule, une clé par client) =====
+   Fonction Edge `api` + table api_keys (migration 20261007120000). La clé est tirée ICI, dans le navigateur,
+   affichée une seule fois ; seule son empreinte SHA-256 part en base. Révoquer = revoked_at, jamais de suppression. */
+const API_BASE=SUPA+'/functions/v1/api/v1';
+let apiNewKey=null; // clé en clair : lue une fois par openApiKeys puis remise à null — elle ne vit plus que dans la fenêtre (vidée par closeModal)
+function apiHex(bytes){return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');}
+function apiGenKey(){
+  const sec=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return'fzk_'+apiHex(crypto.getRandomValues(new Uint8Array(6)))+'_'+sec;
+}
+async function apiSha256(s){return apiHex(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))));}
+async function openApiKeys(){
+  if(!curClient?.id)return;
+  const nouvelle=apiNewKey;apiNewKey=null;
+  const{data,error}=await db.from('api_keys').select('id,prefix,label,created_at,last_used_at,revoked_at').eq('client_id',curClient.id).order('created_at',{ascending:false});
+  const fd=s=>s?new Date(s).toLocaleString('fr-FR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'jamais';
+  const actives=(data||[]).filter(k=>!k.revoked_at),revoquees=(data||[]).filter(k=>k.revoked_at);
+  let h=`<div class="modal" style="max-width:560px"><div class="mh"><div class="mt">🔑 Accès API — ${esc(curClient.first_name||'')}</div><button class="mc" onclick="closeModal()">✕</button></div><div class="mb" style="max-height:70vh;overflow-y:auto">`;
+  h+=`<div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:14px">Une clé permet à une application de ce client de <b>lire</b> son programme, ses séances, sa diète et ses pesées. Rien d'autre, et jamais les données d'un autre client. Elle ne peut rien modifier.</div>`;
+  if(nouvelle){
+    h+=`<div style="background:var(--gold-pale,#fbf5e6);border:1px solid var(--gold,#c49a2a);border-radius:10px;padding:12px;margin-bottom:14px"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Nouvelle clé — copie-la maintenant, elle ne sera plus jamais affichée</div><code style="display:block;word-break:break-all;font-size:12px;background:white;padding:8px;border-radius:7px;margin-bottom:8px" id="apiNewKeyTxt">${esc(nouvelle)}</code><button class="btn btn-gold btn-sm" onclick="copyT(document.getElementById('apiNewKeyTxt').textContent)">📋 Copier la clé</button> <button class="btn btn-ghost btn-sm" onclick="copyT(API_BASE)">📋 Copier l'adresse de l'API</button><div style="font-size:11px;color:var(--text3);margin-top:8px">À transmettre par un canal privé. Adresse : <code>${esc(API_BASE)}</code></div></div>`;
+  }
+  if(error)h+=`<div style="color:#c0392b;font-size:12px;margin-bottom:10px">Lecture des clés impossible : ${esc(error.message)}</div>`;
+  h+=`<label class="fl">Clés actives</label>`;
+  if(!actives.length)h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Aucune clé active : l'API est fermée pour ce client.</div>`;
+  actives.forEach(k=>{h+=`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border,#eee)"><div style="flex:1;font-size:12px"><code>fzk_${esc(k.prefix)}_…</code>${k.label?` · ${esc(k.label)}`:''}<div style="color:var(--text3);font-size:11px;margin-top:2px">Créée le ${fd(k.created_at)} · Dernière utilisation : ${fd(k.last_used_at)}</div></div><button class="btn btn-ghost btn-sm" onclick="revokeApiKey('${k.id}')">Révoquer</button></div>`;});
+  if(revoquees.length)h+=`<div style="font-size:11px;color:var(--text3);margin-top:12px">${revoquees.length} clé${revoquees.length>1?'s':''} révoquée${revoquees.length>1?'s':''} (gardée${revoquees.length>1?'s':''} pour l'historique).</div>`;
+  h+=`</div><div class="mf"><input id="apiKeyLabel" class="fi" placeholder="Nom de la clé (ex. Sentinel)" maxlength="60" style="flex:1;margin-right:auto"><button class="btn btn-ghost" onclick="closeModal()">Fermer</button><button class="btn btn-gold" onclick="createApiKey()">Générer une clé</button></div></div>`;
+  openModal(h);
+}
+async function createApiKey(){
+  if(!curClient?.id||!currentCoach?.id){toast('Erreur: client ou coach introuvable');return;}
+  const label=(document.getElementById('apiKeyLabel')?.value||'').trim()||null;
+  const cle=apiGenKey();
+  const{error}=await db.from('api_keys').insert({client_id:curClient.id,coach_id:currentCoach.id,prefix:cle.slice(4,16),key_hash:await apiSha256(cle),label});
+  if(error){toast('Erreur: '+error.message);return;}
+  apiNewKey=cle;
+  await openApiKeys();
+}
+async function revokeApiKey(id){
+  if(!confirm('Révoquer cette clé ? L\'application qui l\'utilise perdra l\'accès immédiatement. Ce n\'est pas réversible.'))return;
+  const{error}=await db.from('api_keys').update({revoked_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('Erreur: '+error.message);return;}
+  toast('Clé révoquée ✓');
+  await openApiKeys();
 }
 async function setBilanDay(day){
   const d=parseInt(day);
