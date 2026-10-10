@@ -4687,8 +4687,6 @@ function renderFoodTracker(){
   if(_co){
     tgtK=_co.k;tgtP=_co.prot;tgtC=_co.carb;tgtF=_co.fat;
   }else if(plans.length){const avg=_planDailyAvg(plans[0]);tgtK=avg.k;tgtP=avg.prot;tgtC=avg.carb;tgtF=avg.fat;}
-  const pctK=tgtK?Math.min(100,tK/tgtK*100):0;
-  const radius=68,circ=2*Math.PI*radius,off=circ-(Math.min(100,pctK)/100)*circ;
   const isFuture=ftDate>today();
   let h=`<button class="back-btn" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Tracking alimentaire</div>`;
@@ -4711,28 +4709,21 @@ function renderFoodTracker(){
   }
   // Scan button
   h+=`<button class="btn-gold" style="width:100%;margin-bottom:14px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px" onclick="openBarcodeScanner(true)"><span style="font-size:18px">📷</span> Scanner un code-barres</button>`;
-  // Big total card with circular ring + macro bars
-  const restMsg=tgtK?(tK<=tgtK?`Reste <strong style="color:var(--text)">${Math.round(tgtK-tK)} kcal</strong>`:`Dépassé de <strong style="color:var(--red)">${Math.round(tK-tgtK)} kcal</strong>`):'';
-  h+=`<div class="card" style="padding:18px;margin-bottom:16px;display:flex;align-items:center;gap:16px">
-    <div style="position:relative;width:140px;height:140px;flex-shrink:0">
-      <svg width="140" height="140" viewBox="0 0 160 160" style="transform:rotate(-90deg)">
-        <circle cx="80" cy="80" r="${radius}" fill="none" stroke="var(--bg2)" stroke-width="14"></circle>
-        ${tgtK?`<circle cx="80" cy="80" r="${radius}" fill="none" stroke="${pctK>110?'var(--red)':'var(--gold)'}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}" style="transition:stroke-dashoffset .35s"></circle>`:''}
-      </svg>
-      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
-        <div style="font-size:30px;font-weight:900;color:var(--text);line-height:1">${Math.round(tK)}</div>
-        <div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;margin-top:2px">KCAL</div>
-        ${tgtK?`<div style="font-size:11px;color:var(--gold);font-weight:800;margin-top:5px">${Math.round(pctK)}%</div>`:''}
-      </div>
-    </div>
-    <div style="flex:1;min-width:0">
-      <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">CONSOMMÉ${tgtK?' / '+Math.round(tgtK)+' KCAL':''}</div>
-      ${restMsg?`<div style="font-size:13px;color:var(--text2);margin-bottom:12px">${restMsg}</div>`:'<div style="height:8px"></div>'}
-      ${_ftMacroBar('P',tP,tgtP,'#4a90d9')}
-      ${_ftMacroBar('G',tC,tgtC,'var(--gold)')}
-      ${_ftMacroBar('L',tF,tgtF,'#e07c5a')}
-    </div>
+  // Un seul encadre, deux cercles dedans : a gauche le consomme, a droite ce qu'il reste
+  const depasse=tgtK>0&&tK>tgtK;
+  const resteK=Math.max(0,tgtK-tK),resteP=Math.max(0,tgtP-tP),resteC=Math.max(0,tgtC-tC),resteF=Math.max(0,tgtF-tF);
+  const _ftCercle=(titre,anneau,macros)=>`<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center">
+      ${anneau}
+      <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin:10px 0 2px">${titre}</div>
+      <div style="width:100%;margin-top:8px">${macros}</div>
+    </div>`;
+  h+=`<div class="card" style="padding:16px 12px;margin-bottom:16px;display:flex;gap:10px;align-items:stretch">
+    ${_ftCercle('CONSOMMÉ',_ftRingSVG(tK,tgtK),
+      _ftMacroBar('P',tP,tgtP,'#4a90d9')+_ftMacroBar('G',tC,tgtC,'var(--gold)')+_ftMacroBar('L',tF,tgtF,'#e07c5a'))}
+    ${tgtK?_ftCercle('RESTE',_ftRingSVG(resteK,tgtK),
+      _ftMacroBar('P',resteP,tgtP,'#4a90d9',true)+_ftMacroBar('G',resteC,tgtC,'var(--gold)',true)+_ftMacroBar('L',resteF,tgtF,'#e07c5a',true)):''}
   </div>`;
+  if(depasse)h+=`<div style="font-size:12px;font-weight:700;color:var(--red);text-align:center;margin:-8px 0 14px">Dépassé de ${Math.round(tK-tgtK)} kcal sur la journée</div>`;
   // Choix de l'affichage des repas : fiche (cartes) ou tableau
   h+=affichageSwitchHTML();
   // Meals — cartes dépliables (état persistant par repas, ouvert par défaut)
@@ -4803,14 +4794,32 @@ function renderFoodTracker(){
   h+=renderSaltCard(ftDate);
   document.getElementById('nutriContent').innerHTML=h;
 }
-function _ftMacroBar(label,cur,tgt,color){
+function _ftMacroBar(label,cur,tgt,color,reste){
   const pct=tgt?Math.min(100,cur/tgt*100):0;
-  return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+  return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
     <span style="font-size:11px;font-weight:800;color:${color};width:12px;flex-shrink:0">${label}</span>
     <div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
       ${tgt?`<div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width .3s"></div>`:''}
     </div>
-    <span style="font-size:11px;color:var(--text2);font-weight:600;min-width:62px;text-align:right;font-variant-numeric:tabular-nums">${Math.round(cur)}${tgt?'/'+Math.round(tgt):''}g</span>
+    <span style="font-size:11px;color:var(--text2);font-weight:600;min-width:46px;text-align:right;font-variant-numeric:tabular-nums">${Math.round(cur)}${(tgt&&!reste)?'/'+Math.round(tgt):''}g</span>
+  </div>`;
+}
+/* Anneau d'un cercle du tracking : la valeur au centre, le % de l'objectif dessous.
+   Couleur de l'app (var(--gold)), comme le reste de l'ecran.
+   tgt = 0 (aucun objectif) : anneau vide, pas de pourcentage. */
+function _ftRingSVG(val,tgt){
+  const pct=tgt?Math.min(100,val/tgt*100):0;
+  const radius=68,circ=2*Math.PI*radius,off=circ-(pct/100)*circ;
+  return`<div style="position:relative;width:112px;height:112px;flex-shrink:0">
+    <svg width="112" height="112" viewBox="0 0 160 160" style="transform:rotate(-90deg)">
+      <circle cx="80" cy="80" r="${radius}" fill="none" stroke="var(--bg2)" stroke-width="14"></circle>
+      ${tgt?`<circle cx="80" cy="80" r="${radius}" fill="none" stroke="var(--gold)" stroke-width="14" stroke-linecap="round" stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}" style="transition:stroke-dashoffset .35s"></circle>`:''}
+    </svg>
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+      <div style="font-size:24px;font-weight:900;color:var(--text);line-height:1">${Math.round(val)}</div>
+      <div style="font-size:9px;color:var(--text3);font-weight:700;letter-spacing:1px;margin-top:2px">KCAL</div>
+      ${tgt?`<div style="font-size:10px;color:var(--gold);font-weight:800;margin-top:4px">${Math.round(pct)}%</div>`:''}
+    </div>
   </div>`;
 }
 /* ===== DUPLIQUER UN REPAS (vers un autre créneau / une autre date) ===== */
