@@ -138,13 +138,13 @@ curl -s "$FZ_API/v1/diet" -H "Authorization: Bearer $FZ_KEY"
 
 ```json
 {
-  "targets": { "kcal": 2586, "protein_g": 190, "carbs_g": 333, "fat_g": 52, "effective_from": "2026-09-16" },
-  "history": [ { "effective_from": "2026-07-27", "kcal": 2365, "protein_g": 181, "carbs_g": 283, "fat_g": 57 } ],
+  "targets": { "kcal": 2586, "protein_g": 190, "carbs_g": 333, "fat_g": 52, "fiber_g": 36, "effective_from": "2026-09-16" },
+  "history": [ { "effective_from": "2026-07-27", "kcal": 2365, "protein_g": 181, "carbs_g": 283, "fat_g": 57, "fiber_g": null } ],
   "meals": [
     {
       "name": "Repas 2",
       "items": [ { "food": "Riz", "grams": 110 }, { "food": "Poulet", "grams": 150 } ],
-      "kcal": 693, "protein_g": 46, "carbs_g": 87, "fat_g": 12,
+      "kcal": 693, "protein_g": 46, "carbs_g": 87, "fat_g": 12, "fiber_g": 4.1,
       "notes": "Parmesan interdit"
     }
   ],
@@ -157,6 +157,8 @@ curl -s "$FZ_API/v1/diet" -H "Authorization: Bearer $FZ_KEY"
   Aucun calcul → `"targets": null`.
 - `meals` : le premier menu du plan alimentaire visible le plus récent. Un plan peut avoir plusieurs menus :
   ils sont tous dans `days`. Les macros d'un repas sont calculées à partir des aliments, arrondies.
+- `fiber_g` (fibres, en grammes) : objectif fixé par le coach dans `targets`, `null` s'il n'est pas fixé. Dans un repas,
+  somme des fibres connues des aliments (1 décimale), `null` si aucun aliment du repas n'a de valeur de fibres.
 - Les équivalences qu'un client a choisies dans son app (aliment remplacé) ne sont pas appliquées : c'est le plan
   du coach qui est publié.
 

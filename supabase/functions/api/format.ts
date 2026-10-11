@@ -138,28 +138,33 @@ export function formaterSeance(t: Ligne) {
 // Objectifs = calcul macros du coach (table plans, le plus récent fait foi, les autres = historique).
 // Repas = premier menu (Jour 1) du plan alimentaire visible le plus récent ; les autres menus sont dans `days`.
 // Les valeurs des aliments sont stockées pour 100 g, comme dans l'app cliente.
+// fiber_g : fibres. null si l'objectif n'est pas fixé, ou si aucun aliment du repas n'a de valeur de fibres connue.
 function cible(m: Ligne) {
   return {
     kcal: nombre(m.kcal_target),
     protein_g: nombre(m.protein_g),
     carbs_g: nombre(m.carb_g),
     fat_g: nombre(m.fat_g),
+    fiber_g: nombre(m.fibres_g),
     effective_from: jour(m.created_at),
   };
 }
 
 function repas(r: Ligne) {
   const alims: Ligne[] = Array.isArray(r.items) ? r.items : Array.isArray(r.alims) ? r.alims : [];
-  let k = 0, p = 0, c = 0, f = 0;
+  let k = 0, p = 0, c = 0, f = 0, fi = 0, fiConnu = false;
   for (const a of alims) {
     const q = (nombre(a.qte) ?? 100) / 100;
     k += (nombre(a.kcal) ?? 0) * q; p += (nombre(a.prot) ?? 0) * q;
     c += (nombre(a.carb) ?? 0) * q; f += (nombre(a.fat) ?? 0) * q;
+    const fib = nombre(a.fibres);
+    if (fib !== null) { fi += fib * q; fiConnu = true; }
   }
   return {
     name: r.nom ?? null,
     items: alims.map((a) => ({ food: a.nom ?? null, grams: nombre(a.qte) })),
     kcal: arrondi(k), protein_g: arrondi(p), carbs_g: arrondi(c), fat_g: arrondi(f),
+    fiber_g: fiConnu ? Math.round(fi * 10) / 10 : null,
     notes: r.note ? String(r.note) : null,
   };
 }

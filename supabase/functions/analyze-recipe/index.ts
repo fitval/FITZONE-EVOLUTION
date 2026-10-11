@@ -35,9 +35,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // Build food catalog for matching
-    const foodDB: Array<{nom: string; kcal: number; prot: number; carb: number; fat: number; source: string}> = food_database || [];
+    const foodDB: Array<{nom: string; kcal: number; prot: number; carb: number; fat: number; fibres?: number | null; source: string}> = food_database || [];
     const foodCatalog = foodDB.length > 0
-      ? `\n\nCATALOGUE D'ALIMENTS DU COACH (pour matcher les ingrédients) :\n${foodDB.map(a => `- ${a.nom}: ${a.kcal}kcal P:${a.prot}g G:${a.carb}g L:${a.fat}g`).join("\n")}`
+      ? `\n\nCATALOGUE D'ALIMENTS DU COACH (pour matcher les ingrédients) :\n${foodDB.map(a => `- ${a.nom}: ${a.kcal}kcal P:${a.prot}g G:${a.carb}g L:${a.fat}g${a.fibres != null ? ` Fibres:${a.fibres}g` : ""}`).join("\n")}`
       : "";
 
     const prompt = `Analyse cette image de recette et extrais les informations structurées en JSON.
@@ -51,7 +51,7 @@ INSTRUCTIONS :
 6. Extrais les instructions de préparation étape par étape
 7. Estime le temps de préparation
 8. Liste les ustensiles/équipements nécessaires
-9. Pour chaque ingrédient, donne les valeurs nutritionnelles pour 100g cru (kcal, prot, carb, fat)
+9. Pour chaque ingrédient, donne les valeurs nutritionnelles pour 100g cru (kcal, prot, carb, fat, fibres)
 10. Détermine la "source" macro dominante de chaque ingrédient : "proteines", "glucides" ou "lipides"
 ${foodCatalog}
 
@@ -74,6 +74,7 @@ FORMAT JSON REQUIS (retourne UNIQUEMENT du JSON valide, pas de texte ni markdown
       "prot": 23.1,
       "carb": 0,
       "fat": 1.2,
+      "fibres": 0,
       "qte": 200
     }
   ]
@@ -116,19 +117,23 @@ FORMAT JSON REQUIS (retourne UNIQUEMENT du JSON valide, pas de texte ni markdown
     const recipe = JSON.parse(jsonStr);
 
     // Calculate total macros
-    let totalKcal = 0, totalProt = 0, totalCarb = 0, totalFat = 0;
-    (recipe.items || []).forEach((item: {kcal: number; prot: number; carb: number; fat: number; qte: number}) => {
+    let totalKcal = 0, totalProt = 0, totalCarb = 0, totalFat = 0, totalFib = 0, fibConnues = false;
+    (recipe.items || []).forEach((item: {kcal: number; prot: number; carb: number; fat: number; fibres?: number | null; qte: number}) => {
       const ratio = (item.qte || 0) / 100;
       totalKcal += Math.round(item.kcal * ratio);
       totalProt += Math.round(item.prot * ratio * 10) / 10;
       totalCarb += Math.round(item.carb * ratio * 10) / 10;
       totalFat += Math.round(item.fat * ratio * 10) / 10;
+      // Fibres : une valeur absente reste inconnue (null), elle ne devient pas 0
+      const fib = typeof item.fibres === "number" && Number.isFinite(item.fibres) ? item.fibres : null;
+      if (fib === null) { item.fibres = null; } else { totalFib += fib * ratio; fibConnues = true; }
     });
 
     recipe.kcal = totalKcal;
     recipe.prot = Math.round(totalProt);
     recipe.carb = Math.round(totalCarb);
     recipe.fat = Math.round(totalFat);
+    recipe.fibres = fibConnues ? Math.round(totalFib * 10) / 10 : null;
 
     return new Response(
       JSON.stringify({ recipe, model: message.model, usage: message.usage }),

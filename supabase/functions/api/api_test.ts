@@ -2,7 +2,7 @@
 // Lancer : deno test supabase/functions/api/
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { egalTempsConstant, empreinte, lireCle, nouvelleCle } from "./cle.ts";
-import { secondes } from "./format.ts";
+import { formaterDiete, secondes } from "./format.ts";
 import { Acces, Depot, LIMITE_PAR_MINUTE, traiter } from "./routes.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -30,15 +30,15 @@ for (let i = 1; i <= 7; i++) {
 }
 SEANCES.push({ id: 100, client_id: "B", date: "2026-09-03", session_name: "Séance B", created_at: "2026-09-03T10:00:00Z", exercises: [] });
 const MACROS: Ligne[] = [
-  { client_id: "A", kcal_target: 2586, protein_g: 190, carb_g: 333, fat_g: 52, created_at: "2026-09-16T08:00:00Z" },
+  { client_id: "A", kcal_target: 2586, protein_g: 190, carb_g: 333, fat_g: 52, fibres_g: 36, created_at: "2026-09-16T08:00:00Z" },
   { client_id: "A", kcal_target: 2365, protein_g: 181, carb_g: 283, fat_g: 57, created_at: "2026-07-27T08:00:00Z" },
   { client_id: "B", kcal_target: 1800, protein_g: 120, carb_g: 200, fat_g: 60, created_at: "2026-09-01T08:00:00Z" },
 ];
 const PLANS: Ligne[] = [
   { id: 10, client_id: "A", visible_client: true, created_at: "2026-09-16T08:00:00Z", jours: [
     { nom: "Jour 1", repas: [{ nom: "Repas 2", note: "Parmesan interdit", alims: [
-      { nom: "Riz", qte: 110, kcal: 350, prot: 7, carb: 77, fat: 1 },
-      { nom: "Poulet", qte: 150, kcal: 120, prot: 23, carb: 0, fat: 2 },
+      { nom: "Riz", qte: 110, kcal: 350, prot: 7, carb: 77, fat: 1, fibres: 1.5 },
+      { nom: "Poulet", qte: 150, kcal: 120, prot: 23, carb: 0, fat: 2, fibres: null },
     ] }] },
   ] },
   { id: 11, client_id: "B", visible_client: true, created_at: "2026-09-20T08:00:00Z", jours: [{ nom: "Jour 1", repas: [{ nom: "Repas B", alims: [] }] }] },
@@ -218,11 +218,11 @@ Deno.test("JSON publié : noms de champs et unités", async () => {
   assertEquals(sessions[0].exercises[0].sets, [{ reps: 6, load_kg: 80, rpe: null, rir: null }, { reps: 6, load_kg: 80.5, rpe: null, rir: null }]);
 
   const diet = await (await appel("/v1/diet", cleA)).json();
-  assertEquals(diet.targets, { kcal: 2586, protein_g: 190, carbs_g: 333, fat_g: 52, effective_from: "2026-09-16" });
-  assertEquals(diet.history, [{ effective_from: "2026-07-27", kcal: 2365, protein_g: 181, carbs_g: 283, fat_g: 57 }]);
+  assertEquals(diet.targets, { kcal: 2586, protein_g: 190, carbs_g: 333, fat_g: 52, fiber_g: 36, effective_from: "2026-09-16" });
+  assertEquals(diet.history, [{ effective_from: "2026-07-27", kcal: 2365, protein_g: 181, carbs_g: 283, fat_g: 57, fiber_g: null }]);
   assertEquals(diet.meals[0], {
     name: "Repas 2", items: [{ food: "Riz", grams: 110 }, { food: "Poulet", grams: 150 }],
-    kcal: 565, protein_g: 42, carbs_g: 85, fat_g: 4, notes: "Parmesan interdit",
+    kcal: 565, protein_g: 42, carbs_g: 85, fat_g: 4, fiber_g: 1.7, notes: "Parmesan interdit",
   });
 
   const bw = await (await appel("/v1/bodyweight?from=2026-09-01&to=2026-10-06", cleA)).json();
@@ -242,4 +242,11 @@ Deno.test("format des clés et comparaison", async () => {
 
 Deno.test("temps de repos", () => {
   assertEquals([secondes("90s"), secondes("90"), secondes("2min"), secondes("1m30"), secondes("2'30"), secondes("")], [90, 90, 120, 90, 150, null]);
+});
+
+Deno.test("fibres inconnues : null, jamais 0", () => {
+  const plan = { created_at: "2026-09-16T08:00:00Z", jours: [{ nom: "Jour 1", repas: [{ nom: "R", alims: [{ nom: "X", qte: 100, kcal: 100, prot: 1, carb: 1, fat: 1 }] }] }] };
+  const d = formaterDiete([{ kcal_target: 2000, protein_g: 150, carb_g: 200, fat_g: 60, created_at: "2026-09-16T08:00:00Z" }], plan);
+  assertEquals(d.targets?.fiber_g, null);
+  assertEquals(d.meals[0].fiber_g, null);
 });

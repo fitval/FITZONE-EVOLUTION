@@ -46,7 +46,7 @@ const acces: Acces = {
       return { lignes: data ?? [], total: count ?? 0 };
     },
     async objectifsMacros(id) {
-      const { data } = await admin.from("plans").select("kcal_target, protein_g, carb_g, fat_g, created_at")
+      const { data } = await admin.from("plans").select("kcal_target, protein_g, carb_g, fat_g, fibres_g, created_at")
         .eq("client_id", id).order("created_at", { ascending: false });
       return data ?? [];
     },

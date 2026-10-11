@@ -35,7 +35,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const macrosCtx = plan_macros
-      ? `\n\nOBJECTIF NUTRITION DU JOUR :\n- Calories : ${plan_macros.kcal} kcal\n- Protéines : ${plan_macros.prot}g\n- Glucides : ${plan_macros.carb}g\n- Lipides : ${plan_macros.fat}g\n\nCalcule ce qu'il reste à manger après ce repas et donne un conseil pratique pour le reste de la journée.`
+      ? `\n\nOBJECTIF NUTRITION DU JOUR :\n- Calories : ${plan_macros.kcal} kcal\n- Protéines : ${plan_macros.prot}g\n- Glucides : ${plan_macros.carb}g\n- Lipides : ${plan_macros.fat}g${plan_macros.fibres != null ? `\n- Fibres : ${plan_macros.fibres}g (minimum à atteindre)` : ""}\n\nCalcule ce qu'il reste à manger après ce repas et donne un conseil pratique pour le reste de la journée.`
       : "";
 
     const prompt = `Tu es un nutritionniste expert. Estime les calories et macronutriments de ce repas.
@@ -43,7 +43,7 @@ Deno.serve(async (req: Request) => {
 INSTRUCTIONS :
 1. Identifie le plat / les aliments
 2. Estime les quantités en grammes (fourchette réaliste)
-3. Donne une FOURCHETTE (min-max) pour les calories et chaque macronutriment
+3. Donne une FOURCHETTE (min-max) pour les calories, chaque macronutriment et les fibres
 4. Liste les principaux ingrédients détectés avec leurs estimations
 5. Si un plan nutrition est fourni, calcule ce qu'il reste à manger dans la journée
 6. Donne un conseil pratique pour le reste de la journée
@@ -63,6 +63,8 @@ FORMAT JSON REQUIS (retourne UNIQUEMENT du JSON valide, pas de texte ni markdown
   "carb_max": 70,
   "fat_min": 15,
   "fat_max": 25,
+  "fibres_min": 4,
+  "fibres_max": 7,
   "items": [
     {"nom": "Poulet grillé", "qte_est": "150-200g", "kcal_est": "180-240"}
   ],
@@ -70,7 +72,8 @@ FORMAT JSON REQUIS (retourne UNIQUEMENT du JSON valide, pas de texte ni markdown
     "kcal": 800,
     "prot": 60,
     "carb": 100,
-    "fat": 30
+    "fat": 30,
+    "fibres": 20
   },
   "conseil": "Pour le reste de la journée, privilégie..."
 }`;
