@@ -61,6 +61,7 @@ html, body { overflow-x:hidden; overscroll-behavior-x:none; touch-action:pan-y; 
   --gold-dk: #b8882a; --gold-deep: #8a6010; --gold-deeper: #8a6a1a;
   --gold-pale: rgba(var(--gold-rgb),0.10); --gold-border: rgba(var(--gold-rgb),0.25);
   --green: #22c55e; --red: #ef4444;
+  --fib: #2e9d6a; /* fibres (à côté de P / G / L) */
   --text: #1a1916; --text2: #6b6456; --text3: #9e9488;
   --on-gold: #1a1916; /* texte lisible posé sur un aplat de couleur de marque */
   --border: rgba(0,0,0,0.06); --shadow: 0 2px 12px rgba(0,0,0,0.06);
@@ -81,6 +82,7 @@ html[data-theme="dark"] {
   --border: rgba(255,255,255,0.09);
   --shadow: 0 2px 12px rgba(0,0,0,0.45);
   --tint: 18%; --ink: 56%;
+  --fib: #4cbf8a;
 }
 html[data-theme="dark"] input[type=date],html[data-theme="dark"] input[type=time],html[data-theme="dark"] input[type=number],html[data-theme="dark"] input[type=datetime-local]{color-scheme:dark;}
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -269,9 +271,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 /* === NUTRITION === */
 .plan-card { background:var(--white); border-radius:var(--r); padding:20px; margin-bottom:14px; box-shadow:var(--shadow); cursor:pointer; }
 .plan-name { font-size:18px; font-weight:700; margin-bottom:8px; }
-.plan-macros { display:flex; gap:12px; }
-.plan-macro { text-align:center; flex:1; }
-.plan-macro-val { font-size:20px; font-weight:800; }
+.plan-macros { display:flex; gap:8px; }
+.plan-macro { text-align:center; flex:1; min-width:0; }
+.plan-macro-val { font-size:18px; font-weight:800; white-space:nowrap; }
+.plan-macro.fib .plan-macro-val { color:var(--fib); }
 .plan-macro-label { font-size:10px; color:var(--text3); text-transform:uppercase; font-weight:600; letter-spacing:.5px; }
 .plan-macro.kcal .plan-macro-val { color:var(--gold); }
 .meal-card { background:var(--white); border-radius:var(--r-sm); padding:16px; margin-bottom:10px; box-shadow:var(--shadow); }
@@ -1302,7 +1305,7 @@ async function loadData(){
     db.from('aliments').select('*').eq('coach_id',clientData.coach_id),
     db.from('exercises').select('*').eq('coach_id',clientData.coach_id),
     db.from('questionnaires').select('weight_kg,weight_goal,goal').eq('client_id',clientData.id).order('submitted_at',{ascending:false}).limit(1),
-    db.from('plans').select('kcal_target,protein_g,carb_g,fat_g,water_goal_ml,water_meal_goal_ml,salt_goal_g,created_at').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(1)
+    db.from('plans').select('kcal_target,protein_g,carb_g,fat_g,fibres_g,water_goal_ml,water_meal_goal_ml,salt_goal_g,created_at').eq('client_id',clientData.id).order('created_at',{ascending:false}).limit(1)
   ]);
   // Plus récent en premier : programs[0] est le programme courant du client
   programs=(p1.data||[]).slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
@@ -4297,22 +4300,30 @@ function endWorkout(save){
 }
 
 /* ===== NUTRITION ===== */
+// Fibres : null/''/undefined = inconnu (compte 0 dans les sommes, « — » sur une ligne)
+function fibNum(v){if(v==null||v==='')return null;const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?null:n;}
+// Fibres pour une quantité : null si inconnu
+function fibQ(per100,q){const n=fibNum(per100);return n==null?null:n*q;}
+// Affichage : 1 décimale sous 10 g, entier au-delà (entier=true pour un total du jour)
+function fibTxt(v,entier){const n=fibNum(v);if(n==null)return '—';return String((entier||n>=10)?Math.round(n):Math.round(n*10)/10).replace('.',',');}
 function _planDailyAvg(p){
   const jours=p.jours||[];
-  if(!jours.length)return{k:p.kcal||0,prot:p.prot||0,carb:p.carb||0,fat:p.fat||0};
-  let k=0,pr=0,c=0,f=0;
-  jours.forEach(d=>(d.repas||[]).forEach(r=>(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;k+=(a.kcal||0)*q;pr+=(a.prot||0)*q;c+=(a.carb||0)*q;f+=(a.fat||0)*q;})));
+  if(!jours.length)return{k:p.kcal||0,prot:p.prot||0,carb:p.carb||0,fat:p.fat||0,fibres:fibNum(p.fibres)};
+  let k=0,pr=0,c=0,f=0,fi=0,fiOk=false;
+  jours.forEach(d=>(d.repas||[]).forEach(r=>(r.alims||[]).forEach(a=>{const q=(a.qte||100)/100;k+=(a.kcal||0)*q;pr+=(a.prot||0)*q;c+=(a.carb||0)*q;f+=(a.fat||0)*q;const x=fibQ(a.fibres,q);if(x!=null){fi+=x;fiOk=true;}})));
   const n=jours.length;
-  return{k:Math.round(k/n),prot:Math.round(pr/n),carb:Math.round(c/n),fat:Math.round(f/n)};
+  return{k:Math.round(k/n),prot:Math.round(pr/n),carb:Math.round(c/n),fat:Math.round(f/n),fibres:fiOk?Math.round(fi/n):null};
 }
 // Objectif fixé manuellement par le coach (calcul macros, table plans : kcal_target/protein_g/carb_g/fat_g).
 // Renvoie null si aucun objectif n'a été défini → on retombe alors sur la moyenne du plan repas.
 function _coachObj(){
   if(macroTarget&&(macroTarget.kcal_target||macroTarget.protein_g||macroTarget.carb_g||macroTarget.fat_g)){
-    return{k:macroTarget.kcal_target||0,prot:macroTarget.protein_g||0,carb:macroTarget.carb_g||0,fat:macroTarget.fat_g||0};
+    return{k:macroTarget.kcal_target||0,prot:macroTarget.protein_g||0,carb:macroTarget.carb_g||0,fat:macroTarget.fat_g||0,fibres:fibNum(macroTarget.fibres_g)};
   }
   return null;
 }
+// Objectif fibres du coach (plans.fibres_g), indépendant des autres macros ; null si non fixé
+function _coachFib(){const v=fibNum(macroTarget&&macroTarget.fibres_g);return v>0?v:null;}
 function renderNutriList(){
   currentPlanIdx=null;
   nutriView='list';toggleFab();_ftClearSaveBar();
@@ -4326,7 +4337,7 @@ function renderNutriList(){
       summary=nJours?`<div style="font-size:13px;color:var(--text3);margin-top:4px">${nJours} jour${nJours>1?'s':''} de repas</div>`:'';
     } else {
       const avg=_planDailyAvg(p);
-      summary=`<div class="plan-macros"><div class="plan-macro kcal"><div class="plan-macro-val">${avg.k}</div><div class="plan-macro-label">Kcal/j</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.prot}g</div><div class="plan-macro-label">Prot</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.carb}g</div><div class="plan-macro-label">Gluc</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.fat}g</div><div class="plan-macro-label">Lip</div></div></div>`;
+      summary=`<div class="plan-macros"><div class="plan-macro kcal"><div class="plan-macro-val">${avg.k}</div><div class="plan-macro-label">Kcal/j</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.prot}g</div><div class="plan-macro-label">Prot</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.carb}g</div><div class="plan-macro-label">Gluc</div></div><div class="plan-macro"><div class="plan-macro-val">${avg.fat}g</div><div class="plan-macro-label">Lip</div></div>${avg.fibres!=null?`<div class="plan-macro fib"><div class="plan-macro-val">${avg.fibres}g</div><div class="plan-macro-label">Fibres</div></div>`:''}</div>`;
     }
     h+=`<div class="plan-card fade-up" style="animation-delay:${i*.05}s" onclick="openPlan(${i})"><div class="plan-name">${p.nom||'Plan'}</div>${summary}${p.notes?`<div style="font-size:13px;color:var(--text2);margin-top:10px">${p.notes}</div>`:''}</div>`;
   });
@@ -4631,28 +4642,29 @@ function _ftTableauHTML(dayLogs){
   const gcell=cell+';color:#fff;font-weight:800;border:1px solid var(--gold-dk)';
   const mini='width:26px;height:26px;border-radius:6px;border:1.5px solid var(--gold-border);background:var(--white);color:var(--gold-deep);font-size:12px;font-weight:800;cursor:pointer;font-family:var(--font);padding:0;touch-action:manipulation';
   const miniGold=mini+';border-color:rgba(255,255,255,.55);background:rgba(255,255,255,.18);color:#fff';
-  let tK=0,tP=0,tC=0,tF=0;
+  let tK=0,tP=0,tC=0,tF=0,tFi=0;
   let h=`<div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--white)"><table style="width:100%;border-collapse:collapse;table-layout:fixed">`;
-  h+=`<thead><tr><th style="${th};text-align:left">Aliment</th><th style="${th};width:52px">Qté</th><th style="${th};width:44px">Kcal</th><th style="${th};width:30px">P</th><th style="${th};width:30px">G</th><th style="${th};width:30px">L</th><th style="${th};width:100px"></th></tr></thead><tbody>`;
+  h+=`<thead><tr><th style="${th};text-align:left">Aliment</th><th style="${th};width:46px">Qté</th><th style="${th};width:38px">Kcal</th><th style="${th};width:27px">P</th><th style="${th};width:27px">G</th><th style="${th};width:27px">L</th><th style="${th};width:30px;color:var(--fib)">Fib.</th><th style="${th};width:94px"></th></tr></thead><tbody>`;
   FT_MEALS.forEach(m=>{
     const items=dayLogs.filter(l=>l.meal===m);
     const escMeal=m.replace(/'/g,"\\'");
-    let mK=0,mP=0,mC=0,mF=0;
-    items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;mP+=(parseFloat(l.prot)||0)*q;mC+=(parseFloat(l.carb)||0)*q;mF+=(parseFloat(l.fat)||0)*q;});
-    tK+=mK;tP+=mP;tC+=mC;tF+=mF;
+    let mK=0,mP=0,mC=0,mF=0,mFi=0;
+    items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;mP+=(parseFloat(l.prot)||0)*q;mC+=(parseFloat(l.carb)||0)*q;mF+=(parseFloat(l.fat)||0)*q;mFi+=fibQ(l.fibres,q)||0;});
+    tK+=mK;tP+=mP;tC+=mC;tF+=mF;tFi+=mFi;
     h+=`<tr style="background:var(--gold)">
       <td style="${gcell};font-size:10px;letter-spacing:1.5px;text-transform:uppercase" colspan="2">${FT_MEAL_ICONS[m]||'🍽️'} ${m}</td>
       <td style="${gcell};text-align:center;font-size:12px">${items.length?Math.round(mK):''}</td>
       <td style="${gcell};text-align:center">${items.length?Math.round(mP):''}</td>
       <td style="${gcell};text-align:center">${items.length?Math.round(mC):''}</td>
       <td style="${gcell};text-align:center">${items.length?Math.round(mF):''}</td>
+      <td style="${gcell};text-align:center">${items.length?fibTxt(mFi):''}</td>
       <td style="${gcell};text-align:right;white-space:nowrap">
         <button type="button" onclick="openAddFood('${escMeal}')" title="Ajouter un aliment" style="${miniGold}">+</button>
         <button type="button" onclick="openDuplicateMeal('${escMeal}')" title="Dupliquer ce repas" style="${miniGold};margin-left:4px">⧉</button>
         <button type="button" onclick="openSaveRecipe('${escMeal}')" title="Enregistrer ce repas" style="${miniGold};margin-left:4px">💾</button>
       </td></tr>`;
     if(!items.length){
-      h+=`<tr><td style="${cell};color:var(--text3);font-style:italic" colspan="7">Aucun aliment</td></tr>`;
+      h+=`<tr><td style="${cell};color:var(--text3);font-style:italic" colspan="8">Aucun aliment</td></tr>`;
     }else{
       items.forEach(it=>{
         const q=(parseFloat(it.qte_g)||0)/100;
@@ -4664,29 +4676,32 @@ function _ftTableauHTML(dayLogs){
           <td style="${cell};text-align:center">${Math.round(p2)}</td>
           <td style="${cell};text-align:center">${Math.round(c2)}</td>
           <td style="${cell};text-align:center">${Math.round(f2)}</td>
+          <td style="${cell};text-align:center;color:var(--fib)">${fibTxt(fibQ(it.fibres,q))}</td>
           <td style="${cell};text-align:right"><button type="button" onclick="event.stopPropagation();deleteFoodLog('${it.id}')" aria-label="Supprimer" title="Supprimer" style="${mini};border-color:rgba(224,92,74,.4);color:#e05c4a">✕</button></td>
         </tr>`;
       });
     }
   });
   const dcell=cell+';color:#fff;border:1px solid #2c2a26';
-  h+=`<tr style="background:var(--dark)"><td style="${dcell};font-weight:800;font-size:10px;letter-spacing:1.5px;text-transform:uppercase" colspan="2">Total du jour</td><td style="${dcell};text-align:center;font-weight:900;font-size:12px">${Math.round(tK)}</td><td style="${dcell};text-align:center;font-weight:800">${Math.round(tP)}</td><td style="${dcell};text-align:center;font-weight:800">${Math.round(tC)}</td><td style="${dcell};text-align:center;font-weight:800">${Math.round(tF)}</td><td style="${dcell}"></td></tr>`;
+  h+=`<tr style="background:var(--dark)"><td style="${dcell};font-weight:800;font-size:10px;letter-spacing:1.5px;text-transform:uppercase" colspan="2">Total du jour</td><td style="${dcell};text-align:center;font-weight:900;font-size:12px">${Math.round(tK)}</td><td style="${dcell};text-align:center;font-weight:800">${Math.round(tP)}</td><td style="${dcell};text-align:center;font-weight:800">${Math.round(tC)}</td><td style="${dcell};text-align:center;font-weight:800">${Math.round(tF)}</td><td style="${dcell};text-align:center;font-weight:800">${fibTxt(tFi,true)}</td><td style="${dcell}"></td></tr>`;
   h+=`</tbody></table></div>`;
   return h;
 }
 function renderFoodTracker(){
   nutriView='tracker';toggleFab();_ftClearSaveBar();
   const dayLogs=foodLogs.filter(l=>l.date===ftDate);
-  let tK=0,tP=0,tC=0,tF=0;
-  dayLogs.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;tK+=(parseFloat(l.kcal)||0)*q;tP+=(parseFloat(l.prot)||0)*q;tC+=(parseFloat(l.carb)||0)*q;tF+=(parseFloat(l.fat)||0)*q;});
+  let tK=0,tP=0,tC=0,tF=0,tFi=0;
+  dayLogs.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;tK+=(parseFloat(l.kcal)||0)*q;tP+=(parseFloat(l.prot)||0)*q;tC+=(parseFloat(l.carb)||0)*q;tF+=(parseFloat(l.fat)||0)*q;tFi+=fibQ(l.fibres,q)||0;});
   // Objectif du tracking = macros fixées par le coach (calcul macros de base, table plans),
   // PAS la moyenne du plan repas. Le client garde son ancien plan mais l'objectif suit le dernier
   // recalcul du coach en live. Fallback sur la moyenne du plan repas si aucun objectif macro n'existe.
-  let tgtK=0,tgtP=0,tgtC=0,tgtF=0;
+  let tgtK=0,tgtP=0,tgtC=0,tgtF=0,tgtFi=0;
   const _co=_coachObj();
   if(_co){
     tgtK=_co.k;tgtP=_co.prot;tgtC=_co.carb;tgtF=_co.fat;
   }else if(plans.length){const avg=_planDailyAvg(plans[0]);tgtK=avg.k;tgtP=avg.prot;tgtC=avg.carb;tgtF=avg.fat;}
+  // Objectif fibres : celui du coach, sinon la moyenne du plan repas
+  tgtFi=_coachFib()||(plans.length?_planDailyAvg(plans[0]).fibres||0:0);
   const isFuture=ftDate>today();
   let h=`<button class="back-btn" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour</button>`;
   h+=`<div style="font-size:22px;font-weight:800;margin-bottom:4px">Tracking alimentaire</div>`;
@@ -4712,6 +4727,8 @@ function renderFoodTracker(){
   // Un seul encadre, deux cercles separes par un trait : a gauche le consomme, a droite le reste
   const depasse=tgtK>0&&tK>tgtK;
   const resteK=Math.max(0,tgtK-tK),resteP=Math.max(0,tgtP-tP),resteC=Math.max(0,tgtC-tC),resteF=Math.max(0,tgtF-tF);
+  // Fibres = minimum à atteindre : reste = ce qu'il manque (0 = objectif atteint)
+  const resteFi=Math.max(0,tgtFi-tFi);
   const _ftCercle=(titre,anneau,macros)=>`<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center">
       ${anneau}
       <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin:10px 0 2px">${titre}</div>
@@ -4720,10 +4737,10 @@ function renderFoodTracker(){
   const _ftTrait=`<div style="flex:0 0 1px;background:var(--bg2);border-radius:1px;margin:4px 0"></div>`;
   h+=`<div class="card" style="padding:16px 12px;margin-bottom:16px;display:flex;gap:10px;align-items:stretch">
     ${_ftCercle('CONSOMMÉ',_ftRingSVG(tK,tgtK),
-      _ftMacroBar('P',tP,tgtP,'#4a90d9')+_ftMacroBar('G',tC,tgtC,'var(--gold)')+_ftMacroBar('L',tF,tgtF,'#e07c5a'))}
+      _ftMacroBar('P',tP,tgtP,'#4a90d9')+_ftMacroBar('G',tC,tgtC,'var(--gold)')+_ftMacroBar('L',tF,tgtF,'#e07c5a')+_ftMacroBar('Fi',tFi,tgtFi,'var(--fib)'))}
     ${tgtK?_ftTrait:''}
     ${tgtK?_ftCercle('RESTE',_ftRingSVG(resteK,tgtK),
-      _ftMacroBar('P',resteP,tgtP,'#4a90d9',true)+_ftMacroBar('G',resteC,tgtC,'var(--gold)',true)+_ftMacroBar('L',resteF,tgtF,'#e07c5a',true)):''}
+      _ftMacroBar('P',resteP,tgtP,'#4a90d9',true)+_ftMacroBar('G',resteC,tgtC,'var(--gold)',true)+_ftMacroBar('L',resteF,tgtF,'#e07c5a',true)+_ftFibReste(resteFi,tgtFi)):''}
   </div>`;
   if(depasse)h+=`<div style="font-size:12px;font-weight:700;color:var(--red);text-align:center;margin:-8px 0 14px">Dépassé de ${Math.round(tK-tgtK)} kcal sur la journée</div>`;
   // Choix de l'affichage des repas : fiche (cartes) ou tableau
@@ -4734,18 +4751,18 @@ function renderFoodTracker(){
   }else{
   FT_MEALS.forEach(m=>{
     const items=dayLogs.filter(l=>l.meal===m);
-    let mK=0,mP=0,mC=0,mF=0;
-    items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;mP+=(parseFloat(l.prot)||0)*q;mC+=(parseFloat(l.carb)||0)*q;mF+=(parseFloat(l.fat)||0)*q;});
+    let mK=0,mP=0,mC=0,mF=0,mFi=0;
+    items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;mP+=(parseFloat(l.prot)||0)*q;mC+=(parseFloat(l.carb)||0)*q;mF+=(parseFloat(l.fat)||0)*q;mFi+=fibQ(l.fibres,q)||0;});
     const escMeal=m.replace(/'/g,"\\'");
     const collapsed=_ftIsCollapsed(m);
-    const macroPill=(label,val,color)=>`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:8px;background:${color}1a;color:${color};font-size:10px;font-weight:800"><span style="opacity:.75">${label}</span>${Math.round(val)}g</span>`;
+    const macroPill=(label,val,color)=>`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:8px;background:${color}1a;color:${color};font-size:10px;font-weight:800"><span style="opacity:.75">${label}</span>${label==='Fi'?fibTxt(val):Math.round(val)}g</span>`;
     h+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">`;
     // En-tête (tap = déplier/replier)
     h+=`<div onclick="toggleFtMeal('${escMeal}')" style="display:flex;align-items:center;gap:10px;padding:13px 14px;cursor:pointer;background:linear-gradient(135deg,rgba(var(--gold-rgb),.06),rgba(var(--gold-rgb),.015))">
       <span style="font-size:22px">${FT_MEAL_ICONS[m]||'🍽️'}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:15px;font-weight:800">${m}</div>
-        ${items.length?`<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:3px">${macroPill('P',mP,'#4a90d9')}${macroPill('G',mC,'#c49a2a')}${macroPill('L',mF,'#e07c5a')}</div>`:`<div style="font-size:11px;color:var(--text3);margin-top:2px">Aucun aliment</div>`}
+        ${items.length?`<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:3px">${macroPill('P',mP,'#4a90d9')}${macroPill('G',mC,'#c49a2a')}${macroPill('L',mF,'#e07c5a')}${macroPill('Fi',mFi,'#2e9d6a')}</div>`:`<div style="font-size:11px;color:var(--text3);margin-top:2px">Aucun aliment</div>`}
       </div>
       <div style="font-size:15px;font-weight:800;color:${items.length?'var(--gold)':'var(--text3)'};white-space:nowrap">${Math.round(mK)} <span style="font-size:10px;color:var(--text3);font-weight:600">kcal</span></div>
       <span style="font-size:13px;color:var(--text3);transition:transform .2s;display:inline-block;transform:rotate(${collapsed?'-90deg':'0deg'});flex-shrink:0">▾</span>
@@ -4765,6 +4782,7 @@ function renderFoodTracker(){
           const p=(parseFloat(it.prot)||0)*q;
           const cg=(parseFloat(it.carb)||0)*q;
           const fg=(parseFloat(it.fat)||0)*q;
+          const fi=fibQ(it.fibres,q);
           const img=(it.extra&&it.extra.image_url)||'';
           const isLast=idx===items.length-1;
           h+=`<div onclick="editFoodLog('${it.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;${!isLast?'border-bottom:1px solid var(--border);':''}">
@@ -4776,6 +4794,7 @@ function renderFoodTracker(){
                 <span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P ${Math.round(p)}g</span>
                 <span style="color:var(--gold)">G ${Math.round(cg)}g</span>
                 <span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L ${Math.round(fg)}g</span>
+                <span style="color:var(--fib)">Fi ${fibTxt(fi)}${fi!=null?'g':''}</span>
               </div>
             </div>
             <button type="button" onclick="event.stopPropagation();deleteFoodLog('${it.id}')" aria-label="Supprimer" title="Supprimer" style="width:42px;height:42px;border-radius:11px;flex-shrink:0;background:rgba(224,92,74,.12);border:1.5px solid rgba(224,92,74,.4);color:color-mix(in srgb,#e05c4a var(--ink,100%),var(--text));font-size:20px;font-weight:900;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);padding:0;touch-action:manipulation;-webkit-tap-highlight-color:rgba(224,92,74,.25)">✕</button>
@@ -4799,11 +4818,19 @@ function renderFoodTracker(){
 function _ftMacroBar(label,cur,tgt,color,reste){
   const pct=tgt?Math.min(100,cur/tgt*100):0;
   return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-    <span style="font-size:11px;font-weight:800;color:${color};width:12px;flex-shrink:0">${label}</span>
+    <span style="font-size:11px;font-weight:800;color:${color};width:14px;flex-shrink:0">${label}</span>
     <div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
       ${tgt?`<div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width .3s"></div>`:''}
     </div>
-    <span style="font-size:11px;color:var(--text2);font-weight:600;min-width:46px;text-align:right;font-variant-numeric:tabular-nums">${Math.round(cur)}${(tgt&&!reste)?'/'+Math.round(tgt):''}g</span>
+    <span style="font-size:11px;color:var(--text2);font-weight:600;min-width:46px;text-align:right;font-variant-numeric:tabular-nums">${label==='Fi'?fibTxt(cur,true):Math.round(cur)}${(tgt&&!reste)?'/'+Math.round(tgt):''}g</span>
+  </div>`;
+}
+// Fibres dans le cercle RESTE : ce qu'il manque pour atteindre l'objectif ; atteint → ✓ (pas de rouge)
+function _ftFibReste(reste,tgt){
+  if(!tgt||reste>0)return _ftMacroBar('Fi',reste,tgt,'var(--fib)',true);
+  return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+    <span style="font-size:11px;font-weight:800;color:var(--fib);width:14px;flex-shrink:0">Fi</span>
+    <div style="flex:1;font-size:10.5px;font-weight:800;color:var(--fib)">Objectif atteint ✓</div>
   </div>`;
 }
 /* Anneau d'un cercle du tracking : la valeur au centre, le % de l'objectif dessous.
@@ -4854,7 +4881,7 @@ async function confirmDuplicateMeal(srcMeal){
   const targetDate=document.getElementById('dupDate')?.value||ftDate;
   const items=foodLogs.filter(l=>l.date===ftDate&&l.meal===srcMeal);
   if(!items.length){toast('Ce repas est vide');return;}
-  const rows=items.map(it=>({coach_id:clientData.coach_id,client_id:clientData.id,date:targetDate,meal:targetMeal,aliment_nom:it.aliment_nom,aliment_id:it.aliment_id||null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,...(it.extra?{extra:it.extra}:{})}));
+  const rows=items.map(it=>({coach_id:clientData.coach_id,client_id:clientData.id,date:targetDate,meal:targetMeal,aliment_nom:it.aliment_nom,aliment_id:it.aliment_id||null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,fibres:fibNum(it.fibres),...(it.extra?{extra:it.extra}:{})}));
   let{data,error}=await db.from('food_logs').insert(rows).select();
   if(error&&/extra/i.test(error.message||'')){
     const rows2=rows.map(r=>{const{extra,...rest}=r;return rest;});
@@ -4880,13 +4907,14 @@ async function loadRecipes(){
 }
 // Totaux d'une recette (macros stockées pour 100g, comme food_logs)
 function _recTotals(items){
-  let k=0,p=0,c=0,f=0;
+  let k=0,p=0,c=0,f=0,fi=0;
   (items||[]).forEach(it=>{
     const q=(parseFloat(it.qte_g)||0)/100;
     k+=(parseFloat(it.kcal)||0)*q;p+=(parseFloat(it.prot)||0)*q;
     c+=(parseFloat(it.carb)||0)*q;f+=(parseFloat(it.fat)||0)*q;
+    fi+=fibQ(it.fibres,q)||0;
   });
-  return{k,p,c,f};
+  return{k,p,c,f,fi};
 }
 function openSaveRecipe(meal){
   const items=foodLogs.filter(l=>l.date===ftDate&&l.meal===meal);
@@ -4920,7 +4948,7 @@ async function confirmSaveRecipe(meal){
   if(!nom){toast('Donne un nom à ta recette');return;}
   const items=foodLogs.filter(l=>l.date===ftDate&&l.meal===meal);
   if(!items.length){toast('Ce repas est vide');return;}
-  const payload=items.map(it=>({aliment_nom:it.aliment_nom,aliment_id:it.aliment_id||null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,...(it.extra?{extra:it.extra}:{})}));
+  const payload=items.map(it=>({aliment_nom:it.aliment_nom,aliment_id:it.aliment_id||null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,fibres:fibNum(it.fibres),...(it.extra?{extra:it.extra}:{})}));
   const{data,error}=await db.from('client_recipes').insert({coach_id:clientData.coach_id,client_id:clientData.id,nom,items:payload}).select().single();
   if(error){toast('Erreur: '+error.message);return;}
   clientRecipes.unshift(data);
@@ -4932,7 +4960,7 @@ async function addRecipeToMeal(id){
   const rec=clientRecipes.find(r=>r.id===id);if(!rec)return;
   const items=rec.items||[];
   if(!items.length){toast('Recette vide');return;}
-  const rows=items.map(it=>({coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,aliment_nom:it.aliment_nom,aliment_id:_ftIsUuid(it.aliment_id)?it.aliment_id:null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,...(it.extra?{extra:it.extra}:{})}));
+  const rows=items.map(it=>({coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,aliment_nom:it.aliment_nom,aliment_id:_ftIsUuid(it.aliment_id)?it.aliment_id:null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,fibres:fibNum(it.fibres),...(it.extra?{extra:it.extra}:{})}));
   let{data,error}=await db.from('food_logs').insert(rows).select();
   if(error&&/extra/i.test(error.message||'')){
     const rows2=rows.map(r=>{const{extra,...rest}=r;return rest;});
@@ -4993,7 +5021,7 @@ function _ftRecentAliments(){
   for(const l of sorted){
     const key=(l.aliment_nom||'').toLowerCase()+'|'+Math.round(parseFloat(l.kcal)||0);
     if(seen[key])continue;seen[key]=1;
-    out.push({id:l.aliment_id||null,nom:l.aliment_nom,kcal:l.kcal,prot:l.prot,carb:l.carb,fat:l.fat});
+    out.push({id:l.aliment_id||null,nom:l.aliment_nom,kcal:l.kcal,prot:l.prot,carb:l.carb,fat:l.fat,fibres:fibNum(l.fibres)});
     if(out.length>=30)break;
   }
   return out;
@@ -5007,7 +5035,7 @@ function _ftFoodRow(a){
   return `<div class="card" style="padding:11px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:9px;${sel?'border:1.5px solid var(--gold)':''}" onclick="_ftRowTap(${json})">
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.nom}</div>
-      <div style="font-size:10px;color:var(--text3);margin-top:3px">${Math.round((parseFloat(a.kcal)||0)*r)} kcal · P${Math.round((parseFloat(a.prot)||0)*r)} G${Math.round((parseFloat(a.carb)||0)*r)} L${Math.round((parseFloat(a.fat)||0)*r)}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">${Math.round((parseFloat(a.kcal)||0)*r)} kcal · P${Math.round((parseFloat(a.prot)||0)*r)} G${Math.round((parseFloat(a.carb)||0)*r)} L${Math.round((parseFloat(a.fat)||0)*r)} <span style="color:var(--fib)">Fi${fibTxt(fibQ(a.fibres,r))}</span></div>
     </div>
     <button type="button" onclick="event.stopPropagation();pickFoodAliment(${json})" aria-label="Modifier la quantité" title="Modifier la quantité" style="flex-shrink:0;display:flex;align-items:center;gap:5px;padding:8px 11px;min-height:38px;border-radius:10px;border:1.5px solid ${sel?'var(--gold)':'var(--border)'};background:${sel?'rgba(var(--gold-rgb),.12)':'var(--bg2)'};color:var(--text2);font-size:13px;font-weight:800;font-family:var(--font);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:rgba(var(--gold-rgb),.25)"><span style="color:var(--gold)">${_ftG(q)} g</span><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" style="opacity:.6"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
     <div onclick="event.stopPropagation();_ftToggleSelect(${json})" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;${sel?'background:var(--gold);color:#fff':'border:2px solid var(--border);color:transparent'}">✓</div>
@@ -5046,6 +5074,7 @@ function _ftRenderResults(){
               <span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P ${Math.round(t.p)}g</span>
               <span style="color:var(--gold)">G ${Math.round(t.c)}g</span>
               <span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L ${Math.round(t.f)}g</span>
+              <span style="color:var(--fib)">Fi ${fibTxt(t.fi)}g</span>
             </div>
           </div>
           <button type="button" onclick="event.stopPropagation();deleteRecipe('${rec.id}')" aria-label="Supprimer" title="Supprimer" style="width:42px;height:42px;border-radius:11px;flex-shrink:0;background:rgba(224,92,74,.12);border:1.5px solid rgba(224,92,74,.4);color:color-mix(in srgb,#e05c4a var(--ink,100%),var(--text));font-size:20px;font-weight:900;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);padding:0;touch-action:manipulation;-webkit-tap-highlight-color:rgba(224,92,74,.25)">✕</button>
@@ -5085,7 +5114,7 @@ function _ftClearSaveBar(){const b=document.getElementById('ftSaveBar');if(b)b.r
 async function confirmAddSelected(){
   const entries=Object.values(_ftSelected);
   if(!entries.length)return;
-  const rows=entries.map(e=>{const a=e.aliment;return{coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,aliment_nom:a.nom,aliment_id:_ftIsUuid(a.id)?a.id:null,qte_g:e.qte_g,kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat};});
+  const rows=entries.map(e=>{const a=e.aliment;return{coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,aliment_nom:a.nom,aliment_id:_ftIsUuid(a.id)?a.id:null,qte_g:e.qte_g,kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat,fibres:fibNum(a.fibres)};});
   const{data,error}=await db.from('food_logs').insert(rows).select();
   if(error){toast('Erreur: '+error.message);return;}
   if(data)data.forEach(d=>foodLogs.unshift(d));
@@ -5137,11 +5166,12 @@ function renderPickFoodQty(defaultQty){
   h+=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${_ftCurrentMeal} · ${fmtDate(ftDate)}</div>`;
   h+=`<div class="card" style="padding:16px;margin-bottom:12px">
     <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px">VALEURS POUR 100g</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
-      <div><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(k)}</div><div style="font-size:10px;color:var(--text3);font-weight:600">Kcal</div></div>
-      <div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${p.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Prot</div></div>
-      <div><div style="font-size:18px;font-weight:800;color:var(--gold)">${c.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Gluc</div></div>
-      <div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${f.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Lip</div></div>
+    <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;text-align:center">
+      <div><div style="font-size:16px;font-weight:800;color:var(--gold)">${Math.round(k)}</div><div style="font-size:10px;color:var(--text3);font-weight:600">Kcal</div></div>
+      <div><div style="font-size:16px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${p.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Prot</div></div>
+      <div><div style="font-size:16px;font-weight:800;color:var(--gold)">${c.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Gluc</div></div>
+      <div><div style="font-size:16px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${f.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Lip</div></div>
+      <div><div style="font-size:16px;font-weight:800;color:var(--fib)">${fibTxt(a.fibres)}${fibNum(a.fibres)!=null?'g':''}</div><div style="font-size:10px;color:var(--text3);font-weight:600">Fibres</div></div>
     </div>
   </div>`;
   h+=`<div class="card" style="padding:16px;margin-bottom:12px">
@@ -5187,6 +5217,7 @@ function _pfaUpdateTotals(){
       <span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P${((parseFloat(a.prot)||0)*r).toFixed(1)}</span>
       <span style="color:var(--gold)">G${((parseFloat(a.carb)||0)*r).toFixed(1)}</span>
       <span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L${((parseFloat(a.fat)||0)*r).toFixed(1)}</span>
+      <span style="color:var(--fib)">Fi${fibTxt(fibQ(a.fibres,r))}</span>
     </div>`;
 }
 function _pfaStep(delta){
@@ -5264,6 +5295,7 @@ function renderManualFoodPage(nom){
       <div><label style="${lbS}">Protéines (g)</label><input type="text" id="mfProt" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
       <div><label style="${lbS}">Glucides (g)</label><input type="text" id="mfCarb" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
       <div><label style="${lbS}">Lipides (g)</label><input type="text" id="mfFat" inputmode="decimal" placeholder="0" style="${inS}" oninput="_mfUpdateTotals()"></div>
+      <div><label style="${lbS}">Fibres (g) <span style="font-weight:600;color:var(--text3)">· facultatif</span></label><input type="text" id="mfFib" inputmode="decimal" placeholder="—" style="${inS}" oninput="_mfUpdateTotals()"></div>
     </div>
     <label style="${lbS};margin-top:14px">Quantité consommée</label>
     <div style="display:flex;gap:8px;align-items:center">
@@ -5293,10 +5325,10 @@ function _mfSetBasis(b){
   if(b===_mfBasis){_mfUpdateBasisUI();return;}
   const pg=_ftNum(document.getElementById('mfPortionG')?.value);
   if(b==='portion'&&pg<=0){toast('Indique d\'abord le poids d\'une portion (g)');document.getElementById('mfPortionG')?.focus();return;}
-  // Convertit les 4 valeurs affichées de l'ancienne base vers la nouvelle
+  // Convertit les valeurs affichées de l'ancienne base vers la nouvelle (fibres vides : laissées vides)
   const toPer100=_mfBasis==='portion'?(100/pg):1;
   const fromPer100=b==='portion'?(pg/100):1;
-  ['mfKcal','mfProt','mfCarb','mfFat'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const v=parseFloat(el.value);if(!isNaN(v))el.value=Math.round(v*toPer100*fromPer100*100)/100;});
+  ['mfKcal','mfProt','mfCarb','mfFat','mfFib'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const v=parseFloat(String(el.value).replace(',','.'));if(!isNaN(v))el.value=Math.round(v*toPer100*fromPer100*100)/100;});
   _mfBasis=b;_mfUpdateBasisUI();_mfUpdateTotals();
 }
 function handleManualFoodPhoto(input){
@@ -5321,12 +5353,14 @@ function _mfUpdateTotals(){
   const p=_ftNum(document.getElementById('mfProt')?.value)*q;
   const c=_ftNum(document.getElementById('mfCarb')?.value)*q;
   const f=_ftNum(document.getElementById('mfFat')?.value)*q;
+  const fi=fibQ(document.getElementById('mfFib')?.value,q);
   el.innerHTML=`<div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px">CE QUE TU AJOUTES</div>
     <div style="display:flex;justify-content:space-around;font-size:13px;font-weight:700">
       <span style="color:var(--gold)">${Math.round(k)} kcal</span>
       <span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P${p.toFixed(1)}</span>
       <span style="color:var(--gold)">G${c.toFixed(1)}</span>
       <span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L${f.toFixed(1)}</span>
+      <span style="color:var(--fib)">Fi${fibTxt(fi)}</span>
     </div>`;
 }
 async function saveManualFood(){
@@ -5341,6 +5375,9 @@ async function saveManualFood(){
   const prot=Math.round(_ftNum(document.getElementById('mfProt')?.value)*f100*100)/100;
   const carb=Math.round(_ftNum(document.getElementById('mfCarb')?.value)*f100*100)/100;
   const fat=Math.round(_ftNum(document.getElementById('mfFat')?.value)*f100*100)/100;
+  // Fibres facultatives : champ vide → null (inconnu), jamais 0
+  const fib0=fibNum(document.getElementById('mfFib')?.value);
+  const fibres=fib0==null?null:Math.round(fib0*f100*100)/100;
   const qte=_ftNum(document.getElementById('mfQty')?.value);
   if(!qte||qte<=0){toast('Quantité invalide');return;}
   const btn=document.getElementById('mfSaveBtn');
@@ -5352,7 +5389,7 @@ async function saveManualFood(){
   }
   // 2) Insertion de l'aliment (non vérifié) dans la base du coach
   const id=Date.now();
-  const full={id,coach_id:clientData.coach_id,nom,cat:UNVERIFIED_CAT,source:'proteines',kcal,prot,carb,fat,verified:false,added_by_client:clientData.id,photo:photoUrl,portion_g:portionG>0?portionG:null,portion_label:portionLabel||null};
+  const full={id,coach_id:clientData.coach_id,nom,cat:UNVERIFIED_CAT,source:'proteines',kcal,prot,carb,fat,fibres,verified:false,added_by_client:clientData.id,photo:photoUrl,portion_g:portionG>0?portionG:null,portion_label:portionLabel||null};
   let res=await db.from('aliments').insert(full).select().single();
   if(res.error){
     // Fallback : migration aliments_client_add.sql / aliments_portion.sql pas encore appliquée
@@ -5363,7 +5400,7 @@ async function saveManualFood(){
   coachAlims.push(res.data||full);
   // 3) Log immédiat dans le tracking du jour
   const extra={unverified:true};if(photoUrl)extra.image_url=driveImgUrl(photoUrl);
-  await _saveFoodEntry({aliment_nom:nom,aliment_id:null,qte_g:qte,kcal,prot,carb,fat,extra});
+  await _saveFoodEntry({aliment_nom:nom,aliment_id:null,qte_g:qte,kcal,prot,carb,fat,fibres,extra});
   _mfPhoto=null;_mfPhotoMime=null;_mfPhotoDataUrl=null;
 }
 async function _saveFoodEntry(entry){
@@ -5661,8 +5698,10 @@ function renderBarcodeProduct(barcode,product){
   const img=product.image_small_url||product.image_front_small_url||'';
   const servingG=parseFloat((product.serving_quantity||'').toString())||parseFloat((product.serving_size||'').replace(/[^\d.]/g,''))||0;
   const defaultQty=servingG>0?Math.round(servingG):100;
+  // Fibres en colonne : null si OpenFoodFacts ne les donne pas (inconnu ≠ 0)
+  const fibCol=fibNum(n['fiber_100g']);
   _bcCurrent={
-    barcode,nom,brand,kcal,prot,carb,fat,
+    barcode,nom,brand,kcal,prot,carb,fat,fibres:fibCol,
     image_url:img,
     micros:{sucre,fibres,sat_fat:satFat,sodium,salt:sel},
     nutriscore:product.nutriscore_grade||''
@@ -5682,15 +5721,15 @@ function renderBarcodeProduct(barcode,product){
   </div>`;
   h+=`<div class="card" style="padding:16px;margin-bottom:12px">
     <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px">VALEURS POUR 100g</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
-      <div><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(kcal)}</div><div style="font-size:10px;color:var(--text3);font-weight:600">Kcal</div></div>
-      <div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${prot.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Prot</div></div>
-      <div><div style="font-size:18px;font-weight:800;color:var(--gold)">${carb.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Gluc</div></div>
-      <div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${fat.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Lip</div></div>
+    <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;text-align:center">
+      <div><div style="font-size:16px;font-weight:800;color:var(--gold)">${Math.round(kcal)}</div><div style="font-size:10px;color:var(--text3);font-weight:600">Kcal</div></div>
+      <div><div style="font-size:16px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${prot.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Prot</div></div>
+      <div><div style="font-size:16px;font-weight:800;color:var(--gold)">${carb.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Gluc</div></div>
+      <div><div style="font-size:16px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${fat.toFixed(1)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600">Lip</div></div>
+      <div><div style="font-size:16px;font-weight:800;color:var(--fib)">${fibTxt(fibCol)}${fibCol!=null?'g':''}</div><div style="font-size:10px;color:var(--text3);font-weight:600">Fibres</div></div>
     </div>
-    ${(sucre||fibres||satFat||sel)?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text2);display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+    ${(sucre||satFat||sel)?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text2);display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
       ${sucre?`<span>🍯 Sucres ${sucre.toFixed(1)}g</span>`:''}
-      ${fibres?`<span>🌾 Fibres ${fibres.toFixed(1)}g</span>`:''}
       ${satFat?`<span>🧈 Sat. ${satFat.toFixed(1)}g</span>`:''}
       ${sel?`<span>🧂 Sel ${sel.toFixed(2)}g</span>`:''}
     </div>`:''}
@@ -5723,6 +5762,7 @@ function _bcUpdateTotals(){
       <span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P${(_bcCurrent.prot*r).toFixed(1)}</span>
       <span style="color:var(--gold)">G${(_bcCurrent.carb*r).toFixed(1)}</span>
       <span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L${(_bcCurrent.fat*r).toFixed(1)}</span>
+      <span style="color:var(--fib)">Fi${fibTxt(fibQ(_bcCurrent.fibres,r))}</span>
     </div>`;
 }
 function saveBarcodeFood(){
@@ -5736,7 +5776,7 @@ function saveBarcodeFood(){
     aliment_nom:c.brand?(c.brand+' — '+c.nom):c.nom,
     aliment_id:null,
     qte_g:q,
-    kcal:c.kcal,prot:c.prot,carb:c.carb,fat:c.fat,
+    kcal:c.kcal,prot:c.prot,carb:c.carb,fat:c.fat,fibres:fibNum(c.fibres),
     extra:{
       source:'off',
       barcode:c.barcode,
@@ -5765,7 +5805,7 @@ function editFoodLog(id){
   const log=foodLogs.find(l=>String(l.id)===String(id));
   if(!log)return;
   // Les macros stockées dans food_logs sont pour 100g → on reconstruit l'aliment pour l'écran quantité
-  _pfaCurrent={id:log.aliment_id,nom:log.aliment_nom,kcal:log.kcal,prot:log.prot,carb:log.carb,fat:log.fat};
+  _pfaCurrent={id:log.aliment_id,nom:log.aliment_nom,kcal:log.kcal,prot:log.prot,carb:log.carb,fat:log.fat,fibres:fibNum(log.fibres)};
   _pfaMode='edit';_pfaEditId=id;_ftCurrentMeal=log.meal;_pfaUnit='g';
   renderPickFoodQty(parseFloat(log.qte_g)||100);
 }
@@ -5834,12 +5874,13 @@ async function syncMealCheck(planId,dayIdx,ri,date,done){
   }catch(e){console.warn('[MEAL CHECK]',e);}
 }
 function calcDayMacros(day,planRefId,dayIdx){
-  let dk=0,dp=0,dc=0,df=0;
+  let dk=0,dp=0,dc=0,df=0,dfi=0,fibOk=false;
   (day.repas||[]).forEach((meal,ri)=>{
     const pm=(planRefId!=null&&dayIdx!=null)?getMealPortion(planRefId,dayIdx,ri):1;
-    mealItems(meal).forEach(it=>{const q=(it.qte||100)/100*pm;dk+=(it.kcal||0)*q;dp+=(it.prot||0)*q;dc+=(it.carb||0)*q;df+=(it.fat||0)*q;});
+    mealItems(meal).forEach(it=>{const q=(it.qte||100)/100*pm;dk+=(it.kcal||0)*q;dp+=(it.prot||0)*q;dc+=(it.carb||0)*q;df+=(it.fat||0)*q;const x=fibQ(it.fibres,q);if(x!=null){dfi+=x;fibOk=true;}});
   });
-  return{kcal:dk,prot:dp,carb:dc,fat:df};
+  // fibOk = au moins un aliment avec des fibres connues
+  return{kcal:dk,prot:dp,carb:dc,fat:df,fibres:dfi,fibOk};
 }
 // Affichage "tableau" du plan d'un coach — meme visuel que les tableaux du coach
 // (barre doree par repas, en-tetes dorees, quadrillage). Memes repas, memes aliments,
@@ -5853,18 +5894,18 @@ function _planTableauHTML(day,planRefId,dayIdx,p){
   const mini='width:26px;height:26px;border-radius:6px;border:1.5px solid var(--gold-border);background:var(--white);color:var(--gold-deep);font-size:12px;font-weight:800;cursor:pointer;font-family:var(--font);padding:0;touch-action:manipulation';
   const miniTxt='height:28px;border-radius:7px;border:1.5px solid var(--gold-border);background:var(--gold-pale);color:var(--gold-deep);font-size:11px;font-weight:800;cursor:pointer;font-family:var(--font);padding:0 9px';
   const mealIcons={'Petit-déjeuner':'🌅','Déjeuner':'🍽️','Dîner':'🌙','Goûter':'🍎','Collation':'🥤','Collation AM':'🥤','Collation PM':'🥤'};
-  const nbCols=hideMacros?3:4;
+  const nbCols=hideMacros?3:5;
   let h=`<div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--white)"><table style="width:100%;border-collapse:collapse;table-layout:fixed">`;
-  h+=`<thead><tr><th style="${th};text-align:left">Aliment</th><th style="${th};width:54px">Qté</th>${hideMacros?'':`<th style="${th};width:50px">Kcal</th>`}<th style="${th};width:52px"></th></tr></thead><tbody>`;
+  h+=`<thead><tr><th style="${th};text-align:left">Aliment</th><th style="${th};width:50px">Qté</th>${hideMacros?'':`<th style="${th};width:50px">Kcal</th><th style="${th};width:32px;color:var(--fib)">Fib.</th>`}<th style="${th};width:48px"></th></tr></thead><tbody>`;
   (day.repas||[]).forEach((meal,ri)=>{
     const items=mealItems(meal);
     const portion=getMealPortion(planRefId,dayIdx,ri);
-    let mk=0,mp=0,mc=0,mf=0;
-    items.forEach(it=>{const q=(it.qte||100)/100*portion;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;});
+    let mk=0,mp=0,mc=0,mf=0,mfi=0;
+    items.forEach(it=>{const q=(it.qte||100)/100*portion;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;mfi+=fibQ(it.fibres,q)||0;});
     const done=isMealDone(planRefId,dayIdx,ri);
     h+=`<tr style="background:var(--gold)">
       <td style="${gcell};font-size:10px;letter-spacing:1.5px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" colspan="2">${mealIcons[meal.nom]||'🍴'} ${meal.nom||'Repas'}</td>
-      ${hideMacros?'':`<td style="${gcell};text-align:center"><div style="font-size:12px">${Math.round(mk)}</div><div style="font-size:9px;font-weight:600;opacity:.9">P${Math.round(mp)} G${Math.round(mc)} L${Math.round(mf)}</div></td>`}
+      ${hideMacros?'':`<td style="${gcell};text-align:center"><div style="font-size:12px">${Math.round(mk)}</div><div style="font-size:9px;font-weight:600;opacity:.9">P${Math.round(mp)} G${Math.round(mc)} L${Math.round(mf)}</div></td><td style="${gcell};text-align:center">${items.length?fibTxt(mfi):''}</td>`}
       <td style="${gcell};text-align:right;white-space:nowrap"><button type="button" onclick="toggleMealDone('${planRefId}',${dayIdx},${ri})" aria-label="${done?'Décocher repas':'Marquer mangé'}" title="${done?'Décocher repas':'Marquer mangé'}" style="${mini};border-color:rgba(255,255,255,.55);background:${done?'#fff':'rgba(255,255,255,.18)'};color:${done?'var(--gold-deep)':'#fff'}">${done?'✓':''}</button></td></tr>`;
     h+=`<tr style="background:var(--bg)"><td colspan="${nbCols}" style="${cell};padding:6px 7px">
       <span style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--gold-deep)">Portions cuisinées</span>
@@ -5880,7 +5921,7 @@ function _planTableauHTML(day,planRefId,dayIdx,p){
       h+=`<tr>
         <td style="${cell};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${srcDot}${it.nom||'Aliment'}</td>
         <td style="${cell};text-align:center;white-space:nowrap;color:var(--text3)">${dispQty} g</td>
-        ${hideMacros?'':`<td style="${cell};text-align:center;font-weight:700">${Math.round((it.kcal||0)*q)}</td>`}
+        ${hideMacros?'':`<td style="${cell};text-align:center;font-weight:700">${Math.round((it.kcal||0)*q)}</td><td style="${cell};text-align:center;color:var(--fib)">${fibTxt(fibQ(it.fibres,q))}</td>`}
         <td style="${cell};text-align:right">${(hideMacros||!allowSwaps)?'':`<button type="button" onclick="showFoodSwap(${currentPlanIdx},${dayIdx},${ri},${ai})" title="Équivalences" style="${miniTxt}">⇄</button>`}</td>
       </tr>`;
     });
@@ -5902,11 +5943,11 @@ function renderPlanDetail(){
 
   const planRefId=p.id||('idx'+currentPlanIdx);
   // Calculate average macros across all days (portions appliquées)
-  let avgK=0,avgP=0,avgC=0,avgF=0;
+  let avgK=0,avgP=0,avgC=0,avgF=0,avgFi=0,avgFiOk=false;
   if(jours.length){
-    jours.forEach((day,di)=>{const m=calcDayMacros(day,planRefId,di);avgK+=m.kcal;avgP+=m.prot;avgC+=m.carb;avgF+=m.fat;});
-    avgK/=jours.length;avgP/=jours.length;avgC/=jours.length;avgF/=jours.length;
-  } else { avgK=p.kcal||0;avgP=p.prot||0;avgC=p.carb||0;avgF=p.fat||0; }
+    jours.forEach((day,di)=>{const m=calcDayMacros(day,planRefId,di);avgK+=m.kcal;avgP+=m.prot;avgC+=m.carb;avgF+=m.fat;avgFi+=m.fibres;if(m.fibOk)avgFiOk=true;});
+    avgK/=jours.length;avgP/=jours.length;avgC/=jours.length;avgF/=jours.length;avgFi/=jours.length;
+  } else { avgK=p.kcal||0;avgP=p.prot||0;avgC=p.carb||0;avgF=p.fat||0;avgFi=fibNum(p.fibres)||0;avgFiOk=fibNum(p.fibres)!=null; }
 
   // Réglage du coach sur ce plan (client_header) : null = objectif du calcul macros si défini,
   // sinon moyenne du plan · plan = moyenne du plan · first = totaux du premier menu (Jour 1, sans portions)
@@ -5915,7 +5956,9 @@ function renderPlanDetail(){
   if(!hideMacros&&headMode!=='hidden'){
     const _co=headMode==='auto'?_coachObj():null;
     let man=headMode==='manual'?head:null;
-    if(headMode==='first'&&jours[0]){const f=calcDayMacros(jours[0]);man={kcal:f.kcal,prot:f.prot,carb:f.carb,fat:f.fat};}
+    if(headMode==='first'&&jours[0]){const f=calcDayMacros(jours[0]);man={kcal:f.kcal,prot:f.prot,carb:f.carb,fat:f.fat,fibres:f.fibOk?f.fibres:null};}
+    // Fibres (null = rien à afficher) : manuel/premier menu, sinon objectif du coach, sinon moyenne du plan
+    const objFi=man?fibNum(man.fibres):(headMode==='auto'&&_coachFib())?_coachFib():(avgFiOk?avgFi:null);
     const objK=man?(+man.kcal||0):_co?_co.k:avgK,objP=man?(+man.prot||0):_co?_co.prot:avgP,objC=man?(+man.carb||0):_co?_co.carb:avgC,objF=man?(+man.fat||0):_co?_co.fat:avgF;
     const headLabel=(man||_co)?'TON OBJECTIF JOURNALIER':'MOYENNE JOURNALIÈRE';
     // Macro summary card
@@ -5932,6 +5975,7 @@ function renderPlanDetail(){
         <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${Math.round(objP)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Protéines</div></div>
         <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:var(--gold)">${Math.round(objC)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Glucides</div></div>
         <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${Math.round(objF)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Lipides</div></div>
+        ${objFi!=null?`<div style="text-align:center"><div style="font-size:18px;font-weight:800;color:var(--fib)">${fibTxt(objFi,true)}g</div><div style="font-size:10px;color:var(--text3);font-weight:600;margin-top:2px">Fibres</div></div>`:''}
       </div>`:''}
     </div>`;
   }
@@ -5946,7 +5990,8 @@ function renderPlanDetail(){
     ${hideMacros?'':`<div style="background:var(--gold);color:white;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700">${Math.round(dayM.kcal)} kcal</div>
     <div style="background:rgba(74,144,217,.12);color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text));padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">P ${Math.round(dayM.prot)}g</div>
     <div style="background:rgba(var(--gold-rgb),.12);color:color-mix(in srgb,#a07820 var(--ink,100%),var(--text));padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">G ${Math.round(dayM.carb)}g</div>
-    <div style="background:rgba(224,124,90,.12);color:color-mix(in srgb,#c05a30 var(--ink,100%),var(--text));padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">L ${Math.round(dayM.fat)}g</div>`}
+    <div style="background:rgba(224,124,90,.12);color:color-mix(in srgb,#c05a30 var(--ink,100%),var(--text));padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">L ${Math.round(dayM.fat)}g</div>
+    ${dayM.fibOk?`<div style="background:rgba(46,157,106,.12);color:var(--fib);padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">Fi ${fibTxt(dayM.fibres,true)}g</div>`:''}`}
     ${totalMeals?`<div style="${hideMacros?'':'margin-left:auto;'}display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:1px solid ${doneMeals===totalMeals?'var(--gold)':'var(--border)'};background:${doneMeals===totalMeals?'var(--gold-pale)':'transparent'};font-size:12px;font-weight:700;color:${doneMeals===totalMeals?'var(--gold-deep)':'var(--text2)'}"><span>✓ ${doneMeals}/${totalMeals}</span><span style="font-size:10px;font-weight:600;color:var(--text3)">repas</span></div>`:''}
   </div>`;
   // Meals — fiche (cartes) ou tableau, au choix du client
@@ -5958,8 +6003,8 @@ function renderPlanDetail(){
   (day.repas||[]).forEach((meal,ri)=>{
     const items=mealItems(meal);
     const portion=getMealPortion(planRefId,currentDayIdx,ri);
-    let mk=0,mp=0,mc=0,mf=0;
-    items.forEach(it=>{const q=(it.qte||100)/100*portion;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;});
+    let mk=0,mp=0,mc=0,mf=0,mfi=0;
+    items.forEach(it=>{const q=(it.qte||100)/100*portion;mk+=(it.kcal||0)*q;mp+=(it.prot||0)*q;mc+=(it.carb||0)*q;mf+=(it.fat||0)*q;mfi+=fibQ(it.fibres,q)||0;});
     const icon=mealIcons[meal.nom]||'🍴';
     const done=isMealDone(planRefId,currentDayIdx,ri);
     const mealCollapsed=isPlanMealCollapsed(planRefId,currentDayIdx,ri);
@@ -5967,7 +6012,7 @@ function renderPlanDetail(){
       <div onclick="togglePlanMeal('${planRefId}',${currentDayIdx},${ri})" style="display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;background:linear-gradient(135deg,rgba(var(--gold-rgb),.06),rgba(var(--gold-rgb),.02))">
         <span style="font-size:20px">${icon}</span>
         <div style="flex:1"><div style="font-size:15px;font-weight:700;${done?'text-decoration:line-through;color:var(--text3)':''}">${meal.nom||'Repas'}</div></div>
-        ${hideMacros?'':`<div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--gold)">${Math.round(mk)} kcal</div><div style="font-size:10px;color:var(--text3);margin-top:1px">P${Math.round(mp)} · G${Math.round(mc)} · L${Math.round(mf)}</div></div>`}
+        ${hideMacros?'':`<div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--gold)">${Math.round(mk)} kcal</div><div style="font-size:10px;color:var(--text3);margin-top:1px">P${Math.round(mp)} · G${Math.round(mc)} · L${Math.round(mf)} · <span style="color:var(--fib)">Fi${fibTxt(mfi)}</span></div></div>`}
         <button onclick="event.stopPropagation();toggleMealDone('${planRefId}',${currentDayIdx},${ri})" aria-label="${done?'Décocher repas':'Marquer mangé'}" title="${done?'Décocher':'Marquer mangé'}" style="width:36px;height:36px;border-radius:50%;border:2px solid ${done?'var(--gold)':'var(--border)'};background:${done?'var(--gold)':'var(--white)'};color:${done?'white':'var(--text3)'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:18px;font-weight:800;padding:0;font-family:inherit;line-height:1;transition:all .15s">${done?'✓':''}</button>
         <span style="font-size:13px;color:var(--text3);transition:transform .2s;display:inline-block;transform:rotate(${mealCollapsed?'-90deg':'0deg'});flex-shrink:0">▾</span>
       </div>
@@ -5990,7 +6035,7 @@ function renderPlanDetail(){
       h+=`<div style="display:flex;align-items:center;padding:10px 0;${ai<items.length-1?'border-bottom:1px solid var(--border)':''}">
         ${srcDot}<div style="flex:1;font-size:14px;font-weight:500">${it.nom||'Aliment'}</div>
         ${(hideMacros||!allowSwaps)?'':`<button onclick="showFoodSwap(${currentPlanIdx},${currentDayIdx},${ri},${ai})" style="background:var(--gold-pale);border:1px solid rgba(var(--gold-rgb),.3);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:var(--gold-deep);cursor:pointer;margin:0 8px;flex-shrink:0">⇄</button>`}
-        <div style="text-align:right;flex-shrink:0"><div style="font-size:13px;font-weight:700">${dispQty}g</div>${hideMacros?'':`<div style="font-size:10px;color:var(--text3)">${Math.round((it.kcal||0)*q)} kcal</div>`}</div>
+        <div style="text-align:right;flex-shrink:0"><div style="font-size:13px;font-weight:700">${dispQty}g</div>${hideMacros?'':`<div style="font-size:10px;color:var(--text3)">${Math.round((it.kcal||0)*q)} kcal · <span style="color:var(--fib)">Fi ${fibTxt(fibQ(it.fibres,q))}</span></div>`}</div>
       </div>`;
     });
     h+=`</div></div>`;
@@ -6212,8 +6257,8 @@ function showFoodSwap(planIdx,dayIdx,ri,ai){
     <div id="foodSwapList" style="overflow-y:auto;flex:1;padding:4px 8px">`;
   alternatives.forEach(a=>{
     const newQte=a.kcal>0?Math.round(origKcalTotal/a.kcal*100):100;
-    inner+=`<div onclick="doFoodSwap(${planIdx},${dayIdx},${ri},${ai},'${a.nom.replace(/'/g,"\\'")}',${a.kcal},${a.prot},${a.carb},${a.fat},'${a.source||''}',${newQte})" style="padding:10px;cursor:pointer;border-radius:8px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bg)" ontouchstart="this.style.background='var(--bg)'" ontouchend="this.style.background=''">
-      <div><div style="font-size:13px;font-weight:600">${a.nom}</div><div style="font-size:10px;color:var(--text3)">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div>
+    inner+=`<div onclick="doFoodSwap(${planIdx},${dayIdx},${ri},${ai},'${a.nom.replace(/'/g,"\\'")}',${a.kcal},${a.prot},${a.carb},${a.fat},${fibNum(a.fibres)},'${a.source||''}',${newQte})" style="padding:10px;cursor:pointer;border-radius:8px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bg)" ontouchstart="this.style.background='var(--bg)'" ontouchend="this.style.background=''">
+      <div><div style="font-size:13px;font-weight:600">${a.nom}</div><div style="font-size:10px;color:var(--text3)">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g <span style="color:var(--fib)">Fi:${fibTxt(a.fibres)}${fibNum(a.fibres)!=null?'g':''}</span></div></div>
       <div style="text-align:right"><div style="font-size:14px;font-weight:800;color:var(--gold)">${newQte}g</div><div style="font-size:10px;color:var(--text3)">${Math.round(a.kcal*newQte/100)} kcal</div></div>
     </div>`;
   });
@@ -6244,8 +6289,8 @@ function filterFoodSwap(q,planIdx,dayIdx,ri,ai){
   filtered=filtered.slice(0,40);
   list.innerHTML=filtered.map(a=>{
     const newQte=a.kcal>0?Math.round(origKcalTotal/a.kcal*100):100;
-    return`<div onclick="doFoodSwap(${planIdx},${dayIdx},${ri},${ai},'${a.nom.replace(/'/g,"\\'")}',${a.kcal},${a.prot},${a.carb},${a.fat},'${a.source||''}',${newQte})" style="padding:10px;cursor:pointer;border-radius:8px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bg)" ontouchstart="this.style.background='var(--bg)'" ontouchend="this.style.background=''">
-      <div><div style="font-size:13px;font-weight:600">${a.nom}</div><div style="font-size:10px;color:var(--text3)">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g</div></div>
+    return`<div onclick="doFoodSwap(${planIdx},${dayIdx},${ri},${ai},'${a.nom.replace(/'/g,"\\'")}',${a.kcal},${a.prot},${a.carb},${a.fat},${fibNum(a.fibres)},'${a.source||''}',${newQte})" style="padding:10px;cursor:pointer;border-radius:8px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bg)" ontouchstart="this.style.background='var(--bg)'" ontouchend="this.style.background=''">
+      <div><div style="font-size:13px;font-weight:600">${a.nom}</div><div style="font-size:10px;color:var(--text3)">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g <span style="color:var(--fib)">Fi:${fibTxt(a.fibres)}${fibNum(a.fibres)!=null?'g':''}</span></div></div>
       <div style="text-align:right"><div style="font-size:14px;font-weight:800;color:var(--gold)">${newQte}g</div><div style="font-size:10px;color:var(--text3)">${Math.round(a.kcal*newQte/100)} kcal</div></div>
     </div>`;
   }).join('')||(q?'<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">Aucun résultat</div>':'');
@@ -6263,7 +6308,7 @@ function applyPlanSwaps(){
     items[s.alim_idx]=s.alim;
   });
 }
-async function doFoodSwap(planIdx,dayIdx,ri,ai,nom,kcal,prot,carb,fat,source,newQte){
+async function doFoodSwap(planIdx,dayIdx,ri,ai,nom,kcal,prot,carb,fat,fibres,source,newQte){
   const p=plans[planIdx],day=(p.jours||[])[dayIdx],meal=day.repas[ri];
   const items=meal.items||meal.alims;
   if(!items||!items[ai])return;
@@ -6271,7 +6316,7 @@ async function doFoodSwap(planIdx,dayIdx,ri,ai,nom,kcal,prot,carb,fat,source,new
   // sinon le nom actuel de l'aliment.
   const existingSwap=planSwaps.find(s=>s.plan_id===p.id&&s.day_idx===dayIdx&&s.repas_idx===ri&&s.alim_idx===ai);
   const originalNom=existingSwap?existingSwap.original_nom:items[ai].nom;
-  const newAlim={nom,kcal,prot,carb,fat,source,qte:newQte};
+  const newAlim={nom,kcal,prot,carb,fat,fibres:fibNum(fibres),source,qte:newQte};
   items[ai]=newAlim;
   const pop=document.getElementById('foodSwapPopup');if(pop)pop.remove();
   renderPlanDetail();
@@ -7202,6 +7247,9 @@ async function submitMealEstimation(){
     } else if(p.kcal){
       plan_macros={kcal:Math.round(p.kcal),prot:Math.round(p.prot||0),carb:Math.round(p.carb||0),fat:Math.round(p.fat||0)};
     }
+    // Objectif fibres : celui du coach, sinon la moyenne du plan (rien si inconnu)
+    const fibObj=_coachFib()||_planDailyAvg(p).fibres;
+    if(plan_macros&&fibObj!=null)plan_macros.fibres=Math.round(fibObj);
   }
 
   try{
@@ -7230,6 +7278,7 @@ function renderEstResult(est,plan_macros){
   h+=`<div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${est.prot_min}-${est.prot_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Protéines</div></div>`;
   h+=`<div><div style="font-size:18px;font-weight:800;color:var(--gold)">${est.carb_min}-${est.carb_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Glucides</div></div>`;
   h+=`<div><div style="font-size:18px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${est.fat_min}-${est.fat_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Lipides</div></div>`;
+  if(est.fibres_min!=null&&est.fibres_max!=null)h+=`<div><div style="font-size:18px;font-weight:800;color:var(--fib)">${est.fibres_min}-${est.fibres_max}g</div><div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Fibres</div></div>`;
   h+=`</div></div>`;
 
   // Items detected
@@ -7250,6 +7299,7 @@ function renderEstResult(est,plan_macros){
     h+=`<div><div style="font-size:22px;font-weight:800;color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">${r.prot||0}g</div><div style="font-size:10px;color:var(--text3)">Prot</div></div>`;
     h+=`<div><div style="font-size:22px;font-weight:800;color:var(--gold)">${r.carb||0}g</div><div style="font-size:10px;color:var(--text3)">Gluc</div></div>`;
     h+=`<div><div style="font-size:22px;font-weight:800;color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">${r.fat||0}g</div><div style="font-size:10px;color:var(--text3)">Lip</div></div>`;
+    if(r.fibres!=null)h+=`<div><div style="font-size:22px;font-weight:800;color:var(--fib)">${r.fibres}g</div><div style="font-size:10px;color:var(--text3)">Fibres</div></div>`;
     h+=`</div></div>`;
   }
 
@@ -7276,8 +7326,11 @@ async function saveEstToLog(){
   const avgCarb=Math.round((est.carb_min+est.carb_max)/2);
   const avgFat=Math.round((est.fat_min+est.fat_max)/2);
 
-  const estEntry={nom:est.nom,kcal:avgKcal,prot:avgProt,carb:avgCarb,fat:avgFat,items:est.items||[],timestamp:new Date().toISOString()};
-  const ctxLine=`[Estimation IA] ${est.nom} : ~${avgKcal} kcal (P${avgProt} G${avgCarb} L${avgFat})`;
+  // Fibres : seulement si l'estimation les renvoie
+  const hasFib=est.fibres_min!=null&&est.fibres_max!=null;
+  const avgFib=hasFib?Math.round((est.fibres_min+est.fibres_max)/2):null;
+  const estEntry={nom:est.nom,kcal:avgKcal,prot:avgProt,carb:avgCarb,fat:avgFat,...(hasFib?{fibres:avgFib}:{}),items:est.items||[],timestamp:new Date().toISOString()};
+  const ctxLine=`[Estimation IA] ${est.nom} : ~${avgKcal} kcal (P${avgProt} G${avgCarb} L${avgFat}${hasFib?' Fi'+avgFib:''})`;
 
   const existing=dailyLogs.find(l=>l.date===today());
   let data=existing?{...existing.data}:{};
