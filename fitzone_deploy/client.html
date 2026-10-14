@@ -5037,9 +5037,11 @@ function _recSheetRender(){
     +'<input type="number" inputmode="decimal" min="0" step="5" value="'+_ftG(it.qte_g)+'" onchange="_recSetQte('+i+',this.value)" style="'+qteIn+'">'
     +'<span style="font-size:11px;color:var(--text3);font-weight:700">g</span>'
     +'<button type="button" onclick="_recDelItem('+i+')" aria-label="Retirer" title="Retirer" style="'+del+'">✕</button></div>').join('');
-  el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
-    +'<div style="font-size:18px;font-weight:800;color:var(--text)">'+_recEsc(_recDraft.nom)+'</div>'
+  el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    +'<div style="font-size:18px;font-weight:800;color:var(--text)">Recette</div>'
     +'<span onclick="document.getElementById(\'recSheet\').remove()" style="font-size:22px;cursor:pointer;color:var(--text3);padding:4px">✕</span></div>'
+    +'<label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Nom de la recette</label>'
+    +'<input type="text" id="recName" value="'+_recEsc(_recDraft.nom)+'" placeholder="Ex : Poulet riz brocolis" onchange="_recSetNom(this.value)" autocomplete="off" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;background:var(--white);font-weight:600;margin-bottom:14px">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:11px;font-weight:700">'
     +'<span style="color:var(--gold-deep);font-size:12px">'+Math.round(t.k)+' kcal</span>'
     +'<span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P '+Math.round(t.p)+'g</span>'
@@ -5056,6 +5058,10 @@ function _recSheetRender(){
     +'<button onclick="recSheetSave()" style="width:100%;padding:13px;border:1.5px solid var(--border);background:var(--white);border-radius:12px;font-size:14px;font-weight:700;color:var(--text2);cursor:pointer;font-family:var(--font)">💾 Enregistrer les modifications</button>';
 }
 function _ftEscMeal(m){return String(m==null?'':m).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+function _recSetNom(v){if(_recDraft)_recDraft.nom=String(v==null?'':v).trim();}
+// Le nom se lit dans le champ au moment d'agir : Valentin peut le corriger et
+// appuyer tout de suite sur un bouton, sans sortir du champ.
+function _recReadNom(){const el=document.getElementById('recName');if(el&&_recDraft)_recDraft.nom=String(el.value||'').trim();return _recDraft?_recDraft.nom:'';}
 function _recSetQte(i,v){
   if(!_recDraft||!_recDraft.items[i])return;
   const q=parseFloat(v);
@@ -5086,30 +5092,34 @@ function _recAddAlim(aid){
 async function recSheetSave(){
   if(!_recDraft)return;
   const rec=clientRecipes.find(r=>r.id===_recDraft.id);if(!rec)return;
+  const nom=_recReadNom();
+  if(!nom){toast('Donne un nom à ta recette');return;}
   const instr=String(document.getElementById('recInstr')?.value||'').trim();
   _recDraft.instr=instr;
-  let{error}=await db.from('client_recipes').update({items:_recDraft.items,instr}).eq('id',rec.id);
+  let{error}=await db.from('client_recipes').update({nom:nom,items:_recDraft.items,instr}).eq('id',rec.id);
   let instrPerdues=false;
   if(error&&/instr/i.test(error.message||'')){
     // Colonne « instr » pas encore en base : on enregistre le reste
     instrPerdues=true;
-    ({error}=await db.from('client_recipes').update({items:_recDraft.items}).eq('id',rec.id));
+    ({error}=await db.from('client_recipes').update({nom:nom,items:_recDraft.items}).eq('id',rec.id));
   }
   if(error){toast('Erreur: '+error.message);return;}
+  rec.nom=nom;
   rec.items=_recDraft.items;
   if(!instrPerdues)rec.instr=instr;
   document.getElementById('recSheet')?.remove();
-  toast(instrPerdues?'Recette enregistrée ✓ — instructions pas encore possibles':'Recette « '+_recDraft.nom+' » enregistrée ✓');
+  toast(instrPerdues?'Recette « '+nom+' » enregistrée ✓ — instructions pas encore possibles':'Recette « '+nom+' » enregistrée ✓');
   _ftRenderResults();
 }
 async function recSheetAddToDay(){
   if(!_recDraft)return;
   const items=_recDraft.items||[];
   if(!items.length){toast('Recette vide');return;}
+  const nom=_recReadNom()||_recDraft.nom;
   const instr=String(document.getElementById('recInstr')?.value||'').trim();
   const rows=items.map(it=>{
     const ex=(it.extra&&typeof it.extra==='object')?{...it.extra}:{};
-    if(instr)ex.recette={nom:_recDraft.nom,instr:instr};
+    if(instr)ex.recette={nom:nom,instr:instr};
     return {coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,aliment_nom:it.aliment_nom,aliment_id:_ftIsUuid(it.aliment_id)?it.aliment_id:null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,fibres:fibNum(it.fibres),...(Object.keys(ex).length?{extra:ex}:{})};
   });
   let{data,error}=await db.from('food_logs').insert(rows).select();
@@ -5121,7 +5131,7 @@ async function recSheetAddToDay(){
   if(data)data.forEach(d=>foodLogs.unshift(d));
   _ftSelected={};_ftClearSaveBar();
   document.getElementById('recSheet')?.remove();
-  toast('« '+_recDraft.nom+' » ajouté à '+_ftCurrentMeal+' ✓');
+  toast('« '+nom+' » ajouté à '+_ftCurrentMeal+' ✓');
   renderFoodTracker();
 }
 let _ftCurrentMeal='Déjeuner';let _ftSearchTerm='';
