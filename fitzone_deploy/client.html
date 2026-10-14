@@ -4937,7 +4937,9 @@ function openSaveRecipe(meal){
       <div style="max-height:150px;overflow-y:auto">${list}</div>
     </div>
     <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Nom de la recette</label>
-    <input type="text" id="recName" value="" placeholder="Ex : Poulet riz brocolis" autocomplete="off" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;background:var(--white);font-weight:600;margin-bottom:20px">
+    <input type="text" id="recName" value="" placeholder="Ex : Poulet riz brocolis" autocomplete="off" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--font);outline:none;background:var(--white);font-weight:600;margin-bottom:16px">
+    <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Instructions <span style="font-weight:600;color:var(--text3)">(facultatif)</span></label>
+    <textarea id="recInstr" rows="3" placeholder="Ex : cuire le riz 12 min, saisir le poulet, mélanger le tout" autocomplete="off" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;font-family:var(--font);outline:none;background:var(--white);font-weight:500;margin-bottom:20px;resize:vertical;min-height:74px;line-height:1.4"></textarea>
     <button class="btn-gold" style="width:100%;padding:14px;font-size:15px" onclick="confirmSaveRecipe('${escMeal}')">💾 Enregistrer la recette</button>
   </div>`;
   document.body.appendChild(overlay);
@@ -4946,14 +4948,24 @@ function openSaveRecipe(meal){
 async function confirmSaveRecipe(meal){
   const nom=(document.getElementById('recName')?.value||'').trim();
   if(!nom){toast('Donne un nom à ta recette');return;}
+  const instr=(document.getElementById('recInstr')?.value||'').trim();
   const items=foodLogs.filter(l=>l.date===ftDate&&l.meal===meal);
   if(!items.length){toast('Ce repas est vide');return;}
   const payload=items.map(it=>({aliment_nom:it.aliment_nom,aliment_id:it.aliment_id||null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,fibres:fibNum(it.fibres),...(it.extra?{extra:it.extra}:{})}));
-  const{data,error}=await db.from('client_recipes').insert({coach_id:clientData.coach_id,client_id:clientData.id,nom,items:payload}).select().single();
+  const ligne={coach_id:clientData.coach_id,client_id:clientData.id,nom,items:payload};
+  if(instr)ligne.instr=instr;
+  let{data,error}=await db.from('client_recipes').insert(ligne).select().single();
+  let instrPerdues=false;
+  if(error&&/instr/i.test(error.message||'')){
+    // Colonne « instr » pas encore en base : on enregistre la recette sans les instructions
+    instrPerdues=true;
+    const{instr:sansInstr,...reste}=ligne;
+    ({data,error}=await db.from('client_recipes').insert(reste).select().single());
+  }
   if(error){toast('Erreur: '+error.message);return;}
   clientRecipes.unshift(data);
   document.getElementById('recOverlay')?.remove();
-  toast('Recette « '+nom+' » enregistrée ✓');
+  toast(instrPerdues?'Recette « '+nom+' » enregistrée ✓ — instructions pas encore possibles':'Recette « '+nom+' » enregistrée ✓');
 }
 // Ajoute tous les aliments d'une recette au repas / à la date en cours
 async function addRecipeToMeal(id){
@@ -5065,6 +5077,7 @@ function _ftRenderResults(){
         const t=_recTotals(rec.items);
         const n=(rec.items||[]).length;
         const nomHtml=String(rec.nom||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+        const instrHtml=rec.instr?`<div style="font-size:10.5px;color:var(--text3);margin-top:4px;line-height:1.35;white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${String(rec.instr).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`:'';
         return`<div class="card" style="padding:11px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:9px" onclick="addRecipeToMeal('${rec.id}')">
           <div style="width:40px;height:40px;border-radius:9px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📖</div>
           <div style="flex:1;min-width:0">
@@ -5076,6 +5089,7 @@ function _ftRenderResults(){
               <span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L ${Math.round(t.f)}g</span>
               <span style="color:var(--fib)">Fi ${fibTxt(t.fi)}g</span>
             </div>
+            ${instrHtml}
           </div>
           <button type="button" onclick="event.stopPropagation();deleteRecipe('${rec.id}')" aria-label="Supprimer" title="Supprimer" style="width:42px;height:42px;border-radius:11px;flex-shrink:0;background:rgba(224,92,74,.12);border:1.5px solid rgba(224,92,74,.4);color:color-mix(in srgb,#e05c4a var(--ink,100%),var(--text));font-size:20px;font-weight:900;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);padding:0;touch-action:manipulation;-webkit-tap-highlight-color:rgba(224,92,74,.25)">✕</button>
         </div>`;
