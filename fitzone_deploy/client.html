@@ -5007,6 +5007,123 @@ async function deleteRecipe(id){
   _ftRenderResults();
   toast('Recette supprimée');
 }
+/* ===== Feuille d'une recette : l'ajouter à la journée, ou la modifier =====
+   Le client tape une recette dans « Mes recettes ». Il peut ajuster les
+   quantités, retirer ou ajouter des aliments et corriger les instructions :
+   soit il l'ajoute à sa journée avec ces valeurs, soit il enregistre les
+   modifications dans la recette. */
+let _recDraft=null;
+function _recEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function openRecipeSheet(id){
+  const rec=clientRecipes.find(r=>r.id===id);if(!rec)return;
+  _recDraft={id:rec.id,nom:rec.nom||'',instr:rec.instr||'',items:JSON.parse(JSON.stringify(rec.items||[]))};
+  const old=document.getElementById('recSheet');if(old)old.remove();
+  const ov=document.createElement('div');
+  ov.id='recSheet';ov.className='detail-overlay';
+  ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  ov.innerHTML='<div class="detail-sheet" id="recSheetBody"></div>';
+  document.body.appendChild(ov);
+  _recSheetRender();
+}
+function _recSheetRender(){
+  const el=document.getElementById('recSheetBody');if(!el||!_recDraft)return;
+  const t=_recTotals(_recDraft.items);
+  const ligne='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)';
+  const del='width:36px;height:36px;border-radius:9px;flex-shrink:0;background:rgba(224,92,74,.12);border:1.5px solid rgba(224,92,74,.4);color:color-mix(in srgb,#e05c4a var(--ink,100%),var(--text));font-size:17px;font-weight:900;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);padding:0;touch-action:manipulation';
+  const qteIn='width:76px;padding:9px 8px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:var(--font);font-weight:700;text-align:right;background:var(--white);outline:none;-webkit-appearance:none';
+  const rows=(_recDraft.items||[]).map((it,i)=>'<div style="'+ligne+'">'
+    +'<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_recEsc(it.aliment_nom)+'</div>'
+    +'<div style="font-size:10px;color:var(--text3);margin-top:1px">'+Math.round((parseFloat(it.kcal)||0)*(parseFloat(it.qte_g)||0)/100)+' kcal</div></div>'
+    +'<input type="number" inputmode="decimal" min="0" step="5" value="'+_ftG(it.qte_g)+'" onchange="_recSetQte('+i+',this.value)" style="'+qteIn+'">'
+    +'<span style="font-size:11px;color:var(--text3);font-weight:700">g</span>'
+    +'<button type="button" onclick="_recDelItem('+i+')" aria-label="Retirer" title="Retirer" style="'+del+'">✕</button></div>').join('');
+  el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+    +'<div style="font-size:18px;font-weight:800;color:var(--text)">'+_recEsc(_recDraft.nom)+'</div>'
+    +'<span onclick="document.getElementById(\'recSheet\').remove()" style="font-size:22px;cursor:pointer;color:var(--text3);padding:4px">✕</span></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:11px;font-weight:700">'
+    +'<span style="color:var(--gold-deep);font-size:12px">'+Math.round(t.k)+' kcal</span>'
+    +'<span style="color:color-mix(in srgb,#4a90d9 var(--ink,100%),var(--text))">P '+Math.round(t.p)+'g</span>'
+    +'<span style="color:var(--gold)">G '+Math.round(t.c)+'g</span>'
+    +'<span style="color:color-mix(in srgb,#e07c5a var(--ink,100%),var(--text))">L '+Math.round(t.f)+'g</span>'
+    +'<span style="color:var(--fib)">Fi '+fibTxt(t.fi)+'g</span></div>'
+    +'<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">Aliments et quantités</div>'
+    +'<div class="card" style="padding:2px 12px;margin-bottom:12px">'+(rows||'<div style="font-size:12px;color:var(--text3);padding:10px 0">Aucun aliment</div>')+'</div>'
+    +'<input type="text" id="recAddSearch" value="" placeholder="Ajouter un aliment…" autocomplete="off" oninput="_recSearch(this.value)" style="width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);outline:none;background:var(--white);font-weight:500;margin-bottom:8px">'
+    +'<div id="recAddResults" style="margin-bottom:14px"></div>'
+    +'<label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px">Instructions</label>'
+    +'<textarea id="recInstr" rows="3" placeholder="Ex : cuire le riz 12 min, saisir le poulet" autocomplete="off" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;font-family:var(--font);outline:none;background:var(--white);font-weight:500;margin-bottom:14px;resize:vertical;min-height:74px;line-height:1.4">'+_recEsc(_recDraft.instr)+'</textarea>'
+    +'<button class="btn-gold" style="width:100%;padding:14px;font-size:15px;margin-bottom:8px" onclick="recSheetAddToDay()">+ Ajouter à '+_ftEscMeal(_ftCurrentMeal)+'</button>'
+    +'<button onclick="recSheetSave()" style="width:100%;padding:13px;border:1.5px solid var(--border);background:var(--white);border-radius:12px;font-size:14px;font-weight:700;color:var(--text2);cursor:pointer;font-family:var(--font)">💾 Enregistrer les modifications</button>';
+}
+function _ftEscMeal(m){return String(m==null?'':m).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+function _recSetQte(i,v){
+  if(!_recDraft||!_recDraft.items[i])return;
+  const q=parseFloat(v);
+  _recDraft.items[i].qte_g=(isNaN(q)||q<0)?0:q;
+  _recSheetRender();
+}
+function _recDelItem(i){
+  if(!_recDraft)return;
+  _recDraft.items.splice(i,1);
+  _recSheetRender();
+}
+function _recSearch(term){
+  const box=document.getElementById('recAddResults');if(!box)return;
+  const q=String(term||'').toLowerCase().trim();
+  if(!q){box.innerHTML='';return;}
+  const m=coachAlims.filter(a=>String(a.nom||'').toLowerCase().includes(q)).slice(0,6);
+  box.innerHTML=m.length?m.map(a=>'<div class="card" style="padding:9px 12px;margin-bottom:5px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="_recAddAlim('+JSON.stringify(String(a.id))+')">'
+      +'<div style="flex:1;min-width:0;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_recEsc(a.nom)+'</div>'
+      +'<div style="font-size:10px;color:var(--text3);font-weight:700;flex-shrink:0">'+Math.round(parseFloat(a.kcal)||0)+' kcal/100g</div></div>').join('')
+    :'<div style="font-size:11px;color:var(--text3);padding:2px">Aucun aliment trouvé</div>';
+}
+function _recAddAlim(aid){
+  const a=coachAlims.find(x=>String(x.id)===String(aid));if(!a||!_recDraft)return;
+  _recDraft.items.push({aliment_nom:a.nom,aliment_id:_ftIsUuid(a.id)?a.id:null,qte_g:100,kcal:a.kcal,prot:a.prot,carb:a.carb,fat:a.fat,fibres:fibNum(a.fibres)});
+  _recSheetRender();
+  const s=document.getElementById('recAddSearch');if(s)s.focus();
+}
+async function recSheetSave(){
+  if(!_recDraft)return;
+  const rec=clientRecipes.find(r=>r.id===_recDraft.id);if(!rec)return;
+  const instr=String(document.getElementById('recInstr')?.value||'').trim();
+  _recDraft.instr=instr;
+  let{error}=await db.from('client_recipes').update({items:_recDraft.items,instr}).eq('id',rec.id);
+  let instrPerdues=false;
+  if(error&&/instr/i.test(error.message||'')){
+    // Colonne « instr » pas encore en base : on enregistre le reste
+    instrPerdues=true;
+    ({error}=await db.from('client_recipes').update({items:_recDraft.items}).eq('id',rec.id));
+  }
+  if(error){toast('Erreur: '+error.message);return;}
+  rec.items=_recDraft.items;
+  if(!instrPerdues)rec.instr=instr;
+  document.getElementById('recSheet')?.remove();
+  toast(instrPerdues?'Recette enregistrée ✓ — instructions pas encore possibles':'Recette « '+_recDraft.nom+' » enregistrée ✓');
+  _ftRenderResults();
+}
+async function recSheetAddToDay(){
+  if(!_recDraft)return;
+  const items=_recDraft.items||[];
+  if(!items.length){toast('Recette vide');return;}
+  const instr=String(document.getElementById('recInstr')?.value||'').trim();
+  const rows=items.map(it=>{
+    const ex=(it.extra&&typeof it.extra==='object')?{...it.extra}:{};
+    if(instr)ex.recette={nom:_recDraft.nom,instr:instr};
+    return {coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,aliment_nom:it.aliment_nom,aliment_id:_ftIsUuid(it.aliment_id)?it.aliment_id:null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,fibres:fibNum(it.fibres),...(Object.keys(ex).length?{extra:ex}:{})};
+  });
+  let{data,error}=await db.from('food_logs').insert(rows).select();
+  if(error&&/extra/i.test(error.message||'')){
+    const rows2=rows.map(r=>{const{extra,...rest}=r;return rest;});
+    ({data,error}=await db.from('food_logs').insert(rows2).select());
+  }
+  if(error){toast('Erreur: '+error.message);return;}
+  if(data)data.forEach(d=>foodLogs.unshift(d));
+  _ftSelected={};_ftClearSaveBar();
+  document.getElementById('recSheet')?.remove();
+  toast('« '+_recDraft.nom+' » ajouté à '+_ftCurrentMeal+' ✓');
+  renderFoodTracker();
+}
 let _ftCurrentMeal='Déjeuner';let _ftSearchTerm='';
 let _ftAddTab='aliments';        // 'aliments' | 'recent' | 'recettes'
 let _ftSelected={};              // clé -> {aliment, qte_g}
@@ -5092,7 +5209,7 @@ function _ftRenderResults(){
         const n=(rec.items||[]).length;
         const nomHtml=String(rec.nom||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
         const instrHtml=rec.instr?`<div style="font-size:10.5px;color:var(--text3);margin-top:4px;line-height:1.35;white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${String(rec.instr).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`:'';
-        return`<div class="card" style="padding:11px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:9px" onclick="addRecipeToMeal('${rec.id}')">
+        return`<div class="card" style="padding:11px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:9px" onclick="openRecipeSheet('${rec.id}')">
           <div style="width:40px;height:40px;border-radius:9px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📖</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nomHtml}</div>
