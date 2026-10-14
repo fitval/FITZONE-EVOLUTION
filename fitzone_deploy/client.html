@@ -4650,6 +4650,7 @@ function _ftTableauHTML(dayLogs){
     const escMeal=m.replace(/'/g,"\\'");
     let mK=0,mP=0,mC=0,mF=0,mFi=0;
     items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;mP+=(parseFloat(l.prot)||0)*q;mC+=(parseFloat(l.carb)||0)*q;mF+=(parseFloat(l.fat)||0)*q;mFi+=fibQ(l.fibres,q)||0;});
+    const recInfoT=(()=>{for(const l of items){const r=l.extra&&l.extra.recette;if(r&&r.instr)return r;}return null;})();
     tK+=mK;tP+=mP;tC+=mC;tF+=mF;tFi+=mFi;
     h+=`<tr style="background:var(--gold)">
       <td style="${gcell};font-size:10px;letter-spacing:1.5px;text-transform:uppercase" colspan="2">${FT_MEAL_ICONS[m]||'🍽️'} ${m}</td>
@@ -4680,6 +4681,7 @@ function _ftTableauHTML(dayLogs){
           <td style="${cell};text-align:right"><button type="button" onclick="event.stopPropagation();deleteFoodLog('${it.id}')" aria-label="Supprimer" title="Supprimer" style="${mini};border-color:rgba(224,92,74,.4);color:#e05c4a">✕</button></td>
         </tr>`;
       });
+      if(recInfoT)h+=`<tr><td colspan="8" style="${cell};background:var(--gold-pale);color:var(--gold-deep);white-space:pre-line"><b>📖 ${_escHtml(recInfoT.nom)}</b> — ${_escHtml(recInfoT.instr)}</td></tr>`;
     }
   });
   const dcell=cell+';color:#fff;border:1px solid #2c2a26';
@@ -4754,6 +4756,7 @@ function renderFoodTracker(){
     let mK=0,mP=0,mC=0,mF=0,mFi=0;
     items.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;mK+=(parseFloat(l.kcal)||0)*q;mP+=(parseFloat(l.prot)||0)*q;mC+=(parseFloat(l.carb)||0)*q;mF+=(parseFloat(l.fat)||0)*q;mFi+=fibQ(l.fibres,q)||0;});
     const escMeal=m.replace(/'/g,"\\'");
+    const recInfo=(()=>{for(const l of items){const r=l.extra&&l.extra.recette;if(r&&r.instr)return r;}return null;})();
     const collapsed=_ftIsCollapsed(m);
     const macroPill=(label,val,color)=>`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:8px;background:${color}1a;color:${color};font-size:10px;font-weight:800"><span style="opacity:.75">${label}</span>${label==='Fi'?fibTxt(val):Math.round(val)}g</span>`;
     h+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">`;
@@ -4768,6 +4771,11 @@ function renderFoodTracker(){
       <span style="font-size:13px;color:var(--text3);transition:transform .2s;display:inline-block;transform:rotate(${collapsed?'-90deg':'0deg'});flex-shrink:0">▾</span>
     </div>`;
     if(!collapsed){
+      // Instructions de la recette, relues depuis le tracking
+      if(recInfo)h+=`<div style="padding:10px 13px;background:var(--gold-pale);border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:800;color:var(--gold-deep);display:flex;align-items:center;gap:6px">📖 ${_escHtml(recInfo.nom)}</div>
+        <div style="font-size:12.5px;color:var(--text2);line-height:1.45;margin-top:3px;white-space:pre-line">${_escHtml(recInfo.instr)}</div>
+      </div>`;
       if(!items.length){
         h+=`<div style="padding:10px 12px 12px">
           <button onclick="openAddFood('${escMeal}')" style="width:100%;padding:14px;border:1.5px dashed var(--border);background:transparent;border-radius:12px;color:var(--text3);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px">
@@ -4960,7 +4968,13 @@ async function addRecipeToMeal(id){
   const rec=clientRecipes.find(r=>r.id===id);if(!rec)return;
   const items=rec.items||[];
   if(!items.length){toast('Recette vide');return;}
-  const rows=items.map(it=>({coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,aliment_nom:it.aliment_nom,aliment_id:_ftIsUuid(it.aliment_id)?it.aliment_id:null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,fibres:fibNum(it.fibres),...(it.extra?{extra:it.extra}:{})}));
+  // La recette (nom + instructions) part avec chaque aliment logge : c'est ce qui
+  // permet de relire les instructions depuis le tracking, une fois la recette ajoutee.
+  const rows=items.map(it=>{
+    const ex=(it.extra&&typeof it.extra==='object')?{...it.extra}:{};
+    if(rec.instr)ex.recette={nom:rec.nom,instr:rec.instr};
+    return {coach_id:clientData.coach_id,client_id:clientData.id,date:ftDate,meal:_ftCurrentMeal,aliment_nom:it.aliment_nom,aliment_id:_ftIsUuid(it.aliment_id)?it.aliment_id:null,qte_g:it.qte_g,kcal:it.kcal,prot:it.prot,carb:it.carb,fat:it.fat,fibres:fibNum(it.fibres),...(Object.keys(ex).length?{extra:ex}:{})};
+  });
   let{data,error}=await db.from('food_logs').insert(rows).select();
   if(error&&/extra/i.test(error.message||'')){
     const rows2=rows.map(r=>{const{extra,...rest}=r;return rest;});
