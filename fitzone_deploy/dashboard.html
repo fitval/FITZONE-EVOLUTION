@@ -5810,15 +5810,23 @@ function _perfPrescribedExos(day){
 function _renderPerfMatrix(el,clientProgs,logs){
   if(!el)return;
   if(!clientProgs.length){el.innerHTML=`<div class="empty"><div class="ei">💪</div><div class="et">Aucun programme</div><div class="es">Crée un programme pour suivre les performances séance par séance</div></div>`;return;}
-  const pid=window._perfProgId&&clientProgs.find(p=>String(p.id)===String(window._perfProgId))?window._perfProgId:clientProgs[0].id;
-  const prog=clientProgs.find(p=>String(p.id)===String(pid));
+  // Le client ne voit que ses programmes visibles : le suivi ne montre que leur
+  // logbook. Aucun programme visible → on retombe sur la liste complète, sinon
+  // l'écran serait vide alors que des séances existent.
+  const progsVisibles=clientProgs.filter(isVisibleToClient);
+  const liste=progsVisibles.length?progsVisibles:clientProgs;
+  const nbMasques=clientProgs.length-liste.length;
+  const pid=window._perfProgId&&liste.find(p=>String(p.id)===String(window._perfProgId))?window._perfProgId:liste[0].id;
+  const prog=liste.find(p=>String(p.id)===String(pid));
   const jours=prog.jours||[];
-  const selector=clientProgs.length>1?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+  const selector=liste.length>1?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
     <span style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text3);text-transform:uppercase">Programme</span>
     <select class="fs" style="min-width:230px;font-size:13px" onchange="window._perfProgId=this.value;renderTrainingTab()">
-      ${clientProgs.map(p=>`<option value="${p.id}"${String(p.id)===String(pid)?' selected':''}>${esc(p.nom||'Programme')}${p.createdAt?' — '+new Date(p.createdAt).toLocaleDateString('fr-FR'):''}</option>`).join('')}
+      ${liste.map(p=>`<option value="${p.id}"${String(p.id)===String(pid)?' selected':''}>${esc(p.nom||'Programme')}${p.createdAt?' — '+new Date(p.createdAt).toLocaleDateString('fr-FR'):''}</option>`).join('')}
     </select>
+    <span style="font-size:11px;color:var(--text3)">Le logbook de ce programme seulement</span>
   </div>`:'';
+  const noteMasques=nbMasques?`<div style="font-size:11px;color:var(--text3);margin:-6px 0 12px">🙈 ${nbMasques} programme${nbMasques>1?'s':''} masqué${nbMasques>1?'s':''} au client — son logbook n'apparaît pas ici.</div>`:'';
 
   // Séances réalisées, regroupées par nom de séance, plus ancienne d'abord
   const parSeance={};
@@ -5826,7 +5834,7 @@ function _renderPerfMatrix(el,clientProgs,logs){
   Object.values(parSeance).forEach(a=>a.sort((x,y)=>String(x.date).localeCompare(String(y.date))));
   const utilisees=new Set();
 
-  let html=selector+_renderVolumeChart(prog)+`<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;font-size:11px;color:var(--text3)">
+  let html=selector+noteMasques+_renderVolumeChart(prog)+`<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;font-size:11px;color:var(--text3)">
     <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${PERF_UP};vertical-align:-1px"></span> progresse</span>
     <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${PERF_FLAT};vertical-align:-1px"></span> maintient</span>
     <span><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${PERF_DOWN};vertical-align:-1px"></span> régresse</span>
@@ -5840,8 +5848,12 @@ function _renderPerfMatrix(el,clientProgs,logs){
     html+=_perfTable(nom,_perfPrescribedExos(day),faites);
   });
 
-  // Séances enregistrées qui ne correspondent à aucune séance de CE programme
-  const orphelines=Object.keys(parSeance).filter(k=>!utilisees.has(k));
+  // Séances qui n'appartiennent à aucun programme du client : ancien programme
+  // supprimé, séance saisie à la main. Celles d'un autre programme — masqué au
+  // client compris — ne sont pas listées ici : elles vivent dans leur programme.
+  const nomsProgs=new Set();
+  clientProgs.forEach(p=>(p.jours||[]).forEach((d,di)=>nomsProgs.add(_perfNorm(d.nom||('Jour '+(di+1))))));
+  const orphelines=Object.keys(parSeance).filter(k=>!utilisees.has(k)&&!nomsProgs.has(k));
   if(orphelines.length){
     html+=`<div style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text3);text-transform:uppercase;margin:22px 0 8px">Séances hors de ce programme</div>`;
     orphelines.forEach(k=>{const a=parSeance[k];html+=_perfTable(a[0].session||'Séance',[],a);});
