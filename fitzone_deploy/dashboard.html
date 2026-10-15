@@ -5874,6 +5874,14 @@ function _renderPerfMatrix(el,clientProgs,logs){
     <span style="font-size:11px;color:var(--text3)">Le logbook de ce programme seulement</span>
   </div>`:'';
   const noteMasques=nbMasques?`<div style="font-size:11px;color:var(--text3);margin:-6px 0 12px">🙈 ${nbMasques} programme${nbMasques>1?'s':''} masqué${nbMasques>1?'s':''} au client — son logbook n'apparaît pas ici.</div>`:'';
+  // Deux programmes peuvent porter les mêmes noms de séance (un programme
+  // dupliqué, puis remanié) : le log ne dit pas de quel programme il vient.
+  // Dans ce cas c'est la date qui tranche — une séance datée avant la création de
+  // ce programme n'en fait pas partie. Un client à un seul programme n'est jamais
+  // filtré : son logbook reste entier.
+  const debutProg=String(prog.createdAt||'').slice(0,10);
+  const filtrerDate=clientProgs.length>1&&/^\d{4}-\d{2}-\d{2}$/.test(debutProg);
+  const dansCeProg=l=>!filtrerDate||!l.date||String(l.date).slice(0,10)>=debutProg;
 
   // Séances réalisées, regroupées par nom de séance, plus ancienne d'abord
   const parSeance={};
@@ -5890,7 +5898,7 @@ function _renderPerfMatrix(el,clientProgs,logs){
 
   jours.forEach((day,ji)=>{
     const nom=day.nom||('Jour '+(ji+1));
-    const faites=parSeance[_perfNorm(nom)]||[];
+    const faites=(parSeance[_perfNorm(nom)]||[]).filter(dansCeProg);
     utilisees.add(_perfNorm(nom));
     html+=_perfTable(nom,_perfPrescribedExos(day),faites);
   });
@@ -5900,7 +5908,7 @@ function _renderPerfMatrix(el,clientProgs,logs){
   // client compris — ne sont pas listées ici : elles vivent dans leur programme.
   const nomsProgs=new Set();
   clientProgs.forEach(p=>(p.jours||[]).forEach((d,di)=>nomsProgs.add(_perfNorm(d.nom||('Jour '+(di+1))))));
-  const orphelines=Object.keys(parSeance).filter(k=>!utilisees.has(k)&&!nomsProgs.has(k));
+  const orphelines=Object.keys(parSeance).filter(k=>!utilisees.has(k)&&!nomsProgs.has(k)&&parSeance[k].some(dansCeProg));
   if(orphelines.length){
     html+=`<div style="font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--text3);text-transform:uppercase;margin:22px 0 8px">Séances hors de ce programme</div>`;
     orphelines.forEach(k=>{const a=parSeance[k];html+=_perfTable(a[0].session||'Séance',[],a);});
