@@ -653,7 +653,6 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .pf2-chk button { width:28px; height:28px; border-radius:50%; border:2px solid var(--border); background:none; color:var(--text3); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
 .pf2-chk button.done { border-color:var(--gold); background:var(--gold); color:#fff; }
 .pf2-chk button svg { width:15px; height:15px; }
-.pf2-add { margin-left:5px; padding:1px 5px; border:1px solid var(--border); border-radius:6px; background:var(--bg2); color:var(--text3); font-size:9px; font-weight:800; font-family:var(--font); cursor:pointer; }
 .wo-view-bar { display:flex; gap:6px; margin:2px 0 12px; }
 .wo-view-btn { flex:1; padding:9px 10px; border-radius:10px; border:1.5px solid var(--border); background:var(--white); color:var(--text3); font-size:12.5px; font-weight:800; font-family:var(--font); cursor:pointer; }
 .wo-view-btn.active { border-color:var(--gold); background:var(--gold-pale); color:var(--gold-deep); }
@@ -3955,7 +3954,7 @@ function renderWoTable(){
         const cible=st.reps?`\u{1F3AF} ${rmEsc(String(st.reps))} reps`:'';
         left+=`<div class="pf2-row${sep?' pf2-gap':''}"><div class="pf2-c pf2-x${sep}" style="width:var(--pf-w)">`
           +(first?`<div class="pf2-name"><b title="${rmEsc(nom)}">${SEC_ICO[ex.section]||''}${rmEsc(lettre+nom)}</b>${vidBtn}</div>`:'')
-          +`<small>${lbl}${dernier?`<button class="pf2-add" onclick="addSet(${ei})" title="Ajouter une série">+ série</button>`:''}</small>`
+          +`<small>${lbl}</small>`
           +(cible?`<small class="pf2-goal" title="Objectif du coach">${cible}</small>`:'')
           +`</div></div>`;
 
@@ -4266,11 +4265,6 @@ function skipRest(){
   document.getElementById('restOverlay').classList.remove('show');
 }
 
-function addSet(ei){
-  const last=workoutData[ei].sets[workoutData[ei].sets.length-1]||{};
-  workoutData[ei].sets.push({reps:last.reps||'',rest:last.rest||'60s',rir:last.rir||'',tempo:'',kg:'',repsActual:'',rirActual:'',prevKg:'',prevReps:'',done:false});
-  renderActiveWorkout();
-}
 
 function toggleSwap(ei){workoutData[ei].showSwap=!workoutData[ei].showSwap;renderActiveWorkout();}
 
