@@ -1175,18 +1175,26 @@ body:has(#detPage.show) .toast{bottom:54px}
 
   <!-- PAGE: NUTRITION — ALIMENTS -->
   <div class="page" id="page-nut-alim">
-    <div class="sh"><div class="st">Base de données aliments</div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="openGSheet('aliments')">📊 Google Sheets</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('importAlimFile').click()">📥 Importer CSV</button><button class="btn btn-dark btn-sm" onclick="openAlim()">+ Aliment</button></div></div>
+    <div class="sh"><div class="st">Base de données aliments</div><div id="alimBaseBtns" style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="openGSheet('aliments')">📊 Google Sheets</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('importAlimFile').click()">📥 Importer CSV</button><button class="btn btn-dark btn-sm" onclick="openAlim()">+ Aliment</button></div></div>
     <input type="file" id="importAlimFile" accept=".csv,.json,.tsv,.txt" style="display:none" onchange="importAlimsFile(this)">
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><div class="si" style="flex:1;max-width:340px"><span class="si-ico">🔍</span><input id="alimSearch" placeholder="Rechercher un aliment…" oninput="renderAlims()"></div></div>
-    <div style="font-size:10px;color:var(--text3);margin-bottom:8px">⚖️ Tous les aliments sont pesés <strong>cru</strong> (valeurs nutritionnelles pour 100g cru)</div>
-    <div class="tw"><table><thead><tr><th>Aliment</th><th>Catégorie</th><th>Kcal/100g</th><th>Prot.</th><th>Gluc.</th><th>Lip.</th><th>Fib.</th><th>Actions</th></tr></thead>
-    <tbody id="alimBody"></tbody></table></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <select class="fs" id="alimScope" onchange="setAlimScope(this.value)" style="min-width:270px;font-size:13px;font-weight:700">
+        <option value="base">🗂️ Mes aliments de base</option>
+        <option value="scannes">📷 Aliments scannés par les clientes</option>
+      </select>
+      <div class="si" id="alimSearchWrap" style="flex:1;max-width:340px"><span class="si-ico">🔍</span><input id="alimSearch" placeholder="Rechercher un aliment…" oninput="renderAlims()"></div>
+      <div class="si" id="alimScanSearchWrap" style="flex:1;max-width:340px;display:none"><span class="si-ico">🔍</span><input id="alimScanSearch" placeholder="Rechercher un produit scanné…" oninput="renderAlimsScannes()"></div>
+      <button class="btn btn-ghost btn-sm" id="alimScanRefresh" style="display:none" onclick="loadAlimsScannes(true)">↻ Rafraîchir</button>
+    </div>
 
-    <!-- Produits scannes par les clientes dans leur app (code-barres) -->
-    <div style="margin-top:30px">
-      <div class="sh" style="margin-bottom:8px"><div class="st" style="font-size:14px">📷 Aliments scannés par les clientes <span id="alimScanCount" style="font-size:11px;font-weight:600;color:var(--text3);text-transform:none;letter-spacing:0"></span></div><button class="btn btn-ghost btn-sm" onclick="loadAlimsScannes(true)">↻ Rafraîchir</button></div>
+    <div id="alimBaseWrap">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:8px">⚖️ Tous les aliments sont pesés <strong>cru</strong> (valeurs nutritionnelles pour 100g cru)</div>
+      <div class="tw"><table><thead><tr><th>Aliment</th><th>Catégorie</th><th>Kcal/100g</th><th>Prot.</th><th>Gluc.</th><th>Lip.</th><th>Fib.</th><th>Actions</th></tr></thead>
+      <tbody id="alimBody"></tbody></table></div>
+    </div>
+
+    <div id="alimScanWrap" style="display:none">
       <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Produits scannés dans l'app cliente. « + Ma base » les ajoute à ta base — ils deviennent utilisables dans les plans alimentaires.</div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><div class="si" style="flex:1;max-width:340px"><span class="si-ico">🔍</span><input id="alimScanSearch" placeholder="Rechercher un produit scanné…" oninput="renderAlimsScannes()"></div></div>
       <div class="tw"><table><thead><tr><th>Produit</th><th>Kcal/100g</th><th>Prot.</th><th>Gluc.</th><th>Lip.</th><th>Fib.</th><th>Scans</th><th>Actions</th></tr></thead>
       <tbody id="alimScanBody"></tbody></table></div>
     </div>
@@ -3081,7 +3089,7 @@ function showPage(name,el){
   if(name==='tr-progs'){closePlanBuilder();closeProgBuilder();renderProgList();}
   if(name==='tr-seances'){renderSeanceList();}
   if(name==='tr-muscles')renderMuscleImages();
-  if(name==='nut-alim'){renderAlims();loadAlimsScannes();}
+  if(name==='nut-alim'){setAlimScope(alimScope);loadAlimsScannes();}
   if(name==='nut-repas')renderRepasList();
   if(name==='bilans-all')renderBilansAll();
   if(name==='admin-coaches')renderAdminCoaches();
@@ -4351,14 +4359,35 @@ function cpShowAddAlim(di,ri){
     <b style="font-size:13px">Ajouter un aliment</b>
     <span style="cursor:pointer;font-size:18px" onclick="this.closest('#cpAddAlimPopup').remove()">✕</span>
   </div>
-  <input type="text" placeholder="Rechercher…" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;margin-bottom:8px;box-sizing:border-box" oninput="cpFilterAlim(this.value,${di},${ri})">
+  <select id="cpAlimScope" onchange="cpFilterAlim(document.getElementById('cpAlimSearch').value,${di},${ri})" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;margin-bottom:8px;box-sizing:border-box;font-family:var(--font);font-weight:700">
+    <option value="base">🗂️ Mes aliments de base</option>
+    <option value="scannes">📷 Aliments scannés par les clientes</option>
+  </select>
+  <input type="text" id="cpAlimSearch" placeholder="Rechercher…" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;margin-bottom:8px;box-sizing:border-box" oninput="cpFilterAlim(this.value,${di},${ri})">
   <div id="cpAddAlimList" style="overflow-y:auto;flex:1;max-height:280px"></div>`;
   document.body.appendChild(pop);
   cpFilterAlim('',di,ri);
 }
 function cpFilterAlim(q,di,ri){
   const list=document.getElementById('cpAddAlimList');if(!list)return;
-  const low=q.toLowerCase();
+  const low=(q||'').toLowerCase();
+  const scope=(document.getElementById('cpAlimScope')||{}).value||'base';
+  if(scope==='scannes'){
+    // Produits scannés par les clientes : utilisables directement dans le plan,
+    // sans passer par « + Ma base ».
+    if(!alimsScannes){
+      list.innerHTML='<div style="padding:12px;font-size:11px;color:var(--text3)">Chargement des produits scannés…</div>';
+      loadAlimsScannes(true).then(()=>cpFilterAlim(q,di,ri));
+      return;
+    }
+    const prods=alimsScannes.filter(p=>!q||((p.nom||'')+' '+(p.brand||'')).toLowerCase().includes(low)).slice(0,30);
+    const nm=v=>{const n=parseFloat(v);return isNaN(n)?0:Math.round(n*10)/10;};
+    list.innerHTML=prods.length?prods.map(p=>`<div style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:12px;display:flex;justify-content:space-between;align-items:center" onmouseenter="this.style.background='var(--bg)'" onmouseleave="this.style.background=''" onclick="cpDoAddAlim(${di},${ri},'${String(p.nom||'').replace(/'/g,"\\'")}',${Math.round(parseFloat(p.kcal)||0)},${nm(p.prot)},${nm(p.carb)},${nm(p.fat)},'',${fibKnown(p.fibres)?parseFloat(p.fibres):'null'})">
+      <span style="font-weight:600">${esc(p.nom)}</span>
+      <span style="color:var(--text3);font-size:10px">${Math.round(parseFloat(p.kcal)||0)}kcal P:${nm(p.prot)}g Fi:${fibTxt(p.fibres)}</span></div>`).join('')
+      :'<div style="padding:12px;font-size:11px;color:var(--text3)">Aucun produit scanné ne correspond.</div>';
+    return;
+  }
   const filtered=alims.filter(a=>!q||a.nom.toLowerCase().includes(low)).slice(0,30);
   list.innerHTML=filtered.map(a=>`<div style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:12px;display:flex;justify-content:space-between;align-items:center" onmouseenter="this.style.background='var(--bg)'" onmouseleave="this.style.background=''" onclick="cpDoAddAlim(${di},${ri},'${a.nom.replace(/'/g,"\\'")}',${a.kcal},${a.prot},${a.carb},${a.fat},'${a.source||''}',${fibKnown(a.fibres)?parseFloat(a.fibres):'null'})">
     <span style="font-weight:600">${a.nom}</span>
@@ -7794,6 +7823,7 @@ function saveAlim(){
   lsSave('fz_alims',alims);dbSave('aliments',alims.find(a=>a.id===(editId||alims[alims.length-1].id)));renderAlims();closeM('mNewAliment');toast('Aliment enregistré ✓');
 }
 function renderAlims(){
+  _alimScopeLabels();
   const tb=document.getElementById('alimBody');if(!tb)return;
   if(!alims.length){tb.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">🥦</div><div class="et">Aucun aliment</div><div class="es">Ajoute tes premiers aliments</div></div></td></tr>`;return;}
   const srcBadge=s=>{const c={proteines:'var(--gold)',glucides:'#f59e0b',lipides:'var(--gold)'};const l={proteines:'P',glucides:'G',lipides:'L'};return`<span style="display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:800;background:${c[s]||'#999'}22;color:${c[s]||'#999'}">${l[s]||'—'}</span>`;};
@@ -7807,6 +7837,25 @@ function renderAlims(){
    extra.source='off' (code-barres, marque, visuel). On relit ces lignes et on
    regroupe par produit : le coach voit ce que ses clientes scannent vraiment, et
    l'ajoute à sa base pour s'en servir dans les plans alimentaires. */
+let alimScope='base';     // 'base' ou 'scannes' : les deux listes ne s'affichent pas ensemble
+function setAlimScope(v){
+  alimScope=(v==='scannes')?'scannes':'base';
+  const montrer=(id,on)=>{const e=document.getElementById(id);if(e)e.style.display=on?'':'none';};
+  montrer('alimBaseWrap',alimScope==='base');
+  montrer('alimScanWrap',alimScope==='scannes');
+  montrer('alimSearchWrap',alimScope==='base');
+  montrer('alimScanSearchWrap',alimScope==='scannes');
+  montrer('alimScanRefresh',alimScope==='scannes');
+  const btns=document.getElementById('alimBaseBtns');if(btns)btns.style.display=alimScope==='base'?'flex':'none';
+  const sel=document.getElementById('alimScope');if(sel&&sel.value!==alimScope)sel.value=alimScope;
+  if(alimScope==='scannes')loadAlimsScannes();else renderAlims();
+}
+function _alimScopeLabels(){
+  const sel=document.getElementById('alimScope');if(!sel)return;
+  const o=sel.options;
+  if(o[0])o[0].textContent='🗂️ Mes aliments de base ('+alims.length+')';
+  if(o[1])o[1].textContent='📷 Aliments scannés par les clientes'+(alimsScannes?' ('+alimsScannes.length+')':'');
+}
 let alimsScannes=null;   // null = pas encore lu
 async function loadAlimsScannes(force){
   const tb=document.getElementById('alimScanBody');
@@ -7851,6 +7900,7 @@ function _alimScanneDejaEnBase(p){
   return !!n&&alims.some(a=>String(a.nom||'').trim().toLowerCase()===n);
 }
 function renderAlimsScannes(){
+  _alimScopeLabels();
   const tb=document.getElementById('alimScanBody');if(!tb)return;
   const cpt=document.getElementById('alimScanCount');
   if(cpt)cpt.textContent=alimsScannes?'— '+alimsScannes.length+' produit'+(alimsScannes.length>1?'s':''):'';
