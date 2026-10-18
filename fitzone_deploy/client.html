@@ -477,6 +477,17 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .hb-tpl { display:flex; align-items:center; gap:11px; padding:12px 13px; border-radius:12px; border:1px dashed var(--border); margin-bottom:9px; cursor:pointer; }
 
 @media (min-width:430px) { .scroll-area { max-width:430px; margin:0 auto; } .tab-bar { max-width:430px; left:50%; transform:translateX(-50%); border-radius:20px 20px 0 0; } }
+/* Vue tableau pendant la séance : sur un écran plus large qu'un téléphone, on
+   sort du format 430px pour donner de la place au nom de l'exercice et aux
+   colonnes de séries. Le reste de l'app garde son format téléphone. */
+@media (min-width:430px) {
+  body.wo-wide .scroll-area { max-width:min(100vw,1120px); padding-left:26px; padding-right:26px; }
+  body.wo-wide .tab-bar { max-width:min(100vw,1120px); }
+  body.wo-wide .pf2 { --pf-w:210px; }
+  body.wo-wide .pf2-body { max-height:none; }
+  body.wo-wide .pf2-c { font-size:13px; }
+  body.wo-wide .pf2-x b { font-size:12px; }
+}
 
 /* === MEAL ESTIMATOR FAB === */
 #mealEstFab { display:none; position:fixed; bottom:calc(var(--tab-h) + var(--safe-b) + 16px); left:50%; transform:translateX(-50%); z-index:99; background:linear-gradient(135deg,var(--dark2),var(--dark)); color:white; border:1.5px solid var(--gold-border); border-radius:50px; padding:12px 24px; font-size:14px; font-weight:700; font-family:var(--font); cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,.25); white-space:nowrap; }
@@ -1390,6 +1401,7 @@ function chatAllowed(){return !clientData||clientData.show_chat!==false;}
 
 /* ===== TABS ===== */
 function switchTab(name){
+  if(name!=='Train')_woWide(false);
   if(name==='Chat'&&!chatAllowed())name='Home';
   if(name==='Tracker'&&!trackerAllowed())name='Home';
   if(workoutActive&&name!=='Train'){
@@ -3381,6 +3393,7 @@ function pausedForCurrentDay(){
   return (p&&p.dayIdx===currentDayIdx&&(p.progIdx==null||p.progIdx===currentProgIdx))?p:null;
 }
 function pauseWorkout(){
+  _woWide(false);
   if(!workoutActive||workoutPaused)return;
   workoutElapsed=woElapsedSec();
   clearInterval(workoutTimerInterval);workoutTimerInterval=null;
@@ -3599,6 +3612,7 @@ function renderActiveWorkout(){
     });
   }
 
+  _woWide(woView==='table');
   h+=`<button class="btn-gold" style="margin-top:16px" onclick="showPostWorkout()">Terminer la séance</button>`;
   h+=`<button class="btn-gold" style="margin:10px 0 34px;background:var(--white);color:var(--on-gold);border:1.5px solid var(--gold-border)" onclick="pauseWorkout()">⏸ Mettre en pause</button>`;
   document.getElementById('trainContent').innerHTML=h;
@@ -3877,6 +3891,8 @@ function woCell(el,ei,si,field){
   if(v)v.textContent=_woTodayVolume().toLocaleString('fr-FR');
 }
 let _woTbl={x:null,y:0};   // position de défilement du tableau, conservée entre 2 rendus
+// Largeur d'écran pour la vue tableau : on l'ouvre pendant la séance, on la referme en sortant.
+function _woWide(on){try{document.body.classList.toggle('wo-wide',!!on);}catch(e){}}
 function setWoView(v){
   woView=(v==='table')?'table':'cards';
   try{localStorage.setItem('fz_woView',woView);}catch(e){}
@@ -4023,6 +4039,7 @@ function validateSupersetSet(ssId,si){
 }
 
 function showPostWorkout(){
+  _woWide(false);
   workoutElapsed=woElapsedSec();
   clearInterval(workoutTimerInterval);workoutTimerInterval=null;
   workoutStart=null;
@@ -4286,6 +4303,7 @@ function filmExo(ei){
 }
 
 function endWorkout(save){
+  _woWide(false);
   clearInterval(workoutTimerInterval);workoutTimerInterval=null;
   // On ne jette plus ce qui a été saisi : la séance passe en pause et reste reprenable
   if(workoutActive&&!workoutPaused&&workoutData.length){
