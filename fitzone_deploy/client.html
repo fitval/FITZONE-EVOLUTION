@@ -477,6 +477,17 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .hb-tpl { display:flex; align-items:center; gap:11px; padding:12px 13px; border-radius:12px; border:1px dashed var(--border); margin-bottom:9px; cursor:pointer; }
 
 @media (min-width:430px) { .scroll-area { max-width:430px; margin:0 auto; } .tab-bar { max-width:430px; left:50%; transform:translateX(-50%); border-radius:20px 20px 0 0; } }
+/* Vue tableau pendant la séance : sur un écran plus large qu'un téléphone, on
+   sort du format 430px pour donner de la place au nom de l'exercice et aux
+   colonnes de séries. Le reste de l'app garde son format téléphone. */
+@media (min-width:430px) {
+  body.wo-wide .scroll-area { max-width:min(100vw,1120px); padding-left:26px; padding-right:26px; }
+  body.wo-wide .tab-bar { max-width:min(100vw,1120px); }
+  body.wo-wide .pf2 { --pf-w:250px; }
+  body.wo-wide .pf2-body { max-height:none; }
+  body.wo-wide .pf2-c { font-size:13px; }
+  body.wo-wide .pf2-x b { font-size:12px; }
+}
 
 /* === MEAL ESTIMATOR FAB === */
 #mealEstFab { display:none; position:fixed; bottom:calc(var(--tab-h) + var(--safe-b) + 16px); left:50%; transform:translateX(-50%); z-index:99; background:linear-gradient(135deg,var(--dark2),var(--dark)); color:white; border:1.5px solid var(--gold-border); border-radius:50px; padding:12px 24px; font-size:14px; font-weight:700; font-family:var(--font); cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,.25); white-space:nowrap; }
@@ -642,7 +653,6 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .pf2-chk button { width:28px; height:28px; border-radius:50%; border:2px solid var(--border); background:none; color:var(--text3); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
 .pf2-chk button.done { border-color:var(--gold); background:var(--gold); color:#fff; }
 .pf2-chk button svg { width:15px; height:15px; }
-.pf2-add { margin-left:5px; padding:1px 5px; border:1px solid var(--border); border-radius:6px; background:var(--bg2); color:var(--text3); font-size:9px; font-weight:800; font-family:var(--font); cursor:pointer; }
 .wo-view-bar { display:flex; gap:6px; margin:2px 0 12px; }
 .wo-view-btn { flex:1; padding:9px 10px; border-radius:10px; border:1.5px solid var(--border); background:var(--white); color:var(--text3); font-size:12.5px; font-weight:800; font-family:var(--font); cursor:pointer; }
 .wo-view-btn.active { border-color:var(--gold); background:var(--gold-pale); color:var(--gold-deep); }
@@ -655,6 +665,14 @@ textarea.form-input { min-height:100px; resize:vertical; }
    des séances passées restent lisibles en gris (clic = la note entière), seule la
    colonne du jour se saisit — écrire aujourd'hui n'efface jamais les précédentes. */
 .pf2-nr { height:52px; }
+/* Un peu d'air entre deux exercices : la première ligne d'un exercice est décalée,
+   dans les deux panneaux à la fois pour que les lignes restent alignées. */
+.pf2-gap { margin-top:14px; }
+/* Bouton « voir la vidéo d'exécution » sous le nom de l'exercice */
+.pf2-name { display:flex; align-items:center; gap:5px; min-width:0; width:100%; }
+.pf2-name b { flex:1; min-width:0; }
+.pf2-vid { flex:0 0 auto; display:inline-flex; align-items:center; gap:2px; padding:1px 5px; border:1px solid var(--gold-border); border-radius:6px; background:var(--gold-pale); color:var(--gold-deep); font-size:8.5px; font-weight:800; font-family:var(--font); cursor:pointer; white-space:nowrap; }
+.pf2-vid:hover { background:var(--gold); border-color:var(--gold); color:#fff; }
 .pf2-noteOld { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; padding:4px 7px; font-size:10.5px; font-weight:600; line-height:1.25; text-align:left; color:var(--text3); white-space:normal; cursor:default; }
 .pf2-noteOld.has { cursor:pointer; }
 .pf2-note { padding:5px 6px; }
@@ -1390,6 +1408,7 @@ function chatAllowed(){return !clientData||clientData.show_chat!==false;}
 
 /* ===== TABS ===== */
 function switchTab(name){
+  if(name!=='Train')_woWide(false);
   if(name==='Chat'&&!chatAllowed())name='Home';
   if(name==='Tracker'&&!trackerAllowed())name='Home';
   if(workoutActive&&name!=='Train'){
@@ -3381,6 +3400,7 @@ function pausedForCurrentDay(){
   return (p&&p.dayIdx===currentDayIdx&&(p.progIdx==null||p.progIdx===currentProgIdx))?p:null;
 }
 function pauseWorkout(){
+  _woWide(false);
   if(!workoutActive||workoutPaused)return;
   workoutElapsed=woElapsedSec();
   clearInterval(workoutTimerInterval);workoutTimerInterval=null;
@@ -3599,6 +3619,7 @@ function renderActiveWorkout(){
     });
   }
 
+  _woWide(woView==='table');
   h+=`<button class="btn-gold" style="margin-top:16px" onclick="showPostWorkout()">Terminer la séance</button>`;
   h+=`<button class="btn-gold" style="margin:10px 0 34px;background:var(--white);color:var(--on-gold);border:1.5px solid var(--gold-border)" onclick="pauseWorkout()">⏸ Mettre en pause</button>`;
   document.getElementById('trainContent').innerHTML=h;
@@ -3877,11 +3898,20 @@ function woCell(el,ei,si,field){
   if(v)v.textContent=_woTodayVolume().toLocaleString('fr-FR');
 }
 let _woTbl={x:null,y:0};   // position de défilement du tableau, conservée entre 2 rendus
+// Largeur d'écran pour la vue tableau : on l'ouvre pendant la séance, on la referme en sortant.
+function _woWide(on){try{document.body.classList.toggle('wo-wide',!!on);}catch(e){}}
 function setWoView(v){
   woView=(v==='table')?'table':'cards';
   try{localStorage.setItem('fz_woView',woView);}catch(e){}
   if(woView==='table')_woTbl={x:null,y:0};   // on ouvre sur la colonne du jour
   renderActiveWorkout();
+}
+// Ouvre la vidéo d'exécution de l'exercice (le même lecteur que dans les fiches).
+function playExoVideo(ei){
+  const ex=workoutData[ei];
+  const vid=ex?ytId(ex.video):'';
+  if(!vid){toast('Pas de vidéo pour cet exercice');return;}
+  openModal(`<iframe src='https://www.youtube-nocookie.com/embed/${vid}' allowfullscreen style="width:100%;aspect-ratio:16/9;border:0;border-radius:12px"></iframe>`);
 }
 function renderWoTable(){
   const past=_woPastLogs();
@@ -3908,6 +3938,8 @@ function renderWoTable(){
   let left='',body='',nRows=0;
   workoutData.forEach((ex,ei)=>{
     const nom=(ex.nom||'Exercice');
+    const _vid=ytId(ex.video);
+    const vidBtn=_vid?`<button class="pf2-vid" onclick="event.stopPropagation();playExoVideo(${ei})" title="Voir la vidéo d'exécution">▶ vidéo</button>`:'';
     const pastEx=past.map(l=>(l.exercises||[]).find(x=>normExo(x.nom)===normExo(nom))||null);
     const lettre=ex.supersetLetter?`${ex.supersetLetter}${ex.supersetPosition||''} · `:'';
     (ex.sets||[]).forEach((st,si)=>{
@@ -3920,13 +3952,13 @@ function renderWoTable(){
         const lbl=`Série ${si+1}${side?(side==='L'?' · G':' · D'):''}`;
         // consigne du coach rappelée sous la série : la colonne "Prévu" est hors écran
         const cible=st.reps?`\u{1F3AF} ${rmEsc(String(st.reps))} reps`:'';
-        left+=`<div class="pf2-row"><div class="pf2-c pf2-x${sep}" style="width:var(--pf-w)">`
-          +(first?`<b title="${rmEsc(nom)}">${SEC_ICO[ex.section]||''}${rmEsc(lettre+nom)}</b>`:'')
-          +`<small>${lbl}${dernier?`<button class="pf2-add" onclick="addSet(${ei})" title="Ajouter une série">+ série</button>`:''}</small>`
+        left+=`<div class="pf2-row${sep?' pf2-gap':''}"><div class="pf2-c pf2-x${sep}" style="width:var(--pf-w)">`
+          +(first?`<div class="pf2-name"><b title="${rmEsc(nom)}">${SEC_ICO[ex.section]||''}${rmEsc(lettre+nom)}</b>${vidBtn}</div>`:'')
+          +`<small>${lbl}</small>`
           +(cible?`<small class="pf2-goal" title="Objectif du coach">${cible}</small>`:'')
           +`</div></div>`;
 
-        body+=`<div class="pf2-row">`;
+        body+=`<div class="pf2-row${sep?' pf2-gap':''}">`;
         // prescription du coach
         body+=`<div class="pf2-c pf2-grp${sep}" style="width:${PF_W_REPS}px">${st.reps?rmEsc(st.reps):'<span class="pf2-mut">—</span>'}</div>`
              +`<div class="pf2-c${sep}" style="width:${PF_W_RIR}px">${rirTxt(st.rir)!==''?rmEsc(rirTxt(st.rir)):'<span class="pf2-mut">—</span>'}</div>`;
@@ -4006,7 +4038,7 @@ function renderWoTable(){
         <div class="pf2-right" id="pfScroll"><div class="pf2-inner">${body}</div></div>
       </div>
     </div>
-    <div class="rm-hint"><span style="font-size:13px">↔</span><span>La colonne dorée à droite, c'est ta séance du jour. Fais défiler vers la gauche pour revoir les précédentes. Sous chaque série tu retrouves la consigne du coach. La ligne <b>\u{1F4DD} Notes</b> marche comme tes perfs : une note par séance — celles des semaines passées restent en gris (touche-les pour les lire en entier), tu écris celle du jour dans la colonne dorée. Pour changer d'exercice ou te filmer, repasse en <b>☰ Fiches</b>.</span></div>`;
+    <div class="rm-hint"><span style="font-size:13px">↔</span><span>La colonne dorée à droite, c'est ta séance du jour. Fais défiler vers la gauche pour revoir les précédentes. Sous chaque série tu retrouves la consigne du coach. La ligne <b>\u{1F4DD} Notes</b> marche comme tes perfs : une note par séance — celles des semaines passées restent en gris (touche-les pour les lire en entier), tu écris celle du jour dans la colonne dorée. Pour changer d'exercice, repasse en <b>☰ Fiches</b> ; la vidéo d'exécution s'ouvre avec <b>▶ vidéo</b>, sous le nom de l'exercice.</span></div>`;
 }
 function validateSupersetSet(ssId,si){
   const eis=workoutData.map((x,i)=>x.supersetId===ssId?i:-1).filter(i=>i>=0);
@@ -4023,6 +4055,7 @@ function validateSupersetSet(ssId,si){
 }
 
 function showPostWorkout(){
+  _woWide(false);
   workoutElapsed=woElapsedSec();
   clearInterval(workoutTimerInterval);workoutTimerInterval=null;
   workoutStart=null;
@@ -4232,11 +4265,6 @@ function skipRest(){
   document.getElementById('restOverlay').classList.remove('show');
 }
 
-function addSet(ei){
-  const last=workoutData[ei].sets[workoutData[ei].sets.length-1]||{};
-  workoutData[ei].sets.push({reps:last.reps||'',rest:last.rest||'60s',rir:last.rir||'',tempo:'',kg:'',repsActual:'',rirActual:'',prevKg:'',prevReps:'',done:false});
-  renderActiveWorkout();
-}
 
 function toggleSwap(ei){workoutData[ei].showSwap=!workoutData[ei].showSwap;renderActiveWorkout();}
 
@@ -4286,6 +4314,7 @@ function filmExo(ei){
 }
 
 function endWorkout(save){
+  _woWide(false);
   clearInterval(workoutTimerInterval);workoutTimerInterval=null;
   // On ne jette plus ce qui a été saisi : la séance passe en pause et reste reprenable
   if(workoutActive&&!workoutPaused&&workoutData.length){
