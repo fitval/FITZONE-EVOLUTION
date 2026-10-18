@@ -1109,6 +1109,10 @@ body:has(#detPage.show) .toast{bottom:54px}
               <div style="font-size:11px;color:var(--text3)">Sélectionne un repas, puis cherche un aliment.</div>
               <button class="btn btn-ghost btn-xs" onclick="pfCreateAlimInline()" style="white-space:nowrap;flex-shrink:0">+ Créer</button>
             </div>
+            <select class="fs" id="pfAlimScope" onchange="pfSetAlimScope(this.value)" style="width:100%;font-size:11px;padding:6px 8px;margin-bottom:8px;font-weight:700">
+              <option value="base">🗂️ Mes aliments de base</option>
+              <option value="scannes">📷 Aliments scannés par les clientes</option>
+            </select>
             <div class="ss-wrap" style="margin-bottom:9px">
               <span class="ss-ico">🔍</span>
               <input class="ss-input" id="pfAlimIn" placeholder="2-3 lettres…" oninput="pfSearchAlim(this.value)" autocomplete="off">
@@ -4377,7 +4381,10 @@ function cpFilterAlim(q,di,ri){
     // sans passer par « + Ma base ».
     if(!alimsScannes){
       list.innerHTML='<div style="padding:12px;font-size:11px;color:var(--text3)">Chargement des produits scannés…</div>';
-      loadAlimsScannes(true).then(()=>cpFilterAlim(q,di,ri));
+      if(!window._cpScanPending){
+        window._cpScanPending=1;
+        loadAlimsScannes(true).then(()=>{window._cpScanPending=0;cpFilterAlim(q,di,ri);});
+      }
       return;
     }
     const prods=alimsScannes.filter(p=>!q||((p.nom||'')+' '+(p.brand||'')).toLowerCase().includes(low)).slice(0,30);
@@ -7318,11 +7325,40 @@ function pfAddMeal(){
   pfMealIdx=pfDays[pfDayIdx].repas.length-1;
   pfRenderMeals();pfRenderTotals();
 }
+let pfScanPending=0;
+function pfSetAlimScope(v){
+  const inp=document.getElementById('pfAlimIn');if(inp)inp.value='';
+  const d=document.getElementById('pfAlimDrop');if(d)d.classList.remove('open');
+  if(v==='scannes'&&!alimsScannes)loadAlimsScannes(true);
+}
 function pfSearchAlim(q){
-  const d=document.getElementById('pfAlimDrop');if(!q||q.length<2){d.classList.remove('open');return;}
+  const d=document.getElementById('pfAlimDrop');
+  const scope=(document.getElementById('pfAlimScope')||{}).value||'base';
+  if(scope==='scannes'){
+    // Produits scannés par les clientes : même geste, même ajout au repas.
+    if(!alimsScannes){
+      d.innerHTML='<div class="ss-item" style="color:var(--text3);cursor:default">Chargement des produits scannés…</div>';
+      d.classList.add('open');
+      if(!pfScanPending){
+        pfScanPending=1;
+        loadAlimsScannes(true).then(()=>{pfScanPending=0;pfSearchAlim(q);});
+      }
+      return;
+    }
+    if(!q||q.length<2){d.classList.remove('open');return;}
+    const kw=q.toLowerCase();
+    const res=alimsScannes.filter(x=>((x.nom||'')+' '+(x.brand||'')).toLowerCase().includes(kw)).slice(0,10)
+      .map(x=>({nom:x.nom,source:'',cat:'Produit scanné',kcal:x.kcal,prot:x.prot,carb:x.carb,fat:x.fat,fibres:fibKnown(x.fibres)?x.fibres:null}));
+    window._pfAlimResults=res;
+    d.innerHTML=res.length?res.map((a,idx)=>`<div class="ss-item" onclick="pfAddFood(window._pfAlimResults[${idx}])"><div><div>📷 ${esc(a.nom)}</div><div class="ss-item-sub">${Math.round(parseFloat(a.kcal)||0)} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g Fi:${fibTxt(a.fibres)}${fibKnown(a.fibres)?'g':''}</div></div></div>`).join('')
+      :`<div class="ss-item" style="color:var(--text3);cursor:default">Aucun produit scanné ne correspond</div>`;
+    d.classList.add('open');
+    return;
+  }
+  if(!q||q.length<2){d.classList.remove('open');return;}
   const res=alims.filter(a=>a.nom.toLowerCase().includes(q.toLowerCase())).slice(0,10);
   window._pfAlimResults=res;
-  d.innerHTML=res.length?res.map((a,idx)=>`<div class="ss-item" onclick="pfAddFood(window._pfAlimResults[${idx}])"><div><div>${a.nom}</div><div class="ss-item-sub">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g Fi:${fibTxt(a.fibres)}${fibKnown(a.fibres)?'g':''}</div></div></div>`).join(''):`<div class="ss-item" style="color:var(--text3);cursor:pointer" onclick="pfCreateAlimInline();document.getElementById('pfAlNom').value='${q.replace(/'/g,"\\'")}';document.getElementById('pfAlimDrop').classList.remove('open')">Aucun résultat — <strong style="color:var(--gold)">Créer « ${q} »</strong></div>`;
+  d.innerHTML=res.length?res.map((a,idx)=>`<div class="ss-item" onclick="pfAddFood(window._pfAlimResults[${idx}])"><div><div>${a.cat==='Produit scanné'?'📷 ':''}${a.nom}</div><div class="ss-item-sub">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g Fi:${fibTxt(a.fibres)}${fibKnown(a.fibres)?'g':''}</div></div></div>`).join(''):`<div class="ss-item" style="color:var(--text3);cursor:pointer" onclick="pfCreateAlimInline();document.getElementById('pfAlNom').value='${q.replace(/'/g,"\\'")}';document.getElementById('pfAlimDrop').classList.remove('open')">Aucun résultat — <strong style="color:var(--gold)">Créer « ${q} »</strong></div>`;
   d.classList.add('open');
 }
 function pfAddFood(a){
