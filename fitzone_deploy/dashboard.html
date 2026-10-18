@@ -7967,8 +7967,9 @@ function _alimsScannesFiltres(){
   return alimsScannes.filter(p=>((p.nom||'')+' '+(p.brand||'')+' '+(p.barcode||'')).toLowerCase().includes(q));
 }
 function _alimScanneDejaEnBase(p){
+  // « en base » = vrai aliment de base : un reste de scan ne compte pas.
   const n=String(p.nom||'').trim().toLowerCase();
-  return !!n&&alims.some(a=>String(a.nom||'').trim().toLowerCase()===n);
+  return !!n&&pfAlimBase().some(a=>String(a.nom||'').trim().toLowerCase()===n);
 }
 function renderAlimsScannes(){
   _alimScopeLabels();
