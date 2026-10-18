@@ -7121,8 +7121,31 @@ window.addEventListener('resize',pfMenuClose);
 function pfSheetFind(inp,ri,ai){
   pfMenuClose();
   const q=(inp.value||'').trim().toLowerCase();
-  const list=(q?alims.filter(a=>(a.nom||'').toLowerCase().includes(q)):alims.slice()).slice(0,40);
+  const scope=(document.getElementById('pfAlimScope')||{}).value||'base';
   const m=document.createElement('div');m.className='gs-menu';
+  if(scope==='scannes'){
+    if(!alimsScannes){
+      if(!pfScanPending){pfScanPending=1;loadAlimsScannes(true).then(()=>{pfScanPending=0;pfSheetFind(inp,ri,ai);});}
+      return;
+    }
+    const prods=(q?alimsScannes.filter(x=>((x.nom||'')+' '+(x.brand||'')).toLowerCase().includes(q)):alimsScannes.slice()).slice(0,40);
+    if(!prods.length){const d=document.createElement('div');d.innerHTML='<span>Aucun produit scanné ne correspond</span>';m.appendChild(d);}
+    prods.forEach(x=>{
+      const d=document.createElement('div');
+      d.innerHTML=`<span>📷 ${esc(x.nom||'')}</span><small>${Math.round(parseFloat(x.kcal)||0)} kcal · P${x.prot} G${x.carb} L${x.fat} Fi${fibTxt(x.fibres)}</small>`;
+      d.addEventListener('mousedown',ev=>{ev.preventDefault();pfMenuClose();pfSheetAddScanne(ri,ai,x);});
+      m.appendChild(d);
+    });
+    document.body.appendChild(m);
+    const rr=inp.getBoundingClientRect();
+    m.style.minWidth=Math.max(rr.width,250)+'px';
+    m.style.left=Math.max(6,Math.min(rr.left,window.innerWidth-m.offsetWidth-10))+'px';
+    m.style.top=(rr.bottom+m.offsetHeight>window.innerHeight-10?Math.max(6,rr.top-m.offsetHeight-2):rr.bottom+2)+'px';
+    _pfMenu=m;
+    return;
+  }
+  const base=pfAlimBase();
+  const list=(q?base.filter(a=>(a.nom||'').toLowerCase().includes(q)):base.slice()).slice(0,40);
   if(!list.length){
     const d=document.createElement('div');
     d.innerHTML=`Aucun aliment — <strong style="color:var(--gold)">créer « ${esc(inp.value||'')} »</strong>`;
@@ -7141,6 +7164,13 @@ function pfSheetFind(inp,ri,ai){
   m.style.left=Math.max(6,Math.min(r.left,window.innerWidth-m.offsetWidth-10))+'px';
   m.style.top=(r.bottom+m.offsetHeight>window.innerHeight-10?Math.max(6,r.top-m.offsetHeight-2):r.bottom+2)+'px';
   _pfMenu=m;
+}
+function pfSheetAddScanne(ri,ai,p){
+  const r=pfDays[pfDayIdx]&&pfDays[pfDayIdx].repas[ri];if(!r)return;
+  if(!r.alims)r.alims=[];
+  const row={nom:p.nom,source:'',cat:'Produit scanné',kcal:parseFloat(p.kcal)||0,prot:parseFloat(p.prot)||0,carb:parseFloat(p.carb)||0,fat:parseFloat(p.fat)||0,fibres:fibKnown(p.fibres)?parseFloat(p.fibres):null,qte:(ai>=0&&r.alims[ai]?r.alims[ai].qte:100)};
+  if(ai>=0&&r.alims[ai])r.alims[ai]=row;else r.alims.push(row);
+  pfMealIdx=ri;pfRenderMeals();pfRenderTotals();
 }
 function pfSheetPick(ri,ai,id){
   const a=alims.find(x=>String(x.id)===String(id));if(!a)return;
@@ -7172,7 +7202,7 @@ function pfRenderSheet(){
           <button class="gs-x" onclick="pfDelMeal(${ri})" title="Supprimer ce repas">🗑</button>
         </div></td>`;
       if(a){
-        rows+=`<td><div style="display:flex;align-items:center;gap:3px"><span class="plan-drag" draggable="true" ondragstart="pfDragStart(event,${ri},${i})" ondragend="pfDragEnd()" title="Glisser pour déplacer cet aliment">⠿</span><input class="gi gi-nm" style="flex:1" value="${esc(a.nom||'')}" oninput="pfSheetName(${ri},${i},this.value);pfSheetFind(this,${ri},${i})" onfocus="pfSheetFind(this,${ri},${i})" onblur="setTimeout(pfMenuClose,180)" title="Clique pour remplacer l'aliment"></div></td>
+        rows+=`<td><div style="display:flex;align-items:center;gap:3px"><span class="plan-drag" draggable="true" ondragstart="pfDragStart(event,${ri},${i})" ondragend="pfDragEnd()" title="Glisser pour déplacer cet aliment">⠿</span>${a.cat==='Produit scanné'?'<span title="Aliment scanné" style="font-size:10px;flex-shrink:0;cursor:help">📷</span>':''}<input class="gi gi-nm" style="flex:1" value="${esc(a.nom||'')}" oninput="pfSheetName(${ri},${i},this.value);pfSheetFind(this,${ri},${i})" onfocus="pfSheetFind(this,${ri},${i})" onblur="setTimeout(pfMenuClose,180)" title="Clique pour remplacer l'aliment"></div></td>
         <td><input class="gi" type="number" step="5" min="0" value="${a.qte}" oninput="pfSheetQte(${ri},${i},this.value)"></td>
         <td style="color:var(--text3);font-size:10px">g</td>
         <td class="gs-calc" id="pfs_k_${ri}_${i}">${Math.round(a.kcal*a.qte/100)}</td>
@@ -7223,7 +7253,7 @@ function pfRenderMeals(){
     </div>
     <div class="meal-body">
       ${r.alims.map((a,ai)=>`<div class="food-row" draggable="true" ondragstart="pfDragStart(event,${ri},${ai})" ondragend="pfDragEnd()" ondragover="pfFoodOver(event,this)" ondragleave="pfFoodLeave(this)" ondrop="pfDropFood(event,${ri},${ai})" style="cursor:grab">
-        <div style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:5px"><span style="color:var(--text3);font-size:10px">⠿</span>${a.nom}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:5px"><span style="color:var(--text3);font-size:10px">⠿</span>${a.cat==='Produit scanné'?'<span title="Aliment scanné" style="font-size:10px;cursor:help">📷</span> ':''}${a.nom}</div>
         <button class="eq-btn" onclick="event.stopPropagation();pfToggleEquiv(this,${ri},${ai})" title="Voir les équivalences">⇄</button>
         <input class="food-qte" type="number" value="${a.qte}" oninput="pfLiveQte(${ri},${ai},this.value)" onclick="event.stopPropagation()" title="Grammes (cru)">
         <span class="macro-k" id="pf_k_${ri}_${ai}">${Math.round(a.kcal*a.qte/100)} kcal</span>
@@ -7326,6 +7356,10 @@ function pfAddMeal(){
   pfRenderMeals();pfRenderTotals();
 }
 let pfScanPending=0;
+// La base du coach = ses aliments de base. Un produit scanné par une cliente n'y
+// entre que s'il a été ajouté exprès (« + Ma base ») : il devient alors un aliment
+// de base comme un autre, et il réapparait donc ici.
+function pfAlimBase(){return alims.filter(a=>a.cat!=='Produit scanné');}
 function pfSetAlimScope(v){
   const inp=document.getElementById('pfAlimIn');if(inp)inp.value='';
   const d=document.getElementById('pfAlimDrop');if(d)d.classList.remove('open');
@@ -7356,7 +7390,7 @@ function pfSearchAlim(q){
     return;
   }
   if(!q||q.length<2){d.classList.remove('open');return;}
-  const res=alims.filter(a=>a.nom.toLowerCase().includes(q.toLowerCase())).slice(0,10);
+  const res=pfAlimBase().filter(a=>a.nom.toLowerCase().includes(q.toLowerCase())).slice(0,10);
   window._pfAlimResults=res;
   d.innerHTML=res.length?res.map((a,idx)=>`<div class="ss-item" onclick="pfAddFood(window._pfAlimResults[${idx}])"><div><div>${a.cat==='Produit scanné'?'📷 ':''}${a.nom}</div><div class="ss-item-sub">${a.kcal} kcal/100g · P:${a.prot}g G:${a.carb}g L:${a.fat}g Fi:${fibTxt(a.fibres)}${fibKnown(a.fibres)?'g':''}</div></div></div>`).join(''):`<div class="ss-item" style="color:var(--text3);cursor:pointer" onclick="pfCreateAlimInline();document.getElementById('pfAlNom').value='${q.replace(/'/g,"\\'")}';document.getElementById('pfAlimDrop').classList.remove('open')">Aucun résultat — <strong style="color:var(--gold)">Créer « ${q} »</strong></div>`;
   d.classList.add('open');
@@ -7861,10 +7895,11 @@ function saveAlim(){
 function renderAlims(){
   _alimScopeLabels();
   const tb=document.getElementById('alimBody');if(!tb)return;
-  if(!alims.length){tb.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">🥦</div><div class="et">Aucun aliment</div><div class="es">Ajoute tes premiers aliments</div></div></td></tr>`;return;}
+  if(!pfAlimBase().length){tb.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">🥦</div><div class="et">Aucun aliment</div><div class="es">Ajoute tes premiers aliments</div></div></td></tr>`;return;}
   const srcBadge=s=>{const c={proteines:'var(--gold)',glucides:'#f59e0b',lipides:'var(--gold)'};const l={proteines:'P',glucides:'G',lipides:'L'};return`<span style="display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:800;background:${c[s]||'#999'}22;color:${c[s]||'#999'}">${l[s]||'—'}</span>`;};
   const q=(document.getElementById('alimSearch')?.value||'').toLowerCase().trim();
-  const list=q?alims.filter(a=>((a.nom||'')+' '+(a.cat||'')+' '+(a.source||'')).toLowerCase().includes(q)):alims;
+  const base=pfAlimBase();
+  const list=q?base.filter(a=>((a.nom||'')+' '+(a.cat||'')+' '+(a.source||'')).toLowerCase().includes(q)):base;
   if(!list.length){tb.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ei">🔍</div><div class="et">Aucun aliment ne correspond</div></div></td></tr>`;return;}
   tb.innerHTML=list.map(a=>`<tr><td style="font-weight:600">${a.nom} ${srcBadge(a.source)}</td><td><span class="tag">${a.cat}</span></td><td>${a.kcal}</td><td>${a.prot}g</td><td>${a.carb}g</td><td>${a.fat}g</td><td style="color:#2e9d6a">${fibKnown(a.fibres)?fibTxt(a.fibres)+'g':'—'}</td><td style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="openAlim(${a.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="delAlim(${a.id})">✕</button></td></tr>`).join('');
 }
@@ -7966,7 +8001,7 @@ function alimScanneVersBase(i){
   const newAlim={
     id:Date.now(),
     nom:p.nom,
-    cat:'Produit scanné',
+    cat:'Autres',
     source:'',
     kcal:Math.round(parseFloat(p.kcal)||0),
     prot:num(p.prot),carb:num(p.carb),fat:num(p.fat),
