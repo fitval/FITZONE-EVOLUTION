@@ -483,7 +483,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
 @media (min-width:430px) {
   body.wo-wide .scroll-area { max-width:min(100vw,1120px); padding-left:26px; padding-right:26px; }
   body.wo-wide .tab-bar { max-width:min(100vw,1120px); }
-  body.wo-wide .pf2 { --pf-w:210px; }
+  body.wo-wide .pf2 { --pf-w:250px; }
   body.wo-wide .pf2-body { max-height:none; }
   body.wo-wide .pf2-c { font-size:13px; }
   body.wo-wide .pf2-x b { font-size:12px; }
@@ -666,6 +666,14 @@ textarea.form-input { min-height:100px; resize:vertical; }
    des séances passées restent lisibles en gris (clic = la note entière), seule la
    colonne du jour se saisit — écrire aujourd'hui n'efface jamais les précédentes. */
 .pf2-nr { height:52px; }
+/* Un peu d'air entre deux exercices : la première ligne d'un exercice est décalée,
+   dans les deux panneaux à la fois pour que les lignes restent alignées. */
+.pf2-gap { margin-top:14px; }
+/* Bouton « voir la vidéo d'exécution » sous le nom de l'exercice */
+.pf2-name { display:flex; align-items:center; gap:5px; min-width:0; width:100%; }
+.pf2-name b { flex:1; min-width:0; }
+.pf2-vid { flex:0 0 auto; display:inline-flex; align-items:center; gap:2px; padding:1px 5px; border:1px solid var(--gold-border); border-radius:6px; background:var(--gold-pale); color:var(--gold-deep); font-size:8.5px; font-weight:800; font-family:var(--font); cursor:pointer; white-space:nowrap; }
+.pf2-vid:hover { background:var(--gold); border-color:var(--gold); color:#fff; }
 .pf2-noteOld { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; padding:4px 7px; font-size:10.5px; font-weight:600; line-height:1.25; text-align:left; color:var(--text3); white-space:normal; cursor:default; }
 .pf2-noteOld.has { cursor:pointer; }
 .pf2-note { padding:5px 6px; }
@@ -3899,6 +3907,13 @@ function setWoView(v){
   if(woView==='table')_woTbl={x:null,y:0};   // on ouvre sur la colonne du jour
   renderActiveWorkout();
 }
+// Ouvre la vidéo d'exécution de l'exercice (le même lecteur que dans les fiches).
+function playExoVideo(ei){
+  const ex=workoutData[ei];
+  const vid=ex?ytId(ex.video):'';
+  if(!vid){toast('Pas de vidéo pour cet exercice');return;}
+  openModal(`<iframe src='https://www.youtube-nocookie.com/embed/${vid}' allowfullscreen style="width:100%;aspect-ratio:16/9;border:0;border-radius:12px"></iframe>`);
+}
 function renderWoTable(){
   const past=_woPastLogs();
   const CHK=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
@@ -3924,6 +3939,8 @@ function renderWoTable(){
   let left='',body='',nRows=0;
   workoutData.forEach((ex,ei)=>{
     const nom=(ex.nom||'Exercice');
+    const _vid=ytId(ex.video);
+    const vidBtn=_vid?`<button class="pf2-vid" onclick="event.stopPropagation();playExoVideo(${ei})" title="Voir la vidéo d'exécution">▶ vidéo</button>`:'';
     const pastEx=past.map(l=>(l.exercises||[]).find(x=>normExo(x.nom)===normExo(nom))||null);
     const lettre=ex.supersetLetter?`${ex.supersetLetter}${ex.supersetPosition||''} · `:'';
     (ex.sets||[]).forEach((st,si)=>{
@@ -3936,13 +3953,13 @@ function renderWoTable(){
         const lbl=`Série ${si+1}${side?(side==='L'?' · G':' · D'):''}`;
         // consigne du coach rappelée sous la série : la colonne "Prévu" est hors écran
         const cible=st.reps?`\u{1F3AF} ${rmEsc(String(st.reps))} reps`:'';
-        left+=`<div class="pf2-row"><div class="pf2-c pf2-x${sep}" style="width:var(--pf-w)">`
-          +(first?`<b title="${rmEsc(nom)}">${SEC_ICO[ex.section]||''}${rmEsc(lettre+nom)}</b>`:'')
+        left+=`<div class="pf2-row${sep?' pf2-gap':''}"><div class="pf2-c pf2-x${sep}" style="width:var(--pf-w)">`
+          +(first?`<div class="pf2-name"><b title="${rmEsc(nom)}">${SEC_ICO[ex.section]||''}${rmEsc(lettre+nom)}</b>${vidBtn}</div>`:'')
           +`<small>${lbl}${dernier?`<button class="pf2-add" onclick="addSet(${ei})" title="Ajouter une série">+ série</button>`:''}</small>`
           +(cible?`<small class="pf2-goal" title="Objectif du coach">${cible}</small>`:'')
           +`</div></div>`;
 
-        body+=`<div class="pf2-row">`;
+        body+=`<div class="pf2-row${sep?' pf2-gap':''}">`;
         // prescription du coach
         body+=`<div class="pf2-c pf2-grp${sep}" style="width:${PF_W_REPS}px">${st.reps?rmEsc(st.reps):'<span class="pf2-mut">—</span>'}</div>`
              +`<div class="pf2-c${sep}" style="width:${PF_W_RIR}px">${rirTxt(st.rir)!==''?rmEsc(rirTxt(st.rir)):'<span class="pf2-mut">—</span>'}</div>`;
@@ -4022,7 +4039,7 @@ function renderWoTable(){
         <div class="pf2-right" id="pfScroll"><div class="pf2-inner">${body}</div></div>
       </div>
     </div>
-    <div class="rm-hint"><span style="font-size:13px">↔</span><span>La colonne dorée à droite, c'est ta séance du jour. Fais défiler vers la gauche pour revoir les précédentes. Sous chaque série tu retrouves la consigne du coach. La ligne <b>\u{1F4DD} Notes</b> marche comme tes perfs : une note par séance — celles des semaines passées restent en gris (touche-les pour les lire en entier), tu écris celle du jour dans la colonne dorée. Pour changer d'exercice ou te filmer, repasse en <b>☰ Fiches</b>.</span></div>`;
+    <div class="rm-hint"><span style="font-size:13px">↔</span><span>La colonne dorée à droite, c'est ta séance du jour. Fais défiler vers la gauche pour revoir les précédentes. Sous chaque série tu retrouves la consigne du coach. La ligne <b>\u{1F4DD} Notes</b> marche comme tes perfs : une note par séance — celles des semaines passées restent en gris (touche-les pour les lire en entier), tu écris celle du jour dans la colonne dorée. Pour changer d'exercice, repasse en <b>☰ Fiches</b> ; la vidéo d'exécution s'ouvre avec <b>▶ vidéo</b>, sous le nom de l'exercice.</span></div>`;
 }
 function validateSupersetSet(ssId,si){
   const eis=workoutData.map((x,i)=>x.supersetId===ssId?i:-1).filter(i=>i>=0);
