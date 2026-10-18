@@ -477,14 +477,21 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .hb-tpl { display:flex; align-items:center; gap:11px; padding:12px 13px; border-radius:12px; border:1px dashed var(--border); margin-bottom:9px; cursor:pointer; }
 
 @media (min-width:430px) { .scroll-area { max-width:430px; margin:0 auto; } .tab-bar { max-width:430px; left:50%; transform:translateX(-50%); border-radius:20px 20px 0 0; } }
-/* Vue tableau pendant la séance : sur un écran plus large qu'un téléphone, on
-   sort du format 430px pour donner de la place au nom de l'exercice et aux
-   colonnes de séries. Le reste de l'app garde son format téléphone. */
+/* Vue tableau pendant la séance : elle prend tout l'écran. Sur téléphone on
+   retire les marges de page et la barre d'onglets (on sort par la flèche ←) pour
+   que les colonnes respirent ; sur grand écran on sort du format 430px. */
+body.wo-wide .scroll-area { padding-left:6px; padding-right:6px; padding-bottom:calc(var(--safe-b) + 18px); }
+body.wo-wide .tab-bar { display:none; }
+body.wo-wide .pf2 { --pf-w:152px; border-radius:14px; }
+body.wo-wide .pf2-body { max-height:none; }
+/* Fond léger : la colonne des exercices est teintée, les notes aussi — l'œil
+   sépare les blocs sans perdre l'aspect tableau. */
+body.wo-wide .pf2-left { background:var(--bg2); }
+body.wo-wide .pf2-left .pf2-c { background:transparent; }
+body.wo-wide .pf2-left .pf2-nr .pf2-c { background:rgba(var(--gold-rgb),.06); }
 @media (min-width:430px) {
   body.wo-wide .scroll-area { max-width:min(100vw,1120px); padding-left:26px; padding-right:26px; }
-  body.wo-wide .tab-bar { max-width:min(100vw,1120px); }
   body.wo-wide .pf2 { --pf-w:250px; }
-  body.wo-wide .pf2-body { max-height:none; }
   body.wo-wide .pf2-c { font-size:13px; }
   body.wo-wide .pf2-x b { font-size:12px; }
 }
@@ -669,9 +676,11 @@ textarea.form-input { min-height:100px; resize:vertical; }
    dans les deux panneaux à la fois pour que les lignes restent alignées. */
 .pf2-gap { margin-top:14px; }
 /* Bouton « voir la vidéo d'exécution » sous le nom de l'exercice */
-.pf2-name { display:flex; align-items:center; gap:5px; min-width:0; width:100%; }
-.pf2-name b { flex:1; min-width:0; }
-.pf2-vid { flex:0 0 auto; display:inline-flex; align-items:center; gap:2px; padding:1px 5px; border:1px solid var(--gold-border); border-radius:6px; background:var(--gold-pale); color:var(--gold-deep); font-size:8.5px; font-weight:800; font-family:var(--font); cursor:pointer; white-space:nowrap; }
+.pf2-name { display:flex; align-items:flex-start; gap:4px; min-width:0; width:100%; }
+.pf2-name b { flex:1; min-width:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; line-height:1.12; font-size:10.5px; }
+.pf2-setline { display:flex; align-items:center; gap:5px; min-width:0; width:100%; }
+.pf2-setline .pf2-goal { flex:1; min-width:0; }
+.pf2-vid { flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; padding:0; border:1px solid var(--gold-border); border-radius:50%; background:var(--gold-pale); color:var(--gold-deep); font-size:8px; font-weight:800; font-family:var(--font); cursor:pointer; white-space:nowrap; }
 .pf2-vid:hover { background:var(--gold); border-color:var(--gold); color:#fff; }
 .pf2-noteOld { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; padding:4px 7px; font-size:10.5px; font-weight:600; line-height:1.25; text-align:left; color:var(--text3); white-space:normal; cursor:default; }
 .pf2-noteOld.has { cursor:pointer; }
@@ -3847,7 +3856,7 @@ function _renderWoSuperset(b){
    Mise en page : patron .rm2 de la roadmap (colonne figée + corps scrollable,
    en-tête synchronisé en JS) — surtout pas de <table> + position:sticky. */
 const PF_UP='rgba(34,197,94,.22)',PF_FLAT='rgba(234,179,8,.22)',PF_DOWN='rgba(239,68,68,.20)';
-const PF_W_REPS=48,PF_W_KG=52,PF_W_RIR=42;               // colonnes des séances passées
+const PF_W_REPS=54,PF_W_KG=52,PF_W_RIR=42;               // colonnes des séances passées
 const PF_W_KG_NOW=60,PF_W_REPS_NOW=56,PF_W_RIR_NOW=54,PF_W_CHK=40;  // colonne du jour
 function _pfNum(v){const n=parseFloat(String(v==null?'':v).replace(',','.'));return isNaN(n)?null:n;}
 function _pfCellBg(cur,prev){
@@ -3939,7 +3948,7 @@ function renderWoTable(){
   workoutData.forEach((ex,ei)=>{
     const nom=(ex.nom||'Exercice');
     const _vid=ytId(ex.video);
-    const vidBtn=_vid?`<button class="pf2-vid" onclick="event.stopPropagation();playExoVideo(${ei})" title="Voir la vidéo d'exécution">▶ vidéo</button>`:'';
+    const vidBtn=_vid?`<button class="pf2-vid" onclick="event.stopPropagation();playExoVideo(${ei})" title="Voir la vidéo d'exécution" aria-label="Voir la vidéo d'exécution">▶</button>`:'';
     const pastEx=past.map(l=>(l.exercises||[]).find(x=>normExo(x.nom)===normExo(nom))||null);
     const lettre=ex.supersetLetter?`${ex.supersetLetter}${ex.supersetPosition||''} · `:'';
     (ex.sets||[]).forEach((st,si)=>{
@@ -3954,8 +3963,7 @@ function renderWoTable(){
         const cible=st.reps?`\u{1F3AF} ${rmEsc(String(st.reps))} reps`:'';
         left+=`<div class="pf2-row${sep?' pf2-gap':''}"><div class="pf2-c pf2-x${sep}" style="width:var(--pf-w)">`
           +(first?`<div class="pf2-name"><b title="${rmEsc(nom)}">${SEC_ICO[ex.section]||''}${rmEsc(lettre+nom)}</b>${vidBtn}</div>`:'')
-          +`<small>${lbl}</small>`
-          +(cible?`<small class="pf2-goal" title="Objectif du coach">${cible}</small>`:'')
+          +`<div class="pf2-setline"><small>${lbl}</small>${cible?`<small class="pf2-goal" title="Objectif du coach">${cible}</small>`:''}</div>`
           +`</div></div>`;
 
         body+=`<div class="pf2-row${sep?' pf2-gap':''}">`;
