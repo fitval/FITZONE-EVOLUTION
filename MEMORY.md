@@ -635,3 +635,23 @@ production sans sa validation explicite**.
   `verif.py` ne contrôle que l'équilibre des balises `<script>`/`<style>`, la troncature
   et une chute anormale de taille. **L'aperçu au navigateur reste le seul vrai test.**
 - ⚠️ Le modèle qui écrit ce code est **DeepSeek** depuis le 23/09/2026, plus Claude.
+
+### Session 2026-10-20 — Produits scannés partagés entre clientes
+Dans le tracking de l'app cliente, la recherche d'aliment porte une case « Voir aussi les
+produits scannés par les autres » : décochée, seuls la base du coach et les aliments hors base
+ressortent ; cochée, les produits scannés apparaissent, avec une pastille « scanné ».
+- **Aucune nouvelle table** : chaque scan est inséré dans `aliments` avec
+  `cat='Produit scanné'`, `verified=false`, `added_by_client` (mêmes colonnes que l'ajout
+  hors base de juin). La policy client `auth_aliments_client` (coach_id du client) rend la
+  ligne lisible par toutes les clientes du même coach, et la policy d'insertion de juin
+  l'autorise. Le dashboard écarte cette catégorie de « Mes aliments de base » (`pfAlimBase`),
+  donc la base du coach reste propre ; `renderAlims` ne l'affiche pas non plus.
+- **Dédoublonnage** par nom normalisé (NFD, sans accents ni ponctuation) contre `coachAlims` :
+  la table `aliments` n'a pas de colonne code-barres. Conséquence : deux scans du même produit
+  portant un nom légèrement différent peuvent créer deux lignes.
+- Les scans **antérieurs** à cette version ne sont pas dans la liste partagée : ils ne vivent
+  que dans `food_logs`, qu'une cliente ne peut pas lire pour les autres. Un rattrapage
+  demanderait un `INSERT … SELECT DISTINCT` depuis `food_logs` (SQL à passer à la main).
+- Les produits scannés sont **exclus des équivalences de plan** (`showFoodSwap`,
+  `filterFoodSwap`) : ils ne remplacent jamais un aliment de base.
+- `version.json` passe à `2026102001` pour forcer la mise à jour des PWA installées.
