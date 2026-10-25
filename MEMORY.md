@@ -655,3 +655,20 @@ ressortent ; cochée, les produits scannés apparaissent, avec une pastille « s
 - Les produits scannés sont **exclus des équivalences de plan** (`showFoodSwap`,
   `filterFoodSwap`) : ils ne remplacent jamais un aliment de base.
 - `version.json` passe à `2026102001` pour forcer la mise à jour des PWA installées.
+
+### Session 2026-10-25 — App cliente responsive (Pro Max, pliable, paysage)
+- **Le vrai défaut venait d'une règle sur-constrainte** : à partir de 430 px de large,
+  `.tab-bar` combinait `left:50%`, `right:0` et `max-width`, donc la barre d'onglets ne
+  faisait que **la moitié** de l'écran (220 px sur un Pro Max) et ne s'alignait plus sur le
+  contenu. Remplacée par `left:0; right:0; margin:0 auto; max-width:var(--app-w)` — même
+  correction pour `.chat-composer` (même erreur, même symptôme).
+- **Largeur de colonne en variable** `--app-w` : 100 % jusqu'à 430 px, `min(100vw,470px)`
+  ensuite (un Pro Max fait 440 pt, il est donc rempli), puis 600 px à partir de 520 et
+  680 px à partir de 760 (pliable déplié, tablette, paysage).
+- **Encoche / Dynamic Island** : `--safe-t: env(safe-area-inset-top)` ajouté au
+  `.scroll-area` (l'app est en `viewport-fit=cover`, le contenu passait sous la barre
+  d'état en PWA plein écran). `env(safe-area-inset-left/right)` sur le contenu et la barre
+  pour le paysage.
+- Vérifié au navigateur avec un viewport émulé (393, 440, 900, 956×440) : contenu et barre
+  ont les mêmes bords à chaque taille, aucun débordement horizontal.
+- `version.json` passe à `2026102501`.

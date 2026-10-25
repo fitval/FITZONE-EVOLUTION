@@ -70,6 +70,13 @@ html, body { overflow-x:hidden; overscroll-behavior-x:none; touch-action:pan-y; 
   --tab-h: 64px;
   --font: -apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;
   --safe-b: env(safe-area-inset-bottom, 0px);
+  /* Encoche / Dynamic Island : le contenu ne doit pas passer dessous en PWA
+     plein écran (viewport-fit=cover). Vaut 0 dans Safari et sur Android. */
+  --safe-t: env(safe-area-inset-top, 0px);
+  /* Largeur de la colonne de l'app. 100 % jusqu'à 430 px, puis des paliers :
+     iPhone 17/18 Pro Max = 440 pt (la colonne se remplit), pliable type Duo
+     déplié ou tablette = colonne plus large mais toujours lisible. */
+  --app-w: 100%;
 }
 /* ===== THÈME SOMBRE APP CLIENT (piloté par le coach) ===== */
 html[data-theme="dark"] {
@@ -98,8 +105,8 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); height:
 @keyframes spin { to { transform:rotate(360deg); } }
 
 /* === APP SHELL === */
-.scroll-area { padding:0 20px 20px 20px; padding-bottom:calc(var(--tab-h) + var(--safe-b) + 20px); overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; height:100dvh; overscroll-behavior-y:none; }
-.tab-bar { position:fixed; bottom:0; left:0; right:0; background:var(--white); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-around; height:calc(var(--tab-h) + var(--safe-b)); padding-bottom:var(--safe-b); z-index:100; transform:translate3d(0,0,0); -webkit-backface-visibility:hidden; backface-visibility:hidden; }
+.scroll-area { padding:0 20px 20px 20px; padding-top:var(--safe-t); padding-left:max(20px, env(safe-area-inset-left, 0px)); padding-right:max(20px, env(safe-area-inset-right, 0px)); padding-bottom:calc(var(--tab-h) + var(--safe-b) + 20px); overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; height:100dvh; overscroll-behavior-y:none; }
+.tab-bar { position:fixed; bottom:0; left:0; right:0; background:var(--white); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-around; height:calc(var(--tab-h) + var(--safe-b)); padding-bottom:var(--safe-b); padding-left:env(safe-area-inset-left, 0px); padding-right:env(safe-area-inset-right, 0px); z-index:100; transform:translate3d(0,0,0); -webkit-backface-visibility:hidden; backface-visibility:hidden; }
 .tab-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; height:100%; border:none; background:none; color:var(--text3); font-size:10px; font-weight:500; cursor:pointer; transition:color .2s; gap:3px; }
 .tab-btn svg { width:24px; height:24px; transition:all .2s; }
 .tab-btn.active { color:var(--text); }
@@ -476,7 +483,22 @@ textarea.form-input { min-height:100px; resize:vertical; }
 .hb-empty { font-size:13px; color:var(--text3); text-align:center; padding:26px 10px; line-height:1.5; }
 .hb-tpl { display:flex; align-items:center; gap:11px; padding:12px 13px; border-radius:12px; border:1px dashed var(--border); margin-bottom:9px; cursor:pointer; }
 
-@media (min-width:430px) { .scroll-area { max-width:430px; margin:0 auto; } .tab-bar { max-width:430px; left:50%; transform:translateX(-50%); border-radius:20px 20px 0 0; } }
+/* ===== GRANDS ÉCRANS =====
+   L'app était bridée à 430 px : sur un Pro Max (440 pt) la colonne laissait une
+   bande vide de chaque côté et la barre d'onglets flottait 5 px à l'intérieur.
+   Elle prend maintenant toute la largeur du téléphone, puis s'élargit par
+   paliers sur un écran plié/déplié ou une tablette. La barre d'onglets et le
+   composeur du chat suivent --app-w, sinon ils se décollent du contenu. */
+@media (min-width:430px) {
+  :root { --app-w:min(100vw,470px); }
+  .scroll-area { max-width:var(--app-w); margin:0 auto; }
+  /* `left:0; right:0; margin:auto` et non `left:50% + translateX` : avec
+     left:50 % et right:0 la barre ne prenait que la moitié de l'écran (220 px
+     sur un Pro Max) — c'était le vrai défaut sur les grands iPhone. */
+  .tab-bar { left:0; right:0; margin:0 auto; max-width:var(--app-w); border-radius:20px 20px 0 0; }
+}
+@media (min-width:520px) { :root { --app-w:min(100vw,600px); } }
+@media (min-width:760px) { :root { --app-w:min(100vw,680px); } }
 /* Vue tableau pendant la séance : elle prend tout l'écran. Sur téléphone on
    retire les marges de page et la barre d'onglets (on sort par la flèche ←) pour
    que les colonnes respirent ; sur grand écran on sort du format 430px. */
@@ -703,7 +725,7 @@ body.wo-wide .pf2-left .pf2-nr .pf2-c { background:rgba(var(--gold-rgb),.06); }
 .chat-t { font-size:10px; font-weight:700; opacity:.55; margin-top:4px; text-align:right; }
 .chat-retry { background:none; border:none; padding:0; margin-left:6px; font-size:10px; font-weight:800; color:inherit; text-decoration:underline; cursor:pointer; font-family:var(--font); }
 .chat-composer { position:fixed; left:0; right:0; bottom:max(var(--kb,0px), calc(var(--tab-h) + var(--safe-b))); z-index:101; display:flex; gap:8px; align-items:flex-end; padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px)); background:var(--white); border-top:1px solid var(--border); }
-@media (min-width:430px) { .chat-composer { max-width:430px; left:50%; transform:translateX(-50%); } }
+@media (min-width:430px) { .chat-composer { left:0; right:0; margin:0 auto; max-width:var(--app-w); } }
 .chat-composer textarea { flex:1; min-height:42px; max-height:120px; resize:none; padding:11px 13px; border:1.5px solid var(--border); border-radius:12px; font-size:15px; font-family:var(--font); background:var(--white); color:var(--text); outline:none; }
 .chat-composer textarea:focus { border-color:var(--gold-border); }
 .chat-send { flex:0 0 auto; width:42px; height:42px; border:none; border-radius:50%; background:var(--gold); color:var(--on-gold); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
