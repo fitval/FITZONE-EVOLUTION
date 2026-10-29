@@ -655,3 +655,33 @@ ressortent ; cochée, les produits scannés apparaissent, avec une pastille « s
 - Les produits scannés sont **exclus des équivalences de plan** (`showFoodSwap`,
   `filterFoodSwap`) : ils ne remplacent jamais un aliment de base.
 - `version.json` passe à `2026102001` pour forcer la mise à jour des PWA installées.
+
+### Session 2026-10-25 — App cliente responsive (Pro Max, pliable, paysage)
+- **Le vrai défaut venait d'une règle sur-constrainte** : à partir de 430 px de large,
+  `.tab-bar` combinait `left:50%`, `right:0` et `max-width`, donc la barre d'onglets ne
+  faisait que **la moitié** de l'écran (220 px sur un Pro Max) et ne s'alignait plus sur le
+  contenu. Remplacée par `left:0; right:0; margin:0 auto; max-width:var(--app-w)` — même
+  correction pour `.chat-composer` (même erreur, même symptôme).
+- **Largeur de colonne en variable** `--app-w` : 100 % jusqu'à 430 px, `min(100vw,470px)`
+  ensuite (un Pro Max fait 440 pt, il est donc rempli), puis 600 px à partir de 520 et
+  680 px à partir de 760 (pliable déplié, tablette, paysage).
+- **Encoche / Dynamic Island** : `--safe-t: env(safe-area-inset-top)` ajouté au
+  `.scroll-area` (l'app est en `viewport-fit=cover`, le contenu passait sous la barre
+  d'état en PWA plein écran). `env(safe-area-inset-left/right)` sur le contenu et la barre
+  pour le paysage.
+- Vérifié au navigateur avec un viewport émulé (393, 440, 900, 956×440) : contenu et barre
+  ont les mêmes bords à chaque taille, aucun débordement horizontal.
+- `version.json` passe à `2026102501`.
+
+### Session 2026-10-29 — App cliente sur ordinateur
+- Palier `@media (min-width:1024px)` : `--app-w` passe à `min(100vw - 80px, 1160px)`, puis
+  `min(100vw - 120px, 1360px)` à partir de 1400 px. Sur un PC l'app ne reste plus une
+  colonne de 680 px au milieu de l'écran.
+- `#homeCards` devient une grille à deux colonnes ; les blocs-bandeaux gardent toute la
+  largeur (`.grid-2`, `.home-level-strip`, `.card-gold`, `.rapport-card`, `#chatHomeCard`)
+  et `#homeCards > *` perd sa marge basse, sinon le `gap` la double.
+- Graphiques : ils sont en `viewBox` + `width:100%`, donc ils grossissent avec la carte.
+  `#homeCards svg { max-height:260px }` évite des libellés énormes sur une carte de 600 px.
+- Aucune règle ne s'applique sous 1024 px : le téléphone est inchangé (vérifié à 393 px,
+  `#homeCards` reste en `display:block`, largeur 393).
+- `version.json` passe à `2026102901`.
