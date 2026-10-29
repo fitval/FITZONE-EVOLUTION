@@ -672,3 +672,16 @@ ressortent ; cochée, les produits scannés apparaissent, avec une pastille « s
 - Vérifié au navigateur avec un viewport émulé (393, 440, 900, 956×440) : contenu et barre
   ont les mêmes bords à chaque taille, aucun débordement horizontal.
 - `version.json` passe à `2026102501`.
+
+### Session 2026-10-29 — App cliente sur ordinateur
+- Palier `@media (min-width:1024px)` : `--app-w` passe à `min(100vw - 80px, 1160px)`, puis
+  `min(100vw - 120px, 1360px)` à partir de 1400 px. Sur un PC l'app ne reste plus une
+  colonne de 680 px au milieu de l'écran.
+- `#homeCards` devient une grille à deux colonnes ; les blocs-bandeaux gardent toute la
+  largeur (`.grid-2`, `.home-level-strip`, `.card-gold`, `.rapport-card`, `#chatHomeCard`)
+  et `#homeCards > *` perd sa marge basse, sinon le `gap` la double.
+- Graphiques : ils sont en `viewBox` + `width:100%`, donc ils grossissent avec la carte.
+  `#homeCards svg { max-height:260px }` évite des libellés énormes sur une carte de 600 px.
+- Aucune règle ne s'applique sous 1024 px : le téléphone est inchangé (vérifié à 393 px,
+  `#homeCards` reste en `display:block`, largeur 393).
+- `version.json` passe à `2026102901`.

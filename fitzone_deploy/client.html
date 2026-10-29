@@ -499,6 +499,34 @@ textarea.form-input { min-height:100px; resize:vertical; }
 }
 @media (min-width:520px) { :root { --app-w:min(100vw,600px); } }
 @media (min-width:760px) { :root { --app-w:min(100vw,680px); } }
+
+/* ===== ORDINATEUR =====
+   Sur un PC, l'app restait une colonne de 680 px au milieu de l'écran. À partir
+   de 1024 px elle s'élargit franchement et l'accueil passe en deux colonnes :
+   les graphiques, les barres de pas et les images profitent de la largeur au
+   lieu d'être étirés sur une seule colonne. Les blocs qui sont des bandeaux
+   (rapport du jour, chat, CTA de séance, niveau, poids/bilan) gardent toute la
+   largeur, sinon ils se cassent en deux.
+   Rien de tout cela ne s'applique au téléphone : les paliers du dessus sont
+   inchangés. */
+@media (min-width:1024px) {
+  :root { --app-w:min(100vw - 80px, 1160px); }
+  .scroll-area { padding-left:40px; padding-right:40px; }
+  #homeCards {
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:14px;
+    align-items:start;
+  }
+  #homeCards > * { margin:0 !important; }
+  #homeCards > .grid-2, #homeCards > .home-level-strip, #homeCards > .card-gold,
+  #homeCards > .rapport-card, #homeCards > #chatHomeCard { grid-column:1 / -1; }
+  /* Les textes de graphique sont dessinés dans le viewBox du SVG : sur une carte
+     deux fois plus large ils grossissent avec elle et deviennent illisibles.
+     On plafonne la hauteur pour garder des libellés nets. */
+  #homeCards svg { max-height:260px; }
+}
+@media (min-width:1400px) { :root { --app-w:min(100vw - 120px, 1360px); } }
 /* Vue tableau pendant la séance : elle prend tout l'écran. Sur téléphone on
    retire les marges de page et la barre d'onglets (on sort par la flèche ←) pour
    que les colonnes respirent ; sur grand écran on sort du format 430px. */
