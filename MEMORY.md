@@ -685,3 +685,22 @@ ressortent ; cochée, les produits scannés apparaissent, avec une pastille « s
 - Aucune règle ne s'applique sous 1024 px : le téléphone est inchangé (vérifié à 393 px,
   `#homeCards` reste en `display:block`, largeur 393).
 - `version.json` passe à `2026102901`.
+
+### Session 2026-11-24 — Tableaux plein écran + story de séance (app cliente)
+- **Visuels en tableau plein écran** : nouvelle classe `body.tbl-wide` (comme `wo-wide`) posée par
+  `_tblWide(bool)` — marges de page retirées, barre d'onglets masquée (on sort par la flèche ←),
+  `max-width:100vw`. Activée quand `ftAffichage==='tableau'` dans `renderFoodTracker` et
+  `renderPlanDetail`, levée dans `renderNutriList` et sur `switchTab` hors de `Nutri`.
+  `_ftTableauHTML` lit la classe pour agrandir ses cellules (12,5 px au lieu de 10,5), d'où le
+  `<div class="ft-tbl">` posé autour des deux tables repas. Notes d'entraînement : `.pf2-nr` plus haut
+  et `.pf2-noteOld` sur 4 lignes en `wo-wide`.
+- **Récap de la dernière séance** en haut de `renderHistoryView` (mode « Mes séances ») :
+  volume, séries, exercices, 4 meilleures charges, et le delta en kg face à la même séance précédente
+  (`_sessLifts` + `_prevSameSession`).
+- **Partage en story** (`openStoryPreview` → `shareStoryImage`) : carte canvas 1080×1920 dessinée dans
+  `_drawStory` (fond sombre, @fitval.coaching en pied), partagée via `navigator.share` avec un `File`
+  PNG — sinon téléchargée. **Le tag n'est pas pré-remplissable depuis le web** : l'@ est écrit sur
+  l'image et la cliente ajoute le sticker mention dans Instagram. Ne pas promettre mieux.
+- Testé au navigateur avec un harness (`fetch` de `client.html` + `eval` du bloc, deux séances mock) :
+  carte et bandeau rendus, `node --check` OK sur les scripts inline.
+- `version.json` passe à `2026112401`.
