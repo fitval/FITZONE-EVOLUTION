@@ -2098,7 +2098,7 @@ function _histSetVals(ex,s){
    1. l'@ est dessiné sur l'image (donc visible et recopiable) ;
    2. le partage passe par la feuille de partage du téléphone (navigator.share) :
       la cliente choisit Instagram > Story, et l'app lui propose d'ajouter le
-      sticker « mention ». Le texte de partage porte aussi l'@.
+      sticker « mention ». Aucun @ n'est écrit sur l'image (demande du 24/11/2026).
    Si l'appareil ne sait pas partager de fichier (vieux navigateur, PC), on
    télécharge l'image : elle la poste elle-même. */
 const FZ_HANDLE='@fitval.coaching';
@@ -2166,7 +2166,6 @@ function renderLastSessionRecap(logs){
     <div style="display:flex;gap:7px;margin-top:12px">${box(t.vol.toLocaleString('fr-FR'),'kg soulevés')}${box(t.sets,'séries')}${box(t.exos,'exercices')}</div>
     ${lifts.length?`<div style="margin-top:12px">${sub}</div>`:''}
     <button type="button" onclick="openStoryPreview('${l.id}')" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#e8b84a,#c49a2a);color:#1a1916;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:900;font-family:var(--font);cursor:pointer">📲 Partager en story</button>
-    <div style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;margin-top:6px">Ton coach est tagué ${FZ_HANDLE} sur l'image</div>
   </div>`;
 }
 // --- Le visuel de story (canvas 1080×1920) -----------------------------------
@@ -2228,15 +2227,12 @@ function _drawStory(cv,d){
       y+=128;
     });
   }
-  // Pied : le tag
+  // Pied : plus de @ ni de « suis-moi » (demande du 24/11/2026) — le visuel reste
+  // propre, la cliente ajoute elle-même la mention si elle veut taguer.
   ctx.textAlign='center';
-  ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(60,H-350,W-120,2);
-  ctx.fillStyle='#e8b84a';ctx.font='900 58px '+F;
-  ctx.fillText(FZ_HANDLE,W/2,H-268);
+  ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(60,H-300,W-120,2);
   ctx.fillStyle='rgba(255,255,255,.6)';ctx.font='600 28px '+F;
-  ctx.fillText('Coaching en ligne · FITZONE ÉVOLUTION',W/2,H-204);
-  ctx.fillStyle='rgba(255,255,255,.32)';ctx.font='600 24px '+F;
-  ctx.fillText('Suis-moi pour progresser 💪',W/2,H-148);
+  ctx.fillText('Coaching en ligne · FITZONE ÉVOLUTION',W/2,H-232);
 }
 function _buildStoryCanvas(logId){
   const logs=_sessLogs();
@@ -2256,7 +2252,7 @@ function openStoryPreview(logId){
     <img src="${url}" alt="Aperçu de la story" style="width:100%;max-width:260px;border-radius:16px;box-shadow:0 10px 28px rgba(0,0,0,.3)">
     <button type="button" class="btn-gold" style="width:100%;margin-top:16px;padding:14px;font-size:15px" onclick="shareStoryImage('${logId}')">📲 Partager en story</button>
     <button type="button" onclick="_downloadStory('${logId}')" style="width:100%;margin-top:8px;background:var(--white);color:var(--text);border:1.5px solid var(--border);border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:var(--font);cursor:pointer">⬇️ Enregistrer l'image</button>
-    <div style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.5">Choisis <b>Instagram ▸ Story</b>. Pour que ${FZ_HANDLE} soit cliquable, ajoute le sticker <b>mention</b> et tape son pseudo.</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.5">Choisis <b>Instagram ▸ Story</b>, l'image s'ouvre prête à publier.</div>
   </div>`);
 }
 function _saveBlob(blob,name){
@@ -2277,12 +2273,12 @@ async function shareStoryImage(logId){
     const file=new File([blob],'fitzone-seance.png',{type:'image/png'});
     try{
       if(navigator.canShare&&navigator.canShare({files:[file]})){
-        await navigator.share({files:[file],text:'Ma séance 💪 '+FZ_HANDLE});
+        await navigator.share({files:[file],text:'Ma séance 💪'});
         return;
       }
     }catch(e){ if(e&&e.name==='AbortError')return; }
     _saveBlob(blob,'fitzone-seance.png');
-    toast('Image enregistrée — poste-la en story avec la mention '+FZ_HANDLE);
+    toast('Image enregistrée — poste-la en story depuis Instagram');
   },'image/png');
 }
 function renderHistoryView(){
