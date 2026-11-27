@@ -525,6 +525,10 @@ textarea.form-input { min-height:100px; resize:vertical; }
 body.wo-wide .scroll-area { padding-left:6px; padding-right:6px; padding-bottom:calc(var(--safe-b) + 18px); }
 body.wo-wide .tab-bar { display:none; }
 body.wo-wide .pf2 { --pf-w:132px; border-radius:14px; }
+/* Mode séance en cours : la colonne exos/séries se resserre nettement, ce sont les
+   colonnes de saisie (kg / reps / RIR / ok) qui doivent dominer le tableau. */
+body.wo-wide .pf2.wo { --pf-w:112px; }
+body.wo-wide .pf2.wo .pf2-x { padding:0 6px; }
 body.wo-wide .pf2-body { max-height:none; }
 /* Fond léger : la colonne des exercices est teintée, les notes aussi — l'œil
    sépare les blocs sans perdre l'aspect tableau. */
@@ -534,6 +538,8 @@ body.wo-wide .pf2-left .pf2-nr .pf2-c { background:rgba(var(--gold-rgb),.06); }
 @media (min-width:430px) {
   body.wo-wide .scroll-area { max-width:min(100vw,1120px); padding-left:26px; padding-right:26px; }
   body.wo-wide .pf2 { --pf-w:200px; }
+  body.wo-wide .pf2.wo { --pf-w:150px; }
+  body.wo-wide .pf2.wo .set-input input { font-size:14px; padding:8px 1px; }
   body.wo-wide .pf2-c { font-size:13px; }
   body.wo-wide .pf2-x b { font-size:12px; }
 }
