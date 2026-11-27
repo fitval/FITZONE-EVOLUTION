@@ -524,7 +524,7 @@ textarea.form-input { min-height:100px; resize:vertical; }
    que les colonnes respirent ; sur grand écran on sort du format 430px. */
 body.wo-wide .scroll-area { padding-left:6px; padding-right:6px; padding-bottom:calc(var(--safe-b) + 18px); }
 body.wo-wide .tab-bar { display:none; }
-body.wo-wide .pf2 { --pf-w:152px; border-radius:14px; }
+body.wo-wide .pf2 { --pf-w:132px; border-radius:14px; }
 body.wo-wide .pf2-body { max-height:none; }
 /* Fond léger : la colonne des exercices est teintée, les notes aussi — l'œil
    sépare les blocs sans perdre l'aspect tableau. */
@@ -533,7 +533,7 @@ body.wo-wide .pf2-left .pf2-c { background:transparent; }
 body.wo-wide .pf2-left .pf2-nr .pf2-c { background:rgba(var(--gold-rgb),.06); }
 @media (min-width:430px) {
   body.wo-wide .scroll-area { max-width:min(100vw,1120px); padding-left:26px; padding-right:26px; }
-  body.wo-wide .pf2 { --pf-w:250px; }
+  body.wo-wide .pf2 { --pf-w:200px; }
   body.wo-wide .pf2-c { font-size:13px; }
   body.wo-wide .pf2-x b { font-size:12px; }
 }
@@ -729,6 +729,25 @@ body.wo-wide .pf2-left .pf2-nr .pf2-c { background:rgba(var(--gold-rgb),.06); }
 .pf2-note { padding:5px 6px; }
 .pf2-nt { width:100%; height:40px; padding:5px 8px; border:1.5px solid var(--border); border-radius:8px; font-size:11.5px; line-height:1.3; font-family:var(--font); background:var(--white); color:var(--text); resize:none; outline:none; }
 .pf2-nt:focus { border-color:var(--gold-border); }
+
+/* ===== VISUELS EN TABLEAU : PLEIN ÉCRAN =====
+   Règle du 24/11/2026 : les tableaux (plan alimentaire en mode Tableau, notes
+   d'entraînement) prennent l'écran au lieu de rester dans une colonne. On retire
+   les marges de page et la barre d'onglets — on sort par la flèche ← de la page —
+   et la grille occupe toute la largeur. Aucun effet sur les fiches. */
+body.tbl-wide .scroll-area { padding-left:4px; padding-right:4px; padding-bottom:calc(var(--safe-b) + 20px); }
+body.tbl-wide .tab-bar { display:none; }
+body.tbl-wide .scroll-area { max-width:100vw; }
+body.tbl-wide .ft-tbl { border-radius:14px; box-shadow:0 2px 12px rgba(0,0,0,.06); }
+body.tbl-wide .ft-tbl table { font-size:12px; }
+@media (min-width:430px) {
+  body.tbl-wide .scroll-area { padding-left:20px; padding-right:20px; max-width:min(100vw,1180px); }
+  body.tbl-wide .ft-tbl table { font-size:13px; }
+}
+/* Notes d'entraînement : plus lisibles quand le tableau est ouvert en plein écran */
+body.wo-wide .pf2-nr { height:62px; }
+body.wo-wide .pf2-noteOld { -webkit-line-clamp:4; font-size:11.5px; }
+body.wo-wide .pf2-body { max-height:none; }
 
 /* ===== CHAT AVEC LE COACH =====
    Pas de conteneur scrollable imbriqué : c'est la .scroll-area de la page qui
@@ -1460,6 +1479,7 @@ function chatAllowed(){return !clientData||clientData.show_chat!==false;}
 /* ===== TABS ===== */
 function switchTab(name){
   if(name!=='Train')_woWide(false);
+  if(name!=='Nutri')_tblWide(false);
   if(name==='Chat'&&!chatAllowed())name='Home';
   if(name==='Tracker'&&!trackerAllowed())name='Home';
   if(workoutActive&&name!=='Train'){
@@ -2068,6 +2088,199 @@ function _histSetVals(ex,s){
   }
   return{kg:parseFloat(s.kg||s.load||0)||0,reps:parseFloat(s.reps||0)||0,rir:rirTxt(s.rir)};
 }
+/* ===== RÉCAP DE LA DERNIÈRE SÉANCE + PARTAGE EN STORY (24/11/2026) =====
+   Objectif : la cliente voit en arrivant sur l'historique où elle en est (dernière
+   séance, charges, ce qui a progressé), et elle peut publier sa séance en story en
+   taguant le coach.
+
+   Sur le tag : le web ne permet pas d'écrire un @ cliquable dans une story
+   Instagram — aucun navigateur ne le peut. Deux choses le rendent possible :
+   1. l'@ est dessiné sur l'image (donc visible et recopiable) ;
+   2. le partage passe par la feuille de partage du téléphone (navigator.share) :
+      la cliente choisit Instagram > Story, et l'app lui propose d'ajouter le
+      sticker « mention ». Aucun @ n'est écrit sur l'image (demande du 24/11/2026).
+   Si l'appareil ne sait pas partager de fichier (vieux navigateur, PC), on
+   télécharge l'image : elle la poste elle-même. */
+const FZ_HANDLE='@fitval.coaching';
+const FZ_IG_URL='https://www.instagram.com/fitval.coaching';
+let _storyCache={};
+
+function _sessBestKg(ex){
+  let kg=0,reps=0;
+  (ex.sets||[]).forEach(s=>{
+    let k,r;
+    if(ex.unilateral){k=Math.max(parseFloat(s.kgL)||0,parseFloat(s.kgR)||0);r=Math.max(parseFloat(s.repsL)||0,parseFloat(s.repsR)||0);}
+    else{k=parseFloat(s.kg!=null?s.kg:s.load)||0;r=parseFloat(s.reps)||0;}
+    if(k>kg||(k===kg&&r>reps)){kg=k;reps=r;}
+  });
+  return {kg:kg,reps:reps};
+}
+function _sessTotals(l){
+  let sets=0,vol=0,exos=0;
+  (l.exercises||[]).forEach(ex=>{
+    let counted=false;
+    (ex.sets||[]).forEach(s=>{
+      const b=_sessBestKg({sets:[s],unilateral:ex.unilateral});
+      if(b.kg>0||b.reps>0){sets++;counted=true;vol+=b.kg*b.reps;}
+    });
+    if(counted)exos++;
+  });
+  return {sets:sets,vol:Math.round(vol),exos:exos};
+}
+function _prevSameSession(logs,l){
+  return logs.find(x=>String(x.id)!==String(l.id)&&(x.session_name||'')===(l.session_name||'')&&(x.date||'')<(l.date||''))||null;
+}
+function _sessLifts(l,prev,max){
+  const before={};
+  if(prev)(prev.exercises||[]).forEach(ex=>{const b=_sessBestKg(ex);if(b.kg>0)before[(ex.nom||'').trim()]=b.kg;});
+  const out=[];
+  (l.exercises||[]).forEach(ex=>{
+    const nom=(ex.nom||'').trim();if(!nom)return;
+    const b=_sessBestKg(ex);if(b.kg<=0&&b.reps<=0)return;
+    const was=(before[nom]!=null)?before[nom]:null;
+    out.push({nom:nom,kg:b.kg,reps:b.reps,delta:(was!=null&&b.kg>0)?Math.round((b.kg-was)*10)/10:null});
+  });
+  out.sort((a,b)=>b.kg-a.kg);
+  return out.slice(0,max||5);
+}
+function _sessLogs(){
+  return trainLogs.filter(l=>l.type==='strength'&&Array.isArray(l.exercises)&&l.exercises.length).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+}
+// --- Le bandeau « dernière séance » en haut de l'historique -------------------
+function renderLastSessionRecap(logs){
+  const l=(logs&&logs.length)?logs[0]:null;if(!l)return'';
+  const t=_sessTotals(l),prev=_prevSameSession(logs,l),lifts=_sessLifts(l,prev,4);
+  const ups=lifts.filter(x=>x.delta!=null&&x.delta>0).length;
+  const sub=lifts.map(x=>{
+    const d=(x.delta==null)?'':(x.delta>0?'<span style="color:#46d17f;font-weight:800">+'+x.delta+' kg</span>':(x.delta<0?'<span style="color:#e0776a;font-weight:800">'+x.delta+' kg</span>':'<span style="color:rgba(255,255,255,.45);font-weight:800">=</span>'));
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid rgba(255,255,255,.08)"><span style="flex:1;min-width:0;font-size:12.5px;color:rgba(255,255,255,.9);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.nom}</span><span style="font-size:12.5px;font-weight:800;color:#fff;white-space:nowrap">${x.kg?x.kg+' kg':''}${x.reps?' × '+x.reps:''}</span>${d?`<span style="font-size:11px;min-width:52px;text-align:right">${d}</span>`:''}</div>`;
+  }).join('');
+  const box=(v,lab)=>`<div style="flex:1;background:rgba(255,255,255,.07);border-radius:12px;padding:9px 6px;text-align:center"><div style="font-size:16px;font-weight:900;color:#fff;line-height:1.1">${v}</div><div style="font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:rgba(255,255,255,.5);margin-top:3px">${lab}</div></div>`;
+  return `<div style="background:linear-gradient(160deg,#1a1916,#2b2721);border-radius:18px;padding:16px;margin-bottom:16px;box-shadow:0 6px 22px rgba(0,0,0,.18)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="font-size:9.5px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.5)">Dernière séance</div>
+      ${ups>0?`<div style="font-size:10px;font-weight:800;color:#46d17f;background:rgba(70,209,127,.14);border-radius:20px;padding:3px 9px">↑ ${ups} prog${ups>1?'s':''}</div>`:''}
+    </div>
+    <div style="font-size:18px;font-weight:900;color:#fff;margin-top:5px">${l.session_name||'Séance'}</div>
+    <div style="font-size:11.5px;color:rgba(255,255,255,.55);margin-top:2px;text-transform:capitalize">${fmtDate(l.date)}${prev?' · vs '+fmtDate(prev.date):''}</div>
+    <div style="display:flex;gap:7px;margin-top:12px">${box(t.vol.toLocaleString('fr-FR'),'kg soulevés')}${box(t.sets,'séries')}${box(t.exos,'exercices')}</div>
+    ${lifts.length?`<div style="margin-top:12px">${sub}</div>`:''}
+    <button type="button" onclick="openStoryPreview('${l.id}')" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#e8b84a,#c49a2a);color:#1a1916;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:900;font-family:var(--font);cursor:pointer">📲 Partager en story</button>
+  </div>`;
+}
+// --- Le visuel de story (canvas 1080×1920) -----------------------------------
+function _cvWrap(ctx,text,maxWidth){
+  const words=String(text||'').split(/\s+/);const lines=[];let cur='';
+  words.forEach(w=>{const t=cur?cur+' '+w:w;if(ctx.measureText(t).width>maxWidth&&cur){lines.push(cur);cur=w;}else{cur=t;}});
+  if(cur)lines.push(cur);return lines;
+}
+function _cvRound(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+function _drawStory(cv,d){
+  const W=1080,H=1920,ctx=cv.getContext('2d');
+  const F='-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,sans-serif';
+  const g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,'#141210');g.addColorStop(1,'#241f18');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  const rg=ctx.createRadialGradient(W/2,240,0,W/2,240,760);
+  rg.addColorStop(0,'rgba(196,154,42,.30)');rg.addColorStop(1,'rgba(196,154,42,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,W,900);
+  ctx.textAlign='center';
+  ctx.fillStyle='#e8b84a';ctx.font='800 30px '+F;
+  ctx.fillText('F I T Z O N E   É V O L U T I O N',W/2,140);
+  ctx.fillStyle='rgba(255,255,255,.45)';ctx.font='700 26px '+F;
+  ctx.fillText('BILAN DE SÉANCE',W/2,196);
+  // Titre
+  ctx.fillStyle='#fff';ctx.font='900 82px '+F;
+  const tl=_cvWrap(ctx,d.name,W-160).slice(0,2);
+  let ty=330;tl.forEach(line=>{ctx.fillText(line,W/2,ty);ty+=92;});
+  ctx.fillStyle='rgba(255,255,255,.6)';ctx.font='600 34px '+F;
+  ctx.fillText(d.date,W/2,ty+18);
+  // Trois chiffres
+  const bw=300,bh=170,gap=30,x0=(W-(bw*3+gap*2))/2,y0=ty+90;
+  d.stats.forEach((s,i)=>{
+    const x=x0+i*(bw+gap);
+    ctx.fillStyle='rgba(255,255,255,.07)';_cvRound(ctx,x,y0,bw,bh,28);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='900 62px '+F;ctx.fillText(s.v,x+bw/2,y0+96);
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='700 24px '+F;ctx.fillText(s.lab,x+bw/2,y0+136);
+  });
+  // Charges
+  let y=y0+bh+80;
+  if(d.lifts.length){
+    ctx.textAlign='left';
+    ctx.fillStyle='#e8b84a';ctx.font='800 26px '+F;
+    ctx.fillText('MES CHARGES',x0,y);
+    y+=44;
+    d.lifts.forEach(it=>{
+      ctx.fillStyle='rgba(255,255,255,.05)';_cvRound(ctx,x0,y,W-x0*2,112,24);ctx.fill();
+      ctx.fillStyle='#fff';ctx.font='700 38px '+F;
+      const nm=_cvWrap(ctx,it.nom,560)[0]||'';
+      ctx.fillText(nm,x0+30,y+56);
+      ctx.textAlign='right';
+      ctx.fillStyle='#e8b84a';ctx.font='900 40px '+F;
+      ctx.fillText((it.kg?it.kg+' kg':'')+(it.reps?' × '+it.reps:''),W-x0-30,y+56);
+      if(it.delta!=null&&it.delta>0){
+        ctx.textAlign='left';ctx.fillStyle='#46d17f';ctx.font='800 26px '+F;
+        ctx.fillText('+'+(it.delta)+' kg vs la dernière',x0+30,y+94);
+      }
+      ctx.textAlign='left';
+      y+=128;
+    });
+  }
+  // Pied : plus de @ ni de « suis-moi » (demande du 24/11/2026) — le visuel reste
+  // propre, la cliente ajoute elle-même la mention si elle veut taguer.
+  ctx.textAlign='center';
+  ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(60,H-300,W-120,2);
+  ctx.fillStyle='rgba(255,255,255,.6)';ctx.font='600 28px '+F;
+  ctx.fillText('Coaching en ligne · FITZONE ÉVOLUTION',W/2,H-232);
+}
+function _buildStoryCanvas(logId){
+  const logs=_sessLogs();
+  const l=logs.find(x=>String(x.id)===String(logId))||logs[0];if(!l)return null;
+  const t=_sessTotals(l),prev=_prevSameSession(logs,l),lifts=_sessLifts(l,prev,4);
+  const cv=document.createElement('canvas');cv.width=1080;cv.height=1920;
+  _drawStory(cv,{name:l.session_name||'Séance',date:fmtDate(l.date),stats:[{v:t.vol.toLocaleString('fr-FR'),lab:'KG SOULEVÉS'},{v:String(t.sets),lab:'SÉRIES'},{v:String(t.exos),lab:'EXERCICES'}],lifts:lifts});
+  _storyCache[l.id]=cv;
+  return cv;
+}
+function openStoryPreview(logId){
+  const cv=_buildStoryCanvas(logId);
+  if(!cv){toast('Aucune séance à partager');return;}
+  const url=cv.toDataURL('image/png');
+  openModal(`<div style="text-align:center">
+    <div style="font-size:16px;font-weight:800;margin-bottom:10px">Ta story</div>
+    <img src="${url}" alt="Aperçu de la story" style="width:100%;max-width:260px;border-radius:16px;box-shadow:0 10px 28px rgba(0,0,0,.3)">
+    <button type="button" class="btn-gold" style="width:100%;margin-top:16px;padding:14px;font-size:15px" onclick="shareStoryImage('${logId}')">📲 Partager en story</button>
+    <button type="button" onclick="_downloadStory('${logId}')" style="width:100%;margin-top:8px;background:var(--white);color:var(--text);border:1.5px solid var(--border);border-radius:12px;padding:12px;font-size:13px;font-weight:800;font-family:var(--font);cursor:pointer">⬇️ Enregistrer l'image</button>
+    <div style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.5">Choisis <b>Instagram ▸ Story</b>, l'image s'ouvre prête à publier.</div>
+  </div>`);
+}
+function _saveBlob(blob,name){
+  try{
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);
+  }catch(e){toast('Enregistrement impossible sur cet appareil');}
+}
+function _downloadStory(logId){
+  const cv=_storyCache[logId]||_buildStoryCanvas(logId);if(!cv)return;
+  cv.toBlob(b=>{if(b)_saveBlob(b,'fitzone-seance.png');},'image/png');
+}
+async function shareStoryImage(logId){
+  const cv=_storyCache[logId]||_buildStoryCanvas(logId);
+  if(!cv){toast('Image indisponible');return;}
+  cv.toBlob(async blob=>{
+    if(!blob){toast('Image indisponible');return;}
+    const file=new File([blob],'fitzone-seance.png',{type:'image/png'});
+    try{
+      if(navigator.canShare&&navigator.canShare({files:[file]})){
+        await navigator.share({files:[file],text:'Ma séance 💪'});
+        return;
+      }
+    }catch(e){ if(e&&e.name==='AbortError')return; }
+    _saveBlob(blob,'fitzone-seance.png');
+    toast('Image enregistrée — poste-la en story depuis Instagram');
+  },'image/png');
+}
 function renderHistoryView(){
   const logs=trainLogs.filter(l=>l.type==='strength'&&Array.isArray(l.exercises)&&l.exercises.length).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   let h=`<div class="day-tabs" style="margin-bottom:14px">
@@ -2075,7 +2288,8 @@ function renderHistoryView(){
     <button class="day-tab${histMode==='exos'?' active':''}" onclick="histMode='exos';renderTrainPreview()">📈 Par exercice</button>
   </div>`;
   if(!logs.length){h+=`<div class="empty"><div class="empty-icon">🏋️</div><div class="empty-text">Aucune séance de musculation enregistrée pour le moment.<br>Lance une séance depuis ton programme !</div></div>`;return h;}
-  return h+(histMode==='exos'?renderHistoryExos(logs):renderHistorySessions(logs));
+  if(histMode==='exos')return h+renderHistoryExos(logs);
+  return h+renderLastSessionRecap(logs)+renderHistorySessions(logs);
 }
 function renderHistorySessions(logs){
   let h=`<div style="font-size:13px;font-weight:700;color:var(--text3);margin-bottom:10px">${logs.length} séance${logs.length>1?'s':''}</div>`;
@@ -3952,6 +4166,9 @@ function woCell(el,ei,si,field){
 let _woTbl={x:null,y:0};   // position de défilement du tableau, conservée entre 2 rendus
 // Largeur d'écran pour la vue tableau : on l'ouvre pendant la séance, on la referme en sortant.
 function _woWide(on){try{document.body.classList.toggle('wo-wide',!!on);}catch(e){}}
+// Plein écran des visuels en tableau (plan alimentaire, notes d'entraînement) —
+// règle du 24/11/2026. Posé avant de construire le HTML : _ftTableauHTML lit la classe.
+function _tblWide(on){try{document.body.classList.toggle('tbl-wide',!!on);}catch(e){}}
 function setWoView(v){
   woView=(v==='table')?'table':'cards';
   try{localStorage.setItem('fz_woView',woView);}catch(e){}
@@ -4406,7 +4623,7 @@ function _coachObj(){
 function _coachFib(){const v=fibNum(macroTarget&&macroTarget.fibres_g);return v>0?v:null;}
 function renderNutriList(){
   currentPlanIdx=null;
-  nutriView='list';toggleFab();_ftClearSaveBar();
+  nutriView='list';toggleFab();_ftClearSaveBar();_tblWide(false);
   let h=`<div style="display:flex;gap:8px;margin-bottom:16px"><button class="btn-gold" style="flex:1;padding:14px 16px;font-size:14px" onclick="openFoodTracker()">📝 Tracking alimentaire</button></div>`;
   if(!plans.length){h+=`<div class="empty"><div class="empty-icon">🍽️</div><div class="empty-text">Aucun plan nutrition assigné.</div></div>`;document.getElementById('nutriContent').innerHTML=h;return;}
   plans.forEach((p,i)=>{
@@ -4767,13 +4984,17 @@ function affichageSwitchHTML(){
 // dorees, quadrillage) et les memes actions que les fiches (toucher un aliment pour le
 // modifier, ✕ pour le supprimer, + ajouter, ⧉ dupliquer, 💾 enregistrer).
 function _ftTableauHTML(dayLogs){
-  const cell='padding:3px 5px;border:1px solid #e8e4dc;font-size:10.5px;vertical-align:middle';
-  const th='padding:4px 5px;font-size:9px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--gold-deep);background:var(--gold-pale);border:1px solid var(--gold-border);text-align:center';
+  // En plein écran (mode tableau), les cellules respirent : mêmes styles, tailles
+  // relevées. Hors plein écran on garde la grille compacte d'origine.
+  const _big=(document.body.classList.contains('tbl-wide'));
+  const _fs=_big?12.5:10.5, _fsh=_big?10:9;
+  const cell='padding:'+(_big?'5px 7px':'3px 5px')+';border:1px solid #e8e4dc;font-size:'+_fs+'px;vertical-align:middle';
+  const th='padding:'+(_big?'6px 7px':'4px 5px')+';font-size:'+_fsh+'px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--gold-deep);background:var(--gold-pale);border:1px solid var(--gold-border);text-align:center';
   const gcell=cell+';color:#fff;font-weight:800;border:1px solid var(--gold-dk)';
   const mini='width:26px;height:26px;border-radius:6px;border:1.5px solid var(--gold-border);background:var(--white);color:var(--gold-deep);font-size:12px;font-weight:800;cursor:pointer;font-family:var(--font);padding:0;touch-action:manipulation';
   const miniGold=mini+';border-color:rgba(255,255,255,.55);background:rgba(255,255,255,.18);color:#fff';
   let tK=0,tP=0,tC=0,tF=0,tFi=0;
-  let h=`<div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--white)"><table style="width:100%;border-collapse:collapse;table-layout:fixed">`;
+  let h=`<div class="ft-tbl" style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--white)"><table style="width:100%;border-collapse:collapse;table-layout:fixed">`;
   h+=`<thead><tr><th style="${th};text-align:left">Aliment</th><th style="${th};width:46px">Qté</th><th style="${th};width:38px">Kcal</th><th style="${th};width:27px">P</th><th style="${th};width:27px">G</th><th style="${th};width:27px">L</th><th style="${th};width:30px;color:var(--fib)">Fib.</th><th style="${th};width:94px"></th></tr></thead><tbody>`;
   ftMealsAffiches(dayLogs).forEach(m=>{
     const items=dayLogs.filter(l=>l.meal===m);
@@ -4821,6 +5042,7 @@ function _ftTableauHTML(dayLogs){
 }
 function renderFoodTracker(){
   nutriView='tracker';toggleFab();_ftClearSaveBar();
+  _tblWide(ftAffichage==='tableau');
   const dayLogs=foodLogs.filter(l=>l.date===ftDate);
   let tK=0,tP=0,tC=0,tF=0,tFi=0;
   dayLogs.forEach(l=>{const q=(parseFloat(l.qte_g)||0)/100;tK+=(parseFloat(l.kcal)||0)*q;tP+=(parseFloat(l.prot)||0)*q;tC+=(parseFloat(l.carb)||0)*q;tF+=(parseFloat(l.fat)||0)*q;tFi+=fibQ(l.fibres,q)||0;});
@@ -6230,7 +6452,7 @@ function _planTableauHTML(day,planRefId,dayIdx,p){
   const miniTxt='height:28px;border-radius:7px;border:1.5px solid var(--gold-border);background:var(--gold-pale);color:var(--gold-deep);font-size:11px;font-weight:800;cursor:pointer;font-family:var(--font);padding:0 9px';
   const mealIcons={'Petit-déjeuner':'🌅','Déjeuner':'🍽️','Dîner':'🌙','Goûter':'🍎','Collation':'🥤','Collation AM':'🥤','Collation PM':'🥤'};
   const nbCols=hideMacros?3:5;
-  let h=`<div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--white)"><table style="width:100%;border-collapse:collapse;table-layout:fixed">`;
+  let h=`<div class="ft-tbl" style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--white)"><table style="width:100%;border-collapse:collapse;table-layout:fixed">`;
   h+=`<thead><tr><th style="${th};text-align:left">Aliment</th><th style="${th};width:50px">Qté</th>${hideMacros?'':`<th style="${th};width:50px">Kcal</th><th style="${th};width:32px;color:var(--fib)">Fib.</th>`}<th style="${th};width:48px"></th></tr></thead><tbody>`;
   (day.repas||[]).forEach((meal,ri)=>{
     const items=mealItems(meal);
@@ -6271,6 +6493,7 @@ function renderPlanDetail(){
   const hideMacros=!!(p.hide_macros||p.hideMacros);
   const allowSwaps=p.allow_swaps!==false; // équivalences autorisées par le coach (défaut oui)
   nutriView='plan';toggleFab();
+  _tblWide(ftAffichage==='tableau');
   let h=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
     <button class="back-btn" style="margin-bottom:0;flex:1" onclick="renderNutriList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> ${p.nom||'Retour'}</button>
     ${p.type==='full'&&jours.length?`<button onclick="openClientGrocery()" style="background:var(--gold);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">🛒 Courses</button>`:''}
